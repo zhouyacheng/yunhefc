@@ -6,6 +6,7 @@ import com.yunhefc.auth.dto.AuthDtos.AuthResult;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.auth.dto.AuthDtos.MeView;
 import com.yunhefc.auth.dto.AuthDtos.RegisterRequest;
+import com.yunhefc.auth.dto.AuthDtos.RegisterResponse;
 import com.yunhefc.auth.dto.AuthDtos.ResetPasswordRequest;
 import com.yunhefc.auth.dto.AuthDtos.SmsCodeRequest;
 import com.yunhefc.common.api.ApiResponse;
@@ -53,11 +54,13 @@ public class AuthController {
     }
 
     @PostMapping("/auth/register")
-    public ApiResponse<AuthResponse> register(@Valid @RequestBody RegisterRequest request,
-                                              HttpServletRequest servletRequest,
-                                              HttpServletResponse response) {
+    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request,
+                                                  HttpServletRequest servletRequest,
+                                                  HttpServletResponse response) {
         AuthResult result = authService.register(request);
-        return ApiResponse.ok(authResponse(result, SessionKeys.C_USER_ID, servletRequest, response));
+        String csrfToken = authSessionService.establish(
+                servletRequest, response, SessionKeys.C_USER_ID, result.user().id());
+        return ApiResponse.ok(new RegisterResponse(result.user(), result.player(), csrfToken));
     }
 
     @PostMapping("/auth/login")

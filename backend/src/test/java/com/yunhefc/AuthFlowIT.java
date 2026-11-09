@@ -88,14 +88,15 @@ class AuthFlowIT {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.user.status").value(0))
                 .andExpect(jsonPath("$.data.player.type").value(0))
-                .andExpect(jsonPath("$.data.permissions[?(@ == 'registration:create:own')]").exists())
+                .andExpect(jsonPath("$.data.permissions").doesNotExist())
                 .andReturn();
 
         Cookie playerCookie = cookie(registered, "YHFC_C");
         mockMvc.perform(get("/api/v1/c/me").cookie(playerCookie))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0001"))
-                .andExpect(jsonPath("$.data.user.name").value("测试球员"));
+                .andExpect(jsonPath("$.data.user.name").value("测试球员"))
+                .andExpect(jsonPath("$.data.permissions[?(@ == 'registration:create:own')]").exists());
 
         MvcResult login = mockMvc.perform(post("/api/v1/c/auth/login")
                         .with(csrf())
@@ -132,7 +133,7 @@ class AuthFlowIT {
 
         mockMvc.perform(get("/api/v1/b/roles").cookie(adminCookie))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.length()").value(3));
+                .andExpect(jsonPath("$.data.items.length()").value(3));
 
         Long registeredUserId = jdbc.queryForObject(
                 "SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
@@ -198,7 +199,7 @@ class AuthFlowIT {
 
         String invitedPhone = "13900000002";
         sendSms(invitedPhone, "REGISTER");
-        mockMvc.perform(post("/api/v1/c/auth/register")
+        MvcResult invitedRegistration = mockMvc.perform(post("/api/v1/c/auth/register")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
@@ -208,6 +209,11 @@ class AuthFlowIT {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.user.status").value(1))
                 .andExpect(jsonPath("$.data.player.type").value(1))
+                .andExpect(jsonPath("$.data.permissions").doesNotExist())
+                .andReturn();
+
+        mockMvc.perform(get("/api/v1/c/me").cookie(cookie(invitedRegistration, "YHFC_C")))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.permissions[?(@ == 'attendance:view:any')]").exists());
     }
 

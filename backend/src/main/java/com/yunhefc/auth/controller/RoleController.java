@@ -13,6 +13,7 @@ import com.yunhefc.auth.dto.RoleDtos.RoleView;
 import com.yunhefc.auth.dto.RoleDtos.UserRolesRequest;
 import com.yunhefc.auth.dto.RoleDtos.UserRolesView;
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.api.ItemsResponse;
 import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
@@ -29,8 +30,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/v1/b")
 public class RoleController {
@@ -45,8 +44,8 @@ public class RoleController {
 
     @GetMapping("/roles")
     @PreAuthorize("hasAuthority('role:view:any')")
-    public ApiResponse<List<RoleView>> roles() {
-        return ApiResponse.ok(roleService.listRoles());
+    public ApiResponse<ItemsResponse<RoleView>> roles() {
+        return ApiResponse.ok(new ItemsResponse<>(roleService.listRoles()));
     }
 
     @PostMapping("/roles")
@@ -78,8 +77,8 @@ public class RoleController {
 
     @GetMapping("/permissions")
     @PreAuthorize("hasAuthority('role:view:any')")
-    public ApiResponse<List<PermissionView>> permissions() {
-        return ApiResponse.ok(roleService.listPermissions());
+    public ApiResponse<ItemsResponse<PermissionView>> permissions() {
+        return ApiResponse.ok(new ItemsResponse<>(roleService.listPermissions()));
     }
 
     @PutMapping("/users/{id}/roles")

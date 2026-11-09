@@ -154,7 +154,7 @@ com.yunhefc.<domain>/
 
 - 禁止 `SELECT *`；显式列名，复杂查询写 XML。
 - MyBatis 使用 `#{}` 绑定参数，禁止 `${}` 拼接 SQL；动态排序字段必须走白名单。
-- 分页统一使用 MyBatis-Plus 分页插件；列表接口返回 `Page<T>`。
+- 分页统一使用 MyBatis-Plus 分页插件；列表接口逻辑响应为 05 §2.2 的 `items/total/page/pageSize/totalPages`，Java 用 `PageResponse<T>` 包装 MyBatis-Plus `Page<T>`。
 - 唯一约束冲突（报名、球衣号、场次编号等）转换为明确业务错误码，不把 SQL 异常直接抛给前端。
 - 乐观锁：阵容、比赛状态、事件修改使用 `version` 条件更新；更新行数为 0 时抛版本冲突。
 - 所有业务表使用 `is_deleted` 伪删除（查询过滤 `is_deleted=0`，唯一键不自动释放）；事件另保留 `deleted_at`；账号/比赛/报名同时使用状态字段表达业务生命周期。
@@ -170,7 +170,7 @@ com.yunhefc.<domain>/
 - 密码使用 BCrypt；不记录密码、验证码、会话 ID、CSRF token、openid、手机号明文。
 - CSRF token 从响应体获取，写请求通过 `X-XSRF-TOKEN`；登录后轮换会话与 token。
 - 文件上传经后端校验类型/大小后写 OSS；不在 domain 直接使用 OSS SDK。
-- 任何外部输入都要服务端校验；数据库 CHECK/唯一约束是最后防线。
+- 任何外部输入都要服务端校验；数据库永久禁用 CHECK，业务规则由应用层强校验，唯一约束/NOT NULL 只作最后防线。
 
 ## 10. 事件、Kafka 与 Outbox
 

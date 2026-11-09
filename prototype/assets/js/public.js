@@ -452,7 +452,7 @@
             <div><b>${cards}</b><span>牌</span></div>
             <div><b>${subs}</b><span>换人</span></div>
           </div>
-          ${match.status === 'FINISHED' ? `<p class="muted small">比分 ${detailScoreText()}</p>` : ''}
+          ${match.status === 'FINISHED' ? `<p class="muted small">比分 ${Y.scoreText(match)}</p>` : ''}
         </section>
         <section class="card">
           ${actions ? `<div class="event-actions">${actions}</div>` : ''}

@@ -187,12 +187,14 @@
         const confirmed = match.registrations.filter((registration) => registration.status === 'CONFIRMED');
         const formalConfirmed = confirmed.filter((registration) => registration.type === 'PLAYER').length;
         const guestConfirmed = confirmed.filter((registration) => registration.type === 'GUEST').length;
-        if ((Number(match.capacity) || 0) < formalConfirmed) {
-          match.capacity = formalConfirmed;
+        const targetCapacity = Math.max(Number(match.capacity) || 0, Number(seedMatch.capacity) || 0, formalConfirmed);
+        const targetGuestCapacity = Math.max(Number(match.guestCapacity) || 0, Number(seedMatch.guestCapacity) || 0, guestConfirmed);
+        if (match.capacity !== targetCapacity) {
+          match.capacity = targetCapacity;
           mark();
         }
-        if ((Number(match.guestCapacity) || 0) < guestConfirmed) {
-          match.guestCapacity = guestConfirmed;
+        if (match.guestCapacity !== targetGuestCapacity) {
+          match.guestCapacity = targetGuestCapacity;
           mark();
         }
       }
@@ -218,12 +220,14 @@
         const confirmed = match.registrations.filter((registration) => registration.status === 'CONFIRMED');
         const formalConfirmed = confirmed.filter((registration) => registration.type === 'PLAYER').length;
         const guestConfirmed = confirmed.filter((registration) => registration.type === 'GUEST').length;
-        if ((Number(match.capacity) || 0) < formalConfirmed) {
-          match.capacity = formalConfirmed;
+        const targetCapacity = Math.max(Number(match.capacity) || 0, Number(seedMatch.capacity) || 0, formalConfirmed);
+        const targetGuestCapacity = Math.max(Number(match.guestCapacity) || 0, Number(seedMatch.guestCapacity) || 0, guestConfirmed);
+        if (match.capacity !== targetCapacity) {
+          match.capacity = targetCapacity;
           mark();
         }
-        if ((Number(match.guestCapacity) || 0) < guestConfirmed) {
-          match.guestCapacity = guestConfirmed;
+        if (match.guestCapacity !== targetGuestCapacity) {
+          match.guestCapacity = targetGuestCapacity;
           mark();
         }
       }

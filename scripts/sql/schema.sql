@@ -5,7 +5,7 @@
 --   2. 主键统一 BIGINT UNSIGNED AUTO_INCREMENT；不建物理外键，关联字段建索引。
 --   3. 时间字段统一 UTC，使用 DATETIME(3)。
 --   4. 表名单数 snake_case，避开 MySQL 保留字（team_match / app_user / app_role）。
---   5. 枚举字段统一 TINYINT UNSIGNED，数字映射见列 COMMENT 与 docs/design/04 §2.4；不使用枚举取值范围 CHECK，跨字段业务规则 CHECK 保留。
+--   5. 枚举字段统一 TINYINT UNSIGNED，数字映射见列 COMMENT 与 docs/design/04 §2.4；数据库永久禁用 CHECK，枚举与跨字段业务规则均由应用层强校验。
 --   6. 所有业务表包含 is_deleted（0-未删除;1-伪删除）。
 --   7. 所有字段带中文 COMMENT；枚举/布尔字段同时写明数字含义。
 
@@ -66,8 +66,7 @@ CREATE TABLE player (
   UNIQUE KEY uk_player_team_formal_jersey (team_id, formal_jersey),
   KEY idx_player_team_type (team_id, type),
   KEY idx_player_team_jersey (team_id, jersey),
-  KEY idx_player_team_position (team_id, position),
-  CONSTRAINT chk_player_skill CHECK (skill BETWEEN 1 AND 5)
+  KEY idx_player_team_position (team_id, position)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE app_role (
@@ -136,9 +135,7 @@ CREATE TABLE invite_link (
   PRIMARY KEY (id),
   UNIQUE KEY uk_invite_token_hash (token_hash),
   KEY idx_invite_team_status (team_id, status, expires_at),
-  KEY idx_invite_match (match_id),
-  CONSTRAINT chk_invite_match CHECK ((type = 1 AND match_id IS NOT NULL) OR (type = 0 AND match_id IS NULL)),
-  CONSTRAINT chk_invite_max_uses CHECK (max_uses IS NULL OR used_count <= max_uses)
+  KEY idx_invite_match (match_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE invite_use (
@@ -196,28 +193,22 @@ CREATE TABLE team_match (
   KEY idx_match_team_status_start (team_id, status, start_at),
   KEY idx_match_team_start (team_id, start_at),
   KEY idx_match_team_type_season (team_id, type, season),
-  KEY idx_match_team_venue (team_id, venue),
-  CONSTRAINT chk_match_side CHECK ((type IN (1, 2) AND our_side IS NULL) OR (type IN (0, 3) AND our_side IS NOT NULL)),
-  CONSTRAINT chk_match_time CHECK (end_at > start_at),
-  CONSTRAINT chk_match_deadlines CHECK (signup_deadline <= cancel_lock AND cancel_lock < start_at),
-  CONSTRAINT chk_match_capacity CHECK (capacity > 0),
-  CONSTRAINT chk_match_season CHECK (season REGEXP '^[0-9]{4}$'),
-  CONSTRAINT chk_match_score CHECK ((score_home IS NULL AND score_away IS NULL) OR (score_home IS NOT NULL AND score_away IS NOT NULL))
+  KEY idx_match_team_venue (team_id, venue)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE registration (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   match_id      BIGINT UNSIGNED NOT NULL COMMENT '比赛ID',
   player_id     BIGINT UNSIGNED NOT NULL COMMENT '球员ID',
-  type          TINYINT UNSIGNED NOT NULL COMMENT '0-正式球员;1-外挂',
+  type          TINYINT UNSIGNED NOT NULL COMMENT '0-外挂;1-正式球员',
   status        TINYINT UNSIGNED NOT NULL COMMENT '0-已确认;1-候补;2-已取消;3-已移除',
   registered_at DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '报名时间',
   cancelled_at  DATETIME(3)     NULL COMMENT '取消时间',
   cancelled_by  BIGINT UNSIGNED NULL COMMENT '取消人用户ID',
-  active        TINYINT GENERATED ALWAYS AS (
+  active        TINYINT UNSIGNED GENERATED ALWAYS AS (
                   CASE WHEN status IN (0, 1) THEN 1 ELSE 0 END
                 ) STORED COMMENT '1-有效;0-无效',
-  active_unique TINYINT GENERATED ALWAYS AS (
+  active_unique TINYINT UNSIGNED GENERATED ALWAYS AS (
                   CASE WHEN status IN (0, 1) THEN 1 ELSE NULL END
                 ) STORED COMMENT '内部唯一键：1-有效;NULL-无效',
   updated_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
@@ -225,8 +216,7 @@ CREATE TABLE registration (
   PRIMARY KEY (id),
   UNIQUE KEY uk_registration_active (match_id, player_id, active_unique),
   KEY idx_registration_match_pool (match_id, type, status, registered_at),
-  KEY idx_registration_player (player_id, status),
-  CONSTRAINT chk_registration_guest_waitlist CHECK (NOT (type = 1 AND status = 1))
+  KEY idx_registration_player (player_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE attendance (
@@ -271,19 +261,7 @@ CREATE TABLE match_event (
   PRIMARY KEY (id),
   KEY idx_event_timeline (match_id, deleted_at, half, minute),
   KEY idx_event_player (player_id),
-  KEY idx_event_assist (assist_player_id),
-  CONSTRAINT chk_event_minute CHECK (minute BETWEEN 1 AND 120),
-  CONSTRAINT chk_event_fields CHECK (
-    (type = 2 AND player_id IS NULL AND in_player_id IS NOT NULL AND out_player_id IS NOT NULL AND in_player_id <> out_player_id)
-    OR (type <> 2 AND player_id IS NOT NULL)
-  ),
-  CONSTRAINT chk_event_goal_fields CHECK (
-    (type = 0 AND (assist_player_id IS NULL OR assist_player_id <> player_id))
-    OR (type <> 0 AND assist_player_id IS NULL AND penalty = 0)
-  ),
-  CONSTRAINT chk_event_sub_fields CHECK (
-    type = 2 OR (in_player_id IS NULL AND out_player_id IS NULL)
-  )
+  KEY idx_event_assist (assist_player_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE event_history (
@@ -315,8 +293,7 @@ CREATE TABLE formation_template (
   updated_at       DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
-  KEY idx_formation_team_preset (team_id, is_preset),
-  CONSTRAINT chk_formation_owner CHECK ((is_preset = 1 AND team_id IS NULL) OR (is_preset = 0 AND team_id IS NOT NULL))
+  KEY idx_formation_team_preset (team_id, is_preset)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE formation_slot (
@@ -329,8 +306,7 @@ CREATE TABLE formation_slot (
   sort_order   SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '排序',
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
-  UNIQUE KEY uk_formation_slot (template_id, slot_key),
-  CONSTRAINT chk_formation_slot_xy CHECK (x BETWEEN 0 AND 100 AND y BETWEEN 0 AND 100)
+  UNIQUE KEY uk_formation_slot (template_id, slot_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE lineup (
@@ -374,8 +350,7 @@ CREATE TABLE match_grouping (
   updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
-  UNIQUE KEY uk_grouping_match (match_id),
-  CONSTRAINT chk_grouping_weights CHECK (manual_weight BETWEEN 0 AND 100 AND auto_weight BETWEEN 0 AND 100 AND manual_weight + auto_weight = 100)
+  UNIQUE KEY uk_grouping_match (match_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE match_grouping_player (
@@ -390,8 +365,7 @@ CREATE TABLE match_grouping_player (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_grouping_player (grouping_id, player_id),
-  KEY idx_grouping_team (grouping_id, team),
-  CONSTRAINT chk_grouping_manual_score CHECK (manual_score IS NULL OR manual_score BETWEEN 1 AND 5)
+  KEY idx_grouping_team (grouping_id, team)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ---------------------------------------------------------------------------
@@ -411,8 +385,7 @@ CREATE TABLE player_stats_summary (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_stats_team_player_season (team_id, player_id, season),
-  KEY idx_stats_team_season (team_id, season),
-  CONSTRAINT chk_stats_season CHECK (season REGEXP '^[0-9]{4}$')
+  KEY idx_stats_team_season (team_id, season)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE notification (
@@ -466,6 +439,8 @@ CREATE TABLE outbox_event (
   status         TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-待发送;1-已发送;2-失败',
   attempts       SMALLINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '重试次数',
   next_retry_at  DATETIME(3)     NULL COMMENT '下次重试时间',
+  lease_owner    VARCHAR(64)     NULL COMMENT '租约持有者（实例/线程标识）',
+  lease_until    DATETIME(3)     NULL COMMENT '租约到期时间；过期后可被重新认领',
   last_error     VARCHAR(512)    NULL COMMENT '最近错误',
   created_at     DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
   sent_at        DATETIME(3)     NULL COMMENT '发送时间',

@@ -866,7 +866,9 @@
         match.score.away = away === '' ? null : Number(away);
         Y.save();
         Y.addAudit(Y.currentUser().name, '修改比分', `${match.title} ${match.score.home ?? '-'}-${match.score.away ?? '-'}`);
-        Y.toast('比分已保存');
+        const currentDerived = Y.derivedScore(match);
+        const mismatch = Number(match.score.home ?? 0) !== currentDerived.home || Number(match.score.away ?? 0) !== currentDerived.away;
+        Y.toast(mismatch ? '比分已保存；与事件推导不一致' : '比分已保存');
         render();
       });
       const addEventButton = $('[data-action="add-event"]', host);
@@ -917,6 +919,7 @@
       };
       const eligibleAllIds = new Set(Y.groupingEligiblePlayers(match).map((player) => Number(player.id)));
       const ungrouped = registrations.filter(({ player }) => eligibleAllIds.has(Number(player.id)) && !groupOfSide(player.id, 'HOME') && !groupOfSide(player.id, 'AWAY'));
+      const nonParticipating = registrations.filter(({ player }) => !eligibleAllIds.has(Number(player.id)) && player.status === 'ACTIVE' && player.type === 'GUEST' && !match.includeGuests);
       const lineupRosterRow = ({ registration, player }) => `<div class="reg-admin-row">${Y.avatar(player, 'sm')}<div class="grow"><strong>${esc(player.name)}</strong><small>#${player.jersey ?? '—'} · ${Y.positionShort(player.position)} · ${registration.type === 'GUEST' ? '外挂' : '球队球员'}</small></div></div>`;
       if (!match.lineups[lineupSide]) {
         match.lineups[lineupSide] = {
@@ -975,7 +978,7 @@
           const teamName = side === 'HOME' ? sideNames.home : sideNames.away;
           const list = registrations.filter(({ player }) => groupOfSide(player.id, side));
           return `<div class="group-column lineup-roster-column ${side === lineupSide ? 'active' : ''}" data-lineup-team="${side}"><div class="group-head"><strong>${esc(teamName)}</strong><span>${list.length} 人</span></div>${list.map(({ player }) => `<span class="player-chip">${Y.avatar(player, 'xs')}<span>${esc(player.name)}</span><small>#${player.jersey ?? '—'} · ${Y.positionShort(player.position)}</small></span>`).join('') || '<div class="empty-inline">该队暂无报名球员</div>'}</div>`;
-        }).join('')}</div>${ungrouped.length ? `<div style="margin-top:12px"><h3>未分组（无法排入阵容）</h3><div class="group-roster-list">${ungrouped.map(lineupRosterRow).join('')}</div></div>` : ''}
+        }).join('')}</div>${ungrouped.length ? `<div style="margin-top:12px"><h3>未分组（无法排入阵容）</h3><div class="group-roster-list">${ungrouped.map(lineupRosterRow).join('')}</div></div>` : ''}${nonParticipating.length ? `<div style="margin-top:12px"><h3>不参与（外挂）</h3><div class="group-roster-list">${nonParticipating.map(lineupRosterRow).join('')}</div></div>` : ''}
         <p class="muted small" style="margin-top:10px">点击橙队/兰队切换阵容；每队只能拖拽、移动和保存本队分组成员。</p>`
         : `<div class="group-roster-list">${registrations.map(lineupRosterRow).join('') || '<div class="empty-inline">本场暂无确认报名球员</div>'}</div>`}
       </section>`;

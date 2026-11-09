@@ -2,9 +2,9 @@
 
 ## 0. 当前阶段
 
-- **设计冻结**：需求 v1.15；设计文档 01 v0.9、02 v0.9、03 v1.6、04 v0.9、05 v0.9、06 v1.20。
-- **评审通过**：P-01~P-15 已确认；设计成果不再主动变更。
-- **代码状态**：`backend/`、`apps/`、`deploy/` 尚未创建；仓库零提交。
+- **设计冻结**：需求 v1.15；设计文档 01 v0.12、02 v0.13、03 v1.8、04 v0.14、05 v0.15、06 v1.26。
+- **评审通过**：P-01~P-22 已确认；设计成果不再主动变更。
+- **代码状态**：`backend/`、`frontend/`、`deploy/` 尚未创建；当前仅设计文档与原型提交。
 - **原型定位**：`prototype/` 仅演示交互与信息架构，不是生产代码；正式实现以设计文档为准。
 - **下一步**：初始化后端骨架 + Flyway 基线（V1–V4），再按 M01→M11 实现。
 
@@ -20,7 +20,7 @@
 | 架构、技术栈、分包 | `docs/design/03.整体架构设计.md` |
 | 表结构、枚举编码、索引 | `docs/design/04.数据库设计.md` |
 | API 契约、权限、错误码 | `docs/design/05.API接口设计.md` |
-| 评审结论、P-01~P-15 | `docs/design/06.设计方案评审结果.md` |
+| 评审结论、P-01~P-22 | `docs/design/06.设计方案评审结果.md` |
 | 数据库/API/Kafka/日志/Java 规则 | `docs/rules/*.md` |
 | 业务 DDL / Quartz DDL | `scripts/sql/schema.sql`、`scripts/sql/quartz.sql` |
 | 可交互原型 | `prototype/`（`prototype/README.md`） |
@@ -37,6 +37,7 @@
   - 27 张业务表均有 `is_deleted`（0-未删除；1-伪删除）；查询默认过滤 `is_deleted=0`。
   - `registration.active` 为 0/1（1-有效；0-无效）；`active_unique` 承担唯一键。
   - 业务表 0 物理外键；Quartz 11 表、5 个框架外键为官方例外。
+  - **永不使用 `CHECK`**：数据库永久禁用任何 `CHECK`/`chk_` 约束；枚举、范围与跨字段规则全部由应用层强校验（04 §8.1）。
   - 伪删除不释放唯一键；现有 58 条业务索引保留，不重复建可覆盖索引。
 - **API 约定**：
   - 路径 `/api/v1/c/**`（C 端）、`/api/v1/b/**`（B 端）；统一 envelope，成功 `code=0`。
@@ -65,8 +66,10 @@ docs/rules/        database/api/kafka/logging/java 规则
 scripts/sql/       schema.sql、quartz.sql、test-data.sql
 prototype/         静态可交互原型
 backend/           (planned) Spring Boot 单部署单元
-apps/web/          (planned) C 端 Vue 3 + Vant
-apps/admin/        (planned) B 端 Vue 3 + Element Plus
+frontend/          (planned) pnpm workspace
+frontend/apps/web/     C 端 Vue 3 + Vant
+frontend/apps/admin/   B 端 Vue 3 + Element Plus
+frontend/packages/     共享 API、权限与类型
 deploy/            (planned) Docker Compose、Nginx
 ```
 

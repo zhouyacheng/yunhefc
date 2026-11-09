@@ -43,6 +43,7 @@ class SmsCodeServiceTest {
 
         assertThat(service.send(PHONE, "REGISTER")).isEqualTo(300);
         verify(ops).set(KEY, "123456", Duration.ofSeconds(300));
+        verify(redis).delete(KEY + ":attempts");
 
         service.verify(PHONE, "REGISTER", "123456");
         verify(redis).delete(KEY);

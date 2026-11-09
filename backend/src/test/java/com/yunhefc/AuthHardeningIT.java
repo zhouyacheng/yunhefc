@@ -57,6 +57,30 @@ class AuthHardeningIT extends IntegrationTestSupport {
     }
 
     @Test
+    void unknownPhoneLocksOutAfterRepeatedFailures() throws Exception {
+        String phone = "13900000991";
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/c/auth/login")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"phone":"%s","password":"Wrong123!"}
+                                    """.formatted(phone)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value(40102));
+        }
+
+        mockMvc.perform(post("/api/v1/c/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","password":"Wrong123!"}
+                                """.formatted(phone)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(40103));
+    }
+
+    @Test
     void pendingAccountMayUseWhitelistedWritesAndIsRejectedForOthers() throws Exception {
         Cookie pending = register("13900000102");
         MvcResult relogin = mockMvc.perform(post("/api/v1/c/auth/login")

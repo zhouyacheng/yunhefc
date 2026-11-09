@@ -31,6 +31,7 @@ import com.yunhefc.player.application.PlayerProfileApplicationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -182,7 +183,15 @@ public class WechatAuthService {
         user.setOpenid(openid);
         user.setStatus(UserStatus.PENDING);
         user.setCreatedAt(Instant.now(clock));
-        userMapper.insert(user);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException ex) {
+            String cause = ex.getMostSpecificCause().getMessage();
+            if (cause != null && cause.contains("uk_user_phone")) {
+                throw new BusinessException(ErrorCode.PHONE_EXISTS);
+            }
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "该微信已绑定其他账号");
+        }
 
         playerProfileService.createProfile(teamId, user.getId(), request.name(),
                 PlayerType.GUEST, Position.of(request.position()));
@@ -207,7 +216,11 @@ public class WechatAuthService {
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "账号已绑定其他微信");
         }
         user.setOpenid(openid);
-        userMapper.updateById(user);
+        try {
+            userMapper.updateOpenid(user.getId(), openid);
+        } catch (DuplicateKeyException ex) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "该微信已绑定其他账号");
+        }
     }
 
     private AppUser requireUser(Long userId) {

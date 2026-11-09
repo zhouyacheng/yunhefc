@@ -34,6 +34,7 @@ import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccessPort;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -129,7 +130,11 @@ public class AuthService implements UserAccessPort {
         user.setStatus(teamInvite ? UserStatus.ACTIVE : UserStatus.PENDING);
         user.setLastLoginAt(now);
         user.setCreatedAt(now);
-        userMapper.insert(user);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException ex) {
+            throw new BusinessException(ErrorCode.PHONE_EXISTS);
+        }
 
         PlayerSnapshot player = playerProfileService.createProfile(
                 teamId, user.getId(), request.name(),
@@ -154,6 +159,7 @@ public class AuthService implements UserAccessPort {
         loginAttemptService.check(request.phone());
         AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getPhone, request.phone()));
         if (user == null || user.getPasswordHash() == null) {
+            loginAttemptService.recordFailure(request.phone());
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
         if (user.getStatus() == UserStatus.DISABLED) {
@@ -172,8 +178,9 @@ public class AuthService implements UserAccessPort {
         if (backend && !BackendPermissions.hasBackendPermission(permissions)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "账号没有后台权限");
         }
-        user.setLastLoginAt(Instant.now(clock));
-        userMapper.updateById(user);
+        Instant lastLoginAt = Instant.now(clock);
+        user.setLastLoginAt(lastLoginAt);
+        userMapper.updateLastLoginAt(user.getId(), lastLoginAt);
         return new AuthResult(userView(user), player(user.getId()), permissions);
     }
 
@@ -207,8 +214,9 @@ public class AuthService implements UserAccessPort {
         if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
-        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
-        userMapper.updateById(user);
+        String passwordHash = passwordEncoder.encode(request.newPassword());
+        user.setPasswordHash(passwordHash);
+        userMapper.updatePasswordHash(user.getId(), passwordHash);
         PlayerSnapshot player = playerByUserId(user.getId());
         auditRecorder.record(player == null ? null : player.teamId(), user.getId(),
                 player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.name(),
@@ -250,7 +258,11 @@ public class AuthService implements UserAccessPort {
         }
         String before = user.getPhone();
         user.setPhone(phone);
-        userMapper.updateById(user);
+        try {
+            userMapper.updatePhone(userId, phone);
+        } catch (DuplicateKeyException ex) {
+            throw new BusinessException(ErrorCode.PHONE_EXISTS);
+        }
         auditRecorder.recordCurrent("PHONE_CHANGE", "USER", userId,
                 java.util.Map.of("phone", UserViewAssembler.maskPhone(before)),
                 java.util.Map.of("phone", UserViewAssembler.maskPhone(phone)));

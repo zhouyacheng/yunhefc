@@ -33,7 +33,9 @@ public class SmsCodeService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "不支持的验证码用途");
         }
         requireMockEnabled();
-        redis.opsForValue().set(key(phone, purpose), mockCode, Duration.ofSeconds(ttlSeconds));
+        String key = key(phone, purpose);
+        redis.opsForValue().set(key, mockCode, Duration.ofSeconds(ttlSeconds));
+        redis.delete(attemptsKey(key));
         return (int) ttlSeconds;
     }
 
@@ -42,7 +44,7 @@ public class SmsCodeService {
         String key = key(phone, purpose);
         String stored = redis.opsForValue().get(key);
         if (stored == null || !stored.equals(code)) {
-            String attemptsKey = key + ":attempts";
+            String attemptsKey = attemptsKey(key);
             Long attempts = redis.opsForValue().increment(attemptsKey);
             if (attempts != null && attempts == 1) {
                 redis.expire(attemptsKey, Duration.ofSeconds(ttlSeconds));
@@ -56,7 +58,7 @@ public class SmsCodeService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "验证码无效或已过期");
         }
         redis.delete(key);
-        redis.delete(key + ":attempts");
+        redis.delete(attemptsKey(key));
     }
 
     private void requireMockEnabled() {
@@ -67,5 +69,9 @@ public class SmsCodeService {
 
     private String key(String phone, String purpose) {
         return "yunhefc:auth:sms:" + purpose + ":" + phone;
+    }
+
+    private String attemptsKey(String key) {
+        return key + ":attempts";
     }
 }

@@ -143,7 +143,7 @@ public class InviteService {
         if (invite.getType() == 1) {
             consume(invite, userId);
             InviteView view = toView(invite);
-            auditRecorder.record(userId, "INVITE_ACCEPT", "INVITE", invite.getId(), null, view);
+            auditRecorder.recordCurrent("INVITE_ACCEPT", "INVITE", invite.getId(), null, view);
             return view;
         }
 
@@ -166,7 +166,7 @@ public class InviteService {
         userRoleMapper.upsert(userId, playerRole.getId());
         consume(invite, userId);
         InviteView view = toView(invite);
-        auditRecorder.record(userId, "INVITE_ACCEPT", "INVITE", invite.getId(),
+        auditRecorder.recordCurrent("INVITE_ACCEPT", "INVITE", invite.getId(),
                 java.util.Map.of("status", 0), java.util.Map.of("status", 1, "playerType", 1));
         return view;
     }
@@ -189,7 +189,7 @@ public class InviteService {
         }
         InviteAdminView view = createInternal(teamId, type, request.matchId(), inviterUserId,
                 request.expiresInDays(), request.maxUses());
-        auditRecorder.record(inviterUserId, "INVITE_CREATE", "INVITE", view.id(), null,
+        auditRecorder.recordCurrent("INVITE_CREATE", "INVITE", view.id(), null,
                 java.util.Map.of("type", view.type(), "expiresAt", view.expiresAt(),
                         "maxUses", view.maxUses() == null ? "" : view.maxUses()));
         return view;
@@ -203,7 +203,7 @@ public class InviteService {
         }
         ensureCanCreateMatchInvite(inviterUserId, matchId);
         InviteAdminView view = createInternal(match.getTeamId(), 1, matchId, inviterUserId, expiresInDays, maxUses);
-        auditRecorder.record(inviterUserId, "INVITE_CREATE", "INVITE", view.id(), null,
+        auditRecorder.recordCurrent("INVITE_CREATE", "INVITE", view.id(), null,
                 java.util.Map.of("type", view.type(), "expiresAt", view.expiresAt(),
                         "maxUses", view.maxUses() == null ? "" : view.maxUses()));
         return view;
@@ -228,6 +228,7 @@ public class InviteService {
                 result.getTotal(), page, pageSize);
     }
 
+    @Transactional
     public void revoke(Long id) {
         InviteLink invite = inviteLinkMapper.selectById(id);
         if (invite == null) {
@@ -236,7 +237,7 @@ public class InviteService {
         invite.setStatus(1);
         invite.setRevokedAt(LocalDateTime.now());
         inviteLinkMapper.updateById(invite);
-        auditRecorder.record(CurrentUser.principal().userId(), "INVITE_REVOKE", "INVITE", id,
+        auditRecorder.recordCurrent("INVITE_REVOKE", "INVITE", id,
                 java.util.Map.of("status", 0), java.util.Map.of("status", 1));
     }
 

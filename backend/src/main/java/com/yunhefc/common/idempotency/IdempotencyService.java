@@ -28,7 +28,10 @@ public class IdempotencyService {
                                   Callable<ApiResponse<?>> action) throws Exception {
         IdempotencyKey existing = mapper.find(userId, endpoint, idemKey);
         if (existing != null) {
-            return replay(existing, requestHash);
+            ApiResponse<?> replayed = replayOrReclaim(existing, requestHash);
+            if (replayed != null) {
+                return replayed;
+            }
         }
 
         IdempotencyKey row = new IdempotencyKey();
@@ -45,7 +48,11 @@ public class IdempotencyService {
             if (winner == null) {
                 throw new BusinessException(ErrorCode.IDEMPOTENCY_IN_PROGRESS);
             }
-            return replay(winner, requestHash);
+            ApiResponse<?> replayed = replayOrReclaim(winner, requestHash);
+            if (replayed == null) {
+                throw new BusinessException(ErrorCode.IDEMPOTENCY_IN_PROGRESS);
+            }
+            return replayed;
         }
 
         try {
@@ -60,17 +67,19 @@ public class IdempotencyService {
         }
     }
 
-    private ApiResponse<?> replay(IdempotencyKey row, String requestHash) throws Exception {
+    private ApiResponse<?> replayOrReclaim(IdempotencyKey row, String requestHash) throws Exception {
         if (!row.getRequestHash().equals(requestHash)) {
             throw new BusinessException(ErrorCode.IDEMPOTENCY_KEY_REUSED);
         }
-        if (row.getResponseBody() == null) {
-            if (row.getCreatedAt().plusSeconds(IN_PROGRESS_GRACE_SECONDS).isBefore(LocalDateTime.now())) {
-                throw new BusinessException(ErrorCode.IDEMPOTENCY_IN_PROGRESS);
-            }
-            throw new BusinessException(ErrorCode.IDEMPOTENCY_IN_PROGRESS);
+        if (row.getResponseBody() != null) {
+            JsonNode data = objectMapper.readTree(row.getResponseBody());
+            return ApiResponse.ok(data == null || data.isNull() ? null : data);
         }
-        JsonNode data = objectMapper.readTree(row.getResponseBody());
-        return ApiResponse.ok(data == null || data.isNull() ? null : data);
+        LocalDateTime staleBefore = LocalDateTime.now().minusSeconds(IN_PROGRESS_GRACE_SECONDS);
+        if (mapper.deleteIfStale(row.getId(), staleBefore) == 1) {
+            // null 表示占位已回收，调用方应重新插入占位并执行
+            return null;
+        }
+        throw new BusinessException(ErrorCode.IDEMPOTENCY_IN_PROGRESS);
     }
 }

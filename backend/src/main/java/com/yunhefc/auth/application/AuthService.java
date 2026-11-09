@@ -21,7 +21,6 @@ import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.Labels;
 import com.yunhefc.common.security.BackendPermissions;
-import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -138,8 +137,8 @@ public class AuthService implements UserAccessPort {
         if (invite != null) {
             inviteService.consume(invite, user.getId());
         }
-        auditRecorder.record(user.getId(), "ACCOUNT_REGISTER", "USER", user.getId(), null,
-                java.util.Map.of("status", user.getStatus(), "role", roleCode));
+        auditRecorder.record(teamId, user.getId(), request.name(), "ACCOUNT_REGISTER", "USER",
+                user.getId(), null, java.util.Map.of("status", user.getStatus(), "role", roleCode));
         return new AuthResult(userView(user), playerView(player), permissions(user.getId()));
     }
 
@@ -189,6 +188,7 @@ public class AuthService implements UserAccessPort {
         return new AuthResult(me.user(), me.player(), me.permissions());
     }
 
+    @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         validatePhone(request.phone());
         validatePassword(request.newPassword());
@@ -202,7 +202,10 @@ public class AuthService implements UserAccessPort {
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userMapper.updateById(user);
-        auditRecorder.record(user.getId(), "PASSWORD_RESET", "USER", user.getId(), null, null);
+        Player player = playerByUserId(user.getId());
+        auditRecorder.record(player == null ? null : player.getTeamId(), user.getId(),
+                player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.getName(),
+                "PASSWORD_RESET", "USER", user.getId(), null, null);
     }
 
     public PageResponse<UserSummary> listUsers(Integer status, long page, long pageSize) {
@@ -225,6 +228,7 @@ public class AuthService implements UserAccessPort {
         return PageResponse.of(items, result.getTotal(), page, pageSize);
     }
 
+    @Transactional
     public UserView changePhone(Long userId, String phone) {
         validatePhone(phone);
         AppUser user = userMapper.selectById(userId);
@@ -240,11 +244,12 @@ public class AuthService implements UserAccessPort {
         String before = user.getPhone();
         user.setPhone(phone);
         userMapper.updateById(user);
-        auditRecorder.record(CurrentUser.principal().userId(), "PHONE_CHANGE", "USER", userId,
+        auditRecorder.recordCurrent("PHONE_CHANGE", "USER", userId,
                 java.util.Map.of("phone", before), java.util.Map.of("phone", phone));
         return userView(user);
     }
 
+    @Transactional
     public void unbindWechat(Long userId) {
         AppUser user = userMapper.selectById(userId);
         if (user == null) {
@@ -253,7 +258,7 @@ public class AuthService implements UserAccessPort {
         String before = user.getOpenid();
         user.setOpenid(null);
         userMapper.updateById(user);
-        auditRecorder.record(CurrentUser.principal().userId(), "WECHAT_UNBIND", "USER", userId,
+        auditRecorder.recordCurrent("WECHAT_UNBIND", "USER", userId,
                 java.util.Map.of("openid", before == null ? "" : before), null);
     }
 
@@ -263,10 +268,15 @@ public class AuthService implements UserAccessPort {
         if (user == null || user.getStatus() == 2) {
             return Optional.empty();
         }
+        Player player = playerMapper.selectOne(new LambdaQueryWrapper<Player>()
+                .eq(Player::getUserId, userId)
+                .last("LIMIT 1"));
         return Optional.of(new AuthPrincipal(
                 user.getId(),
                 user.getPhone(),
                 user.getStatus(),
+                player == null ? teamId() : player.getTeamId(),
+                player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.getName(),
                 new LinkedHashSet<>(userRoleMapper.findRoleCodes(userId)),
                 permissions(userId)));
     }
@@ -314,10 +324,14 @@ public class AuthService implements UserAccessPort {
     }
 
     private PlayerView player(Long userId) {
-        Player player = playerMapper.selectOne(new LambdaQueryWrapper<Player>()
+        Player player = playerByUserId(userId);
+        return player == null ? null : playerView(player);
+    }
+
+    private Player playerByUserId(Long userId) {
+        return playerMapper.selectOne(new LambdaQueryWrapper<Player>()
                 .eq(Player::getUserId, userId)
                 .last("LIMIT 1"));
-        return player == null ? null : playerView(player);
     }
 
     private UserView userView(AppUser user) {

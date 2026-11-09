@@ -6,6 +6,8 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.time.LocalDateTime;
+
 @Mapper
 public interface IdempotencyKeyMapper extends BaseMapper<IdempotencyKey> {
 
@@ -20,4 +22,11 @@ public interface IdempotencyKeyMapper extends BaseMapper<IdempotencyKey> {
 
     @Delete("DELETE FROM idempotency_key WHERE id = #{id}")
     int deletePhysical(@Param("id") Long id);
+
+    @Delete("""
+            DELETE FROM idempotency_key
+            WHERE id = #{id} AND is_deleted = 0
+              AND response_body IS NULL AND created_at < #{staleBefore}
+            """)
+    int deleteIfStale(@Param("id") Long id, @Param("staleBefore") LocalDateTime staleBefore);
 }

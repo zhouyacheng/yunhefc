@@ -1,6 +1,7 @@
 package com.yunhefc.infra.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhefc.contracts.messaging.EventTypes;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,18 +26,21 @@ public class OutboxRelay {
     private final OutboxEventMapper outboxEventMapper;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final ObjectMapper objectMapper;
-    private final String topic;
+    private final String auditTopic;
+    private final String notificationTopic;
     private final String owner = UUID.randomUUID().toString();
 
     public OutboxRelay(
             OutboxEventMapper outboxEventMapper,
             KafkaTemplate<String, String> kafkaTemplate,
             ObjectMapper objectMapper,
-            @Value("${yunhefc.kafka.auth-topic:yunhefc.auth.events}") String topic) {
+            @Value("${yunhefc.kafka.audit-topic:yunhefc.audit.events}") String auditTopic,
+            @Value("${yunhefc.kafka.notification-topic:yunhefc.notification.events}") String notificationTopic) {
         this.outboxEventMapper = outboxEventMapper;
         this.kafkaTemplate = kafkaTemplate;
         this.objectMapper = objectMapper;
-        this.topic = topic;
+        this.auditTopic = auditTopic;
+        this.notificationTopic = notificationTopic;
     }
 
     @Scheduled(fixedDelayString = "${yunhefc.outbox.relay-interval-ms:60000}")
@@ -50,7 +54,7 @@ public class OutboxRelay {
                 OutboxMessage message = new OutboxMessage(
                         event.getEventId(), event.getTeamId(), event.getAggregateType(),
                         event.getAggregateId(), event.getEventType(), event.getPayloadJson());
-                kafkaTemplate.send(topic, String.valueOf(event.getAggregateId()),
+                kafkaTemplate.send(topicFor(event.getEventType()), String.valueOf(event.getAggregateId()),
                         objectMapper.writeValueAsString(message)).get(5, TimeUnit.SECONDS);
                 outboxEventMapper.markSent(event.getId());
             } catch (Exception ex) {
@@ -61,6 +65,16 @@ public class OutboxRelay {
                 log.warn("Outbox event {} failed: {}", event.getEventId(), ex.getMessage());
             }
         }
+    }
+
+    private String topicFor(String eventType) {
+        if (EventTypes.AUDIT_RECORDED.equals(eventType)) {
+            return auditTopic;
+        }
+        if (EventTypes.ROLE_CHANGED.equals(eventType)) {
+            return notificationTopic;
+        }
+        throw new IllegalArgumentException("事件类型未配置 topic: " + eventType);
     }
 
     private String truncate(String value) {

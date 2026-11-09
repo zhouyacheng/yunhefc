@@ -159,8 +159,8 @@ class AuthFlowTest {
                 (String) roleChanged.get("event_type"),
                 (String) roleChanged.get("payload_json"));
         String roleJson = objectMapper.writeValueAsString(roleMessage);
-        notificationEventConsumer.apply(roleJson, "yunhefc.auth.events", 0, 1L);
-        notificationEventConsumer.apply(roleJson, "yunhefc.auth.events", 0, 1L);
+        notificationEventConsumer.apply(roleJson, "yunhefc.notification.events", 0, 1L);
+        notificationEventConsumer.apply(roleJson, "yunhefc.notification.events", 0, 1L);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM notification WHERE user_id = ? AND type = 9",
                 Integer.class, registeredUserId)).isEqualTo(1);
@@ -176,8 +176,8 @@ class AuthFlowTest {
                 (String) auditEvent.get("event_type"),
                 (String) auditEvent.get("payload_json"));
         String auditJson = objectMapper.writeValueAsString(auditMessage);
-        auditEventConsumer.apply(auditJson, "yunhefc.auth.events", 0, 2L);
-        auditEventConsumer.apply(auditJson, "yunhefc.auth.events", 0, 2L);
+        auditEventConsumer.apply(auditJson, "yunhefc.audit.events", 0, 2L);
+        auditEventConsumer.apply(auditJson, "yunhefc.audit.events", 0, 2L);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM audit_log WHERE action = 'USER_ROLES_UPDATE'",
                 Integer.class)).isEqualTo(1);

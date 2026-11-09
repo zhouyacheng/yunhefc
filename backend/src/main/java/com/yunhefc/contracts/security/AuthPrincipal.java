@@ -7,6 +7,8 @@ public record AuthPrincipal(
         Long userId,
         String phone,
         int status,
+        Long teamId,
+        String name,
         Set<String> roles,
         Set<String> permissions) implements Serializable {
 }

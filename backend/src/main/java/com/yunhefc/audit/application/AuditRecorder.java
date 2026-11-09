@@ -3,6 +3,9 @@ package com.yunhefc.audit.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.common.api.RequestContext;
+import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.messaging.EventTypes;
+import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.infra.outbox.OutboxService;
 import org.springframework.stereotype.Service;
 
@@ -20,10 +23,18 @@ public class AuditRecorder {
         this.objectMapper = objectMapper;
     }
 
-    public void record(Long actorUserId, String action, String targetType, Long targetId,
-                       Object before, Object after) {
+    public void recordCurrent(String action, String targetType, Long targetId,
+                              Object before, Object after) {
+        AuthPrincipal actor = CurrentUser.principal();
+        record(actor.teamId(), actor.userId(), actor.name(), action, targetType, targetId, before, after);
+    }
+
+    public void record(Long teamId, Long actorUserId, String actorName, String action,
+                       String targetType, Long targetId, Object before, Object after) {
         Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("teamId", teamId);
         payload.put("actorUserId", actorUserId);
+        payload.put("actorName", actorName);
         payload.put("action", action);
         payload.put("targetType", targetType);
         payload.put("targetId", targetId);
@@ -31,7 +42,7 @@ public class AuditRecorder {
         payload.put("afterJson", json(after));
         payload.put("requestId", RequestContext.requestId());
         payload.put("ip", RequestContext.clientIp());
-        outboxService.append(null, "AUDIT", targetId, "AUDIT_RECORDED", payload);
+        outboxService.append(teamId, "AUDIT", targetId, EventTypes.AUDIT_RECORDED, payload);
     }
 
     private String json(Object value) {

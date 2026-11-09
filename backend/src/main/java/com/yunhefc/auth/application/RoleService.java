@@ -18,6 +18,7 @@ import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.OutboxService;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -100,6 +101,7 @@ public class RoleService {
         return view;
     }
 
+    @Transactional
     public RoleView rename(Long roleId, String name) {
         AppRole role = requireRole(roleId);
         String before = role.getName();
@@ -173,7 +175,7 @@ public class RoleService {
         ensureAdminExists();
         List<String> after = userRoleMapper.findRoleCodes(userId);
         audit("USER", "USER_ROLES_UPDATE", userId, before, after);
-        outboxService.append(null, "USER", userId, "ROLE_CHANGED",
+        outboxService.append(null, "USER", userId, EventTypes.ROLE_CHANGED,
                 Map.of("userId", userId, "roles", after, "actorUserId", CurrentUser.principal().userId()));
         return new UserRolesView(userId, after);
     }
@@ -183,13 +185,13 @@ public class RoleService {
     }
 
     private void audit(String targetType, String action, Long targetId, Object before, Object after) {
-        auditRecorder.record(CurrentUser.principal().userId(), action, targetType, targetId, before, after);
+        auditRecorder.recordCurrent(action, targetType, targetId, before, after);
     }
 
     private void notifyRoleUsers(Long roleId, String roleCode) {
         Long actorId = CurrentUser.principal().userId();
         for (Long userId : userRoleMapper.findUserIdsByRole(roleId)) {
-            outboxService.append(null, "USER", userId, "ROLE_CHANGED",
+            outboxService.append(null, "USER", userId, EventTypes.ROLE_CHANGED,
                     Map.of("userId", userId, "roles", List.of(roleCode), "actorUserId", actorId));
         }
     }

@@ -63,6 +63,55 @@ class IdempotencyTest extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(40001));
     }
 
+    @Test
+    void staleInProgressPlaceholderIsReclaimedAfterGracePeriod() throws Exception {
+        Cookie admin = adminLogin("13900000032");
+        Long adminId = jdbc.queryForObject(
+                "SELECT id FROM app_user WHERE phone = '13900000032'", Long.class);
+
+        mockMvc.perform(post("/api/v1/b/invites")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "idem-stale-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":0}"))
+                .andExpect(status().isOk());
+
+        jdbc.update("""
+                UPDATE idempotency_key
+                SET response_body = NULL, response_status = NULL, created_at = ?
+                WHERE user_id = ? AND endpoint = 'INV-05' AND idem_key = 'idem-stale-1'
+                """, java.time.LocalDateTime.now().minusMinutes(5), adminId);
+
+        mockMvc.perform(post("/api/v1/b/invites")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "idem-stale-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inviteUrl").isNotEmpty());
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM invite_link WHERE inviter_user_id = ?", Integer.class, adminId))
+                .isEqualTo(2);
+
+        jdbc.update("""
+                UPDATE idempotency_key
+                SET response_body = NULL, response_status = NULL, created_at = ?
+                WHERE user_id = ? AND endpoint = 'INV-05' AND idem_key = 'idem-stale-1'
+                """, java.time.LocalDateTime.now().minusSeconds(10), adminId);
+
+        mockMvc.perform(post("/api/v1/b/invites")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "idem-stale-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40915));
+    }
+
     private Cookie adminLogin(String phone) throws Exception {
         jdbc.update("INSERT INTO app_user (phone, password_hash, status) VALUES (?, ?, 1)",
                 phone, passwordEncoder.encode("Admin123!"));

@@ -42,6 +42,12 @@ public interface UserRoleMapper {
     @Update("UPDATE user_role SET is_deleted = 1 WHERE user_id = #{userId} AND is_deleted = 0")
     int removeAll(@Param("userId") Long userId);
 
+    @Update("""
+            UPDATE user_role SET is_deleted = 1
+            WHERE user_id = #{userId} AND role_id = #{roleId} AND is_deleted = 0
+            """)
+    int remove(@Param("userId") Long userId, @Param("roleId") Long roleId);
+
     @Select("SELECT COUNT(*) FROM user_role WHERE role_id = #{roleId} AND is_deleted = 0")
     int countUsers(@Param("roleId") Long roleId);
 

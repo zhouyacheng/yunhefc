@@ -92,6 +92,19 @@ public class InviteService {
         return invite;
     }
 
+    public InviteLink findUsableForAccept(String rawToken, Long userId) {
+        InviteLink invite = findByToken(rawToken);
+        if (invite == null || invite.getStatus() != 0
+                || invite.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new BusinessException(ErrorCode.INVITE_UNAVAILABLE);
+        }
+        boolean exhausted = invite.getMaxUses() != null && invite.getUsedCount() >= invite.getMaxUses();
+        if (exhausted && inviteUseMapper.countUse(invite.getId(), userId) == 0) {
+            throw new BusinessException(ErrorCode.INVITE_UNAVAILABLE);
+        }
+        return invite;
+    }
+
     public InviteView resolve(String rawToken) {
         InviteLink invite = findByToken(rawToken);
         if (invite == null) {
@@ -102,15 +115,17 @@ public class InviteService {
 
     @Transactional
     public void consume(InviteLink invite, Long userId) {
+        if (inviteUseMapper.insertIgnore(invite.getId(), userId) == 0) {
+            return;
+        }
         if (inviteLinkMapper.incrementUsedCount(invite.getId()) == 0) {
             throw new BusinessException(ErrorCode.INVITE_UNAVAILABLE);
         }
-        inviteUseMapper.upsert(invite.getId(), userId);
     }
 
     @Transactional
     public InviteView accept(String rawToken, Long userId) {
-        InviteLink invite = findUsableForRegistration(rawToken);
+        InviteLink invite = findUsableForAccept(rawToken, userId);
         AppUser user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.UNAUTHENTICATED);
@@ -140,7 +155,10 @@ public class InviteService {
         userMapper.updateById(user);
         player.setType(1);
         playerMapper.updateById(player);
-        userRoleMapper.removeAll(userId);
+        AppRole guestRole = role(invite.getTeamId(), "GUEST");
+        if (guestRole != null) {
+            userRoleMapper.remove(userId, guestRole.getId());
+        }
         AppRole playerRole = role(invite.getTeamId(), "PLAYER");
         if (playerRole == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "PLAYER 角色未初始化");
@@ -155,7 +173,7 @@ public class InviteService {
 
     @Transactional
     public InviteAdminView create(Long inviterUserId, InviteCreateRequest request) {
-        int type = request.type() == null ? 0 : request.type();
+        int type = request.type();
         if (type != 0 && type != 1) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "邀请类型不合法");
         }

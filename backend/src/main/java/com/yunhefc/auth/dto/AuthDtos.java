@@ -92,7 +92,11 @@ public final class AuthDtos {
     public record PhoneUpdateRequest(@NotBlank String phone) {
     }
 
-    public record InviteCreateRequest(Integer type, Long matchId, Integer expiresInDays, Integer maxUses) {
+    public record InviteCreateRequest(
+            @NotNull Integer type,
+            Long matchId,
+            Integer expiresInDays,
+            Integer maxUses) {
     }
 
     public record MatchInviteCreateRequest(Integer expiresInDays, Integer maxUses) {

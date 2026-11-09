@@ -1,7 +1,6 @@
 package com.yunhefc.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 public final class WechatDtos {
 
@@ -18,6 +17,6 @@ public final class WechatDtos {
             @NotBlank String phone,
             @NotBlank String code,
             String name,
-            @NotNull Integer position) {
+            Integer position) {
     }
 }

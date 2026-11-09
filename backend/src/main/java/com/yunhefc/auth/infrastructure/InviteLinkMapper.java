@@ -7,6 +7,8 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.LocalDateTime;
+
 @Mapper
 public interface InviteLinkMapper extends BaseMapper<InviteLink> {
 
@@ -20,4 +22,11 @@ public interface InviteLinkMapper extends BaseMapper<InviteLink> {
               AND (max_uses IS NULL OR used_count < max_uses)
             """)
     int incrementUsedCount(@Param("id") Long id);
+
+    @Update("""
+            UPDATE invite_link
+            SET status = 2
+            WHERE status = 0 AND expires_at < #{now} AND is_deleted = 0
+            """)
+    int expireOverdue(@Param("now") LocalDateTime now);
 }

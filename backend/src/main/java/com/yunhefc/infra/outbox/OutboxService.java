@@ -4,7 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -12,13 +14,28 @@ public class OutboxService {
 
     private final OutboxEventMapper outboxEventMapper;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
-    public OutboxService(OutboxEventMapper outboxEventMapper, ObjectMapper objectMapper) {
+    public OutboxService(OutboxEventMapper outboxEventMapper, ObjectMapper objectMapper, Clock clock) {
         this.outboxEventMapper = outboxEventMapper;
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     public void append(Long teamId, String aggregateType, Long aggregateId, String eventType, Object payload) {
+        OutboxEvent event = newEvent(teamId, aggregateType, aggregateId, eventType, payload);
+        outboxEventMapper.insert(event);
+    }
+
+    public void appendBatch(List<OutboxEvent> events) {
+        if (events.isEmpty()) {
+            return;
+        }
+        outboxEventMapper.insertBatch(events);
+    }
+
+    public OutboxEvent newEvent(Long teamId, String aggregateType, Long aggregateId,
+                                String eventType, Object payload) {
         OutboxEvent event = new OutboxEvent();
         event.setEventId(UUID.randomUUID().toString());
         event.setTeamId(teamId);
@@ -28,8 +45,8 @@ public class OutboxService {
         event.setPayloadJson(toJson(payload));
         event.setStatus(0);
         event.setAttempts(0);
-        event.setCreatedAt(LocalDateTime.now());
-        outboxEventMapper.insert(event);
+        event.setCreatedAt(Instant.now(clock));
+        return event;
     }
 
     private String toJson(Object payload) {

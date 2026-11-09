@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-class SessionIsolationTest extends IntegrationTestSupport {
+class SessionIsolationIT extends IntegrationTestSupport {
 
     @Test
     void cAndBSessionsUseSeparateCookiesAndCannotCrossAccess() throws Exception {

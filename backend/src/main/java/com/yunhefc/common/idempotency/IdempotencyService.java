@@ -8,7 +8,8 @@ import com.yunhefc.common.error.ErrorCode;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.concurrent.Callable;
 
 @Service
@@ -18,10 +19,12 @@ public class IdempotencyService {
 
     private final IdempotencyKeyMapper mapper;
     private final ObjectMapper objectMapper;
+    private final Clock clock;
 
-    public IdempotencyService(IdempotencyKeyMapper mapper, ObjectMapper objectMapper) {
+    public IdempotencyService(IdempotencyKeyMapper mapper, ObjectMapper objectMapper, Clock clock) {
         this.mapper = mapper;
         this.objectMapper = objectMapper;
+        this.clock = clock;
     }
 
     public ApiResponse<?> execute(Long userId, String endpoint, String idemKey, String requestHash,
@@ -39,8 +42,9 @@ public class IdempotencyService {
         row.setEndpoint(endpoint);
         row.setIdemKey(idemKey);
         row.setRequestHash(requestHash);
-        row.setCreatedAt(LocalDateTime.now());
-        row.setExpiresAt(LocalDateTime.now().plusHours(24));
+        Instant now = Instant.now(clock);
+        row.setCreatedAt(now);
+        row.setExpiresAt(now.plusSeconds(24 * 3600));
         try {
             mapper.insert(row);
         } catch (DuplicateKeyException ex) {
@@ -75,7 +79,7 @@ public class IdempotencyService {
             JsonNode data = objectMapper.readTree(row.getResponseBody());
             return ApiResponse.ok(data == null || data.isNull() ? null : data);
         }
-        LocalDateTime staleBefore = LocalDateTime.now().minusSeconds(IN_PROGRESS_GRACE_SECONDS);
+        Instant staleBefore = Instant.now(clock).minusSeconds(IN_PROGRESS_GRACE_SECONDS);
         if (mapper.deleteIfStale(row.getId(), staleBefore) == 1) {
             // null 表示占位已回收，调用方应重新插入占位并执行
             return null;

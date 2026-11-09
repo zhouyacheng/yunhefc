@@ -1,30 +1,29 @@
 package com.yunhefc.auth.application;
 
+import com.yunhefc.common.config.SmsProperties;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.Set;
 
 @Service
 public class SmsCodeService {
 
     private static final Set<String> PURPOSES = Set.of("REGISTER", "RESET", "BIND");
+    private static final int MAX_ATTEMPTS = 5;
 
     private final StringRedisTemplate redis;
     private final String mockCode;
     private final long ttlSeconds;
 
-    public SmsCodeService(
-            StringRedisTemplate redis,
-            @Value("${yunhefc.sms.mock-code:123456}") String mockCode,
-            @Value("${yunhefc.sms.ttl-seconds:300}") long ttlSeconds) {
+    public SmsCodeService(StringRedisTemplate redis, SmsProperties properties) {
         this.redis = redis;
-        this.mockCode = mockCode;
-        this.ttlSeconds = ttlSeconds;
+        this.mockCode = properties.getMockCode();
+        this.ttlSeconds = properties.getTtlSeconds();
     }
 
     public int send(String phone, String purpose) {
@@ -39,9 +38,21 @@ public class SmsCodeService {
         String key = key(phone, purpose);
         String stored = redis.opsForValue().get(key);
         if (stored == null || !stored.equals(code)) {
+            String attemptsKey = key + ":attempts";
+            Long attempts = redis.opsForValue().increment(attemptsKey);
+            if (attempts != null && attempts == 1) {
+                redis.expire(attemptsKey, Duration.ofSeconds(ttlSeconds));
+            }
+            if (attempts != null && attempts >= MAX_ATTEMPTS) {
+                redis.delete(key);
+                redis.delete(attemptsKey);
+                throw new BusinessException(ErrorCode.RATE_LIMITED, "验证码尝试次数过多",
+                        Map.of("retryAfterSeconds", ttlSeconds));
+            }
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "验证码无效或已过期");
         }
         redis.delete(key);
+        redis.delete(key + ":attempts");
     }
 
     private String key(String phone, String purpose) {

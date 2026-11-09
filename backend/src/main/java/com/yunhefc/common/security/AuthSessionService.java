@@ -1,10 +1,10 @@
 package com.yunhefc.common.security;
 
+import com.yunhefc.common.config.SessionProperties;
 import com.yunhefc.contracts.security.SessionKeys;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.stereotype.Service;
@@ -18,12 +18,9 @@ public class AuthSessionService {
     private final CsrfTokenRepository csrfTokenRepository;
     private final Map<String, Duration> ttlByKey;
 
-    public AuthSessionService(
-            CsrfTokenRepository csrfTokenRepository,
-            @Value("${yunhefc.session.c-ttl:7d}") Duration cTtl,
-            @Value("${yunhefc.session.b-ttl:2h}") Duration bTtl) {
+    public AuthSessionService(CsrfTokenRepository csrfTokenRepository, SessionProperties properties) {
         this.csrfTokenRepository = csrfTokenRepository;
-        this.ttlByKey = Map.of(SessionKeys.C_USER_ID, cTtl, SessionKeys.B_USER_ID, bTtl);
+        this.ttlByKey = Map.of(SessionKeys.C_USER_ID, properties.cTtl(), SessionKeys.B_USER_ID, properties.bTtl());
     }
 
     public String establish(HttpServletRequest request, HttpServletResponse response,

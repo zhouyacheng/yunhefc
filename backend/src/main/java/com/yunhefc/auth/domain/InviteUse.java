@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-@Data
+@Getter
+@Setter
 @TableName("invite_use")
 public class InviteUse {
 
@@ -16,7 +18,7 @@ public class InviteUse {
     private Long id;
     private Long inviteId;
     private Long userId;
-    private LocalDateTime usedAt;
+    private Instant usedAt;
     @TableLogic
     private Integer isDeleted;
 }

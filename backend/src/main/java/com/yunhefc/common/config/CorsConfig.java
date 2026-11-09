@@ -1,31 +1,25 @@
 package com.yunhefc.common.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.util.Arrays;
-
 @Configuration
 public class CorsConfig implements WebMvcConfigurer {
 
-    private final String[] allowedOrigins;
+    private final CorsProperties properties;
 
-    public CorsConfig(@Value("${yunhefc.cors.allowed-origins:}") String allowedOrigins) {
-        this.allowedOrigins = Arrays.stream(allowedOrigins.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isEmpty())
-                .toArray(String[]::new);
+    public CorsConfig(CorsProperties properties) {
+        this.properties = properties;
     }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        if (allowedOrigins.length == 0) {
+        if (properties.allowedOrigins().isEmpty()) {
             return;
         }
         registry.addMapping("/api/**")
-                .allowedOrigins(allowedOrigins)
+                .allowedOrigins(properties.allowedOrigins().toArray(String[]::new))
                 .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
                 .allowedHeaders("Content-Type", "X-XSRF-TOKEN", "Idempotency-Key", "X-Request-Id")
                 .allowCredentials(true)

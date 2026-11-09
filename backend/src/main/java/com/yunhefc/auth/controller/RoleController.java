@@ -13,6 +13,7 @@ import com.yunhefc.auth.dto.RoleDtos.RoleView;
 import com.yunhefc.auth.dto.RoleDtos.UserRolesRequest;
 import com.yunhefc.auth.dto.RoleDtos.UserRolesView;
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import jakarta.validation.Valid;
@@ -95,8 +96,8 @@ public class RoleController {
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
-        validatePage(page, pageSize);
-        return ApiResponse.ok(authService.listUsers(status, page, pageSize));
+        PageQuery query = PageQuery.of(page, pageSize);
+        return ApiResponse.ok(authService.listUsers(status, query.page(), query.pageSize()));
     }
 
     @PatchMapping("/users/{id}/phone")
@@ -110,12 +111,5 @@ public class RoleController {
     public ApiResponse<Void> unbindWechat(@PathVariable Long id) {
         authService.unbindWechat(id);
         return ApiResponse.ok();
-    }
-
-    private void validatePage(long page, long pageSize) {
-        if (page < 1 || pageSize < 1 || pageSize > 100) {
-            throw new com.yunhefc.common.error.BusinessException(
-                    com.yunhefc.common.error.ErrorCode.VALIDATION_FAILED, "分页参数不合法");
-        }
     }
 }

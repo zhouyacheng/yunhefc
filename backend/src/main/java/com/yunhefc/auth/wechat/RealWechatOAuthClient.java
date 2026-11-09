@@ -2,6 +2,8 @@ package com.yunhefc.auth.wechat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.client.RestClient;
 
 import java.net.URLEncoder;
@@ -9,13 +11,16 @@ import java.nio.charset.StandardCharsets;
 
 public class RealWechatOAuthClient implements WechatOAuthClient {
 
+    private static final Logger log = LoggerFactory.getLogger(RealWechatOAuthClient.class);
+
     private final WechatProperties properties;
     private final ObjectMapper objectMapper;
-    private final RestClient restClient = RestClient.create();
+    private final RestClient restClient;
 
-    public RealWechatOAuthClient(WechatProperties properties, ObjectMapper objectMapper) {
+    public RealWechatOAuthClient(WechatProperties properties, ObjectMapper objectMapper, RestClient restClient) {
         this.properties = properties;
         this.objectMapper = objectMapper;
+        this.restClient = restClient;
     }
 
     @Override
@@ -40,8 +45,11 @@ public class RealWechatOAuthClient implements WechatOAuthClient {
             if (node.hasNonNull("openid")) {
                 return new WechatUser(node.get("openid").asText());
             }
-        } catch (Exception ignored) {
-            // fall through to an explicit error below
+            if (node.has("errcode")) {
+                log.warn("wechat token exchange rejected, errcode={}", node.get("errcode").asInt());
+            }
+        } catch (Exception ex) {
+            log.warn("wechat token exchange response parse failed", ex);
         }
         throw new IllegalStateException("微信授权失败");
     }

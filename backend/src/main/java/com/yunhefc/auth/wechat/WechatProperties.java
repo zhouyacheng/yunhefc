@@ -2,6 +2,7 @@ package com.yunhefc.auth.wechat;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,6 +17,8 @@ public class WechatProperties {
     private List<String> allowedRedirectPrefixes = new ArrayList<>();
     private boolean requireWechatUa = true;
     private long stateTtlSeconds = 300;
+    private Duration connectTimeout = Duration.ofSeconds(3);
+    private Duration readTimeout = Duration.ofSeconds(5);
 
     public boolean isEnabled() {
         return enabled;
@@ -79,5 +82,21 @@ public class WechatProperties {
 
     public void setStateTtlSeconds(long stateTtlSeconds) {
         this.stateTtlSeconds = stateTtlSeconds;
+    }
+
+    public Duration getConnectTimeout() {
+        return connectTimeout;
+    }
+
+    public void setConnectTimeout(Duration connectTimeout) {
+        this.connectTimeout = connectTimeout;
+    }
+
+    public Duration getReadTimeout() {
+        return readTimeout;
+    }
+
+    public void setReadTimeout(Duration readTimeout) {
+        this.readTimeout = readTimeout;
     }
 }

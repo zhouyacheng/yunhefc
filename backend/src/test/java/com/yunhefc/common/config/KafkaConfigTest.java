@@ -25,7 +25,10 @@ class KafkaConfigTest {
         KafkaTemplate<String, String> kafkaTemplate = mock(KafkaTemplate.class);
         when(kafkaTemplate.send(any(ProducerRecord.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
-        DefaultErrorHandler handler = new KafkaConfig().kafkaErrorHandler(kafkaTemplate, 2, 0);
+        MessagingProperties properties = new MessagingProperties();
+        properties.getRetry().setMaxRetries(2);
+        properties.getRetry().setIntervalMs(0);
+        DefaultErrorHandler handler = new KafkaConfig().kafkaErrorHandler(kafkaTemplate, properties);
 
         ConsumerRecord<String, String> record =
                 new ConsumerRecord<>("yunhefc.audit.events", 0, 7L, "key", "broken");

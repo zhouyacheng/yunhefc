@@ -39,6 +39,18 @@ public interface UserRoleMapper {
             """)
     int upsert(@Param("userId") Long userId, @Param("roleId") Long roleId);
 
+    @Insert("""
+            <script>
+            INSERT INTO user_role (user_id, role_id)
+            VALUES
+            <foreach collection="roleIds" item="roleId" separator=",">
+                (#{userId}, #{roleId})
+            </foreach>
+            ON DUPLICATE KEY UPDATE is_deleted = 0
+            </script>
+            """)
+    int upsertBatch(@Param("userId") Long userId, @Param("roleIds") List<Long> roleIds);
+
     @Update("UPDATE user_role SET is_deleted = 1 WHERE user_id = #{userId} AND is_deleted = 0")
     int removeAll(@Param("userId") Long userId);
 

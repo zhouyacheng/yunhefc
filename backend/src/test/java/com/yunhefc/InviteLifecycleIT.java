@@ -8,17 +8,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
-import com.yunhefc.auth.infrastructure.InviteExpiryJob;
+import com.yunhefc.auth.application.InviteExpiryService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-class InviteLifecycleTest extends IntegrationTestSupport {
+class InviteLifecycleIT extends IntegrationTestSupport {
 
     @Autowired
-    InviteExpiryJob inviteExpiryJob;
+    InviteExpiryService inviteExpiryService;
 
     @Test
     void teamInviteReplacesGuestButKeepsCustomRoles() throws Exception {
@@ -80,13 +80,15 @@ class InviteLifecycleTest extends IntegrationTestSupport {
                 .andReturn();
         String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
         String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie authorizeCookie = cookie(authorize, "YHFC_C");
         MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(authorizeCookie)
                         .param("code", "bind-existing")
                         .param("state", state))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.needBindPhone").value(true))
                 .andReturn();
-        Cookie cookie = cookie(callback, "YHFC_C");
+        Cookie cookie = authorizeCookie;
         String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
 
         mockMvc.perform(post("/api/v1/c/auth/sms-codes")
@@ -120,13 +122,15 @@ class InviteLifecycleTest extends IntegrationTestSupport {
                 .andReturn();
         String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
         String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie authorizeCookie = cookie(authorize, "YHFC_C");
         MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(authorizeCookie)
                         .param("code", "bind-new")
                         .param("state", state))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.needBindPhone").value(true))
                 .andReturn();
-        Cookie cookie = cookie(callback, "YHFC_C");
+        Cookie cookie = authorizeCookie;
         String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
 
         mockMvc.perform(post("/api/v1/c/auth/sms-codes")
@@ -172,7 +176,7 @@ class InviteLifecycleTest extends IntegrationTestSupport {
         jdbc.update("UPDATE invite_link SET expires_at = DATE_SUB(NOW(3), INTERVAL 1 DAY) WHERE id = ?",
                 inviteId);
 
-        inviteExpiryJob.expire();
+        inviteExpiryService.expire();
 
         assertThat(jdbc.queryForObject(
                 "SELECT status FROM invite_link WHERE id = ?", Integer.class, inviteId)).isEqualTo(2);

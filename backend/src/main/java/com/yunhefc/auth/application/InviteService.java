@@ -5,7 +5,11 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.InviteLink;
+import com.yunhefc.auth.domain.InviteStatus;
+import com.yunhefc.auth.domain.InviteType;
+import com.yunhefc.auth.domain.RoleCodes;
 import com.yunhefc.auth.domain.Team;
+import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.dto.AuthDtos.InviteAdminView;
 import com.yunhefc.auth.dto.AuthDtos.InviteCreateRequest;
 import com.yunhefc.auth.dto.AuthDtos.InviteView;
@@ -14,13 +18,13 @@ import com.yunhefc.auth.dto.AuthDtos.TeamView;
 import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
-import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.auth.infrastructure.InviteLinkMapper;
 import com.yunhefc.auth.infrastructure.InviteUseMapper;
 import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
-import com.yunhefc.common.Labels;
+import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.api.PageResponse;
+import com.yunhefc.common.config.AppProperties;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
@@ -30,16 +34,15 @@ import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.registration.MatchRosterPort;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -58,6 +61,7 @@ public class InviteService {
     private final MatchRosterPort matchRosterPort;
     private final UserViewAssembler userViewAssembler;
     private final String publicBaseUrl;
+    private final Clock clock;
 
     public InviteService(
             InviteLinkMapper inviteLinkMapper,
@@ -72,7 +76,8 @@ public class InviteService {
             AuditRecorder auditRecorder,
             MatchRosterPort matchRosterPort,
             UserViewAssembler userViewAssembler,
-            @Value("${yunhefc.public-base-url:http://localhost:5173}") String publicBaseUrl) {
+            AppProperties appProperties,
+            Clock clock) {
         this.inviteLinkMapper = inviteLinkMapper;
         this.inviteUseMapper = inviteUseMapper;
         this.userMapper = userMapper;
@@ -85,7 +90,8 @@ public class InviteService {
         this.auditRecorder = auditRecorder;
         this.matchRosterPort = matchRosterPort;
         this.userViewAssembler = userViewAssembler;
-        this.publicBaseUrl = publicBaseUrl;
+        this.publicBaseUrl = appProperties.getPublicBaseUrl();
+        this.clock = clock;
     }
 
     public InviteLink findUsableForRegistration(String rawToken) {
@@ -98,8 +104,8 @@ public class InviteService {
 
     public InviteLink findUsableForAccept(String rawToken, Long userId) {
         InviteLink invite = findByToken(rawToken);
-        if (invite == null || invite.getStatus() != 0
-                || invite.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (invite == null || invite.getStatus() != InviteStatus.ACTIVE
+                || invite.getExpiresAt().isBefore(Instant.now(clock))) {
             throw new BusinessException(ErrorCode.INVITE_UNAVAILABLE);
         }
         boolean exhausted = invite.getMaxUses() != null && invite.getUsedCount() >= invite.getMaxUses();
@@ -134,7 +140,7 @@ public class InviteService {
         if (user == null) {
             throw new BusinessException(ErrorCode.UNAUTHENTICATED);
         }
-        if (user.getStatus() == 2) {
+        if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
         PlayerSnapshot player = playerReadPort.findByUserId(userId).orElse(null);
@@ -142,7 +148,7 @@ public class InviteService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "球员档案不存在");
         }
 
-        if (invite.getType() == 1) {
+        if (invite.getType() == InviteType.MATCH) {
             consume(invite, userId);
             InviteView view = toView(invite);
             auditRecorder.recordCurrent("INVITE_ACCEPT", "INVITE", invite.getId(), null, view);
@@ -153,14 +159,14 @@ public class InviteService {
             return toView(invite);
         }
 
-        user.setStatus(1);
+        user.setStatus(UserStatus.ACTIVE);
         userMapper.updateById(user);
         playerProfileService.promoteToFormal(userId);
-        AppRole guestRole = role(invite.getTeamId(), "GUEST");
+        AppRole guestRole = role(invite.getTeamId(), RoleCodes.GUEST);
         if (guestRole != null) {
             userRoleMapper.remove(userId, guestRole.getId());
         }
-        AppRole playerRole = role(invite.getTeamId(), "PLAYER");
+        AppRole playerRole = role(invite.getTeamId(), RoleCodes.PLAYER);
         if (playerRole == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "PLAYER 角色未初始化");
         }
@@ -174,18 +180,15 @@ public class InviteService {
 
     @Transactional
     public InviteAdminView create(Long inviterUserId, InviteCreateRequest request) {
-        int type = request.type();
-        if (type != 0 && type != 1) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "邀请类型不合法");
-        }
-        if (type == 1 && request.matchId() == null) {
+        InviteType type = parseType(request.type());
+        if (type == InviteType.MATCH && request.matchId() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "比赛邀请必须指定比赛");
         }
-        if (type == 0 && request.matchId() != null) {
+        if (type == InviteType.TEAM && request.matchId() != null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "入队邀请不能指定比赛");
         }
         Long teamId = teamId();
-        if (type == 1 && matchReadPort.findById(request.matchId()).isEmpty()) {
+        if (type == InviteType.MATCH && matchReadPort.findById(request.matchId()).isEmpty()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
         }
         InviteAdminView view = createInternal(teamId, type, request.matchId(), inviterUserId,
@@ -201,7 +204,8 @@ public class InviteService {
         MatchSnapshot match = matchReadPort.findById(matchId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
         ensureCanCreateMatchInvite(inviterUserId, matchId);
-        InviteAdminView view = createInternal(match.teamId(), 1, matchId, inviterUserId, expiresInDays, maxUses);
+        InviteAdminView view = createInternal(match.teamId(), InviteType.MATCH, matchId,
+                inviterUserId, expiresInDays, maxUses);
         auditRecorder.recordCurrent("INVITE_CREATE", "INVITE", view.id(), null,
                 java.util.Map.of("type", view.type(), "expiresAt", view.expiresAt(),
                         "maxUses", view.maxUses() == null ? "" : view.maxUses()));
@@ -233,14 +237,15 @@ public class InviteService {
         if (invite == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        invite.setStatus(1);
-        invite.setRevokedAt(LocalDateTime.now());
+        invite.setStatus(InviteStatus.REVOKED);
+        invite.setRevokedAt(Instant.now(clock));
         inviteLinkMapper.updateById(invite);
         auditRecorder.recordCurrent("INVITE_REVOKE", "INVITE", id,
-                java.util.Map.of("status", 0), java.util.Map.of("status", 1));
+                java.util.Map.of("status", InviteStatus.ACTIVE.code()),
+                java.util.Map.of("status", InviteStatus.REVOKED.code()));
     }
 
-    private InviteAdminView createInternal(Long teamId, int type, Long matchId, Long inviterUserId,
+    private InviteAdminView createInternal(Long teamId, InviteType type, Long matchId, Long inviterUserId,
                                            Integer expiresInDays, Integer maxUses) {
         int days = expiresInDays == null ? 7 : expiresInDays;
         if (days < 1 || days > 30) {
@@ -250,18 +255,19 @@ public class InviteService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "使用次数上限必须大于 0");
         }
         String rawToken = UUID.randomUUID().toString().replace("-", "");
+        Instant now = Instant.now(clock);
         InviteLink invite = new InviteLink();
         invite.setTeamId(teamId);
         invite.setType(type);
         invite.setTokenHash(sha256(rawToken));
         invite.setMatchId(matchId);
         invite.setInviterUserId(inviterUserId);
-        invite.setExpiresAt(LocalDateTime.now().plusDays(days));
+        invite.setExpiresAt(now.plusSeconds(days * 24L * 3600));
         invite.setMaxUses(maxUses);
         invite.setUsedCount(0);
-        invite.setStatus(0);
-        invite.setCreatedAt(LocalDateTime.now());
-        invite.setUpdatedAt(LocalDateTime.now());
+        invite.setStatus(InviteStatus.ACTIVE);
+        invite.setCreatedAt(now);
+        invite.setUpdatedAt(now);
         inviteLinkMapper.insert(invite);
         return toAdminView(invite, rawToken);
     }
@@ -274,7 +280,8 @@ public class InviteService {
     }
 
     private boolean isUsable(InviteLink invite) {
-        if (invite == null || invite.getStatus() != 0 || invite.getExpiresAt().isBefore(LocalDateTime.now())) {
+        if (invite == null || invite.getStatus() != InviteStatus.ACTIVE
+                || invite.getExpiresAt().isBefore(Instant.now(clock))) {
             return false;
         }
         return invite.getMaxUses() == null || invite.getUsedCount() < invite.getMaxUses();
@@ -285,14 +292,14 @@ public class InviteService {
         MatchSnapshot match = invite.getMatchId() == null ? null
                 : matchReadPort.findById(invite.getMatchId()).orElse(null);
         AppUser inviter = userMapper.selectById(invite.getInviterUserId());
-        int effectiveStatus = invite.getStatus();
-        if (effectiveStatus == 0 && invite.getExpiresAt().isBefore(LocalDateTime.now())) {
-            effectiveStatus = 2;
+        InviteStatus effectiveStatus = invite.getStatus();
+        if (effectiveStatus == InviteStatus.ACTIVE && invite.getExpiresAt().isBefore(Instant.now(clock))) {
+            effectiveStatus = InviteStatus.EXPIRED;
         }
         boolean exhausted = invite.getMaxUses() != null && invite.getUsedCount() >= invite.getMaxUses();
         Integer remaining = invite.getMaxUses() == null ? null : Math.max(0, invite.getMaxUses() - invite.getUsedCount());
         return new InviteView(
-                invite.getType(),
+                invite.getType().code(),
                 team == null ? null : new TeamView(team.getId(), team.getName(), team.getShortName()),
                 match == null ? null : new MatchSummary(match.id(), match.title(), match.startAt(),
                         match.endAt(), match.venue(), match.status(), match.homeTeamName(),
@@ -302,8 +309,8 @@ public class InviteService {
                 invite.getMaxUses(),
                 invite.getUsedCount(),
                 remaining,
-                effectiveStatus,
-                Labels.inviteStatus(effectiveStatus),
+                effectiveStatus.code(),
+                effectiveStatus.label(),
                 exhausted);
     }
 
@@ -316,7 +323,7 @@ public class InviteService {
         return new InviteAdminView(
                 invite.getId(),
                 view.type(),
-                Labels.inviteType(view.type()),
+                InviteType.of(view.type()).label(),
                 view.team(),
                 view.match(),
                 view.inviter(),
@@ -332,6 +339,14 @@ public class InviteService {
 
     private UserView inviterView(AppUser user) {
         return userViewAssembler.toView(user);
+    }
+
+    private InviteType parseType(int code) {
+        try {
+            return InviteType.of(code);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "邀请类型不合法");
+        }
     }
 
     private AppRole role(Long teamId, String code) {

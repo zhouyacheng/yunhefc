@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-class RoleManagementTest extends IntegrationTestSupport {
+class RoleManagementIT extends IntegrationTestSupport {
 
     @Test
     void roleCrudPermissionsAndGuards() throws Exception {

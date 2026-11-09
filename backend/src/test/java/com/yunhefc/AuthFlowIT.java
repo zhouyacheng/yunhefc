@@ -33,7 +33,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @SpringBootTest(properties = {"management.health.redis.enabled=false", "yunhefc.kafka.listener-enabled=false", "yunhefc.outbox.enabled=false", "yunhefc.wechat.enabled=true", "yunhefc.wechat.mode=mock", "yunhefc.wechat.require-wechat-ua=false"})
 @AutoConfigureMockMvc
 @Testcontainers
-class AuthFlowTest {
+class AuthFlowIT {
 
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")

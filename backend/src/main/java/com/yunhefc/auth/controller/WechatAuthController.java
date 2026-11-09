@@ -30,8 +30,9 @@ public class WechatAuthController {
     @GetMapping("/authorize")
     public ApiResponse<AuthorizeResponse> authorize(
             @RequestParam(defaultValue = "/") String redirect,
-            @RequestHeader(value = "User-Agent", defaultValue = "") String userAgent) {
-        return ApiResponse.ok(wechatAuthService.authorize(redirect, userAgent));
+            @RequestHeader(value = "User-Agent", defaultValue = "") String userAgent,
+            HttpServletRequest request) {
+        return ApiResponse.ok(wechatAuthService.authorize(redirect, userAgent, request));
     }
 
     @GetMapping("/callback")

@@ -1,28 +1,24 @@
 package com.yunhefc.auth.infrastructure;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Scheduled;
-import org.springframework.stereotype.Component;
+import com.yunhefc.auth.application.InviteExpiryService;
+import org.quartz.DisallowConcurrentExecution;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.quartz.QuartzJobBean;
 
-import java.time.LocalDateTime;
+@DisallowConcurrentExecution
+public class InviteExpiryJob extends QuartzJobBean {
 
-@Component
-public class InviteExpiryJob {
+    private InviteExpiryService inviteExpiryService;
 
-    private static final Logger log = LoggerFactory.getLogger(InviteExpiryJob.class);
-
-    private final InviteLinkMapper inviteLinkMapper;
-
-    public InviteExpiryJob(InviteLinkMapper inviteLinkMapper) {
-        this.inviteLinkMapper = inviteLinkMapper;
+    @Autowired
+    public void setInviteExpiryService(InviteExpiryService inviteExpiryService) {
+        this.inviteExpiryService = inviteExpiryService;
     }
 
-    @Scheduled(cron = "${yunhefc.invite.expiry-cron:0 0 3 * * *}", zone = "Asia/Shanghai")
-    public void expire() {
-        int expired = inviteLinkMapper.expireOverdue(LocalDateTime.now());
-        if (expired > 0) {
-            log.info("Expired {} invite links", expired);
-        }
+    @Override
+    protected void executeInternal(JobExecutionContext context) throws JobExecutionException {
+        inviteExpiryService.expire();
     }
 }

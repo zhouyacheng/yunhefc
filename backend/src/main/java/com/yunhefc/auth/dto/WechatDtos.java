@@ -1,6 +1,7 @@
 package com.yunhefc.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public final class WechatDtos {
 
@@ -16,7 +17,7 @@ public final class WechatDtos {
     public record BindPhoneRequest(
             @NotBlank String phone,
             @NotBlank String code,
-            String name,
+            @Size(max = 32) String name,
             Integer position) {
     }
 }

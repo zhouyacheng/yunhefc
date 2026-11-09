@@ -12,11 +12,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
@@ -39,6 +40,7 @@ public class SecurityConfig {
         csrfHandler.setCsrfRequestAttributeName("_csrf");
 
         http
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfTokenRepository())
                         .csrfTokenRequestHandler(csrfHandler)
@@ -66,7 +68,7 @@ public class SecurityConfig {
                                 writeError(response, ErrorCode.UNAUTHENTICATED))
                         .accessDeniedHandler((request, response, exception) ->
                                 writeError(response, ErrorCode.FORBIDDEN)))
-                .addFilterBefore(new RequestIdFilter(), UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(new RequestIdFilter(), CsrfFilter.class)
                 .addFilterAfter(new SessionAuthFilter(userAccessPort), RequestIdFilter.class)
                 .addFilterAfter(new PendingAccountFilter(objectMapper), SessionAuthFilter.class);
 

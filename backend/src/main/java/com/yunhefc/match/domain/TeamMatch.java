@@ -4,11 +4,13 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-@Data
+@Getter
+@Setter
 @TableName("team_match")
 public class TeamMatch {
 
@@ -16,12 +18,12 @@ public class TeamMatch {
     private Long id;
     private Long teamId;
     private String title;
-    private Integer type;
+    private MatchType type;
     private String format;
-    private LocalDateTime startAt;
-    private LocalDateTime endAt;
+    private Instant startAt;
+    private Instant endAt;
     private String venue;
-    private Integer status;
+    private MatchStatus status;
     private String homeTeamName;
     private String awayTeamName;
     private Integer capacity;

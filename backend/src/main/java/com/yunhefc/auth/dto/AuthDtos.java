@@ -2,8 +2,9 @@ package com.yunhefc.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -21,7 +22,7 @@ public final class AuthDtos {
             @NotBlank String phone,
             @NotBlank String code,
             @NotBlank String password,
-            @NotBlank String name,
+            @NotBlank @Size(max = 32) String name,
             @NotNull Integer position,
             String inviteToken) {
     }
@@ -44,7 +45,7 @@ public final class AuthDtos {
             Integer status,
             String statusLabel,
             Set<String> roles,
-            LocalDateTime createdAt) {
+            Instant createdAt) {
     }
 
     public record PlayerView(
@@ -108,8 +109,8 @@ public final class AuthDtos {
     public record MatchSummary(
             Long id,
             String title,
-            LocalDateTime startAt,
-            LocalDateTime endAt,
+            Instant startAt,
+            Instant endAt,
             String venue,
             Integer status,
             String homeTeamName,
@@ -121,7 +122,7 @@ public final class AuthDtos {
             TeamView team,
             MatchSummary match,
             UserView inviter,
-            LocalDateTime expiresAt,
+            Instant expiresAt,
             Integer maxUses,
             Integer usedCount,
             Integer remainingUses,
@@ -137,13 +138,13 @@ public final class AuthDtos {
             TeamView team,
             MatchSummary match,
             UserView inviter,
-            LocalDateTime expiresAt,
+            Instant expiresAt,
             Integer maxUses,
             Integer usedCount,
             Integer remainingUses,
             Integer status,
             String statusLabel,
             String inviteUrl,
-            LocalDateTime createdAt) {
+            Instant createdAt) {
     }
 }

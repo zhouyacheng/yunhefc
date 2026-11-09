@@ -32,7 +32,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.Map;
 
-class MessagingReliabilityTest extends IntegrationTestSupport {
+class MessagingReliabilityIT extends IntegrationTestSupport {
 
     private static final String AUDIT_TOPIC = "yunhefc.audit.events";
     private static final String NOTIFICATION_TOPIC = "yunhefc.notification.events";

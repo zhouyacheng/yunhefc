@@ -36,8 +36,8 @@ public class PlayerReadAdapter implements PlayerReadPort {
                 player.getUserId(),
                 player.getName(),
                 player.getJersey(),
-                player.getType(),
-                player.getPosition(),
+                player.getType().code(),
+                player.getPosition().code(),
                 player.getSkill());
     }
 }

@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-class IdempotencyTest extends IntegrationTestSupport {
+class IdempotencyIT extends IntegrationTestSupport {
 
     @Test
     void repeatedKeyReplaysFirstResultAndRejectsDifferentBody() throws Exception {
@@ -81,7 +81,7 @@ class IdempotencyTest extends IntegrationTestSupport {
                 UPDATE idempotency_key
                 SET response_body = NULL, response_status = NULL, created_at = ?
                 WHERE user_id = ? AND endpoint = 'INV-05' AND idem_key = 'idem-stale-1'
-                """, java.time.LocalDateTime.now().minusMinutes(5), adminId);
+                """, java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(300)), adminId);
 
         mockMvc.perform(post("/api/v1/b/invites")
                         .cookie(admin)
@@ -100,7 +100,7 @@ class IdempotencyTest extends IntegrationTestSupport {
                 UPDATE idempotency_key
                 SET response_body = NULL, response_status = NULL, created_at = ?
                 WHERE user_id = ? AND endpoint = 'INV-05' AND idem_key = 'idem-stale-1'
-                """, java.time.LocalDateTime.now().minusSeconds(10), adminId);
+                """, java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(10)), adminId);
 
         mockMvc.perform(post("/api/v1/b/invites")
                         .cookie(admin)

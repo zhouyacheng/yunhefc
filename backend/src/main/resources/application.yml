@@ -11,6 +11,7 @@ spring:
     baseline-on-migrate: false
   quartz:
     job-store-type: jdbc
+    overwrite-existing-jobs: true
     jdbc:
       initialize-schema: never
     properties:
@@ -48,6 +49,13 @@ spring:
       save-mode: always
 
 yunhefc:
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:5173}
+  sms:
+    mock-code: ${SMS_MOCK_CODE:123456}
+    ttl-seconds: ${SMS_TTL_SECONDS:300}
+  invite:
+    expiry-cron: ${INVITE_EXPIRY_CRON:0 0 3 * * ?}
+    zone: ${INVITE_EXPIRY_ZONE:Asia/Shanghai}
   session:
     c-ttl: 7d
     b-ttl: 2h

@@ -3,7 +3,6 @@ package com.yunhefc.auth.application;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
-import com.yunhefc.common.Labels;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import org.springframework.stereotype.Component;
@@ -28,8 +27,8 @@ public class UserViewAssembler {
                 user.getId(),
                 player == null ? phoneMasked : player.name(),
                 phoneMasked,
-                user.getStatus(),
-                Labels.userStatus(user.getStatus()),
+                user.getStatus().code(),
+                user.getStatus().label(),
                 new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())),
                 user.getCreatedAt());
     }

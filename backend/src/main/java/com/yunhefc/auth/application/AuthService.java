@@ -5,7 +5,10 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.InviteLink;
+import com.yunhefc.auth.domain.InviteType;
+import com.yunhefc.auth.domain.RoleCodes;
 import com.yunhefc.auth.domain.Team;
+import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.dto.AuthDtos.AuthResult;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.auth.dto.AuthDtos.MeView;
@@ -19,7 +22,6 @@ import com.yunhefc.auth.infrastructure.AppUserMapper;
 import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
-import com.yunhefc.common.Labels;
 import com.yunhefc.common.security.BackendPermissions;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
@@ -27,6 +29,8 @@ import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.notification.NotificationReadPort;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
+import com.yunhefc.contracts.player.PlayerType;
+import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccessPort;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
@@ -34,7 +38,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,6 +66,7 @@ public class AuthService implements UserAccessPort {
     private final PasswordEncoder passwordEncoder;
     private final AuditRecorder auditRecorder;
     private final UserViewAssembler userViewAssembler;
+    private final Clock clock;
 
     public AuthService(
             AppUserMapper userMapper,
@@ -75,7 +81,8 @@ public class AuthService implements UserAccessPort {
             InviteService inviteService,
             PasswordEncoder passwordEncoder,
             AuditRecorder auditRecorder,
-            UserViewAssembler userViewAssembler) {
+            UserViewAssembler userViewAssembler,
+            Clock clock) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
@@ -89,6 +96,7 @@ public class AuthService implements UserAccessPort {
         this.passwordEncoder = passwordEncoder;
         this.auditRecorder = auditRecorder;
         this.userViewAssembler = userViewAssembler;
+        this.clock = clock;
     }
 
     public int sendSms(String phone, String purpose) {
@@ -111,21 +119,23 @@ public class AuthService implements UserAccessPort {
         InviteLink invite = request.inviteToken() == null || request.inviteToken().isBlank()
                 ? null
                 : inviteService.findUsableForRegistration(request.inviteToken());
-        boolean teamInvite = invite != null && invite.getType() == 0;
+        boolean teamInvite = invite != null && invite.getType() == InviteType.TEAM;
 
         Long teamId = teamId();
+        Instant now = Instant.now(clock);
         AppUser user = new AppUser();
         user.setPhone(request.phone());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
-        user.setStatus(teamInvite ? 1 : 0);
-        user.setLastLoginAt(LocalDateTime.now());
-        user.setCreatedAt(LocalDateTime.now());
+        user.setStatus(teamInvite ? UserStatus.ACTIVE : UserStatus.PENDING);
+        user.setLastLoginAt(now);
+        user.setCreatedAt(now);
         userMapper.insert(user);
 
         PlayerSnapshot player = playerProfileService.createProfile(
-                teamId, user.getId(), request.name(), teamInvite ? 1 : 0, request.position());
+                teamId, user.getId(), request.name(),
+                teamInvite ? PlayerType.PLAYER : PlayerType.GUEST, Position.of(request.position()));
 
-        String roleCode = teamInvite ? "PLAYER" : "GUEST";
+        String roleCode = teamInvite ? RoleCodes.PLAYER : RoleCodes.GUEST;
         AppRole role = role(teamId, roleCode);
         if (role == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "默认角色未初始化");
@@ -135,7 +145,7 @@ public class AuthService implements UserAccessPort {
             inviteService.consume(invite, user.getId());
         }
         auditRecorder.record(teamId, user.getId(), request.name(), "ACCOUNT_REGISTER", "USER",
-                user.getId(), null, java.util.Map.of("status", user.getStatus(), "role", roleCode));
+                user.getId(), null, java.util.Map.of("status", user.getStatus().code(), "role", roleCode));
         return new AuthResult(userView(user), playerView(player), permissions(user.getId()));
     }
 
@@ -146,7 +156,7 @@ public class AuthService implements UserAccessPort {
         if (user == null || user.getPasswordHash() == null) {
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
-        if (user.getStatus() == 2) {
+        if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
         if (!passwordEncoder.matches(request.password(), user.getPasswordHash())) {
@@ -156,13 +166,13 @@ public class AuthService implements UserAccessPort {
         loginAttemptService.clear(request.phone());
 
         Set<String> permissions = permissions(user.getId());
-        if (backend && user.getStatus() == 0) {
+        if (backend && user.getStatus() == UserStatus.PENDING) {
             throw new BusinessException(ErrorCode.ACCOUNT_PENDING);
         }
         if (backend && !BackendPermissions.hasBackendPermission(permissions)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "账号没有后台权限");
         }
-        user.setLastLoginAt(LocalDateTime.now());
+        user.setLastLoginAt(Instant.now(clock));
         userMapper.updateById(user);
         return new AuthResult(userView(user), player(user.getId()), permissions);
     }
@@ -194,7 +204,7 @@ public class AuthService implements UserAccessPort {
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "账号不存在");
         }
-        if (user.getStatus() == 2) {
+        if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
@@ -216,8 +226,8 @@ public class AuthService implements UserAccessPort {
                     user.getId(),
                     player == null ? null : player.name(),
                     UserViewAssembler.maskPhone(user.getPhone()),
-                    user.getStatus(),
-                    Labels.userStatus(user.getStatus()),
+                    user.getStatus().code(),
+                    user.getStatus().label(),
                     new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())),
                     player == null ? null : player.type(),
                     player == null ? null : player.typeLabel());
@@ -242,7 +252,8 @@ public class AuthService implements UserAccessPort {
         user.setPhone(phone);
         userMapper.updateById(user);
         auditRecorder.recordCurrent("PHONE_CHANGE", "USER", userId,
-                java.util.Map.of("phone", before), java.util.Map.of("phone", phone));
+                java.util.Map.of("phone", UserViewAssembler.maskPhone(before)),
+                java.util.Map.of("phone", UserViewAssembler.maskPhone(phone)));
         return userView(user);
     }
 
@@ -253,23 +264,22 @@ public class AuthService implements UserAccessPort {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
         String before = user.getOpenid();
-        user.setOpenid(null);
-        userMapper.updateById(user);
+        userMapper.clearOpenid(userId);
         auditRecorder.recordCurrent("WECHAT_UNBIND", "USER", userId,
-                java.util.Map.of("openid", before == null ? "" : before), null);
+                java.util.Map.of("openid", before == null ? "" : "***"), null);
     }
 
     @Override
     public Optional<AuthPrincipal> load(Long userId) {
         AppUser user = userMapper.selectById(userId);
-        if (user == null || user.getStatus() == 2) {
+        if (user == null || user.getStatus() == UserStatus.DISABLED) {
             return Optional.empty();
         }
         PlayerSnapshot player = playerReadPort.findByUserId(userId).orElse(null);
         return Optional.of(new AuthPrincipal(
                 user.getId(),
                 user.getPhone(),
-                user.getStatus(),
+                user.getStatus().code(),
                 player == null ? teamId() : player.teamId(),
                 player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.name(),
                 new LinkedHashSet<>(userRoleMapper.findRoleCodes(userId)),
@@ -337,9 +347,9 @@ public class AuthService implements UserAccessPort {
                 player.name(),
                 player.jersey(),
                 player.type(),
-                Labels.playerType(player.type()),
+                PlayerType.of(player.type()).label(),
                 player.position(),
-                Labels.position(player.position()),
+                Position.of(player.position()).label(),
                 player.skill());
     }
 

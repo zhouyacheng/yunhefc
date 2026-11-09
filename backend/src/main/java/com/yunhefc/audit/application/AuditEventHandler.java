@@ -7,6 +7,8 @@ import com.yunhefc.audit.infrastructure.AuditLogMapper;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.ConsumedEventMapper;
 import com.yunhefc.infra.outbox.OutboxMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,6 +18,8 @@ import java.util.Map;
 public class AuditEventHandler {
 
     public static final String GROUP = "yunhefc-audit";
+
+    private static final Logger log = LoggerFactory.getLogger(AuditEventHandler.class);
 
     private final AuditLogMapper auditLogMapper;
     private final ConsumedEventMapper consumedEventMapper;
@@ -54,6 +58,8 @@ public class AuditEventHandler {
             log.setIp(asString(payload.get("ip")));
             auditLogMapper.insert(log);
         } catch (Exception ex) {
+            log.error("audit event handling failed, topic={}, partition={}, offset={}",
+                    topic, partition, offset, ex);
             throw new IllegalStateException("处理审计事件失败", ex);
         }
     }

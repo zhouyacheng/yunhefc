@@ -3,6 +3,8 @@ package com.yunhefc.player.application;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.player.PlayerSnapshot;
+import com.yunhefc.contracts.player.PlayerType;
+import com.yunhefc.contracts.player.Position;
 import com.yunhefc.player.domain.Player;
 import com.yunhefc.player.infrastructure.PlayerMapper;
 import org.springframework.stereotype.Service;
@@ -19,7 +21,7 @@ public class PlayerProfileApplicationService {
         this.playerMapper = playerMapper;
     }
 
-    public PlayerSnapshot createProfile(Long teamId, Long userId, String name, int type, int position) {
+    public PlayerSnapshot createProfile(Long teamId, Long userId, String name, PlayerType type, Position position) {
         Player player = new Player();
         player.setTeamId(teamId);
         player.setUserId(userId);
@@ -37,10 +39,10 @@ public class PlayerProfileApplicationService {
         if (player == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "球员档案不存在");
         }
-        if (player.getType() == 1) {
+        if (player.getType() == PlayerType.PLAYER) {
             return;
         }
-        player.setType(1);
+        player.setType(PlayerType.PLAYER);
         playerMapper.updateById(player);
     }
 }

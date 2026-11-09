@@ -1,14 +1,18 @@
 package com.yunhefc.auth.domain;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-@Data
+@Getter
+@Setter
 @TableName("app_role")
 public class AppRole {
 
@@ -18,8 +22,9 @@ public class AppRole {
     private String code;
     private String name;
     private Integer isDefault;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private Instant createdAt;
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private Instant updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

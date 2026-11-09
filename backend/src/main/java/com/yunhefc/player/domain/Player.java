@@ -1,14 +1,20 @@
 package com.yunhefc.player.domain;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import com.yunhefc.contracts.player.PlayerType;
+import com.yunhefc.contracts.player.Position;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-@Data
+@Getter
+@Setter
 @TableName("player")
 public class Player {
 
@@ -18,14 +24,15 @@ public class Player {
     private Long userId;
     private String name;
     private Integer jersey;
-    private Integer type;
-    private Integer position;
+    private PlayerType type;
+    private Position position;
     private String secondaryPositions;
     private String region;
     private String avatarUrl;
     private Integer skill;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private Instant createdAt;
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private Instant updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

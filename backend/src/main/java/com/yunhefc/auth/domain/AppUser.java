@@ -1,14 +1,18 @@
 package com.yunhefc.auth.domain;
 
+import com.baomidou.mybatisplus.annotation.FieldStrategy;
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 
-@Data
+@Getter
+@Setter
 @TableName("app_user")
 public class AppUser {
 
@@ -17,10 +21,11 @@ public class AppUser {
     private String phone;
     private String passwordHash;
     private String openid;
-    private Integer status;
-    private LocalDateTime lastLoginAt;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
+    private UserStatus status;
+    private Instant lastLoginAt;
+    private Instant createdAt;
+    @TableField(updateStrategy = FieldStrategy.NEVER)
+    private Instant updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

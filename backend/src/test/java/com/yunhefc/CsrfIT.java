@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-class CsrfTest extends IntegrationTestSupport {
+class CsrfIT extends IntegrationTestSupport {
 
     @Test
     void writeWithoutCsrfTokenIsRejected() throws Exception {

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.Permission;
+import com.yunhefc.auth.domain.RoleCodes;
 import com.yunhefc.auth.domain.Team;
 import com.yunhefc.auth.dto.RoleDtos.PermissionView;
 import com.yunhefc.auth.dto.RoleDtos.RoleCreateRequest;
@@ -19,9 +20,11 @@ import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.contracts.messaging.EventTypes;
+import com.yunhefc.infra.outbox.OutboxEvent;
 import com.yunhefc.infra.outbox.OutboxService;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -94,7 +97,12 @@ public class RoleService {
         role.setCode(request.code());
         role.setName(request.name());
         role.setIsDefault(0);
-        roleMapper.insert(role);
+        try {
+            roleMapper.insert(role);
+        } catch (DuplicateKeyException ex) {
+            // 伪删除不释放 uk_role_team_code，已删除角色的 code 仍然占用
+            throw new BusinessException(ErrorCode.ROLE_CODE_EXISTS);
+        }
         replacePermissions(role.getId(), permissions);
         RoleView view = view(role);
         audit("ROLE_CREATE", role.getId(), null, view);
@@ -161,17 +169,15 @@ public class RoleService {
         if (codes.isEmpty()) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "至少分配一个角色");
         }
-        if (codes.contains("GUEST") && codes.contains("PLAYER")) {
+        if (codes.contains(RoleCodes.GUEST) && codes.contains(RoleCodes.PLAYER)) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "GUEST 与 PLAYER 互斥");
         }
-        if (codes.contains("ADMIN") && !codes.contains("PLAYER")) {
+        if (codes.contains(RoleCodes.ADMIN) && !codes.contains(RoleCodes.PLAYER)) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "管理员必须叠加正式球员角色");
         }
         List<String> before = userRoleMapper.findRoleCodes(userId);
         userRoleMapper.removeAll(userId);
-        for (AppRole role : roles) {
-            userRoleMapper.upsert(userId, role.getId());
-        }
+        userRoleMapper.upsertBatch(userId, roles.stream().map(AppRole::getId).toList());
         ensureAdminExists();
         List<String> after = userRoleMapper.findRoleCodes(userId);
         audit("USER", "USER_ROLES_UPDATE", userId, before, after);
@@ -190,10 +196,11 @@ public class RoleService {
 
     private void notifyRoleUsers(Long roleId, String roleCode) {
         Long actorId = CurrentUser.principal().userId();
-        for (Long userId : userRoleMapper.findUserIdsByRole(roleId)) {
-            outboxService.append(null, "USER", userId, EventTypes.ROLE_CHANGED,
-                    Map.of("userId", userId, "roles", List.of(roleCode), "actorUserId", actorId));
-        }
+        List<OutboxEvent> events = userRoleMapper.findUserIdsByRole(roleId).stream()
+                .map(userId -> outboxService.newEvent(null, "USER", userId, EventTypes.ROLE_CHANGED,
+                        Map.of("userId", userId, "roles", List.of(roleCode), "actorUserId", actorId)))
+                .toList();
+        outboxService.appendBatch(events);
     }
 
     private void ensureAdminExists() {
@@ -216,8 +223,9 @@ public class RoleService {
 
     private void replacePermissions(Long roleId, List<Permission> permissions) {
         rolePermissionMapper.removeAll(roleId);
-        for (Permission permission : permissions) {
-            rolePermissionMapper.upsert(roleId, permission.getId());
+        if (!permissions.isEmpty()) {
+            rolePermissionMapper.upsertBatch(roleId,
+                    permissions.stream().map(Permission::getId).toList());
         }
     }
 

@@ -1,20 +1,29 @@
 package com.yunhefc.common.error;
 
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.api.RequestContext;
+import jakarta.validation.ConstraintViolationException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Object>> handleBusiness(BusinessException ex) {
@@ -38,6 +47,14 @@ public class GlobalExceptionHandler {
                         ErrorCode.VALIDATION_FAILED.message(), Map.of("details", details)));
     }
 
+    @ExceptionHandler({HttpMessageNotReadableException.class, MethodArgumentTypeMismatchException.class,
+            MissingServletRequestParameterException.class, ConstraintViolationException.class})
+    public ResponseEntity<ApiResponse<Object>> handleBadRequest(Exception ex) {
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(ErrorCode.VALIDATION_FAILED.code(),
+                        ErrorCode.VALIDATION_FAILED.message(), null));
+    }
+
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Object>> handleAuthentication(AuthenticationException ex) {
         return ResponseEntity.status(ErrorCode.UNAUTHENTICATED.status())
@@ -53,6 +70,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Object>> handleOther(Exception ex) {
+        log.error("unhandled request error, requestId={}", RequestContext.requestId(), ex);
         return ResponseEntity.status(ErrorCode.INTERNAL_ERROR.status())
                 .body(ApiResponse.error(ErrorCode.INTERNAL_ERROR.code(),
                         ErrorCode.INTERNAL_ERROR.message(), null));

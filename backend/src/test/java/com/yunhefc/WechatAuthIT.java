@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-class WechatAuthTest extends IntegrationTestSupport {
+class WechatAuthIT extends IntegrationTestSupport {
 
     @Test
     void authorizeCallbackBindPhoneAndReplayProtection() throws Exception {
@@ -23,17 +23,20 @@ class WechatAuthTest extends IntegrationTestSupport {
                 .andReturn();
         String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
         String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie authorizeCookie = cookie(authorize, "YHFC_C");
 
         MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(authorizeCookie)
                         .param("code", "abc")
                         .param("state", state))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.needBindPhone").value(true))
                 .andReturn();
-        Cookie cookie = cookie(callback, "YHFC_C");
+        Cookie cookie = authorizeCookie;
         String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
 
         mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(authorizeCookie)
                         .param("code", "abc")
                         .param("state", state))
                 .andExpect(status().isBadRequest());
@@ -66,7 +69,9 @@ class WechatAuthTest extends IntegrationTestSupport {
                 .andReturn();
         String secondUrl = JsonPath.read(secondAuthorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
         String secondState = secondUrl.substring(secondUrl.indexOf("state=") + 6);
+        Cookie secondAuthorizeCookie = cookie(secondAuthorize, "YHFC_C");
         mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(secondAuthorizeCookie)
                         .param("code", "abc")
                         .param("state", secondState))
                 .andExpect(status().isOk())

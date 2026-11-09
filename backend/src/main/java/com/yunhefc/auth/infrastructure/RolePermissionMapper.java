@@ -23,11 +23,16 @@ public interface RolePermissionMapper {
     int removeAll(@Param("roleId") Long roleId);
 
     @Insert("""
+            <script>
             INSERT INTO role_permission (role_id, permission_id)
-            VALUES (#{roleId}, #{permissionId})
+            VALUES
+            <foreach collection="permissionIds" item="permissionId" separator=",">
+                (#{roleId}, #{permissionId})
+            </foreach>
             ON DUPLICATE KEY UPDATE is_deleted = 0
+            </script>
             """)
-    int upsert(@Param("roleId") Long roleId, @Param("permissionId") Long permissionId);
+    int upsertBatch(@Param("roleId") Long roleId, @Param("permissionIds") List<Long> permissionIds);
 
     @Select("""
             SELECT COUNT(DISTINCT u.id)

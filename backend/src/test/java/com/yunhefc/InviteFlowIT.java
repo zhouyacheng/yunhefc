@@ -13,7 +13,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-class InviteFlowTest extends IntegrationTestSupport {
+class InviteFlowIT extends IntegrationTestSupport {
 
     @Test
     void teamInviteActivatesPendingUserAndIsIdempotent() throws Exception {

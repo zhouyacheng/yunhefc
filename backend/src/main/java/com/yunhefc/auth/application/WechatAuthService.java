@@ -3,7 +3,9 @@ package com.yunhefc.auth.application;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
+import com.yunhefc.auth.domain.RoleCodes;
 import com.yunhefc.auth.domain.Team;
+import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.dto.AuthDtos.AuthResponse;
 import com.yunhefc.auth.dto.AuthDtos.PlayerView;
 import com.yunhefc.auth.dto.WechatDtos.AuthorizeResponse;
@@ -16,12 +18,13 @@ import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.auth.wechat.WechatOAuthClient;
 import com.yunhefc.auth.wechat.WechatProperties;
 import com.yunhefc.auth.wechat.WechatStateStore;
-import com.yunhefc.common.Labels;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.AuthSessionService;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
+import com.yunhefc.contracts.player.PlayerType;
+import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.SessionKeys;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,7 +33,8 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -54,6 +58,7 @@ public class WechatAuthService {
     private final SmsCodeService smsCodeService;
     private final AuthSessionService sessionService;
     private final UserViewAssembler userViewAssembler;
+    private final Clock clock;
 
     public WechatAuthService(
             WechatProperties properties,
@@ -67,7 +72,8 @@ public class WechatAuthService {
             PlayerProfileApplicationService playerProfileService,
             SmsCodeService smsCodeService,
             AuthSessionService sessionService,
-            UserViewAssembler userViewAssembler) {
+            UserViewAssembler userViewAssembler,
+            Clock clock) {
         this.properties = properties;
         this.oauthClient = oauthClient;
         this.stateStore = stateStore;
@@ -80,9 +86,10 @@ public class WechatAuthService {
         this.smsCodeService = smsCodeService;
         this.sessionService = sessionService;
         this.userViewAssembler = userViewAssembler;
+        this.clock = clock;
     }
 
-    public AuthorizeResponse authorize(String redirect, String userAgent) {
+    public AuthorizeResponse authorize(String redirect, String userAgent, HttpServletRequest request) {
         if (!properties.isEnabled()) {
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "微信授权未启用");
         }
@@ -93,11 +100,20 @@ public class WechatAuthService {
         String safeRedirect = validateRedirect(redirect);
         String state = UUID.randomUUID().toString();
         stateStore.put(state, safeRedirect);
+        // state 绑定发起授权的浏览器会话，防止登录 CSRF
+        request.getSession(true).setAttribute(SessionKeys.WECHAT_STATE, state);
         return new AuthorizeResponse(oauthClient.authorizeUrl(state));
     }
 
     public CallbackResponse callback(String code, String state, HttpServletRequest request,
                                      HttpServletResponse response) {
+        HttpSession stateSession = request.getSession(false);
+        String expectedState = stateSession == null ? null
+                : (String) stateSession.getAttribute(SessionKeys.WECHAT_STATE);
+        if (expectedState == null || !expectedState.equals(state)) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "微信 state 无效或已使用");
+        }
+        stateSession.removeAttribute(SessionKeys.WECHAT_STATE);
         String redirect = stateStore.consume(state);
         if (redirect == null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "微信 state 无效或已使用");
@@ -141,7 +157,7 @@ public class WechatAuthService {
         AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
                 .eq(AppUser::getPhone, request.phone()));
         if (user != null) {
-            if (user.getStatus() == 2) {
+            if (user.getStatus() == UserStatus.DISABLED) {
                 throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
             }
             bindOpenid(user, openid);
@@ -162,15 +178,16 @@ public class WechatAuthService {
         AppUser user = new AppUser();
         user.setPhone(request.phone());
         user.setOpenid(openid);
-        user.setStatus(0);
-        user.setCreatedAt(LocalDateTime.now());
+        user.setStatus(UserStatus.PENDING);
+        user.setCreatedAt(Instant.now(clock));
         userMapper.insert(user);
 
-        playerProfileService.createProfile(teamId, user.getId(), request.name(), 0, request.position());
+        playerProfileService.createProfile(teamId, user.getId(), request.name(),
+                PlayerType.GUEST, Position.of(request.position()));
 
         AppRole role = roleMapper.selectOne(new LambdaQueryWrapper<AppRole>()
                 .eq(AppRole::getTeamId, teamId)
-                .eq(AppRole::getCode, "GUEST"));
+                .eq(AppRole::getCode, RoleCodes.GUEST));
         if (role == null) {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "GUEST 角色未初始化");
         }
@@ -196,14 +213,14 @@ public class WechatAuthService {
         if (user == null) {
             throw new BusinessException(ErrorCode.UNAUTHENTICATED);
         }
-        if (user.getStatus() == 2) {
+        if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
         return user;
     }
 
     private AuthResponse login(AppUser user, HttpServletRequest request, HttpServletResponse response) {
-        if (user.getStatus() == 2) {
+        if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
         PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
@@ -217,8 +234,8 @@ public class WechatAuthService {
             return null;
         }
         return new PlayerView(player.id(), player.name(), player.jersey(), player.type(),
-                Labels.playerType(player.type()), player.position(),
-                Labels.position(player.position()), player.skill());
+                PlayerType.of(player.type()).label(), player.position(),
+                Position.of(player.position()).label(), player.skill());
     }
 
     private Long teamId() {
@@ -231,7 +248,9 @@ public class WechatAuthService {
 
     private String validateRedirect(String redirect) {
         String value = redirect == null || redirect.isBlank() ? "/" : redirect;
-        if (!value.startsWith("/") || value.startsWith("//") || value.contains("://")) {
+        if (!value.startsWith("/") || value.startsWith("//") || value.contains("://")
+                || value.contains("\\")
+                || value.chars().anyMatch(ch -> ch < 0x20 || ch == 0x7F)) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "redirect 必须是站内路径");
         }
         List<String> prefixes = properties.getAllowedRedirectPrefixes();

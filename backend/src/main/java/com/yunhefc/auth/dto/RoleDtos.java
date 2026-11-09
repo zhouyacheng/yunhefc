@@ -2,6 +2,7 @@ package com.yunhefc.auth.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
@@ -16,10 +17,11 @@ public final class RoleDtos {
     public record PermissionView(Long id, String code, String name, String resource, String action, String scope) {
     }
 
-    public record RoleCreateRequest(@NotBlank String code, @NotBlank String name, List<String> permissions) {
+    public record RoleCreateRequest(@NotBlank String code, @NotBlank @Size(max = 64) String name,
+                                    List<String> permissions) {
     }
 
-    public record RoleRenameRequest(@NotBlank String name) {
+    public record RoleRenameRequest(@NotBlank @Size(max = 64) String name) {
     }
 
     public record RolePermissionsRequest(@NotEmpty List<String> permissions) {

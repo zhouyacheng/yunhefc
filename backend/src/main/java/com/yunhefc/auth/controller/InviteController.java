@@ -1,0 +1,92 @@
+package com.yunhefc.auth.controller;
+
+import com.yunhefc.auth.application.AuthService;
+import com.yunhefc.auth.application.InviteService;
+import com.yunhefc.auth.dto.AuthDtos.InviteAdminView;
+import com.yunhefc.auth.dto.AuthDtos.InviteCreateRequest;
+import com.yunhefc.auth.dto.AuthDtos.InviteView;
+import com.yunhefc.auth.dto.AuthDtos.MatchInviteCreateRequest;
+import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.idempotency.Idempotent;
+import com.yunhefc.common.api.PageResponse;
+import com.yunhefc.common.security.CurrentUser;
+import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1")
+public class InviteController {
+
+    private final InviteService inviteService;
+    private final AuthService authService;
+
+    public InviteController(InviteService inviteService, AuthService authService) {
+        this.inviteService = inviteService;
+        this.authService = authService;
+    }
+
+    @GetMapping("/c/invites/{token}")
+    public ApiResponse<InviteView> resolve(@PathVariable String token) {
+        return ApiResponse.ok(inviteService.resolve(token));
+    }
+
+    @PostMapping("/c/invites/{token}/accept")
+    public ApiResponse<Map<String, Object>> accept(@PathVariable String token) {
+        Long userId = CurrentUser.principal().userId();
+        InviteView invite = inviteService.accept(token, userId);
+        Map<String, Object> data = new HashMap<>();
+        data.put("player", authService.me(userId).player());
+        data.put("matchId", invite.match() == null ? null : invite.match().id());
+        return ApiResponse.ok(data);
+    }
+
+    @PostMapping("/c/matches/{id}/invites")
+    @PreAuthorize("hasAuthority('invite:create:match')")
+    @Idempotent("INV-03")
+    public ApiResponse<Map<String, Object>> createMatchInvite(@PathVariable Long id,
+                                                             @Valid @RequestBody MatchInviteCreateRequest request) {
+        InviteAdminView invite = inviteService.createMatchInvite(
+                CurrentUser.principal().userId(), id, request.expiresInDays(), request.maxUses());
+        return ApiResponse.ok(Map.of("inviteUrl", invite.inviteUrl(), "expiresAt", invite.expiresAt()));
+    }
+
+    @GetMapping("/b/invites")
+    @PreAuthorize("hasAuthority('invite:manage:any')")
+    public ApiResponse<PageResponse<InviteAdminView>> list(
+            @RequestParam(required = false) Integer type,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "10") long pageSize) {
+        if (page < 1 || pageSize < 1 || pageSize > 100) {
+            throw new com.yunhefc.common.error.BusinessException(
+                    com.yunhefc.common.error.ErrorCode.VALIDATION_FAILED, "分页参数不合法");
+        }
+        return ApiResponse.ok(inviteService.list(type, status, page, pageSize));
+    }
+
+    @PostMapping("/b/invites")
+    @PreAuthorize("hasAuthority('invite:manage:any')")
+    @Idempotent("INV-05")
+    public ApiResponse<Map<String, Object>> create(@Valid @RequestBody InviteCreateRequest request) {
+        InviteAdminView invite = inviteService.create(CurrentUser.principal().userId(), request);
+        return ApiResponse.ok(Map.of("inviteUrl", invite.inviteUrl(), "expiresAt", invite.expiresAt()));
+    }
+
+    @PostMapping("/b/invites/{id}/revoke")
+    @PreAuthorize("hasAuthority('invite:manage:any')")
+    @Idempotent("INV-06")
+    public ApiResponse<Map<String, Integer>> revoke(@PathVariable Long id) {
+        inviteService.revoke(id);
+        return ApiResponse.ok(Map.of("status", 1));
+    }
+}

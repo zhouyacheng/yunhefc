@@ -52,7 +52,7 @@ description: MySQL 表结构、命名、枚举、伪删除、索引、约束与 
 
 ## 4 枚举、COMMENT 与伪删除
 
-1. 所有字段必须带中文 `COMMENT`；枚举/布尔字段的 COMMENT 同时写明数字与含义。
+1. 每张业务表必须有表级中文 `COMMENT`；所有字段必须带中文 `COMMENT`；枚举/布尔字段的 COMMENT 同时写明数字与含义。
 2. 枚举编码以 `04.数据库设计.md` §2.4 为唯一事实源；API 返回 code + `*Label`，请求只接受数字 code。
 3. 27 张业务表均包含：
 
@@ -146,7 +146,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 表名/字段 snake_case、单数、避开保留字
 - [ ] 主键/关联字段类型与命名正确，关联表使用复合主键
 - [ ] 枚举字段为 TINYINT UNSIGNED，COMMENT 含数字映射
-- [ ] 所有字段有中文 COMMENT
+- [ ] 27 张业务表有表级中文 COMMENT；所有字段有中文 COMMENT
 - [ ] 27 张业务表均有 `is_deleted`，查询默认过滤
 - [ ] `registration.active` 0/1，`active_unique` 参与唯一键
 - [ ] 业务表 0 物理外键；Quartz 5 框架外键保留
@@ -154,5 +154,5 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间 UTC、`DATETIME(3)`；业务边界按 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V4 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V5 顺序正确、可重复、无环境硬编码
 - [ ] 未执行生产 DDL、未手工改表

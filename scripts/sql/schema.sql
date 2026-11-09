@@ -25,7 +25,7 @@ CREATE TABLE team (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_team_name (name)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='球队';
 
 CREATE TABLE app_user (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -41,7 +41,7 @@ CREATE TABLE app_user (
   UNIQUE KEY uk_user_phone (phone),
   UNIQUE KEY uk_user_openid (openid),
   KEY idx_user_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='账号';
 
 CREATE TABLE player (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -67,7 +67,7 @@ CREATE TABLE player (
   KEY idx_player_team_type (team_id, type),
   KEY idx_player_team_jersey (team_id, jersey),
   KEY idx_player_team_position (team_id, position)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='球员档案';
 
 CREATE TABLE app_role (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -80,7 +80,7 @@ CREATE TABLE app_role (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_role_team_code (team_id, code)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色';
 
 CREATE TABLE permission (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -93,7 +93,7 @@ CREATE TABLE permission (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_permission_code (code)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='权限点';
 
 CREATE TABLE user_role (
   user_id     BIGINT UNSIGNED NOT NULL COMMENT '用户ID',
@@ -102,7 +102,7 @@ CREATE TABLE user_role (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (user_id, role_id),
   KEY idx_user_role_role (role_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户角色关联';
 
 CREATE TABLE role_permission (
   role_id        BIGINT UNSIGNED NOT NULL COMMENT '角色ID',
@@ -111,7 +111,7 @@ CREATE TABLE role_permission (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (role_id, permission_id),
   KEY idx_role_permission_permission (permission_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='角色权限关联';
 
 -- ---------------------------------------------------------------------------
 -- 邀请
@@ -136,7 +136,7 @@ CREATE TABLE invite_link (
   UNIQUE KEY uk_invite_token_hash (token_hash),
   KEY idx_invite_team_status (team_id, status, expires_at),
   KEY idx_invite_match (match_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邀请链接';
 
 CREATE TABLE invite_use (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -147,7 +147,7 @@ CREATE TABLE invite_use (
   PRIMARY KEY (id),
   UNIQUE KEY uk_invite_use (invite_id, user_id),
   KEY idx_invite_use_user (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邀请使用记录';
 
 -- ---------------------------------------------------------------------------
 -- 比赛与参与
@@ -194,7 +194,7 @@ CREATE TABLE team_match (
   KEY idx_match_team_start (team_id, start_at),
   KEY idx_match_team_type_season (team_id, type, season),
   KEY idx_match_team_venue (team_id, venue)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='比赛';
 
 CREATE TABLE registration (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -217,7 +217,7 @@ CREATE TABLE registration (
   UNIQUE KEY uk_registration_active (match_id, player_id, active_unique),
   KEY idx_registration_match_pool (match_id, type, status, registered_at),
   KEY idx_registration_player (player_id, status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='报名记录';
 
 CREATE TABLE attendance (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -232,7 +232,7 @@ CREATE TABLE attendance (
   PRIMARY KEY (id),
   UNIQUE KEY uk_attendance_match_player (match_id, player_id),
   KEY idx_attendance_match_status (match_id, status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='考勤记录';
 
 -- ---------------------------------------------------------------------------
 -- 赛况
@@ -262,7 +262,7 @@ CREATE TABLE match_event (
   KEY idx_event_timeline (match_id, deleted_at, half, minute),
   KEY idx_event_player (player_id),
   KEY idx_event_assist (assist_player_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='比赛事件';
 
 CREATE TABLE event_history (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -276,7 +276,7 @@ CREATE TABLE event_history (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   KEY idx_event_history_event (event_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='事件变更历史';
 
 -- ---------------------------------------------------------------------------
 -- 阵容与分组
@@ -294,7 +294,7 @@ CREATE TABLE formation_template (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   KEY idx_formation_team_preset (team_id, is_preset)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='阵型模板';
 
 CREATE TABLE formation_slot (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -307,7 +307,7 @@ CREATE TABLE formation_slot (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_formation_slot (template_id, slot_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='阵型槽位';
 
 CREATE TABLE lineup (
   id                    BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -321,7 +321,7 @@ CREATE TABLE lineup (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_lineup_match_side (match_id, side)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='阵容';
 
 CREATE TABLE lineup_slot (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -335,7 +335,7 @@ CREATE TABLE lineup_slot (
   UNIQUE KEY uk_lineup_slot_key (lineup_id, slot_key),
   UNIQUE KEY uk_lineup_slot_player (lineup_id, player_id),
   KEY idx_lineup_slot_type (lineup_id, slot_type)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='阵容槽位';
 
 CREATE TABLE match_grouping (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -351,7 +351,7 @@ CREATE TABLE match_grouping (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_grouping_match (match_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='队内分组';
 
 CREATE TABLE match_grouping_player (
   id           BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -366,7 +366,7 @@ CREATE TABLE match_grouping_player (
   PRIMARY KEY (id),
   UNIQUE KEY uk_grouping_player (grouping_id, player_id),
   KEY idx_grouping_team (grouping_id, team)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='分组成员';
 
 -- ---------------------------------------------------------------------------
 -- 统计与通知
@@ -386,7 +386,7 @@ CREATE TABLE player_stats_summary (
   PRIMARY KEY (id),
   UNIQUE KEY uk_stats_team_player_season (team_id, player_id, season),
   KEY idx_stats_team_season (team_id, season)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='球员统计汇总';
 
 CREATE TABLE notification (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -402,7 +402,7 @@ CREATE TABLE notification (
   PRIMARY KEY (id),
   KEY idx_notification_user_read (user_id, read_at, created_at),
   KEY idx_notification_ref (ref_type, ref_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='站内通知';
 
 CREATE TABLE audit_log (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -422,7 +422,7 @@ CREATE TABLE audit_log (
   KEY idx_audit_team_created (team_id, created_at),
   KEY idx_audit_target (target_type, target_id),
   KEY idx_audit_actor (actor_user_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志';
 
 -- ---------------------------------------------------------------------------
 -- 基础设施：Outbox / 消费去重 / 幂等 / 配置
@@ -449,7 +449,7 @@ CREATE TABLE outbox_event (
   UNIQUE KEY uk_outbox_event_id (event_id),
   KEY idx_outbox_status_retry (status, next_retry_at),
   KEY idx_outbox_aggregate (aggregate_type, aggregate_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='事务性 Outbox 事件';
 
 CREATE TABLE consumed_event (
   id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -464,7 +464,7 @@ CREATE TABLE consumed_event (
   UNIQUE KEY uk_consumed_group_event (consumer_group, event_id),
   UNIQUE KEY uk_consumed_offset (topic, consumer_group, partition_no, offset_no),
   KEY idx_consumed_processed (processed_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='Kafka 消费去重记录';
 
 CREATE TABLE idempotency_key (
   id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -480,7 +480,7 @@ CREATE TABLE idempotency_key (
   PRIMARY KEY (id),
   UNIQUE KEY uk_idempotency (user_id, endpoint, idem_key),
   KEY idx_idempotency_expires (expires_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='幂等键记录';
 
 CREATE TABLE system_setting (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
@@ -494,4 +494,4 @@ CREATE TABLE system_setting (
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   UNIQUE KEY uk_setting_team_key (team_id, setting_key)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='系统配置';

@@ -1,0 +1,50 @@
+package com.yunhefc.common.error;
+
+import org.springframework.http.HttpStatus;
+
+public enum ErrorCode {
+
+    VALIDATION_FAILED(40001, HttpStatus.BAD_REQUEST, "参数/字段校验失败"),
+    UNAUTHENTICATED(40101, HttpStatus.UNAUTHORIZED, "未登录或会话失效"),
+    INVALID_CREDENTIALS(40102, HttpStatus.UNAUTHORIZED, "手机号或密码错误"),
+    ACCOUNT_LOCKED(40103, HttpStatus.UNAUTHORIZED, "账号已锁定"),
+    ACCOUNT_DISABLED(40104, HttpStatus.UNAUTHORIZED, "账号已注销"),
+    FORBIDDEN(40301, HttpStatus.FORBIDDEN, "无权限"),
+    ADMIN_SECTION_FORBIDDEN(40302, HttpStatus.FORBIDDEN, "无后台分区权限"),
+    ACCOUNT_PENDING(40303, HttpStatus.FORBIDDEN, "待审核账号不能执行该操作"),
+    NOT_FOUND(40401, HttpStatus.NOT_FOUND, "资源不存在"),
+    DUPLICATE_JERSEY(40904, HttpStatus.CONFLICT, "正式球员号码冲突"),
+    IDEMPOTENCY_KEY_REUSED(40906, HttpStatus.CONFLICT, "同一幂等键对应不同请求"),
+    PHONE_EXISTS(40907, HttpStatus.CONFLICT, "手机号已注册"),
+    ROLE_IN_USE(40908, HttpStatus.CONFLICT, "角色仍被用户占用"),
+    INVITE_UNAVAILABLE(40910, HttpStatus.CONFLICT, "邀请不可用"),
+    ROLE_CODE_EXISTS(40912, HttpStatus.CONFLICT, "角色编码重复"),
+    IDEMPOTENCY_IN_PROGRESS(40915, HttpStatus.CONFLICT, "幂等请求正在处理中"),
+    LAST_ADMIN_PROTECTED(40913, HttpStatus.CONFLICT, "不能移除最后一个管理员"),
+    DEFAULT_ROLE_PROTECTED(40914, HttpStatus.CONFLICT, "默认角色不可删除"),
+    BUSINESS_RULE_VIOLATION(42201, HttpStatus.UNPROCESSABLE_ENTITY, "业务规则不满足"),
+    RATE_LIMITED(42901, HttpStatus.TOO_MANY_REQUESTS, "触发限流"),
+    INTERNAL_ERROR(50001, HttpStatus.INTERNAL_SERVER_ERROR, "服务端错误");
+
+    private final int code;
+    private final HttpStatus status;
+    private final String message;
+
+    ErrorCode(int code, HttpStatus status, String message) {
+        this.code = code;
+        this.status = status;
+        this.message = message;
+    }
+
+    public int code() {
+        return code;
+    }
+
+    public HttpStatus status() {
+        return status;
+    }
+
+    public String message() {
+        return message;
+    }
+}

@@ -16,7 +16,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
-        properties = "management.health.redis.enabled=false")
+        properties = {"management.health.redis.enabled=false", "yunhefc.kafka.listener-enabled=false", "yunhefc.outbox.enabled=false", "yunhefc.wechat.enabled=true", "yunhefc.wechat.mode=mock", "yunhefc.wechat.require-wechat-ua=false"})
 @Testcontainers
 class FlywayMigrationTest {
 
@@ -46,7 +46,7 @@ class FlywayMigrationTest {
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = DATABASE()
                   AND table_name <> 'flyway_schema_history'
-                  AND table_name NOT LIKE 'QRTZ_%'
+                  AND table_name NOT LIKE 'QRTZ\\_%'
                 """)).isEqualTo(27);
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables
@@ -56,7 +56,7 @@ class FlywayMigrationTest {
                 SELECT COUNT(*) FROM information_schema.table_constraints
                 WHERE constraint_schema = DATABASE()
                   AND constraint_type = 'FOREIGN KEY'
-                  AND table_name NOT LIKE 'QRTZ_%'
+                  AND table_name NOT LIKE 'QRTZ\\_%'
                 """)).isZero();
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.table_constraints
@@ -66,15 +66,16 @@ class FlywayMigrationTest {
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = DATABASE()
+                  AND table_type = 'BASE TABLE'
                   AND table_name <> 'flyway_schema_history'
-                  AND table_name NOT LIKE 'QRTZ_%'
-                  AND table_comment <> ''
-                """)).isEqualTo(27);
+                  AND table_name NOT LIKE 'QRTZ\\_%'
+                  AND (table_comment IS NULL OR table_comment = '')
+                """)).isZero();
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.columns
                 WHERE table_schema = DATABASE()
                   AND table_name <> 'flyway_schema_history'
-                  AND table_name NOT LIKE 'QRTZ_%'
+                  AND table_name NOT LIKE 'QRTZ\\_%'
                   AND (column_comment IS NULL OR column_comment = '')
                 """)).isZero();
 

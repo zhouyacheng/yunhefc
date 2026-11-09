@@ -24,11 +24,12 @@ import com.yunhefc.common.security.BackendPermissions;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.contracts.notification.NotificationReadPort;
+import com.yunhefc.contracts.player.PlayerReadPort;
+import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccessPort;
-import com.yunhefc.notification.infrastructure.NotificationMapper;
-import com.yunhefc.player.domain.Player;
-import com.yunhefc.player.infrastructure.PlayerMapper;
+import com.yunhefc.player.application.PlayerProfileApplicationService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,8 +52,9 @@ public class AuthService implements UserAccessPort {
     private final AppRoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
     private final TeamMapper teamMapper;
-    private final PlayerMapper playerMapper;
-    private final NotificationMapper notificationMapper;
+    private final PlayerReadPort playerReadPort;
+    private final PlayerProfileApplicationService playerProfileService;
+    private final NotificationReadPort notificationReadPort;
     private final SmsCodeService smsCodeService;
     private final LoginAttemptService loginAttemptService;
     private final InviteService inviteService;
@@ -65,8 +67,9 @@ public class AuthService implements UserAccessPort {
             AppRoleMapper roleMapper,
             UserRoleMapper userRoleMapper,
             TeamMapper teamMapper,
-            PlayerMapper playerMapper,
-            NotificationMapper notificationMapper,
+            PlayerReadPort playerReadPort,
+            PlayerProfileApplicationService playerProfileService,
+            NotificationReadPort notificationReadPort,
             SmsCodeService smsCodeService,
             LoginAttemptService loginAttemptService,
             InviteService inviteService,
@@ -77,8 +80,9 @@ public class AuthService implements UserAccessPort {
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
         this.teamMapper = teamMapper;
-        this.playerMapper = playerMapper;
-        this.notificationMapper = notificationMapper;
+        this.playerReadPort = playerReadPort;
+        this.playerProfileService = playerProfileService;
+        this.notificationReadPort = notificationReadPort;
         this.smsCodeService = smsCodeService;
         this.loginAttemptService = loginAttemptService;
         this.inviteService = inviteService;
@@ -118,15 +122,8 @@ public class AuthService implements UserAccessPort {
         user.setCreatedAt(LocalDateTime.now());
         userMapper.insert(user);
 
-        Player player = new Player();
-        player.setTeamId(teamId);
-        player.setUserId(user.getId());
-        player.setName(request.name());
-        player.setType(teamInvite ? 1 : 0);
-        player.setPosition(request.position());
-        player.setSecondaryPositions("[]");
-        player.setSkill(3);
-        playerMapper.insert(player);
+        PlayerSnapshot player = playerProfileService.createProfile(
+                teamId, user.getId(), request.name(), teamInvite ? 1 : 0, request.position());
 
         String roleCode = teamInvite ? "PLAYER" : "GUEST";
         AppRole role = role(teamId, roleCode);
@@ -180,7 +177,7 @@ public class AuthService implements UserAccessPort {
                 player(userId),
                 new LinkedHashSet<>(userRoleMapper.findRoleCodes(userId)),
                 permissions(userId),
-                notificationMapper.countUnread(userId));
+                notificationReadPort.countUnread(userId));
     }
 
     public AuthResult meResult(Long userId) {
@@ -202,9 +199,9 @@ public class AuthService implements UserAccessPort {
         }
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         userMapper.updateById(user);
-        Player player = playerByUserId(user.getId());
-        auditRecorder.record(player == null ? null : player.getTeamId(), user.getId(),
-                player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.getName(),
+        PlayerSnapshot player = playerByUserId(user.getId());
+        auditRecorder.record(player == null ? null : player.teamId(), user.getId(),
+                player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.name(),
                 "PASSWORD_RESET", "USER", user.getId(), null, null);
     }
 
@@ -268,15 +265,13 @@ public class AuthService implements UserAccessPort {
         if (user == null || user.getStatus() == 2) {
             return Optional.empty();
         }
-        Player player = playerMapper.selectOne(new LambdaQueryWrapper<Player>()
-                .eq(Player::getUserId, userId)
-                .last("LIMIT 1"));
+        PlayerSnapshot player = playerReadPort.findByUserId(userId).orElse(null);
         return Optional.of(new AuthPrincipal(
                 user.getId(),
                 user.getPhone(),
                 user.getStatus(),
-                player == null ? teamId() : player.getTeamId(),
-                player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.getName(),
+                player == null ? teamId() : player.teamId(),
+                player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.name(),
                 new LinkedHashSet<>(userRoleMapper.findRoleCodes(userId)),
                 permissions(userId)));
     }
@@ -324,30 +319,28 @@ public class AuthService implements UserAccessPort {
     }
 
     private PlayerView player(Long userId) {
-        Player player = playerByUserId(userId);
+        PlayerSnapshot player = playerByUserId(userId);
         return player == null ? null : playerView(player);
     }
 
-    private Player playerByUserId(Long userId) {
-        return playerMapper.selectOne(new LambdaQueryWrapper<Player>()
-                .eq(Player::getUserId, userId)
-                .last("LIMIT 1"));
+    private PlayerSnapshot playerByUserId(Long userId) {
+        return playerReadPort.findByUserId(userId).orElse(null);
     }
 
     private UserView userView(AppUser user) {
         return userViewAssembler.toView(user);
     }
 
-    private PlayerView playerView(Player player) {
+    private PlayerView playerView(PlayerSnapshot player) {
         return new PlayerView(
-                player.getId(),
-                player.getName(),
-                player.getJersey(),
-                player.getType(),
-                Labels.playerType(player.getType()),
-                player.getPosition(),
-                Labels.position(player.getPosition()),
-                player.getSkill());
+                player.id(),
+                player.name(),
+                player.jersey(),
+                player.type(),
+                Labels.playerType(player.type()),
+                player.position(),
+                Labels.position(player.position()),
+                player.skill());
     }
 
     private void validatePhone(String phone) {

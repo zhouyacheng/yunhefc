@@ -12,7 +12,13 @@ import java.time.LocalDateTime;
 @Mapper
 public interface InviteLinkMapper extends BaseMapper<InviteLink> {
 
-    @Select("SELECT * FROM invite_link WHERE token_hash = #{tokenHash} AND is_deleted = 0 LIMIT 1")
+    @Select("""
+            SELECT id, team_id, type, token_hash, match_id, inviter_user_id, expires_at,
+                   max_uses, used_count, status, revoked_at, created_at, updated_at, is_deleted
+            FROM invite_link
+            WHERE token_hash = #{tokenHash} AND is_deleted = 0
+            LIMIT 1
+            """)
     InviteLink findByTokenHash(@Param("tokenHash") String tokenHash);
 
     @Update("""

@@ -13,7 +13,10 @@ import java.util.List;
 public interface OutboxEventMapper extends BaseMapper<OutboxEvent> {
 
     @Select("""
-            SELECT * FROM outbox_event
+            SELECT id, event_id, team_id, aggregate_type, aggregate_id, event_type, payload_json,
+                   status, attempts, next_retry_at, lease_owner, lease_until, last_error,
+                   created_at, sent_at, is_deleted
+            FROM outbox_event
             WHERE status = 0 AND is_deleted = 0
               AND (next_retry_at IS NULL OR next_retry_at <= NOW(3))
               AND (lease_until IS NULL OR lease_until < NOW(3))

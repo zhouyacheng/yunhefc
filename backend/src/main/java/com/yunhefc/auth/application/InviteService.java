@@ -24,11 +24,12 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.match.MatchReadPort;
+import com.yunhefc.contracts.match.MatchSnapshot;
+import com.yunhefc.contracts.player.PlayerReadPort;
+import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.registration.MatchRosterPort;
-import com.yunhefc.match.domain.TeamMatch;
-import com.yunhefc.match.infrastructure.TeamMatchMapper;
-import com.yunhefc.player.domain.Player;
-import com.yunhefc.player.infrastructure.PlayerMapper;
+import com.yunhefc.player.application.PlayerProfileApplicationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,8 +51,9 @@ public class InviteService {
     private final AppRoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
     private final TeamMapper teamMapper;
-    private final PlayerMapper playerMapper;
-    private final TeamMatchMapper teamMatchMapper;
+    private final PlayerReadPort playerReadPort;
+    private final PlayerProfileApplicationService playerProfileService;
+    private final MatchReadPort matchReadPort;
     private final AuditRecorder auditRecorder;
     private final MatchRosterPort matchRosterPort;
     private final UserViewAssembler userViewAssembler;
@@ -64,8 +66,9 @@ public class InviteService {
             AppRoleMapper roleMapper,
             UserRoleMapper userRoleMapper,
             TeamMapper teamMapper,
-            PlayerMapper playerMapper,
-            TeamMatchMapper teamMatchMapper,
+            PlayerReadPort playerReadPort,
+            PlayerProfileApplicationService playerProfileService,
+            MatchReadPort matchReadPort,
             AuditRecorder auditRecorder,
             MatchRosterPort matchRosterPort,
             UserViewAssembler userViewAssembler,
@@ -76,8 +79,9 @@ public class InviteService {
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
         this.teamMapper = teamMapper;
-        this.playerMapper = playerMapper;
-        this.teamMatchMapper = teamMatchMapper;
+        this.playerReadPort = playerReadPort;
+        this.playerProfileService = playerProfileService;
+        this.matchReadPort = matchReadPort;
         this.auditRecorder = auditRecorder;
         this.matchRosterPort = matchRosterPort;
         this.userViewAssembler = userViewAssembler;
@@ -133,9 +137,7 @@ public class InviteService {
         if (user.getStatus() == 2) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
-        Player player = playerMapper.selectOne(new LambdaQueryWrapper<Player>()
-                .eq(Player::getUserId, userId)
-                .last("LIMIT 1"));
+        PlayerSnapshot player = playerReadPort.findByUserId(userId).orElse(null);
         if (player == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "球员档案不存在");
         }
@@ -147,14 +149,13 @@ public class InviteService {
             return view;
         }
 
-        if (player.getType() == 1) {
+        if (player.type() == 1) {
             return toView(invite);
         }
 
         user.setStatus(1);
         userMapper.updateById(user);
-        player.setType(1);
-        playerMapper.updateById(player);
+        playerProfileService.promoteToFormal(userId);
         AppRole guestRole = role(invite.getTeamId(), "GUEST");
         if (guestRole != null) {
             userRoleMapper.remove(userId, guestRole.getId());
@@ -184,7 +185,7 @@ public class InviteService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "入队邀请不能指定比赛");
         }
         Long teamId = teamId();
-        if (type == 1 && teamMatchMapper.selectById(request.matchId()) == null) {
+        if (type == 1 && matchReadPort.findById(request.matchId()).isEmpty()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
         }
         InviteAdminView view = createInternal(teamId, type, request.matchId(), inviterUserId,
@@ -197,12 +198,10 @@ public class InviteService {
 
     @Transactional
     public InviteAdminView createMatchInvite(Long inviterUserId, Long matchId, Integer expiresInDays, Integer maxUses) {
-        TeamMatch match = teamMatchMapper.selectById(matchId);
-        if (match == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
-        }
+        MatchSnapshot match = matchReadPort.findById(matchId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
         ensureCanCreateMatchInvite(inviterUserId, matchId);
-        InviteAdminView view = createInternal(match.getTeamId(), 1, matchId, inviterUserId, expiresInDays, maxUses);
+        InviteAdminView view = createInternal(match.teamId(), 1, matchId, inviterUserId, expiresInDays, maxUses);
         auditRecorder.recordCurrent("INVITE_CREATE", "INVITE", view.id(), null,
                 java.util.Map.of("type", view.type(), "expiresAt", view.expiresAt(),
                         "maxUses", view.maxUses() == null ? "" : view.maxUses()));
@@ -283,7 +282,8 @@ public class InviteService {
 
     private InviteView toView(InviteLink invite) {
         Team team = teamMapper.selectById(invite.getTeamId());
-        TeamMatch match = invite.getMatchId() == null ? null : teamMatchMapper.selectById(invite.getMatchId());
+        MatchSnapshot match = invite.getMatchId() == null ? null
+                : matchReadPort.findById(invite.getMatchId()).orElse(null);
         AppUser inviter = userMapper.selectById(invite.getInviterUserId());
         int effectiveStatus = invite.getStatus();
         if (effectiveStatus == 0 && invite.getExpiresAt().isBefore(LocalDateTime.now())) {
@@ -294,9 +294,9 @@ public class InviteService {
         return new InviteView(
                 invite.getType(),
                 team == null ? null : new TeamView(team.getId(), team.getName(), team.getShortName()),
-                match == null ? null : new MatchSummary(match.getId(), match.getTitle(), match.getStartAt(),
-                        match.getEndAt(), match.getVenue(), match.getStatus(), match.getHomeTeamName(),
-                        match.getAwayTeamName()),
+                match == null ? null : new MatchSummary(match.id(), match.title(), match.startAt(),
+                        match.endAt(), match.venue(), match.status(), match.homeTeamName(),
+                        match.awayTeamName()),
                 inviter == null ? null : inviterView(inviter),
                 invite.getExpiresAt(),
                 invite.getMaxUses(),

@@ -1,12 +1,11 @@
 package com.yunhefc.auth.application;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.common.Labels;
-import com.yunhefc.player.domain.Player;
-import com.yunhefc.player.infrastructure.PlayerMapper;
+import com.yunhefc.contracts.player.PlayerReadPort;
+import com.yunhefc.contracts.player.PlayerSnapshot;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
@@ -14,22 +13,20 @@ import java.util.LinkedHashSet;
 @Component
 public class UserViewAssembler {
 
-    private final PlayerMapper playerMapper;
+    private final PlayerReadPort playerReadPort;
     private final UserRoleMapper userRoleMapper;
 
-    public UserViewAssembler(PlayerMapper playerMapper, UserRoleMapper userRoleMapper) {
-        this.playerMapper = playerMapper;
+    public UserViewAssembler(PlayerReadPort playerReadPort, UserRoleMapper userRoleMapper) {
+        this.playerReadPort = playerReadPort;
         this.userRoleMapper = userRoleMapper;
     }
 
     public UserView toView(AppUser user) {
-        Player player = playerMapper.selectOne(new LambdaQueryWrapper<Player>()
-                .eq(Player::getUserId, user.getId())
-                .last("LIMIT 1"));
+        PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
         String phoneMasked = maskPhone(user.getPhone());
         return new UserView(
                 user.getId(),
-                player == null ? phoneMasked : player.getName(),
+                player == null ? phoneMasked : player.name(),
                 phoneMasked,
                 user.getStatus(),
                 Labels.userStatus(user.getStatus()),

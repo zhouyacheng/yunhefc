@@ -12,7 +12,9 @@ import java.time.LocalDateTime;
 public interface IdempotencyKeyMapper extends BaseMapper<IdempotencyKey> {
 
     @Select("""
-            SELECT * FROM idempotency_key
+            SELECT id, user_id, endpoint, idem_key, request_hash, response_status, response_body,
+                   created_at, expires_at, is_deleted
+            FROM idempotency_key
             WHERE user_id = #{userId} AND endpoint = #{endpoint} AND idem_key = #{idemKey}
               AND is_deleted = 0
             LIMIT 1

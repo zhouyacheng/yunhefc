@@ -20,9 +20,10 @@ import com.yunhefc.common.Labels;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.AuthSessionService;
+import com.yunhefc.contracts.player.PlayerReadPort;
+import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.security.SessionKeys;
-import com.yunhefc.player.domain.Player;
-import com.yunhefc.player.infrastructure.PlayerMapper;
+import com.yunhefc.player.application.PlayerProfileApplicationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
@@ -48,7 +49,8 @@ public class WechatAuthService {
     private final AppRoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
     private final TeamMapper teamMapper;
-    private final PlayerMapper playerMapper;
+    private final PlayerReadPort playerReadPort;
+    private final PlayerProfileApplicationService playerProfileService;
     private final SmsCodeService smsCodeService;
     private final AuthSessionService sessionService;
     private final UserViewAssembler userViewAssembler;
@@ -61,7 +63,8 @@ public class WechatAuthService {
             AppRoleMapper roleMapper,
             UserRoleMapper userRoleMapper,
             TeamMapper teamMapper,
-            PlayerMapper playerMapper,
+            PlayerReadPort playerReadPort,
+            PlayerProfileApplicationService playerProfileService,
             SmsCodeService smsCodeService,
             AuthSessionService sessionService,
             UserViewAssembler userViewAssembler) {
@@ -72,7 +75,8 @@ public class WechatAuthService {
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
         this.teamMapper = teamMapper;
-        this.playerMapper = playerMapper;
+        this.playerReadPort = playerReadPort;
+        this.playerProfileService = playerProfileService;
         this.smsCodeService = smsCodeService;
         this.sessionService = sessionService;
         this.userViewAssembler = userViewAssembler;
@@ -162,15 +166,7 @@ public class WechatAuthService {
         user.setCreatedAt(LocalDateTime.now());
         userMapper.insert(user);
 
-        Player player = new Player();
-        player.setTeamId(teamId);
-        player.setUserId(user.getId());
-        player.setName(request.name());
-        player.setType(0);
-        player.setPosition(request.position());
-        player.setSecondaryPositions("[]");
-        player.setSkill(3);
-        playerMapper.insert(player);
+        playerProfileService.createProfile(teamId, user.getId(), request.name(), 0, request.position());
 
         AppRole role = roleMapper.selectOne(new LambdaQueryWrapper<AppRole>()
                 .eq(AppRole::getTeamId, teamId)
@@ -210,21 +206,19 @@ public class WechatAuthService {
         if (user.getStatus() == 2) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
-        Player player = playerMapper.selectOne(new LambdaQueryWrapper<Player>()
-                .eq(Player::getUserId, user.getId())
-                .last("LIMIT 1"));
+        PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
         Set<String> permissions = new LinkedHashSet<>(userRoleMapper.findPermissionCodes(user.getId()));
         String csrf = sessionService.establish(request, response, SessionKeys.C_USER_ID, user.getId());
         return new AuthResponse(userViewAssembler.toView(user), playerView(player), permissions, csrf);
     }
 
-    private PlayerView playerView(Player player) {
+    private PlayerView playerView(PlayerSnapshot player) {
         if (player == null) {
             return null;
         }
-        return new PlayerView(player.getId(), player.getName(), player.getJersey(), player.getType(),
-                Labels.playerType(player.getType()), player.getPosition(),
-                Labels.position(player.getPosition()), player.getSkill());
+        return new PlayerView(player.id(), player.name(), player.jersey(), player.type(),
+                Labels.playerType(player.type()), player.position(),
+                Labels.position(player.position()), player.skill());
     }
 
     private Long teamId() {

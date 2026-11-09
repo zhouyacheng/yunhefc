@@ -51,6 +51,7 @@ spring:
 yunhefc:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:5173}
   sms:
+    mock-enabled: ${SMS_MOCK_ENABLED:false}
     mock-code: ${SMS_MOCK_CODE:123456}
     ttl-seconds: ${SMS_TTL_SECONDS:300}
   invite:

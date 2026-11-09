@@ -18,6 +18,7 @@ Spring Boot 3.5.x / Java 21 单部署单元。当前仅包含骨架与 Flyway �
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
 | `SERVER_PORT` | `8080` |
+| `SMS_MOCK_ENABLED` | `false`；本地开发需显式设为 `true`，否则注册/重置密码/绑定手机返回 50001 |
 
 ## Flyway
 

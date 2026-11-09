@@ -17,11 +17,13 @@ public class SmsCodeService {
     private static final int MAX_ATTEMPTS = 5;
 
     private final StringRedisTemplate redis;
+    private final boolean mockEnabled;
     private final String mockCode;
     private final long ttlSeconds;
 
     public SmsCodeService(StringRedisTemplate redis, SmsProperties properties) {
         this.redis = redis;
+        this.mockEnabled = properties.isMockEnabled();
         this.mockCode = properties.getMockCode();
         this.ttlSeconds = properties.getTtlSeconds();
     }
@@ -30,11 +32,13 @@ public class SmsCodeService {
         if (!PURPOSES.contains(purpose)) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "不支持的验证码用途");
         }
+        requireMockEnabled();
         redis.opsForValue().set(key(phone, purpose), mockCode, Duration.ofSeconds(ttlSeconds));
         return (int) ttlSeconds;
     }
 
     public void verify(String phone, String purpose, String code) {
+        requireMockEnabled();
         String key = key(phone, purpose);
         String stored = redis.opsForValue().get(key);
         if (stored == null || !stored.equals(code)) {
@@ -53,6 +57,12 @@ public class SmsCodeService {
         }
         redis.delete(key);
         redis.delete(key + ":attempts");
+    }
+
+    private void requireMockEnabled() {
+        if (!mockEnabled) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "短信服务暂不可用");
+        }
     }
 
     private String key(String phone, String purpose) {

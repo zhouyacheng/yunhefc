@@ -63,8 +63,14 @@ public interface UserRoleMapper {
     @Select("SELECT COUNT(*) FROM user_role WHERE role_id = #{roleId} AND is_deleted = 0")
     int countUsers(@Param("roleId") Long roleId);
 
-    @Select("SELECT user_id FROM user_role WHERE role_id = #{roleId} AND is_deleted = 0")
-    List<Long> findUserIdsByRole(@Param("roleId") Long roleId);
+    @Select("""
+            SELECT ur.user_id
+            FROM user_role ur
+            JOIN app_user u ON u.id = ur.user_id
+            WHERE ur.role_id = #{roleId} AND ur.is_deleted = 0
+              AND u.is_deleted = 0 AND u.status = 1
+            """)
+    List<Long> findActiveUserIdsByRole(@Param("roleId") Long roleId);
 
     @Select("""
             SELECT COUNT(*)

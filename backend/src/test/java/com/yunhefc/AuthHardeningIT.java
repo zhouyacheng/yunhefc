@@ -48,6 +48,7 @@ class AuthHardeningIT extends IntegrationTestSupport {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.permissions[?(@ == 'user:approve:any')]").exists())
+                .andExpect(jsonPath("$.data.player").doesNotExist())
                 .andReturn();
 
         mockMvc.perform(get("/api/v1/b/me").cookie(cookie(login, "YHFC_B")))

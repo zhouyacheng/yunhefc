@@ -1,8 +1,8 @@
 package com.yunhefc.auth.controller;
 
 import com.yunhefc.auth.application.AuthService;
-import com.yunhefc.auth.dto.AuthDtos.AuthResponse;
 import com.yunhefc.auth.dto.AuthDtos.AuthResult;
+import com.yunhefc.auth.dto.AuthDtos.BLoginResponse;
 import com.yunhefc.auth.dto.AuthDtos.BMeView;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.common.api.ApiResponse;
@@ -46,14 +46,14 @@ public class BackendAuthController {
     }
 
     @PostMapping("/auth/login")
-    public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request,
-                                           HttpServletRequest servletRequest,
-                                           HttpServletResponse response) {
+    public ApiResponse<BLoginResponse> login(@Valid @RequestBody LoginRequest request,
+                                             HttpServletRequest servletRequest,
+                                             HttpServletResponse response) {
         rateLimiter.check("login:" + request.phone() + ":" + servletRequest.getRemoteAddr(), 10, Duration.ofMinutes(1));
         AuthResult result = authService.login(request, true);
         String csrfToken = authSessionService.establish(
                 servletRequest, response, SessionKeys.B_USER_ID, result.user().id());
-        return ApiResponse.ok(new AuthResponse(result.user(), result.player(), result.permissions(), csrfToken));
+        return ApiResponse.ok(new BLoginResponse(result.user(), result.permissions(), csrfToken));
     }
 
     @PostMapping("/auth/logout")

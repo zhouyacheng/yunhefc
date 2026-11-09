@@ -108,7 +108,8 @@ class InviteLifecycleIT extends IntegrationTestSupport {
                                 {"phone":"13900000221","code":"123456"}
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0221"));
+                .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0221"))
+                .andExpect(jsonPath("$.data.permissions").doesNotExist());
 
         assertThat(jdbc.queryForObject(
                 "SELECT openid FROM app_user WHERE phone = '13900000221'", String.class)).isNotBlank();

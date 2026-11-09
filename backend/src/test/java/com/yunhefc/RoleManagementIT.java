@@ -85,6 +85,62 @@ class RoleManagementIT extends IntegrationTestSupport {
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM user_role WHERE user_id = ? AND is_deleted = 0",
                 Integer.class, adminId)).isGreaterThanOrEqualTo(1);
+
+        Long adminRoleId = jdbc.queryForObject(
+                "SELECT id FROM app_role WHERE code = 'ADMIN' AND team_id = 1", Long.class);
+        mockMvc.perform(put("/api/v1/b/roles/" + adminRoleId + "/permissions")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "role-perm-last-admin")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"permissions\":[\"role:view:any\"]}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40913));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM role_permission rp JOIN permission p ON p.id = rp.permission_id "
+                        + "WHERE rp.role_id = ? AND rp.is_deleted = 0 AND p.code = 'role:manage:any'",
+                Integer.class, adminRoleId)).isEqualTo(1);
+    }
+
+    @Test
+    void rolePermissionChangeNotifiesOnlyActiveUsers() throws Exception {
+        Cookie admin = adminLogin("13900000052");
+        jdbc.update("INSERT INTO app_role (team_id, code, name, is_default) VALUES (1, 'NOTIFY_ROLE', '通知测试', 0)");
+        Long roleId = jdbc.queryForObject(
+                "SELECT id FROM app_role WHERE code = 'NOTIFY_ROLE' AND team_id = 1", Long.class);
+
+        Long activeId = insertUserWithRole("13900000061", 1, roleId);
+        Long pendingId = insertUserWithRole("13900000062", 0, roleId);
+        Long disabledId = insertUserWithRole("13900000063", 2, roleId);
+
+        mockMvc.perform(put("/api/v1/b/roles/" + roleId + "/permissions")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "role-notify-active")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"permissions\":[\"lineup:view:any\"]}"))
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM outbox_event WHERE event_type = 'ROLE_CHANGED' AND aggregate_id = ?",
+                Integer.class, activeId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM outbox_event WHERE event_type = 'ROLE_CHANGED' AND aggregate_id IN (?, ?)",
+                Integer.class, pendingId, disabledId)).isZero();
+
+        // 清理额外管理员，避免影响其他用例的“最后管理员”断言
+        Long adminId = jdbc.queryForObject(
+                "SELECT id FROM app_user WHERE phone = '13900000052'", Long.class);
+        jdbc.update("DELETE FROM user_role WHERE user_id = ?", adminId);
+        jdbc.update("DELETE FROM app_user WHERE id = ?", adminId);
+    }
+
+    private Long insertUserWithRole(String phone, int status, Long roleId) {
+        jdbc.update("INSERT INTO app_user (phone, status) VALUES (?, ?)", phone, status);
+        Long userId = jdbc.queryForObject("SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
+        jdbc.update("INSERT INTO user_role (user_id, role_id) VALUES (?, ?)", userId, roleId);
+        return userId;
     }
 
     private Cookie adminLogin(String phone) throws Exception {

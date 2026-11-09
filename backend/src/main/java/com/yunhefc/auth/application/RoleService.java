@@ -196,7 +196,7 @@ public class RoleService {
 
     private void notifyRoleUsers(Long roleId, String roleCode) {
         Long actorId = CurrentUser.principal().userId();
-        List<OutboxEvent> events = userRoleMapper.findUserIdsByRole(roleId).stream()
+        List<OutboxEvent> events = userRoleMapper.findActiveUserIdsByRole(roleId).stream()
                 .map(userId -> outboxService.newEvent(null, "USER", userId, EventTypes.ROLE_CHANGED,
                         Map.of("userId", userId, "roles", List.of(roleCode), "actorUserId", actorId)))
                 .toList();

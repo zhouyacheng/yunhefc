@@ -60,6 +60,7 @@ class WechatAuthIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.user.status").value(0))
                 .andExpect(jsonPath("$.data.player.type").value(0))
+                .andExpect(jsonPath("$.data.permissions").doesNotExist())
                 .andReturn();
         assertThat(JsonPath.<String>read(bound.getResponse().getContentAsString(), "$.data.csrfToken")).isNotBlank();
 

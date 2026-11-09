@@ -2,8 +2,8 @@
 
 ## 0. 当前阶段
 
-- **设计冻结**：需求 v1.15；设计文档 01 v0.12、02 v0.13、03 v1.8、04 v0.16、05 v0.16、06 v1.28。
-- **评审通过**：P-01~P-23 已确认；设计成果不再主动变更。
+- **设计冻结**：需求 v1.15；设计文档 01 v0.12、02 v0.13、03 v1.9、04 v0.16、05 v0.17、06 v1.29。
+- **评审通过**：P-01~P-25 已确认；设计成果不再主动变更。
 - **代码状态**：`backend/` 骨架、Flyway V1–V5 与 M01（C/B 认证、RBAC、邀请、Redis 会话、Outbox、幂等、微信 mock/real）已实现；`frontend/`、`deploy/` 尚未创建。
 - **原型定位**：`prototype/` 仅演示交互与信息架构，不是生产代码；正式实现以设计文档为准。
 - **下一步**：进入 M02 球员档案。
@@ -20,7 +20,7 @@
 | 架构、技术栈、分包 | `docs/design/03.整体架构设计.md` |
 | 表结构、枚举编码、索引 | `docs/design/04.数据库设计.md` |
 | API 契约、权限、错误码 | `docs/design/05.API接口设计.md` |
-| 评审结论、P-01~P-23 | `docs/design/06.设计方案评审结果.md` |
+| 评审结论、P-01~P-25 | `docs/design/06.设计方案评审结果.md` |
 | 数据库/API/Kafka/日志/Java 规则 | `docs/rules/*.md` |
 | 业务 DDL / Quartz DDL | `scripts/sql/schema.sql`、`scripts/sql/quartz.sql` |
 | 可交互原型 | `prototype/`（`prototype/README.md`） |

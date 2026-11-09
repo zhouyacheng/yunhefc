@@ -1,0 +1,29 @@
+-- 27 张业务表的表级中文注释。
+
+ALTER TABLE team COMMENT = '球队';
+ALTER TABLE app_user COMMENT = '账号';
+ALTER TABLE app_role COMMENT = '角色';
+ALTER TABLE permission COMMENT = '权限点';
+ALTER TABLE user_role COMMENT = '用户角色关联';
+ALTER TABLE role_permission COMMENT = '角色权限关联';
+ALTER TABLE player COMMENT = '球员档案';
+ALTER TABLE invite_link COMMENT = '邀请链接';
+ALTER TABLE invite_use COMMENT = '邀请使用记录';
+ALTER TABLE team_match COMMENT = '比赛';
+ALTER TABLE registration COMMENT = '报名记录';
+ALTER TABLE attendance COMMENT = '考勤记录';
+ALTER TABLE match_event COMMENT = '比赛事件';
+ALTER TABLE event_history COMMENT = '事件变更历史';
+ALTER TABLE formation_template COMMENT = '阵型模板';
+ALTER TABLE formation_slot COMMENT = '阵型槽位';
+ALTER TABLE lineup COMMENT = '阵容';
+ALTER TABLE lineup_slot COMMENT = '阵容槽位';
+ALTER TABLE match_grouping COMMENT = '队内分组';
+ALTER TABLE match_grouping_player COMMENT = '分组成员';
+ALTER TABLE player_stats_summary COMMENT = '球员统计汇总';
+ALTER TABLE notification COMMENT = '站内通知';
+ALTER TABLE audit_log COMMENT = '操作日志';
+ALTER TABLE outbox_event COMMENT = '事务性 Outbox 事件';
+ALTER TABLE consumed_event COMMENT = 'Kafka 消费去重记录';
+ALTER TABLE idempotency_key COMMENT = '幂等键记录';
+ALTER TABLE system_setting COMMENT = '系统配置';

@@ -101,7 +101,8 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
    - `V1__baseline_schema.sql`：27 张业务表；
    - `V2__quartz_schema.sql`：11 张 Quartz 表；
    - `V3__seed_team_roles_permissions_settings.sql`：球队、角色、28 权限、9 项配置；
-   - `V4__seed_formation_templates.sql`：8 套阵型、64 个槽位。
+   - `V4__seed_formation_templates.sql`：8 套阵型、64 个槽位；
+   - `V5__add_table_comments.sql`：27 张业务表的表级中文注释。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。

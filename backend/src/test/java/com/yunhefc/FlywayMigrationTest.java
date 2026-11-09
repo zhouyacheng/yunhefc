@@ -41,7 +41,7 @@ class FlywayMigrationTest {
 
     @Test
     void migratesEmptyDatabaseAndSeedsReferenceData() {
-        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(4);
+        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(5);
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = DATABASE()
@@ -61,6 +61,21 @@ class FlywayMigrationTest {
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.table_constraints
                 WHERE constraint_schema = DATABASE() AND constraint_type = 'CHECK'
+                """)).isZero();
+
+        assertThat(count("""
+                SELECT COUNT(*) FROM information_schema.tables
+                WHERE table_schema = DATABASE()
+                  AND table_name <> 'flyway_schema_history'
+                  AND table_name NOT LIKE 'QRTZ_%'
+                  AND table_comment <> ''
+                """)).isEqualTo(27);
+        assertThat(count("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE()
+                  AND table_name <> 'flyway_schema_history'
+                  AND table_name NOT LIKE 'QRTZ_%'
+                  AND (column_comment IS NULL OR column_comment = '')
                 """)).isZero();
 
         assertThat(count("SELECT COUNT(*) FROM team")).isEqualTo(1);

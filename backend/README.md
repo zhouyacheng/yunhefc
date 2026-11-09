@@ -27,5 +27,6 @@ Spring Boot 3.5.x / Java 21 单部署单元。当前仅包含骨架与 Flyway �
 - `V2__quartz_schema.sql`：11 张 Quartz 表
 - `V3__seed_team_roles_permissions_settings.sql`：球队、3 个默认角色、28 个权限、9 项配置
 - `V4__seed_formation_templates.sql`：8 套预置阵型、64 个槽位
+- `V5__add_table_comments.sql`：27 张业务表的表级中文注释
 
 迁移在应用启动时执行；数据库不建任何 CHECK，业务规则由应用层强校验（见 `docs/design/04.数据库设计.md` §8.1）。

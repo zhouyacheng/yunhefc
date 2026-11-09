@@ -2,8 +2,8 @@
 
 ## 0. 当前阶段
 
-- **设计冻结**：需求 v1.15；设计文档 01 v0.12、02 v0.13、03 v1.8、04 v0.15、05 v0.15、06 v1.26。
-- **评审通过**：P-01~P-22 已确认；设计成果不再主动变更。
+- **设计冻结**：需求 v1.15；设计文档 01 v0.12、02 v0.13、03 v1.8、04 v0.16、05 v0.15、06 v1.27。
+- **评审通过**：P-01~P-23 已确认；设计成果不再主动变更。
 - **代码状态**：`backend/` 骨架与 Flyway V1–V4 已创建并通过空库迁移测试；`frontend/`、`deploy/` 尚未创建。
 - **原型定位**：`prototype/` 仅演示交互与信息架构，不是生产代码；正式实现以设计文档为准。
 - **下一步**：实现 M01 账号与权限，再按 M02→M11 推进。
@@ -20,7 +20,7 @@
 | 架构、技术栈、分包 | `docs/design/03.整体架构设计.md` |
 | 表结构、枚举编码、索引 | `docs/design/04.数据库设计.md` |
 | API 契约、权限、错误码 | `docs/design/05.API接口设计.md` |
-| 评审结论、P-01~P-22 | `docs/design/06.设计方案评审结果.md` |
+| 评审结论、P-01~P-23 | `docs/design/06.设计方案评审结果.md` |
 | 数据库/API/Kafka/日志/Java 规则 | `docs/rules/*.md` |
 | 业务 DDL / Quartz DDL | `scripts/sql/schema.sql`、`scripts/sql/quartz.sql` |
 | 可交互原型 | `prototype/`（`prototype/README.md`） |
@@ -33,7 +33,7 @@
 - **技术栈固定**：Java 21、Spring Boot 3.5.x、MyBatis-Plus、Flyway、MySQL 8.4、Redis 6.2.24、Kafka 3.7.2（单节点 KRaft）、Quartz JDBC、Vue 3 + Vite + TypeScript、C 端 Vant、B 端 Element Plus、Docker Compose + Nginx。
 - **文件存储**：统一使用阿里云 OSS；开发、测试、生产同一 OSS，私有 Bucket + 签名 URL。
 - **数据库约定**：
-  - 枚举字段 `TINYINT UNSIGNED`，`COMMENT` 写数字与枚举映射；所有字段带中文 `COMMENT`。
+  - 枚举字段 `TINYINT UNSIGNED`，`COMMENT` 写数字与枚举映射；27 张业务表带表级中文 `COMMENT`，所有字段带中文 `COMMENT`。
   - 27 张业务表均有 `is_deleted`（0-未删除；1-伪删除）；查询默认过滤 `is_deleted=0`。
   - `registration.active` 为 0/1（1-有效；0-无效）；`active_unique` 承担唯一键。
   - 业务表 0 物理外键；Quartz 11 表、5 个框架外键为官方例外。

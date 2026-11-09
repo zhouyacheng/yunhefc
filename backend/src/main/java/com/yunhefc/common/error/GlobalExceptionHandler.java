@@ -1,6 +1,7 @@
 package com.yunhefc.common.error;
 
 import com.yunhefc.common.api.ApiResponse;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
@@ -17,8 +18,13 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<ApiResponse<Object>> handleBusiness(BusinessException ex) {
-        return ResponseEntity.status(ex.errorCode().status())
-                .body(ApiResponse.error(ex.errorCode().code(), ex.getMessage(), ex.data()));
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(ex.errorCode().status());
+        if (ex.errorCode() == ErrorCode.RATE_LIMITED
+                && ex.data() instanceof Map<?, ?> data
+                && data.get("retryAfterSeconds") instanceof Number retryAfter) {
+            response.header(HttpHeaders.RETRY_AFTER, String.valueOf(retryAfter.longValue()));
+        }
+        return response.body(ApiResponse.error(ex.errorCode().code(), ex.getMessage(), ex.data()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

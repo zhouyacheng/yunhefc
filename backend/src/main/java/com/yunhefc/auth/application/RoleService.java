@@ -5,7 +5,6 @@ import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.Permission;
 import com.yunhefc.auth.domain.Team;
-import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.dto.RoleDtos.PermissionView;
 import com.yunhefc.auth.dto.RoleDtos.RoleCreateRequest;
 import com.yunhefc.auth.dto.RoleDtos.RoleView;
@@ -18,7 +17,6 @@ import com.yunhefc.auth.infrastructure.RolePermissionMapper;
 import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
-import com.yunhefc.common.Labels;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.infra.outbox.OutboxService;
 import com.yunhefc.common.error.BusinessException;
@@ -240,10 +238,5 @@ public class RoleService {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "球队未初始化");
         }
         return team.getId();
-    }
-
-    public UserView userView(AppUser user) {
-        return new UserView(user.getId(), user.getPhone(), user.getStatus(), Labels.userStatus(user.getStatus()),
-                new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())));
     }
 }

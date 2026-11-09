@@ -24,6 +24,7 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.registration.MatchRosterPort;
 import com.yunhefc.match.domain.TeamMatch;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import com.yunhefc.player.domain.Player;
@@ -37,7 +38,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.HexFormat;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -53,6 +53,8 @@ public class InviteService {
     private final PlayerMapper playerMapper;
     private final TeamMatchMapper teamMatchMapper;
     private final AuditRecorder auditRecorder;
+    private final MatchRosterPort matchRosterPort;
+    private final UserViewAssembler userViewAssembler;
     private final String publicBaseUrl;
 
     public InviteService(
@@ -65,6 +67,8 @@ public class InviteService {
             PlayerMapper playerMapper,
             TeamMatchMapper teamMatchMapper,
             AuditRecorder auditRecorder,
+            MatchRosterPort matchRosterPort,
+            UserViewAssembler userViewAssembler,
             @Value("${yunhefc.public-base-url:http://localhost:5173}") String publicBaseUrl) {
         this.inviteLinkMapper = inviteLinkMapper;
         this.inviteUseMapper = inviteUseMapper;
@@ -75,6 +79,8 @@ public class InviteService {
         this.playerMapper = playerMapper;
         this.teamMatchMapper = teamMatchMapper;
         this.auditRecorder = auditRecorder;
+        this.matchRosterPort = matchRosterPort;
+        this.userViewAssembler = userViewAssembler;
         this.publicBaseUrl = publicBaseUrl;
     }
 
@@ -177,11 +183,21 @@ public class InviteService {
         if (match == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
         }
+        ensureCanCreateMatchInvite(inviterUserId, matchId);
         InviteAdminView view = createInternal(match.getTeamId(), 1, matchId, inviterUserId, expiresInDays, maxUses);
         auditRecorder.record(inviterUserId, "INVITE_CREATE", "INVITE", view.id(), null,
                 java.util.Map.of("type", view.type(), "expiresAt", view.expiresAt(),
                         "maxUses", view.maxUses() == null ? "" : view.maxUses()));
         return view;
+    }
+
+    private void ensureCanCreateMatchInvite(Long inviterUserId, Long matchId) {
+        if (CurrentUser.principal().permissions().contains("invite:manage:any")) {
+            return;
+        }
+        if (!matchRosterPort.isActiveFormalPlayer(matchId, inviterUserId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "仅本场正式球员或管理员可创建比赛邀请");
+        }
     }
 
     public PageResponse<InviteAdminView> list(Integer type, Integer status, long page, long pageSize) {
@@ -296,8 +312,7 @@ public class InviteService {
     }
 
     private UserView inviterView(AppUser user) {
-        return new UserView(user.getId(), user.getPhone(), user.getStatus(), Labels.userStatus(user.getStatus()),
-                new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())));
+        return userViewAssembler.toView(user);
     }
 
     private AppRole role(Long teamId, String code) {

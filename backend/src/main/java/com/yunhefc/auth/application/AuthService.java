@@ -20,6 +20,7 @@ import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.Labels;
+import com.yunhefc.common.security.BackendPermissions;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
@@ -58,6 +59,7 @@ public class AuthService implements UserAccessPort {
     private final InviteService inviteService;
     private final PasswordEncoder passwordEncoder;
     private final AuditRecorder auditRecorder;
+    private final UserViewAssembler userViewAssembler;
 
     public AuthService(
             AppUserMapper userMapper,
@@ -70,7 +72,8 @@ public class AuthService implements UserAccessPort {
             LoginAttemptService loginAttemptService,
             InviteService inviteService,
             PasswordEncoder passwordEncoder,
-            AuditRecorder auditRecorder) {
+            AuditRecorder auditRecorder,
+            UserViewAssembler userViewAssembler) {
         this.userMapper = userMapper;
         this.roleMapper = roleMapper;
         this.userRoleMapper = userRoleMapper;
@@ -82,6 +85,7 @@ public class AuthService implements UserAccessPort {
         this.inviteService = inviteService;
         this.passwordEncoder = passwordEncoder;
         this.auditRecorder = auditRecorder;
+        this.userViewAssembler = userViewAssembler;
     }
 
     public int sendSms(String phone, String purpose) {
@@ -112,6 +116,7 @@ public class AuthService implements UserAccessPort {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setStatus(teamInvite ? 1 : 0);
         user.setLastLoginAt(LocalDateTime.now());
+        user.setCreatedAt(LocalDateTime.now());
         userMapper.insert(user);
 
         Player player = new Player();
@@ -158,7 +163,7 @@ public class AuthService implements UserAccessPort {
         if (backend && user.getStatus() == 0) {
             throw new BusinessException(ErrorCode.ACCOUNT_PENDING);
         }
-        if (backend && permissions.isEmpty()) {
+        if (backend && !BackendPermissions.hasBackendPermission(permissions)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "账号没有后台权限");
         }
         user.setLastLoginAt(LocalDateTime.now());
@@ -210,7 +215,7 @@ public class AuthService implements UserAccessPort {
             return new UserSummary(
                     user.getId(),
                     player == null ? null : player.name(),
-                    maskPhone(user.getPhone()),
+                    UserViewAssembler.maskPhone(user.getPhone()),
                     user.getStatus(),
                     Labels.userStatus(user.getStatus()),
                     new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())),
@@ -316,12 +321,7 @@ public class AuthService implements UserAccessPort {
     }
 
     private UserView userView(AppUser user) {
-        return new UserView(
-                user.getId(),
-                user.getPhone(),
-                user.getStatus(),
-                Labels.userStatus(user.getStatus()),
-                new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())));
+        return userViewAssembler.toView(user);
     }
 
     private PlayerView playerView(Player player) {
@@ -346,12 +346,5 @@ public class AuthService implements UserAccessPort {
         if (password == null || !PASSWORD.matcher(password).matches()) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "密码需 8–64 位且同时包含字母和数字");
         }
-    }
-
-    private String maskPhone(String phone) {
-        if (phone == null || phone.length() < 7) {
-            return phone;
-        }
-        return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
     }
 }

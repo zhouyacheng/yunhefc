@@ -6,7 +6,6 @@ import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.Team;
 import com.yunhefc.auth.dto.AuthDtos.AuthResponse;
 import com.yunhefc.auth.dto.AuthDtos.PlayerView;
-import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.dto.WechatDtos.AuthorizeResponse;
 import com.yunhefc.auth.dto.WechatDtos.BindPhoneRequest;
 import com.yunhefc.auth.dto.WechatDtos.CallbackResponse;
@@ -30,6 +29,7 @@ import jakarta.servlet.http.HttpSession;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -51,6 +51,7 @@ public class WechatAuthService {
     private final PlayerMapper playerMapper;
     private final SmsCodeService smsCodeService;
     private final AuthSessionService sessionService;
+    private final UserViewAssembler userViewAssembler;
 
     public WechatAuthService(
             WechatProperties properties,
@@ -62,7 +63,8 @@ public class WechatAuthService {
             TeamMapper teamMapper,
             PlayerMapper playerMapper,
             SmsCodeService smsCodeService,
-            AuthSessionService sessionService) {
+            AuthSessionService sessionService,
+            UserViewAssembler userViewAssembler) {
         this.properties = properties;
         this.oauthClient = oauthClient;
         this.stateStore = stateStore;
@@ -73,6 +75,7 @@ public class WechatAuthService {
         this.playerMapper = playerMapper;
         this.smsCodeService = smsCodeService;
         this.sessionService = sessionService;
+        this.userViewAssembler = userViewAssembler;
     }
 
     public AuthorizeResponse authorize(String redirect, String userAgent) {
@@ -156,6 +159,7 @@ public class WechatAuthService {
         user.setPhone(request.phone());
         user.setOpenid(openid);
         user.setStatus(0);
+        user.setCreatedAt(LocalDateTime.now());
         userMapper.insert(user);
 
         Player player = new Player();
@@ -211,12 +215,7 @@ public class WechatAuthService {
                 .last("LIMIT 1"));
         Set<String> permissions = new LinkedHashSet<>(userRoleMapper.findPermissionCodes(user.getId()));
         String csrf = sessionService.establish(request, response, SessionKeys.C_USER_ID, user.getId());
-        return new AuthResponse(userView(user), playerView(player), permissions, csrf);
-    }
-
-    private UserView userView(AppUser user) {
-        return new UserView(user.getId(), user.getPhone(), user.getStatus(), Labels.userStatus(user.getStatus()),
-                new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())));
+        return new AuthResponse(userViewAssembler.toView(user), playerView(player), permissions, csrf);
     }
 
     private PlayerView playerView(Player player) {

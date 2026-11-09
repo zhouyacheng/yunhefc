@@ -37,7 +37,14 @@ public final class AuthDtos {
             @NotBlank String newPassword) {
     }
 
-    public record UserView(Long id, String phone, Integer status, String statusLabel, Set<String> roles) {
+    public record UserView(
+            Long id,
+            String name,
+            String phoneMasked,
+            Integer status,
+            String statusLabel,
+            Set<String> roles,
+            LocalDateTime createdAt) {
     }
 
     public record PlayerView(

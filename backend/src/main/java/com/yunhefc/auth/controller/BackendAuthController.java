@@ -63,7 +63,7 @@ public class BackendAuthController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("hasAnyAuthority('match:view:any','role:view:any','attendance:view:any','event:edit:any','lineup:view:any','grouping:view:any','player:view:any','settings:view:any','audit:view:any','invite:manage:any')")
+    @PreAuthorize("isAuthenticated()")
     public ApiResponse<BMeView> me() {
         AuthPrincipal principal = CurrentUser.principal();
         AuthResult result = authService.meResult(principal.userId());

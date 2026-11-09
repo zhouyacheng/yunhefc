@@ -94,7 +94,8 @@ class AuthFlowTest {
         Cookie playerCookie = cookie(registered, "YHFC_C");
         mockMvc.perform(get("/api/v1/c/me").cookie(playerCookie))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.user.phone").value(phone));
+                .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0001"))
+                .andExpect(jsonPath("$.data.user.name").value("测试球员"));
 
         MvcResult login = mockMvc.perform(post("/api/v1/c/auth/login")
                         .with(csrf())
@@ -109,7 +110,8 @@ class AuthFlowTest {
         Cookie loginCookie = cookie(login, "YHFC_C");
         mockMvc.perform(get("/api/v1/c/me").cookie(loginCookie))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.user.phone").value(phone));
+                .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0001"))
+                .andExpect(jsonPath("$.data.user.name").value("测试球员"));
 
         long adminId = createAdmin("13900000000");
         MvcResult adminLogin = mockMvc.perform(post("/api/v1/b/auth/login")

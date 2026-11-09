@@ -21,9 +21,12 @@ public class PendingAccountFilter extends OncePerRequestFilter {
     private static final int PENDING = 0;
     private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS");
     private static final Set<String> ALLOWED_WRITE_PATHS = Set.of(
+            "/api/v1/c/auth/login",
             "/api/v1/c/auth/logout",
-            "/api/v1/c/auth/wechat/bind-phone",
-            "/api/v1/c/invites/accept"
+            "/api/v1/c/auth/sms-codes",
+            "/api/v1/c/auth/register",
+            "/api/v1/c/auth/password/reset",
+            "/api/v1/c/auth/wechat/bind-phone"
     );
 
     private final ObjectMapper objectMapper;

@@ -1,0 +1,24 @@
+# Java
+backend/target/
+*.class
+*.log
+
+# Node
+frontend/node_modules/
+frontend/**/node_modules/
+frontend/**/dist/
+frontend/.pnpm-store/
+frontend/**/*.tsbuildinfo
+
+# Local config and secrets
+.env
+.env.*
+!.env.example
+deploy/.env
+deploy/.env.*
+!deploy/.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store

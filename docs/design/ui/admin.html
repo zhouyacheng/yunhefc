@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>云河FC · 管理后台</title>
+  <link rel="icon" href="assets/favicon.svg">
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/ui-extras.css">
+</head>
+<body>
+
+  <div id="admin-app"><div class="admin-shell">
+        <aside class="admin-sidebar">
+          <div class="admin-brand"><img class="admin-brand-logo" src="assets/logo.png" alt="云河FC"><div><strong>云河FC</strong><span>TEAM CONSOLE</span></div></div>
+          <nav class="admin-nav">
+            <div class="nav-group"><span>运营</span>
+              <button data-nav="dashboard" class="active"><span>▦</span>工作台</button>
+              <button data-nav="matches"><span>⚽</span>比赛管理</button>
+              <button data-nav="registrations"><span>✅</span>报名 / 考勤</button>
+              <button data-nav="events"><span>📋</span>事件 / 比分</button>
+            </div>
+            <div class="nav-group"><span>战术</span>
+              <button data-nav="lineup"><span>🧩</span>阵容</button>
+              <button data-nav="grouping"><span>⚖️</span>队内分组</button>
+            </div>
+            <div class="nav-group"><span>球队</span>
+              <button data-nav="players"><span>👥</span>球员</button>
+              <button data-nav="roles"><span>🔐</span>角色权限</button>
+            </div>
+            <div class="nav-group"><span>系统</span>
+              <button data-nav="invites"><span>🔗</span>邀请管理</button>
+              <button data-nav="settings"><span>⚙️</span>系统设置</button>
+              <button data-nav="audit"><span>🧾</span>操作日志</button>
+            </div>
+          </nav>
+          <div class="admin-side-foot"><a class="btn btn-ghost btn-sm" href="index.html">返回前台</a></div>
+        </aside>
+        <div class="admin-main">
+          <header class="admin-topbar">
+            <div><span class="badge badge-admin">管理员</span></div>
+            <button class="btn btn-ghost btn-sm" data-proto-toggle="">切换身份</button>
+          </header>
+          <main class="admin-content" id="admin-content"><div class="admin-section-head">
+        <div><h1>工作台</h1><p class="muted">先处理报名和阵容，再录比赛结果。</p></div>
+      </div>
+      <div class="stat-cards">
+        <div class="stat-card"><span>下一场比赛</span><b>11月12日</b><small>云河FC vs 海港联</small></div>
+        <div class="stat-card"><span>已确认报名</span><b>11</b><small>总名额 11</small></div>
+        <div class="stat-card"><span>待审核用户</span><b>1</b><small>自助注册</small></div>
+        <div class="stat-card"><span>操作记录</span><b>4</b><small>本次演示累计</small></div>
+      </div>
+      <div class="overview-grid">
+        <section class="card">
+          <div class="card-head"><h2>下一场</h2><a class="link" href="match.html">查看 →</a></div>
+          <a class="match-card" href="match.html">
+      <div class="match-card-top">
+        <span class="muted">11月12日 周四 20:00</span>
+        <span class="match-top-right">
+          
+          <span class="match-ordinal">2026赛季第57场（累计200场）</span>
+        </span>
+      </div>
+      <div class="match-card-teams">
+        <span class="team-name ">云河FC</span>
+        <span class="match-score">VS</span>
+        <span class="team-name ">海港联</span>
+      </div>
+      <div class="match-card-foot">
+        <span class="badge badge-type">正式比赛</span>
+        <span class="muted match-venue">浦东足球公园 3 号场 · 第 9 轮</span>
+        <span class="match-status badge-open">报名中</span>
+      </div>
+    </a>
+          <div class="quick-actions" style="margin-top:12px">
+            <button class="btn btn-ghost btn-sm" data-go="registrations" data-match-id="m1">报名 / 考勤</button>
+            <button class="btn btn-ghost btn-sm" data-go="lineup" data-match-id="m1">排阵容</button>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>最近操作</h2><button class="btn btn-ghost btn-sm" data-go="audit">全部</button></div>
+          <div class="notice"><div><strong>调整角色权限</strong><p>管理员 · COACH</p></div><small>1 天前</small></div><div class="notice"><div><strong>创建比赛</strong><p>管理员 · 云河FC vs 海港联</p></div><small>1 天前</small></div><div class="notice"><div><strong>标记考勤</strong><p>管理员 · 云河FC vs 东岸竞技</p></div><small>2 天前</small></div><div class="notice"><div><strong>录入事件</strong><p>陈子昂 · 云河FC vs 东岸竞技</p></div><small>2 天前</small></div>
+        </section>
+      </div>
+      <section class="card" style="margin-top:18px">
+        <div class="card-head"><h2>待处理</h2><span class="muted">3 项</span></div>
+        <div class="notice"><div><strong>待审核球员</strong><p>外挂 · 中场 · 昨天 21:14 注册</p></div><button class="btn btn-primary btn-sm">通过</button></div>
+        <div class="notice"><div><strong>周末比赛未排阵容</strong><p>锁定后即可生成分组</p></div><button class="btn btn-ghost btn-sm">去处理</button></div>
+        <div class="notice"><div><strong>3 条新操作记录</strong><p>角色权限与报名变更</p></div><button class="btn btn-ghost btn-sm">查看</button></div>
+      </section>
+    </main>
+        </div>
+      </div></div>
+  <div id="modal-root"></div>
+  <div id="toast-root"></div>
+  
+  
+  
+  
+  
+  
+  
+
+
+<div id="proto-panel" class="proto-panel"><div class="proto-head">
+        <div><strong>演示身份</strong><small>切换后刷新页面，操作数据保留</small></div>
+        <button class="icon-btn" data-proto-close="" aria-label="关闭">×</button>
+      </div>
+      <div class="proto-list">
+        <button class="proto-user " data-user-id="0">
+          <span>未登录访客</span><small>访客</small>
+        </button><button class="proto-user " data-user-id="21">
+          <span>待审核用户</span><small>待审核球员</small>
+        </button><button class="proto-user " data-user-id="2">
+          <span>外挂球员</span><small>林外援</small>
+        </button><button class="proto-user " data-user-id="3">
+          <span>正式球员</span><small>陈子昂</small>
+        </button><button class="proto-user active" data-user-id="1">
+          <span>管理员</span><small>管理员</small>
+        </button>
+      </div>
+      <button class="btn btn-ghost btn-block" data-reset-demo="">重置演示数据</button>
+      <p class="proto-note">纯前端原型 · 数据仅保存在浏览器</p></div>
+</body>
+</html>

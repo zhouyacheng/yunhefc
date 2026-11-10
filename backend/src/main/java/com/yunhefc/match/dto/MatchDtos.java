@@ -1,0 +1,81 @@
+package com.yunhefc.match.dto;
+
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
+
+import java.time.Instant;
+
+public final class MatchDtos {
+
+    private MatchDtos() {
+    }
+
+    public record MatchAdminQuery(
+            Integer status,
+            Integer type,
+            String season,
+            String scope,
+            String sort,
+            long page,
+            long pageSize) {
+    }
+
+    public record MatchCreateRequest(
+            @Size(max = 128) String title,
+            @Min(0) @Max(3) Integer type,
+            Instant startAt,
+            Instant endAt,
+            @Size(max = 128) String venue,
+            @Size(max = 64) String homeTeamName,
+            @Size(max = 64) String awayTeamName,
+            @Size(max = 16) String format,
+            @Size(max = 64) String competition,
+            String season,
+            @Min(0) @Max(65535) Integer round,
+            @Min(0) @Max(1) Integer ourSide,
+            @Min(1) @Max(65535) Integer capacity,
+            @Min(0) @Max(65535) Integer guestCapacity,
+            @Min(0) @Max(65535) Integer waitlistCapacity,
+            Boolean includeGuests,
+            @Min(0) @Max(255) Integer scoreHome,
+            @Min(0) @Max(255) Integer scoreAway) {
+    }
+
+    public record MatchAdminView(
+            Long id,
+            String title,
+            Integer type,
+            String typeLabel,
+            String format,
+            Instant startAt,
+            Instant endAt,
+            Instant signupDeadline,
+            Instant cancelLock,
+            String venue,
+            String competition,
+            String season,
+            Integer round,
+            String homeTeamName,
+            String awayTeamName,
+            Integer ourSide,
+            String ourSideLabel,
+            Integer status,
+            String statusLabel,
+            boolean manualStatus,
+            Integer capacity,
+            Integer guestCapacity,
+            Integer waitlistCapacity,
+            boolean includeGuests,
+            Integer scoreHome,
+            Integer scoreAway,
+            Integer seasonMatchNo,
+            Integer totalMatchNo,
+            Integer version,
+            Instant statusUpdatedAt,
+            Long statusUpdatedBy,
+            Long createdBy,
+            Instant createdAt,
+            Instant updatedAt) {
+    }
+}

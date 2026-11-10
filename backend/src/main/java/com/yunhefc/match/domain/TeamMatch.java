@@ -22,15 +22,31 @@ public class TeamMatch {
     private String format;
     private Instant startAt;
     private Instant endAt;
+    private Instant signupDeadline;
+    private Instant cancelLock;
     private String venue;
-    private MatchStatus status;
+    private String competition;
+    private String season;
+    private Integer round;
     private String homeTeamName;
     private String awayTeamName;
+    private OurSide ourSide;
+    private MatchStatus status;
+    private Boolean manualStatus;
     private Integer capacity;
     private Integer guestCapacity;
     private Integer waitlistCapacity;
-    private Integer includeGuests;
+    private Boolean includeGuests;
+    private Integer scoreHome;
+    private Integer scoreAway;
+    private Integer seasonMatchNo;
+    private Integer totalMatchNo;
     private Integer version;
+    private Instant statusUpdatedAt;
+    private Long statusUpdatedBy;
+    private Long createdBy;
+    private Instant createdAt;
+    private Instant updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

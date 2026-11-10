@@ -20,20 +20,5 @@ public interface RegistrationMapper extends BaseMapper<Registration> {
             """)
     int countActiveFormalRegistration(@Param("matchId") Long matchId, @Param("playerId") Long playerId);
 
-    @Select("""
-            <script>
-            SELECT match_id AS matchId,
-                   SUM(CASE WHEN type = 1 AND status = 0 THEN 1 ELSE 0 END) AS confirmedCount,
-                   SUM(CASE WHEN type = 0 AND status = 0 THEN 1 ELSE 0 END) AS guestCount,
-                   SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) AS waitlistCount
-            FROM registration
-            WHERE is_deleted = 0
-              AND match_id IN
-              <foreach collection="matchIds" item="matchId" open="(" separator="," close=")">
-                #{matchId}
-              </foreach>
-            GROUP BY match_id
-            </script>
-            """)
     List<RegistrationQueueRow> selectQueueCounts(@Param("matchIds") Collection<Long> matchIds);
 }

@@ -188,9 +188,12 @@ public class MatchPublicApplicationService {
     }
 
     /**
-     * 对外按我方视角给出胜/负/平，队内/训练给出比分文本；无比分时为 null。
+     * 仅已结束比赛给出结果：对外按我方视角胜/负/平，队内/训练给出比分文本；无比分时为 null。
      */
     private String resultText(TeamMatch match) {
+        if (match.getStatus() != MatchStatus.FINISHED) {
+            return null;
+        }
         Integer home = match.getScoreHome();
         Integer away = match.getScoreAway();
         if (home == null || away == null) {

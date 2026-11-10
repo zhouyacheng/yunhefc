@@ -119,6 +119,14 @@ class MatchPublicIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].id").value(previousSeason));
 
+        for (String pageSize : List.of("20", "50", "100")) {
+            mockMvc.perform(get("/api/v1/c/matches")
+                            .param("season", "2099").param("pageSize", pageSize))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.pageSize").value(Integer.parseInt(pageSize)))
+                    .andExpect(jsonPath("$.data.total").value(3));
+        }
+
         expectBadRequest("/api/v1/c/matches", "month", "2099/06");
         expectBadRequest("/api/v1/c/matches", "month", "2099-13");
         expectBadRequest("/api/v1/c/matches", "pageSize", "101");
@@ -129,6 +137,35 @@ class MatchPublicIT extends IntegrationTestSupport {
         expectBadRequest("/api/v1/c/matches", "type", "9");
         expectBadRequest("/api/v1/c/matches", "status", "9");
         expectBadRequest("/api/v1/c/matches", "season", "26");
+    }
+
+    @Test
+    void upcomingIncludesUnfinishedStatuses() throws Exception {
+        Cookie admin = adminLogin("13900000605");
+        Long inProgress = create(admin, matchBody("M03公开进行中", 1, "聚龙足球场", "2100",
+                "2100-01-05T20:00:00"));
+        Long postponed = create(admin, matchBody("M03公开已延期", 1, "聚龙足球场", "2100",
+                "2100-01-04T20:00:00"));
+        Long signupClosed = create(admin, matchBody("M03公开已截止", 1, "聚龙足球场", "2100",
+                "2100-01-03T20:00:00"));
+        Long finished = create(admin, matchBody("M03公开已结束", 1, "聚龙足球场", "2100",
+                "2100-01-02T20:00:00"));
+        Long cancelled = create(admin, matchBody("M03公开已取消", 1, "聚龙足球场", "2100",
+                "2100-01-01T20:00:00"));
+        jdbc.update("UPDATE team_match SET status = 3 WHERE id = ?", inProgress);
+        jdbc.update("UPDATE team_match SET status = 5 WHERE id = ?", postponed);
+        jdbc.update("UPDATE team_match SET status = 1 WHERE id = ?", signupClosed);
+        jdbc.update("UPDATE team_match SET status = 4 WHERE id = ?", finished);
+        jdbc.update("UPDATE team_match SET status = 6 WHERE id = ?", cancelled);
+
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("season", "2100").param("scope", "upcoming"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(3));
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("season", "2100").param("scope", "history"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2));
     }
 
     @Test
@@ -144,8 +181,15 @@ class MatchPublicIT extends IntegrationTestSupport {
                 "2099-08-03T20:00:00"));
         Long noScore = create(admin, matchBody("M03公开无比分", 1, "聚龙足球场", "2099",
                 "2099-08-04T20:00:00"));
+        Long upcoming = create(admin, officialBody("M03公开未赛", "云河FC", "乙队", 3, 1,
+                "2099-08-02T20:00:00"));
         jdbc.update("UPDATE team_match SET score_home = NULL, score_away = NULL WHERE id = ?", noScore);
+        jdbc.update("UPDATE team_match SET status = 4 WHERE id IN (?, ?, ?)", win, loss, draw);
+        jdbc.update("UPDATE team_match SET status = 4 WHERE id IN (?, ?)", internal, noScore);
 
+        mockMvc.perform(get("/api/v1/c/matches/" + upcoming))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.resultText").value((Object) null));
         mockMvc.perform(get("/api/v1/c/matches/" + win))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.resultText").value("胜"))

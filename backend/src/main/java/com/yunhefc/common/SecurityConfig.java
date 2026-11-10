@@ -64,7 +64,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/c/invites/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/c/team/players",
-                                "/api/v1/c/team/stats").permitAll()
+                                "/api/v1/c/team/stats",
+                                "/api/v1/c/matches",
+                                "/api/v1/c/matches/*").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, exception) ->

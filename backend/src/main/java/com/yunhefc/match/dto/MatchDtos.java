@@ -23,6 +23,18 @@ public final class MatchDtos {
             long pageSize) {
     }
 
+    public record MatchPublicQuery(
+            Integer type,
+            String venue,
+            Integer status,
+            String season,
+            String month,
+            String scope,
+            String sort,
+            long page,
+            long pageSize) {
+    }
+
     public record MatchCreateRequest(
             @NotBlank @Size(max = 128) String title,
             @NotNull @Min(0) @Max(3) Integer type,
@@ -79,5 +91,82 @@ public final class MatchDtos {
             Long createdBy,
             Instant createdAt,
             Instant updatedAt) {
+    }
+
+    public record MatchSummary(
+            Long id,
+            String title,
+            Integer type,
+            String typeLabel,
+            Instant startAt,
+            Instant endAt,
+            String venue,
+            Integer round,
+            String season,
+            String homeTeamName,
+            String awayTeamName,
+            Integer ourSide,
+            String ourSideLabel,
+            Integer scoreHome,
+            Integer scoreAway,
+            String resultText,
+            Integer status,
+            String statusLabel,
+            Integer totalMatchNo,
+            Integer seasonMatchNo,
+            int confirmedCount,
+            int guestCount,
+            int waitlistCount) {
+    }
+
+    public record MatchDetail(
+            Long id,
+            String title,
+            Integer type,
+            String typeLabel,
+            Instant startAt,
+            Instant endAt,
+            String venue,
+            Integer round,
+            String season,
+            String homeTeamName,
+            String awayTeamName,
+            Integer ourSide,
+            String ourSideLabel,
+            Integer scoreHome,
+            Integer scoreAway,
+            String resultText,
+            Integer status,
+            String statusLabel,
+            Integer totalMatchNo,
+            Integer seasonMatchNo,
+            int confirmedCount,
+            int guestCount,
+            int waitlistCount,
+            String format,
+            String competition,
+            Instant signupDeadline,
+            Instant cancelLock,
+            Integer capacity,
+            Integer guestCapacity,
+            Integer waitlistCapacity,
+            Integer version,
+            DerivedScore derivedScore,
+            RegistrationView myRegistration) {
+    }
+
+    public record DerivedScore(Integer scoreHome, Integer scoreAway) {
+    }
+
+    public record RegistrationView(
+            Long id,
+            Long playerId,
+            Integer type,
+            String typeLabel,
+            Integer status,
+            String statusLabel,
+            Instant registeredAt,
+            Instant cancelledAt,
+            boolean active) {
     }
 }

@@ -71,20 +71,20 @@ public class MatchAdminApplicationService {
         if (page < 1 || pageSize < 1 || pageSize > 100) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "分页参数不合法");
         }
-        MatchStatus status = matchStatus(query.status());
-        MatchType type = matchType(query.type());
-        String season = seasonFilter(query.season());
-        String scope = scope(query.scope());
-        boolean ascending = ascending(query.sort());
+        MatchStatus status = MatchQueryParsing.status(query.status());
+        MatchType type = MatchQueryParsing.type(query.type());
+        String season = MatchQueryParsing.seasonFilter(query.season());
+        String scope = MatchQueryParsing.scope(query.scope());
+        boolean ascending = MatchQueryParsing.ascending(query.sort());
 
         LambdaQueryWrapper<TeamMatch> wrapper = new LambdaQueryWrapper<TeamMatch>()
                 .eq(TeamMatch::getTeamId, teamId)
                 .eq(status != null, TeamMatch::getStatus, status)
                 .eq(type != null, TeamMatch::getType, type)
                 .eq(season != null, TeamMatch::getSeason, season);
-        if ("upcoming".equals(scope)) {
+        if (MatchQueryParsing.SCOPE_UPCOMING.equals(scope)) {
             wrapper.notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
-        } else if ("history".equals(scope)) {
+        } else if (MatchQueryParsing.SCOPE_HISTORY.equals(scope)) {
             wrapper.in(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
         }
         if (ascending) {
@@ -121,13 +121,16 @@ public class MatchAdminApplicationService {
     }
 
     private TeamMatch prepare(Long teamId, MatchCreateRequest request) {
-        MatchType type = requiredMatchType(request.type());
-        String title = normalize(request.title());
-        String homeTeamName = normalize(request.homeTeamName());
-        String awayTeamName = normalize(request.awayTeamName());
-        String venue = normalize(request.venue());
+        if (request.type() == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "比赛类型不能为空");
+        }
+        MatchType type = MatchQueryParsing.type(request.type());
+        String title = MatchQueryParsing.normalize(request.title());
+        String homeTeamName = MatchQueryParsing.normalize(request.homeTeamName());
+        String awayTeamName = MatchQueryParsing.normalize(request.awayTeamName());
+        String venue = MatchQueryParsing.normalize(request.venue());
         String format = defaultWhenBlank(request.format(), DEFAULT_FORMAT);
-        String competition = normalize(request.competition());
+        String competition = MatchQueryParsing.normalize(request.competition());
         String season = season(request.season());
         MatchTimeRules.Schedule schedule = MatchTimeRules.validateAndDerive(
                 request.startAt(), request.endAt());
@@ -208,88 +211,17 @@ public class MatchAdminApplicationService {
         throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "对外比赛必须确定我方主客");
     }
 
-    private MatchType requiredMatchType(Integer code) {
-        if (code == null) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "比赛类型不能为空");
-        }
-        return matchType(code);
-    }
-
-    private MatchType matchType(Integer code) {
-        if (code == null) {
-            return null;
-        }
-        try {
-            return MatchType.of(code);
-        } catch (IllegalArgumentException ex) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "比赛类型不合法");
-        }
-    }
-
-    private MatchStatus matchStatus(Integer code) {
-        if (code == null) {
-            return null;
-        }
-        try {
-            return MatchStatus.of(code);
-        } catch (IllegalArgumentException ex) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "比赛状态不合法");
-        }
-    }
-
-    private String seasonFilter(String requested) {
-        String season = normalize(requested);
-        return season == null ? null : validSeason(season);
-    }
-
-    private String scope(String requested) {
-        String scope = normalize(requested);
-        if (scope == null) {
-            return "all";
-        }
-        if (!scope.equals("all") && !scope.equals("upcoming") && !scope.equals("history")) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "scope 参数不合法");
-        }
-        return scope;
-    }
-
-    private boolean ascending(String requested) {
-        String sort = normalize(requested);
-        if (sort == null || sort.equals("startAt:desc")) {
-            return false;
-        }
-        if (sort.equals("startAt:asc")) {
-            return true;
-        }
-        throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
-    }
-
     private String season(String requested) {
-        String season = normalize(requested);
+        String season = MatchQueryParsing.normalize(requested);
         if (season == null) {
             return String.valueOf(LocalDate.now(clock.withZone(MatchTimeRules.ZONE)).getYear());
         }
-        return validSeason(season);
-    }
-
-    private String validSeason(String season) {
-        if (!season.matches("\\d{4}")) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "赛季必须为四位年份");
-        }
-        return season;
+        return MatchQueryParsing.validSeason(season);
     }
 
     private String defaultWhenBlank(String value, String fallback) {
-        String normalized = normalize(value);
+        String normalized = MatchQueryParsing.normalize(value);
         return normalized == null ? fallback : normalized;
-    }
-
-    private String normalize(String value) {
-        if (value == null) {
-            return null;
-        }
-        String stripped = value.strip();
-        return stripped.isBlank() ? null : stripped;
     }
 
     private Map<String, Object> snapshot(TeamMatch match) {

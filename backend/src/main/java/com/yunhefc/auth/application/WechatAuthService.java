@@ -31,6 +31,7 @@ import com.yunhefc.player.application.PlayerProfileApplicationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -46,6 +47,7 @@ import java.util.UUID;
 import java.util.regex.Pattern;
 
 @Service
+@RequiredArgsConstructor
 public class WechatAuthService {
 
     private static final Logger log = LoggerFactory.getLogger(WechatAuthService.class);
@@ -65,37 +67,6 @@ public class WechatAuthService {
     private final AuthSessionService sessionService;
     private final UserViewAssembler userViewAssembler;
     private final Clock clock;
-
-    public WechatAuthService(
-            WechatProperties properties,
-            WechatOAuthClient oauthClient,
-            WechatStateStore stateStore,
-            AppUserMapper userMapper,
-            AppRoleMapper roleMapper,
-            UserRoleMapper userRoleMapper,
-            TeamMapper teamMapper,
-            PlayerReadPort playerReadPort,
-            PlayerProfileApplicationService playerProfileService,
-            SmsCodeService smsCodeService,
-            LoginAttemptService loginAttemptService,
-            AuthSessionService sessionService,
-            UserViewAssembler userViewAssembler,
-            Clock clock) {
-        this.properties = properties;
-        this.oauthClient = oauthClient;
-        this.stateStore = stateStore;
-        this.userMapper = userMapper;
-        this.roleMapper = roleMapper;
-        this.userRoleMapper = userRoleMapper;
-        this.teamMapper = teamMapper;
-        this.playerReadPort = playerReadPort;
-        this.playerProfileService = playerProfileService;
-        this.smsCodeService = smsCodeService;
-        this.loginAttemptService = loginAttemptService;
-        this.sessionService = sessionService;
-        this.userViewAssembler = userViewAssembler;
-        this.clock = clock;
-    }
 
     public AuthorizeResponse authorize(String redirect, String userAgent, HttpServletRequest request) {
         if (!properties.isEnabled()) {

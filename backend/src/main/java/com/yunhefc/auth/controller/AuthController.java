@@ -18,6 +18,7 @@ import com.yunhefc.contracts.security.SessionKeys;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,18 +31,12 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/c")
+@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
     private final AuthSessionService authSessionService;
     private final RedisRateLimiter rateLimiter;
-
-    public AuthController(AuthService authService, AuthSessionService authSessionService,
-                          RedisRateLimiter rateLimiter) {
-        this.authService = authService;
-        this.authSessionService = authSessionService;
-        this.rateLimiter = rateLimiter;
-    }
 
     @GetMapping("/auth/csrf")
     public ApiResponse<Map<String, String>> csrf(CsrfToken token) {

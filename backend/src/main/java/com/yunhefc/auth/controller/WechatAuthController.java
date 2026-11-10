@@ -9,6 +9,7 @@ import com.yunhefc.common.api.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -19,13 +20,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/c/auth/wechat")
+@RequiredArgsConstructor
 public class WechatAuthController {
 
     private final WechatAuthService wechatAuthService;
-
-    public WechatAuthController(WechatAuthService wechatAuthService) {
-        this.wechatAuthService = wechatAuthService;
-    }
 
     @GetMapping("/authorize")
     public ApiResponse<AuthorizeResponse> authorize(

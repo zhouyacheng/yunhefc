@@ -35,6 +35,7 @@ import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccessPort;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
@@ -52,6 +53,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
+@RequiredArgsConstructor
 public class AuthService implements UserAccessPort {
 
     private static final Logger log = LoggerFactory.getLogger(AuthService.class);
@@ -75,37 +77,6 @@ public class AuthService implements UserAccessPort {
     private final AuditRecorder auditRecorder;
     private final UserViewAssembler userViewAssembler;
     private final Clock clock;
-
-    public AuthService(
-            AppUserMapper userMapper,
-            AppRoleMapper roleMapper,
-            UserRoleMapper userRoleMapper,
-            TeamMapper teamMapper,
-            PlayerReadPort playerReadPort,
-            PlayerProfileApplicationService playerProfileService,
-            NotificationReadPort notificationReadPort,
-            SmsCodeService smsCodeService,
-            LoginAttemptService loginAttemptService,
-            InviteService inviteService,
-            PasswordEncoder passwordEncoder,
-            AuditRecorder auditRecorder,
-            UserViewAssembler userViewAssembler,
-            Clock clock) {
-        this.userMapper = userMapper;
-        this.roleMapper = roleMapper;
-        this.userRoleMapper = userRoleMapper;
-        this.teamMapper = teamMapper;
-        this.playerReadPort = playerReadPort;
-        this.playerProfileService = playerProfileService;
-        this.notificationReadPort = notificationReadPort;
-        this.smsCodeService = smsCodeService;
-        this.loginAttemptService = loginAttemptService;
-        this.inviteService = inviteService;
-        this.passwordEncoder = passwordEncoder;
-        this.auditRecorder = auditRecorder;
-        this.userViewAssembler = userViewAssembler;
-        this.clock = clock;
-    }
 
     public int sendSms(String phone, String purpose) {
         validatePhone(phone);

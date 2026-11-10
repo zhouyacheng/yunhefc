@@ -2,6 +2,7 @@ package com.yunhefc.infra.outbox;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -10,17 +11,12 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class OutboxService {
 
     private final OutboxEventMapper outboxEventMapper;
     private final ObjectMapper objectMapper;
     private final Clock clock;
-
-    public OutboxService(OutboxEventMapper outboxEventMapper, ObjectMapper objectMapper, Clock clock) {
-        this.outboxEventMapper = outboxEventMapper;
-        this.objectMapper = objectMapper;
-        this.clock = clock;
-    }
 
     public void append(Long teamId, String aggregateType, Long aggregateId, String eventType, Object payload) {
         OutboxEvent event = newEvent(teamId, aggregateType, aggregateId, eventType, payload);

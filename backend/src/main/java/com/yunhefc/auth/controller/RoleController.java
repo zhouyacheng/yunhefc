@@ -18,6 +18,7 @@ import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,15 +33,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/b")
+@RequiredArgsConstructor
 public class RoleController {
 
     private final RoleService roleService;
     private final AuthService authService;
-
-    public RoleController(RoleService roleService, AuthService authService) {
-        this.roleService = roleService;
-        this.authService = authService;
-    }
 
     @GetMapping("/roles")
     @PreAuthorize("hasAuthority('role:view:any')")

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.common.config.MessagingProperties;
 import com.yunhefc.common.config.OutboxProperties;
 import com.yunhefc.contracts.messaging.EventTypes;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -16,6 +17,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Component
+@RequiredArgsConstructor
 public class OutboxRelay {
 
     private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);
@@ -29,21 +31,6 @@ public class OutboxRelay {
     private final OutboxProperties outboxProperties;
     private final Clock clock;
     private final String owner = UUID.randomUUID().toString();
-
-    public OutboxRelay(
-            OutboxEventMapper outboxEventMapper,
-            KafkaTemplate<String, String> kafkaTemplate,
-            ObjectMapper objectMapper,
-            MessagingProperties messagingProperties,
-            OutboxProperties outboxProperties,
-            Clock clock) {
-        this.outboxEventMapper = outboxEventMapper;
-        this.kafkaTemplate = kafkaTemplate;
-        this.objectMapper = objectMapper;
-        this.messagingProperties = messagingProperties;
-        this.outboxProperties = outboxProperties;
-        this.clock = clock;
-    }
 
     public void relay() {
         if (!outboxProperties.isEnabled()) {

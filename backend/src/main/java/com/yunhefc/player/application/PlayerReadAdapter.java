@@ -5,18 +5,16 @@ import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.player.domain.Player;
 import com.yunhefc.player.infrastructure.PlayerMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Optional;
 
 @Component
+@RequiredArgsConstructor
 public class PlayerReadAdapter implements PlayerReadPort {
 
     private final PlayerMapper playerMapper;
-
-    public PlayerReadAdapter(PlayerMapper playerMapper) {
-        this.playerMapper = playerMapper;
-    }
 
     @Override
     public Optional<PlayerSnapshot> findByUserId(Long userId) {

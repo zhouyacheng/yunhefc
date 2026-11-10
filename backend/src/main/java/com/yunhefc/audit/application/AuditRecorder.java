@@ -7,21 +7,18 @@ import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.infra.outbox.OutboxService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class AuditRecorder {
 
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
-
-    public AuditRecorder(OutboxService outboxService, ObjectMapper objectMapper) {
-        this.outboxService = outboxService;
-        this.objectMapper = objectMapper;
-    }
 
     public void recordCurrent(String action, String targetType, Long targetId,
                               Object before, Object after) {

@@ -8,6 +8,7 @@ import com.yunhefc.infra.outbox.OutboxMessage;
 import com.yunhefc.notification.domain.Notification;
 import com.yunhefc.notification.domain.NotificationType;
 import com.yunhefc.notification.infrastructure.NotificationMapper;
+import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class NotificationEventHandler {
 
     public static final String GROUP = "yunhefc-notification";
@@ -25,14 +27,6 @@ public class NotificationEventHandler {
     private final NotificationMapper notificationMapper;
     private final ConsumedEventMapper consumedEventMapper;
     private final ObjectMapper objectMapper;
-
-    public NotificationEventHandler(NotificationMapper notificationMapper,
-                                    ConsumedEventMapper consumedEventMapper,
-                                    ObjectMapper objectMapper) {
-        this.notificationMapper = notificationMapper;
-        this.consumedEventMapper = consumedEventMapper;
-        this.objectMapper = objectMapper;
-    }
 
     @Transactional
     public void apply(String message, String topic, int partition, long offset) {

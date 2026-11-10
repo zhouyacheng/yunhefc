@@ -2,6 +2,7 @@ package com.yunhefc.auth.application;
 
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -9,16 +10,13 @@ import java.time.Duration;
 import java.util.Map;
 
 @Service
+@RequiredArgsConstructor
 public class LoginAttemptService {
 
     private static final int MAX_FAILURES = 5;
     private static final Duration LOCK_TTL = Duration.ofMinutes(15);
 
     private final StringRedisTemplate redis;
-
-    public LoginAttemptService(StringRedisTemplate redis) {
-        this.redis = redis;
-    }
 
     public void check(String phone) {
         String value = redis.opsForValue().get(key(phone));

@@ -6,6 +6,7 @@ import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -19,15 +20,11 @@ import java.util.HexFormat;
 
 @Aspect
 @Component
+@RequiredArgsConstructor
 public class IdempotentAspect {
 
     private final IdempotencyService idempotencyService;
     private final ObjectMapper objectMapper;
-
-    public IdempotentAspect(IdempotencyService idempotencyService, ObjectMapper objectMapper) {
-        this.idempotencyService = idempotencyService;
-        this.objectMapper = objectMapper;
-    }
 
     @Around("@annotation(idempotent)")
     public Object around(ProceedingJoinPoint joinPoint, Idempotent idempotent) throws Throwable {

@@ -1,5 +1,6 @@
 package com.yunhefc.notification.application;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -7,13 +8,10 @@ import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 
 @Component
+@RequiredArgsConstructor
 public class NotificationEventConsumer {
 
     private final NotificationEventHandler handler;
-
-    public NotificationEventConsumer(NotificationEventHandler handler) {
-        this.handler = handler;
-    }
 
     @KafkaListener(topics = "${yunhefc.kafka.notification-topic:yunhefc.notification.events}",
             groupId = NotificationEventHandler.GROUP,

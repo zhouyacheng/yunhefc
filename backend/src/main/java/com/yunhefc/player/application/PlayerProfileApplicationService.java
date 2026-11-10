@@ -7,19 +7,17 @@ import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.player.Position;
 import com.yunhefc.player.domain.Player;
 import com.yunhefc.player.infrastructure.PlayerMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 /**
  * 注册建档与转正编排中供 auth 调用的球员档案写入口。
  */
 @Service
+@RequiredArgsConstructor
 public class PlayerProfileApplicationService {
 
     private final PlayerMapper playerMapper;
-
-    public PlayerProfileApplicationService(PlayerMapper playerMapper) {
-        this.playerMapper = playerMapper;
-    }
 
     public PlayerSnapshot createProfile(Long teamId, Long userId, String name, PlayerType type, Position position) {
         Player player = new Player();

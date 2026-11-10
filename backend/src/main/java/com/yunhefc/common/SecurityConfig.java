@@ -8,6 +8,7 @@ import com.yunhefc.common.security.PendingAccountFilter;
 import com.yunhefc.common.security.SessionAuthFilter;
 import com.yunhefc.contracts.security.UserAccessPort;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -24,15 +25,11 @@ import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
 
 @Configuration
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final UserAccessPort userAccessPort;
     private final ObjectMapper objectMapper;
-
-    public SecurityConfig(UserAccessPort userAccessPort, ObjectMapper objectMapper) {
-        this.userAccessPort = userAccessPort;
-        this.objectMapper = objectMapper;
-    }
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {

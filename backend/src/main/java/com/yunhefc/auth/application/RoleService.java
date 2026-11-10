@@ -24,6 +24,7 @@ import com.yunhefc.infra.outbox.OutboxEvent;
 import com.yunhefc.infra.outbox.OutboxService;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -36,6 +37,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 @Service
+@RequiredArgsConstructor
 public class RoleService {
 
     private static final Pattern ROLE_CODE = Pattern.compile("^[A-Z][A-Z0-9_]{1,31}$");
@@ -48,25 +50,6 @@ public class RoleService {
     private final TeamMapper teamMapper;
     private final AuditRecorder auditRecorder;
     private final OutboxService outboxService;
-
-    public RoleService(
-            AppRoleMapper roleMapper,
-            PermissionMapper permissionMapper,
-            UserRoleMapper userRoleMapper,
-            RolePermissionMapper rolePermissionMapper,
-            AppUserMapper userMapper,
-            TeamMapper teamMapper,
-            AuditRecorder auditRecorder,
-            OutboxService outboxService) {
-        this.roleMapper = roleMapper;
-        this.permissionMapper = permissionMapper;
-        this.userRoleMapper = userRoleMapper;
-        this.rolePermissionMapper = rolePermissionMapper;
-        this.userMapper = userMapper;
-        this.teamMapper = teamMapper;
-        this.auditRecorder = auditRecorder;
-        this.outboxService = outboxService;
-    }
 
     public List<RoleView> listRoles() {
         return roleMapper.selectList(new LambdaQueryWrapper<AppRole>().orderByAsc(AppRole::getId))

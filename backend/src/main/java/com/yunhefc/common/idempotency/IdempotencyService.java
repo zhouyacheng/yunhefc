@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.common.api.ApiResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +14,7 @@ import java.time.Instant;
 import java.util.concurrent.Callable;
 
 @Service
+@RequiredArgsConstructor
 public class IdempotencyService {
 
     private static final int IN_PROGRESS_GRACE_SECONDS = 60;
@@ -20,12 +22,6 @@ public class IdempotencyService {
     private final IdempotencyKeyMapper mapper;
     private final ObjectMapper objectMapper;
     private final Clock clock;
-
-    public IdempotencyService(IdempotencyKeyMapper mapper, ObjectMapper objectMapper, Clock clock) {
-        this.mapper = mapper;
-        this.objectMapper = objectMapper;
-        this.clock = clock;
-    }
 
     public ApiResponse<?> execute(Long userId, String endpoint, String idemKey, String requestHash,
                                   Callable<ApiResponse<?>> action) throws Exception {

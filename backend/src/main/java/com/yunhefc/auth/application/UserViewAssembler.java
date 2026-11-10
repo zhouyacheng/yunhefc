@@ -5,20 +5,17 @@ import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
 
 @Component
+@RequiredArgsConstructor
 public class UserViewAssembler {
 
     private final PlayerReadPort playerReadPort;
     private final UserRoleMapper userRoleMapper;
-
-    public UserViewAssembler(PlayerReadPort playerReadPort, UserRoleMapper userRoleMapper) {
-        this.playerReadPort = playerReadPort;
-        this.userRoleMapper = userRoleMapper;
-    }
 
     public UserView toView(AppUser user) {
         PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);

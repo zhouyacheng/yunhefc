@@ -12,6 +12,7 @@ import com.yunhefc.common.idempotency.Idempotent;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.security.CurrentUser;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,15 +27,11 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1")
+@RequiredArgsConstructor
 public class InviteController {
 
     private final InviteService inviteService;
     private final AuthService authService;
-
-    public InviteController(InviteService inviteService, AuthService authService) {
-        this.inviteService = inviteService;
-        this.authService = authService;
-    }
 
     @GetMapping("/c/invites/{token}")
     public ApiResponse<InviteView> resolve(@PathVariable String token) {

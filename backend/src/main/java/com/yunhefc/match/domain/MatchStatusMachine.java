@@ -3,6 +3,7 @@ package com.yunhefc.match.domain;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.Set;
 
@@ -57,6 +58,37 @@ public final class MatchStatusMachine {
      */
     public static boolean canAutoAdvance(MatchStatus from, MatchStatus to) {
         return isOrdinary(from) && isOrdinary(to) && to.code() > from.code();
+    }
+
+    /**
+     * 按时间推导自动流转目标状态：跳过手动覆盖、已延期、已取消与已结束，只前进不回退。
+     * 到达边界即切换（now >= 边界），任务漏跑时直接追到当前应处的最高状态。
+     */
+    public static MatchStatus autoTarget(MatchStatus current, boolean manualStatus, Instant now,
+                                        Instant signupDeadline, Instant cancelLock,
+                                        Instant startAt, Instant endAt) {
+        if (manualStatus || !isOrdinary(current)) {
+            return current;
+        }
+        MatchStatus reached = reachedStatus(now, signupDeadline, cancelLock, startAt, endAt);
+        return canAutoAdvance(current, reached) ? reached : current;
+    }
+
+    private static MatchStatus reachedStatus(Instant now, Instant signupDeadline, Instant cancelLock,
+                                             Instant startAt, Instant endAt) {
+        if (!now.isBefore(endAt)) {
+            return MatchStatus.FINISHED;
+        }
+        if (!now.isBefore(startAt)) {
+            return MatchStatus.IN_PROGRESS;
+        }
+        if (!now.isBefore(cancelLock)) {
+            return MatchStatus.LOCKED;
+        }
+        if (!now.isBefore(signupDeadline)) {
+            return MatchStatus.SIGNUP_CLOSED;
+        }
+        return MatchStatus.SIGNUP_OPEN;
     }
 
     private static BusinessException stateConflict(String message) {

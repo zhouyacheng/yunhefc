@@ -64,6 +64,12 @@ public final class MatchDtos {
             @Min(0) @Max(255) Integer scoreAway) {
     }
 
+    public record MatchStatusRequest(
+            @NotNull @Min(0) @Max(6) Integer status,
+            @NotNull @Min(0) Integer version,
+            Boolean manualStatus) {
+    }
+
     /**
      * 编辑比赛仅允许赛程字段；赛季/类型/我方主客/比分等由 {@link JsonAnySetter} 收集后拒绝。
      * `round`、`competition` 可为空，用显式 null 清空，故单独记录字段是否出现。

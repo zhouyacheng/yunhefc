@@ -13,6 +13,7 @@ import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.settings.RegistrationDefaults;
 import com.yunhefc.contracts.settings.RegistrationDefaultsPort;
 import com.yunhefc.match.domain.MatchStatus;
+import com.yunhefc.match.domain.MatchStatusMachine;
 import com.yunhefc.match.domain.MatchTimeRules;
 import com.yunhefc.match.domain.MatchType;
 import com.yunhefc.match.domain.OurSide;
@@ -20,6 +21,7 @@ import com.yunhefc.match.domain.TeamMatch;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminView;
 import com.yunhefc.match.dto.MatchDtos.MatchCreateRequest;
+import com.yunhefc.match.dto.MatchDtos.MatchStatusRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchUpdateRequest;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +33,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -174,6 +177,45 @@ public class MatchAdminApplicationService {
 
         TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
         auditRecorder.recordCurrent("MATCH_UPDATE", "MATCH", matchId, before, snapshot(saved));
+        return toView(saved, counts(matchId));
+    }
+
+    @Transactional
+    public MatchAdminView changeStatus(Long matchId, MatchStatusRequest request) {
+        MatchStatus target = MatchStatus.of(request.status());
+        MatchStatusMachine.requireManualTarget(target);
+        Long teamId = CurrentUser.principal().teamId();
+        Long userId = CurrentUser.principal().userId();
+        TeamMatch match = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+        if (match == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
+        }
+        if (!request.version().equals(match.getVersion())) {
+            throw versionConflict(match.getVersion());
+        }
+
+        Map<String, Object> before = snapshot(match);
+        // 未显式恢复自动流转时，手动修改默认停止自动流转。
+        boolean manualStatus = request.manualStatus() == null || request.manualStatus();
+        int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
+                .eq(TeamMatch::getId, matchId)
+                .eq(TeamMatch::getTeamId, teamId)
+                .eq(TeamMatch::getVersion, request.version())
+                .set(TeamMatch::getStatus, target)
+                .set(TeamMatch::getManualStatus, manualStatus)
+                .set(TeamMatch::getStatusUpdatedAt, Instant.now(clock))
+                .set(TeamMatch::getStatusUpdatedBy, userId)
+                .set(TeamMatch::getVersion, match.getVersion() + 1));
+        if (updated == 0) {
+            TeamMatch current = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+            if (current == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
+            }
+            throw versionConflict(current.getVersion());
+        }
+
+        TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+        auditRecorder.recordCurrent("MATCH_STATUS_CHANGE", "MATCH", matchId, before, snapshot(saved));
         return toView(saved, counts(matchId));
     }
 
@@ -406,6 +448,8 @@ public class MatchAdminApplicationService {
         values.put("scoreAway", match.getScoreAway());
         values.put("seasonMatchNo", match.getSeasonMatchNo());
         values.put("totalMatchNo", match.getTotalMatchNo());
+        values.put("statusUpdatedAt", match.getStatusUpdatedAt());
+        values.put("statusUpdatedBy", match.getStatusUpdatedBy());
         return values;
     }
 

@@ -7,6 +7,7 @@ import com.yunhefc.match.application.MatchAdminApplicationService;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminView;
 import com.yunhefc.match.dto.MatchDtos.MatchCreateRequest;
+import com.yunhefc.match.dto.MatchDtos.MatchStatusRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchUpdateRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -59,5 +60,13 @@ public class MatchAdminController {
     public ApiResponse<MatchAdminView> update(@PathVariable Long id,
                                               @Valid @RequestBody MatchUpdateRequest request) {
         return ApiResponse.ok(matchAdminService.update(id, request));
+    }
+
+    @PostMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('match:status:any')")
+    @Idempotent("MAT-06")
+    public ApiResponse<MatchAdminView> changeStatus(@PathVariable Long id,
+                                                    @Valid @RequestBody MatchStatusRequest request) {
+        return ApiResponse.ok(matchAdminService.changeStatus(id, request));
     }
 }

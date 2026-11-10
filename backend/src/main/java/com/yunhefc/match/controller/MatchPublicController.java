@@ -2,13 +2,21 @@ package com.yunhefc.match.controller;
 
 import com.yunhefc.common.api.ApiResponse;
 import com.yunhefc.common.api.PageResponse;
+import com.yunhefc.common.idempotency.Idempotent;
+import com.yunhefc.match.application.MatchAdminApplicationService;
 import com.yunhefc.match.application.MatchPublicApplicationService;
+import com.yunhefc.match.dto.MatchDtos.MatchAdminView;
 import com.yunhefc.match.dto.MatchDtos.MatchDetail;
 import com.yunhefc.match.dto.MatchDtos.MatchPublicQuery;
+import com.yunhefc.match.dto.MatchDtos.MatchStatusRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchSummary;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class MatchPublicController {
 
     private final MatchPublicApplicationService matchPublicService;
+    private final MatchAdminApplicationService matchAdminService;
 
     @GetMapping
     public ApiResponse<PageResponse<MatchSummary>> list(
@@ -38,5 +47,13 @@ public class MatchPublicController {
     @GetMapping("/{id}")
     public ApiResponse<MatchDetail> detail(@PathVariable Long id) {
         return ApiResponse.ok(matchPublicService.detail(id));
+    }
+
+    @PostMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('match:status:any')")
+    @Idempotent("MAT-12")
+    public ApiResponse<MatchAdminView> changeStatus(@PathVariable Long id,
+                                                    @Valid @RequestBody MatchStatusRequest request) {
+        return ApiResponse.ok(matchAdminService.changeStatus(id, request));
     }
 }

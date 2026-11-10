@@ -19,4 +19,12 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
             WHERE team_id = #{teamId} AND season = #{season}
             """)
     Long maxSeasonMatchNo(@Param("teamId") Long teamId, @Param("season") String season);
+
+    // 编辑前锁定比赛行：与报名域的名额行锁串行化，避免计数与容量校验之间插队。
+    @Select("""
+            SELECT * FROM team_match
+            WHERE id = #{id} AND team_id = #{teamId} AND is_deleted = 0
+            FOR UPDATE
+            """)
+    TeamMatch selectByIdForUpdate(@Param("id") Long id, @Param("teamId") Long teamId);
 }

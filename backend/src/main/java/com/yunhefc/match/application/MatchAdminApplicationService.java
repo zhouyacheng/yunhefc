@@ -1,12 +1,15 @@
 package com.yunhefc.match.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.registration.RegistrationQueueCounts;
+import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.settings.RegistrationDefaults;
 import com.yunhefc.contracts.settings.RegistrationDefaultsPort;
 import com.yunhefc.match.domain.MatchStatus;
@@ -17,6 +20,7 @@ import com.yunhefc.match.domain.TeamMatch;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminView;
 import com.yunhefc.match.dto.MatchDtos.MatchCreateRequest;
+import com.yunhefc.match.dto.MatchDtos.MatchUpdateRequest;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.CannotAcquireLockException;
@@ -42,6 +46,7 @@ public class MatchAdminApplicationService {
 
     private final TeamMatchMapper teamMatchMapper;
     private final RegistrationDefaultsPort registrationDefaultsPort;
+    private final RegistrationReadPort registrationReadPort;
     private final AuditRecorder auditRecorder;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
@@ -95,7 +100,12 @@ public class MatchAdminApplicationService {
         wrapper.orderByAsc(TeamMatch::getId);
 
         Page<TeamMatch> result = teamMatchMapper.selectPage(new Page<>(page, pageSize), wrapper);
-        List<MatchAdminView> items = result.getRecords().stream().map(this::toView).toList();
+        Map<Long, RegistrationQueueCounts> counts = registrationReadPort.queueCounts(
+                result.getRecords().stream().map(TeamMatch::getId).toList());
+        List<MatchAdminView> items = result.getRecords().stream()
+                .map(match -> toView(match,
+                        counts.getOrDefault(match.getId(), RegistrationQueueCounts.EMPTY)))
+                .toList();
         return PageResponse.of(items, result.getTotal(), page, pageSize);
     }
 
@@ -108,7 +118,153 @@ public class MatchAdminApplicationService {
         if (match == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
         }
-        return toView(match);
+        return toView(match, counts(matchId));
+    }
+
+    @Transactional
+    public MatchAdminView update(Long matchId, MatchUpdateRequest request) {
+        rejectUnknownFields(request);
+        Long teamId = CurrentUser.principal().teamId();
+        // 行锁：与报名域名额锁串行化，并保证后续版本/容量判断读到最新已提交数据。
+        TeamMatch match = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+        if (match == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
+        }
+        if (notEditable(match.getStatus())) {
+            throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT, "当前状态不可编辑比赛");
+        }
+        if (!request.getVersion().equals(match.getVersion())) {
+            throw versionConflict(match.getVersion());
+        }
+
+        Map<String, Object> before = snapshot(match);
+        applyChanges(match, request);
+
+        int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
+                .eq(TeamMatch::getId, matchId)
+                .eq(TeamMatch::getTeamId, teamId)
+                .eq(TeamMatch::getVersion, request.getVersion())
+                .notIn(TeamMatch::getStatus,
+                        MatchStatus.FINISHED, MatchStatus.POSTPONED, MatchStatus.CANCELLED)
+                .set(TeamMatch::getTitle, match.getTitle())
+                .set(TeamMatch::getStartAt, match.getStartAt())
+                .set(TeamMatch::getEndAt, match.getEndAt())
+                .set(TeamMatch::getSignupDeadline, match.getSignupDeadline())
+                .set(TeamMatch::getCancelLock, match.getCancelLock())
+                .set(TeamMatch::getVenue, match.getVenue())
+                .set(TeamMatch::getCompetition, match.getCompetition())
+                .set(TeamMatch::getRound, match.getRound())
+                .set(TeamMatch::getHomeTeamName, match.getHomeTeamName())
+                .set(TeamMatch::getAwayTeamName, match.getAwayTeamName())
+                .set(TeamMatch::getCapacity, match.getCapacity())
+                .set(TeamMatch::getGuestCapacity, match.getGuestCapacity())
+                .set(TeamMatch::getWaitlistCapacity, match.getWaitlistCapacity())
+                .set(TeamMatch::getIncludeGuests, match.getIncludeGuests())
+                .set(TeamMatch::getVersion, match.getVersion() + 1));
+        if (updated == 0) {
+            TeamMatch current = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+            if (current == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
+            }
+            if (notEditable(current.getStatus())) {
+                throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT, "当前状态不可编辑比赛");
+            }
+            throw versionConflict(current.getVersion());
+        }
+
+        TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+        auditRecorder.recordCurrent("MATCH_UPDATE", "MATCH", matchId, before, snapshot(saved));
+        return toView(saved, counts(matchId));
+    }
+
+    private void rejectUnknownFields(MatchUpdateRequest request) {
+        if (request.getUnknownFields().isEmpty()) {
+            return;
+        }
+        Map<String, String> details = new LinkedHashMap<>();
+        for (String field : request.getUnknownFields()) {
+            details.put(field, "不可修改字段");
+        }
+        throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                ErrorCode.VALIDATION_FAILED.message(), Map.of("details", details));
+    }
+
+    private boolean notEditable(MatchStatus status) {
+        return status == MatchStatus.FINISHED
+                || status == MatchStatus.CANCELLED
+                || status == MatchStatus.POSTPONED;
+    }
+
+    private void applyChanges(TeamMatch match, MatchUpdateRequest request) {
+        if (request.getTitle() != null) {
+            match.setTitle(requiredText(request.getTitle(), "title", "比赛名称"));
+        }
+        if (request.getVenue() != null) {
+            match.setVenue(requiredText(request.getVenue(), "venue", "场地"));
+        }
+        if (request.getHomeTeamName() != null) {
+            match.setHomeTeamName(requiredText(request.getHomeTeamName(), "homeTeamName", "主队名称"));
+        }
+        if (request.getAwayTeamName() != null) {
+            match.setAwayTeamName(requiredText(request.getAwayTeamName(), "awayTeamName", "客队名称"));
+        }
+        if (request.hasCompetition()) {
+            match.setCompetition(MatchQueryParsing.normalize(request.getCompetition()));
+        }
+        if (request.hasRound()) {
+            match.setRound(request.getRound());
+        }
+        if (request.getIncludeGuests() != null) {
+            match.setIncludeGuests(request.getIncludeGuests());
+        }
+        if (request.getWaitlistCapacity() != null) {
+            match.setWaitlistCapacity(request.getWaitlistCapacity());
+        }
+        if (request.getStartAt() != null || request.getEndAt() != null) {
+            MatchTimeRules.Schedule schedule = MatchTimeRules.validateAndDerive(
+                    request.getStartAt() == null ? match.getStartAt() : request.getStartAt(),
+                    request.getEndAt() == null ? match.getEndAt() : request.getEndAt());
+            match.setStartAt(schedule.startAt());
+            match.setEndAt(schedule.endAt());
+            match.setSignupDeadline(schedule.signupDeadline());
+            match.setCancelLock(schedule.cancelLock());
+        }
+        if (request.getCapacity() != null || request.getGuestCapacity() != null) {
+            RegistrationQueueCounts counts = counts(match.getId());
+            if (request.getCapacity() != null) {
+                if (request.getCapacity() < counts.confirmedCount()) {
+                    throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                            "正式名额不得低于已确认正式人数");
+                }
+                match.setCapacity(request.getCapacity());
+            }
+            if (request.getGuestCapacity() != null) {
+                if (request.getGuestCapacity() < counts.guestCount()) {
+                    throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                            "外挂名额不得低于已确认外挂人数");
+                }
+                match.setGuestCapacity(request.getGuestCapacity());
+            }
+        }
+    }
+
+    private RegistrationQueueCounts counts(Long matchId) {
+        return registrationReadPort.queueCounts(List.of(matchId))
+                .getOrDefault(matchId, RegistrationQueueCounts.EMPTY);
+    }
+
+    private String requiredText(String value, String field, String label) {
+        String normalized = MatchQueryParsing.normalize(value);
+        if (normalized == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, label + "不能为空",
+                    Map.of("details", Map.of(field, "不能为空")));
+        }
+        return normalized;
+    }
+
+    private BusinessException versionConflict(int currentVersion) {
+        return new BusinessException(ErrorCode.VERSION_CONFLICT, "比赛已被他人修改，请刷新后重试",
+                Map.of("currentVersion", currentVersion));
     }
 
     private void sleepBeforeRetry() {
@@ -192,7 +348,7 @@ public class MatchAdminApplicationService {
         teamMatchMapper.insert(match);
         TeamMatch saved = teamMatchMapper.selectById(match.getId());
         auditRecorder.recordCurrent("MATCH_CREATE", "MATCH", saved.getId(), null, snapshot(saved));
-        return toView(saved);
+        return toView(saved, RegistrationQueueCounts.EMPTY);
     }
 
     private OurSide ourSide(MatchType type, Integer requested, String homeTeamName, String awayTeamName) {
@@ -253,7 +409,7 @@ public class MatchAdminApplicationService {
         return values;
     }
 
-    private MatchAdminView toView(TeamMatch match) {
+    private MatchAdminView toView(TeamMatch match, RegistrationQueueCounts counts) {
         return new MatchAdminView(
                 match.getId(),
                 match.getTitle(),
@@ -283,6 +439,9 @@ public class MatchAdminApplicationService {
                 match.getScoreAway(),
                 match.getSeasonMatchNo(),
                 match.getTotalMatchNo(),
+                counts.confirmedCount(),
+                counts.guestCount(),
+                counts.waitlistCount(),
                 match.getVersion(),
                 match.getStatusUpdatedAt(),
                 match.getStatusUpdatedBy(),

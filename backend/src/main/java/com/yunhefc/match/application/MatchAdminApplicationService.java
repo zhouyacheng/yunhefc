@@ -3,7 +3,6 @@ package com.yunhefc.match.application;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yunhefc.audit.application.AuditRecorder;
-import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -28,8 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,12 +37,7 @@ import java.util.Map;
 public class MatchAdminApplicationService {
 
     private static final int CREATE_ATTEMPTS = 20;
-    private static final String DEFAULT_VENUE = "聚龙足球场";
     private static final String DEFAULT_FORMAT = "8人制";
-    private static final String HOME_TEAM = "橙队";
-    private static final String AWAY_TEAM = "兰队";
-    private static final String TRAINING_HOME = "云河FC";
-    private static final String TRAINING_AWAY = "训练组";
     private static final String OUR_TEAM_MARKER = "云河FC";
 
     private final TeamMatchMapper teamMatchMapper;
@@ -74,7 +66,11 @@ public class MatchAdminApplicationService {
     @Transactional(readOnly = true)
     public PageResponse<MatchAdminView> list(MatchAdminQuery query) {
         Long teamId = CurrentUser.principal().teamId();
-        PageQuery page = PageQuery.of(query.page(), query.pageSize());
+        long page = query.page();
+        long pageSize = query.pageSize();
+        if (page < 1 || pageSize < 1 || pageSize > 100) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "分页参数不合法");
+        }
         MatchStatus status = matchStatus(query.status());
         MatchType type = matchType(query.type());
         String season = seasonFilter(query.season());
@@ -98,10 +94,9 @@ public class MatchAdminApplicationService {
         }
         wrapper.orderByAsc(TeamMatch::getId);
 
-        Page<TeamMatch> result = teamMatchMapper.selectPage(
-                new Page<>(page.page(), page.pageSize()), wrapper);
+        Page<TeamMatch> result = teamMatchMapper.selectPage(new Page<>(page, pageSize), wrapper);
         List<MatchAdminView> items = result.getRecords().stream().map(this::toView).toList();
-        return PageResponse.of(items, result.getTotal(), page.page(), page.pageSize());
+        return PageResponse.of(items, result.getTotal(), page, pageSize);
     }
 
     @Transactional(readOnly = true)
@@ -126,31 +121,16 @@ public class MatchAdminApplicationService {
     }
 
     private TeamMatch prepare(Long teamId, MatchCreateRequest request) {
-        MatchType type = matchTypeOrDefault(request.type());
+        MatchType type = requiredMatchType(request.type());
+        String title = normalize(request.title());
         String homeTeamName = normalize(request.homeTeamName());
         String awayTeamName = normalize(request.awayTeamName());
-        if (homeTeamName == null) {
-            homeTeamName = type == MatchType.TRAINING ? TRAINING_HOME : HOME_TEAM;
-        }
-        if (awayTeamName == null) {
-            awayTeamName = type == MatchType.TRAINING ? TRAINING_AWAY : AWAY_TEAM;
-        }
-        String title = normalize(request.title());
-        if (title == null) {
-            title = homeTeamName + "VS" + awayTeamName;
-        }
-        if (title.length() > 128) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "比赛名称长度不能超过 128");
-        }
-        String venue = defaultWhenBlank(request.venue(), DEFAULT_VENUE);
+        String venue = normalize(request.venue());
         String format = defaultWhenBlank(request.format(), DEFAULT_FORMAT);
         String competition = normalize(request.competition());
         String season = season(request.season());
-        Instant startAt = request.startAt() == null
-                ? MatchTimeRules.defaultStart(Instant.now(clock))
-                : request.startAt();
-        Instant endAt = request.endAt() == null ? startAt.plus(Duration.ofHours(2)) : request.endAt();
-        MatchTimeRules.Schedule schedule = MatchTimeRules.validateAndDerive(startAt, endAt);
+        MatchTimeRules.Schedule schedule = MatchTimeRules.validateAndDerive(
+                request.startAt(), request.endAt());
 
         OurSide ourSide = ourSide(type, request.ourSide(), homeTeamName, awayTeamName);
 
@@ -228,8 +208,11 @@ public class MatchAdminApplicationService {
         throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "对外比赛必须确定我方主客");
     }
 
-    private MatchType matchTypeOrDefault(Integer code) {
-        return code == null ? MatchType.INTERNAL : matchType(code);
+    private MatchType requiredMatchType(Integer code) {
+        if (code == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "比赛类型不能为空");
+        }
+        return matchType(code);
     }
 
     private MatchType matchType(Integer code) {

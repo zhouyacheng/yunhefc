@@ -2,6 +2,8 @@ package com.yunhefc.match.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
@@ -22,13 +24,13 @@ public final class MatchDtos {
     }
 
     public record MatchCreateRequest(
-            @Size(max = 128) String title,
-            @Min(0) @Max(3) Integer type,
-            Instant startAt,
-            Instant endAt,
-            @Size(max = 128) String venue,
-            @Size(max = 64) String homeTeamName,
-            @Size(max = 64) String awayTeamName,
+            @NotBlank @Size(max = 128) String title,
+            @NotNull @Min(0) @Max(3) Integer type,
+            @NotNull Instant startAt,
+            @NotNull Instant endAt,
+            @NotBlank @Size(max = 128) String venue,
+            @NotBlank @Size(max = 64) String homeTeamName,
+            @NotBlank @Size(max = 64) String awayTeamName,
             @Size(max = 16) String format,
             @Size(max = 64) String competition,
             String season,

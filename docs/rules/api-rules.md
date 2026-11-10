@@ -69,7 +69,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 
 ## 5 分页、筛选与排序
 
-1. `page` 默认 1、≥1；`pageSize` 默认 10，可选 20/50/100。
+1. `page` 默认 1、≥1；`pageSize` 默认 10，可选 20/50/100；比赛列表（MAT-02/09）额外允许 1–100，用于首页与 B01 小样本预览。
 2. 逻辑分页类型为 `Page<T>`，响应字段为 `items/total/page/pageSize/totalPages`；Java 使用 `PageResponse<T>` 包装 MyBatis-Plus `Page<T>`。
 3. 小型只读集合（角色、权限、阵型模板、事件时间线、球队统计等）可在 05 中登记为不分页例外。
 4. 筛选参数必须白名单化；排序字段必须走白名单，禁止 `${}` 拼接。

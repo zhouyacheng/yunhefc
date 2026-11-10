@@ -42,11 +42,6 @@ public final class MatchTimeRules {
                 matchDay.atTime(EARLIEST_START).atZone(ZONE).toInstant());
     }
 
-    public static Instant defaultStart(Instant now) {
-        return LocalDate.ofInstant(now, ZONE).plusDays(1)
-                .atTime(20, 0).atZone(ZONE).toInstant();
-    }
-
     private static BusinessException violation(String message) {
         return new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, message);
     }

@@ -41,16 +41,15 @@ class MatchAdminIT extends IntegrationTestSupport {
     }
 
     @Test
-    void createAppliesDocumentedDefaults() throws Exception {
+    void createAppliesOptionalDefaultsAndDerivesTimes() throws Exception {
         Cookie admin = adminLogin("13900000501");
-        Instant now = Instant.now();
 
         MvcResult result = mockMvc.perform(post("/api/v1/b/matches")
                         .cookie(admin)
                         .with(csrf())
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{}"))
+                        .content(createBody("橙队VS兰队", 1, "2026-12-01T20:00:00", "2026-12-01T22:00:00")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.type").value(1))
@@ -95,8 +94,6 @@ class MatchAdminIT extends IntegrationTestSupport {
                         + "AND JSON_TYPE(JSON_EXTRACT(payload_json, '$.beforeJson')) = 'NULL'",
                 Integer.class, matchId)).isEqualTo(1);
 
-        Instant expectedStart = ZonedDateTime.ofInstant(now, ZONE)
-                .toLocalDate().plusDays(1).atTime(20, 0).atZone(ZONE).toInstant();
         Instant startAt = Instant.parse(com.jayway.jsonpath.JsonPath.read(
                 result.getResponse().getContentAsString(), "$.data.startAt"));
         Instant endAt = Instant.parse(com.jayway.jsonpath.JsonPath.read(
@@ -105,7 +102,7 @@ class MatchAdminIT extends IntegrationTestSupport {
                 result.getResponse().getContentAsString(), "$.data.signupDeadline"));
         Instant cancelLock = Instant.parse(com.jayway.jsonpath.JsonPath.read(
                 result.getResponse().getContentAsString(), "$.data.cancelLock"));
-        assertThat(startAt).isEqualTo(expectedStart);
+        assertThat(startAt).isEqualTo(local("2026-12-01T20:00:00"));
         assertThat(Duration.between(startAt, endAt)).isEqualTo(Duration.ofHours(2));
         assertThat(signupDeadline).isEqualTo(startAt.atZone(ZONE).toLocalDate()
                 .atStartOfDay(ZONE).toInstant());
@@ -117,29 +114,39 @@ class MatchAdminIT extends IntegrationTestSupport {
     void createValidatesTimeScoreSideAndFields() throws Exception {
         Cookie admin = adminLogin("13900000502");
 
-        createExpecting(admin, """
-                {"startAt":"%s","endAt":"%s"}
-                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T21:00:00")),
+        createExpecting(admin, createBody("M03时长", 1, "2026-12-01T20:00:00", "2026-12-01T21:00:00"),
+                status().isUnprocessableEntity(), 42201);
+        createExpecting(admin, createBody("M03时长", 1, "2026-12-01T20:00:00", "2026-12-02T01:00:00"),
+                status().isUnprocessableEntity(), 42201);
+        createExpecting(admin, createBody("M03开赛", 1, "2026-12-01T09:30:00", "2026-12-01T11:30:00"),
+                status().isUnprocessableEntity(), 42201);
+        createExpecting(admin, createBody("M03开赛", 1, "2026-12-01T10:00:00", "2026-12-01T12:00:00"),
                 status().isUnprocessableEntity(), 42201);
         createExpecting(admin, """
-                {"startAt":"%s","endAt":"%s"}
-                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-02T01:00:00")),
+                {"title":"M03比分","type":1,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"橙队","awayTeamName":"兰队","scoreHome":2}
+                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00")),
                 status().isUnprocessableEntity(), 42201);
         createExpecting(admin, """
-                {"startAt":"%s","endAt":"%s"}
-                """.formatted(local("2026-12-01T09:30:00"), local("2026-12-01T11:30:00")),
+                {"title":"M03对外","type":0,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"甲队","awayTeamName":"乙队"}
+                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00")),
                 status().isUnprocessableEntity(), 42201);
         createExpecting(admin, """
-                {"startAt":"%s","endAt":"%s"}
-                """.formatted(local("2026-12-01T10:00:00"), local("2026-12-01T12:00:00")),
-                status().isUnprocessableEntity(), 42201);
-        createExpecting(admin, "{\"scoreHome\":2}", status().isUnprocessableEntity(), 42201);
+                {"title":"M03类型","type":9,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"橙队","awayTeamName":"兰队"}
+                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00")),
+                status().isBadRequest(), 40001);
         createExpecting(admin, """
-                {"type":0,"homeTeamName":"甲队","awayTeamName":"乙队"}
-                """, status().isUnprocessableEntity(), 42201);
-        createExpecting(admin, "{\"type\":9}", status().isBadRequest(), 40001);
-        createExpecting(admin, "{\"capacity\":0}", status().isBadRequest(), 40001);
-        createExpecting(admin, "{\"season\":\"26\"}", status().isBadRequest(), 40001);
+                {"title":"M03名额","type":1,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"橙队","awayTeamName":"兰队","capacity":0}
+                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00")),
+                status().isBadRequest(), 40001);
+        createExpecting(admin, """
+                {"title":"M03赛季","type":1,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"橙队","awayTeamName":"兰队","season":"26"}
+                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00")),
+                status().isBadRequest(), 40001);
 
         mockMvc.perform(post("/api/v1/b/matches")
                         .cookie(admin)
@@ -150,8 +157,9 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(40001));
 
         MvcResult explicit = create(admin, """
-                {"type":0,"homeTeamName":"甲队","awayTeamName":"乙队","ourSide":1}
-                """);
+                {"title":"M03对外显式","type":0,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"甲队","awayTeamName":"乙队","ourSide":1}
+                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00")));
         org.assertj.core.api.Assertions.assertThat(
                         (Integer) com.jayway.jsonpath.JsonPath.read(
                                 explicit.getResponse().getContentAsString(), "$.data.ourSide"))
@@ -162,8 +170,9 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .isEqualTo("AWAY");
 
         MvcResult inferred = create(admin, """
-                {"type":3,"homeTeamName":"云河FC","awayTeamName":"乙队"}
-                """);
+                {"title":"M03对外推断","type":3,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"云河FC","awayTeamName":"乙队"}
+                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00")));
         org.assertj.core.api.Assertions.assertThat(
                         (Integer) com.jayway.jsonpath.JsonPath.read(
                                 inferred.getResponse().getContentAsString(), "$.data.ourSide"))
@@ -173,7 +182,10 @@ class MatchAdminIT extends IntegrationTestSupport {
                                 inferred.getResponse().getContentAsString(), "$.data.ourSideLabel"))
                 .isEqualTo("HOME");
 
-        MvcResult internalWithSide = create(admin, "{\"ourSide\":0}");
+        MvcResult internalWithSide = create(admin, """
+                {"title":"M03队内","type":1,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"橙队","awayTeamName":"兰队","ourSide":0}
+                """.formatted(local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00")));
         org.assertj.core.api.Assertions.assertThat(
                         (Object) com.jayway.jsonpath.JsonPath.read(
                                 internalWithSide.getResponse().getContentAsString(), "$.data.ourSide"))
@@ -272,8 +284,10 @@ class MatchAdminIT extends IntegrationTestSupport {
                     .andExpect(jsonPath("$.data.waitlistCapacity").value(3));
 
             MvcResult explicit = create(admin, """
-                    {"title":"M03配置覆盖","capacity":12,"guestCapacity":0,"waitlistCapacity":0}
-                    """);
+                    {"title":"M03配置覆盖","type":1,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                     "homeTeamName":"橙队","awayTeamName":"兰队",
+                     "capacity":12,"guestCapacity":0,"waitlistCapacity":0}
+                    """.formatted(local("2026-12-12T20:00:00"), local("2026-12-12T22:00:00")));
             mockMvc.perform(get("/api/v1/b/matches/" + id(explicit)).cookie(admin))
                     .andExpect(jsonPath("$.data.capacity").value(12))
                     .andExpect(jsonPath("$.data.guestCapacity").value(0))
@@ -461,7 +475,19 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.pageSize").value(20));
 
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
-                        .param("season", "2099").param("pageSize", "15"))
+                        .param("season", "2099").param("scope", "upcoming")
+                        .param("sort", "startAt:asc").param("pageSize", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pageSize").value(1))
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].title").value("M03列表报名中"));
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("season", "2099").param("pageSize", "3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.pageSize").value(3))
+                .andExpect(jsonPath("$.data.items.length()").value(3));
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("season", "2099").param("pageSize", "101"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
@@ -485,9 +511,17 @@ class MatchAdminIT extends IntegrationTestSupport {
 
     private String matchBody(String title, int type, String season, String startAt) {
         return """
-                {"title":"%s","type":%d,"season":"%s","startAt":"%s","endAt":"%s"}
+                {"title":"%s","type":%d,"season":"%s","startAt":"%s","endAt":"%s",
+                 "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                 """.formatted(title, type, season, local(startAt),
                 local(java.time.LocalDateTime.parse(startAt).plusHours(2).toString()));
+    }
+
+    private String createBody(String title, int type, String startAt, String endAt) {
+        return """
+                {"title":"%s","type":%d,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                 "homeTeamName":"橙队","awayTeamName":"兰队"}
+                """.formatted(title, type, local(startAt), local(endAt));
     }
 
     private Long id(MvcResult result) throws Exception {

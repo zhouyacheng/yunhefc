@@ -32,7 +32,8 @@ public class NotificationEventHandler {
     public void apply(String message, String topic, int partition, long offset) {
         try {
             OutboxMessage event = objectMapper.readValue(message, OutboxMessage.class);
-            if (!EventTypes.ROLE_CHANGED.equals(event.eventType())) {
+            if (!EventTypes.ROLE_CHANGED.equals(event.eventType())
+                    && !EventTypes.ACCOUNT_APPROVED.equals(event.eventType())) {
                 return;
             }
             if (consumedEventMapper.tryInsert(GROUP, event.eventId(), topic, partition, offset) == 0) {
@@ -43,9 +44,15 @@ public class NotificationEventHandler {
             Long userId = Long.valueOf(String.valueOf(payload.get("userId")));
             Notification notification = new Notification();
             notification.setUserId(userId);
-            notification.setType(NotificationType.ROLE_CHANGED);
-            notification.setTitle("角色变更");
-            notification.setBody("你的角色已更新：" + payload.getOrDefault("roles", ""));
+            if (EventTypes.ACCOUNT_APPROVED.equals(event.eventType())) {
+                notification.setType(NotificationType.ACCOUNT_APPROVED);
+                notification.setTitle("账号审核通过");
+                notification.setBody("你的账号已审核通过，现在可以报名参加比赛");
+            } else {
+                notification.setType(NotificationType.ROLE_CHANGED);
+                notification.setTitle("角色变更");
+                notification.setBody("你的角色已更新：" + payload.getOrDefault("roles", ""));
+            }
             notification.setRefType("USER");
             notification.setRefId(userId);
             notificationMapper.insert(notification);

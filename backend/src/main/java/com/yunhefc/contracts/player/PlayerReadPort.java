@@ -6,6 +6,8 @@ import java.util.Optional;
 
 public interface PlayerReadPort {
 
+    Optional<PlayerSnapshot> findById(Long playerId);
+
     Optional<PlayerSnapshot> findByUserId(Long userId);
 
     List<PlayerSnapshot> findByUserIds(Collection<Long> userIds);

@@ -29,6 +29,11 @@ public class PlayerReadAdapter implements PlayerReadPort {
     private final ObjectMapper objectMapper;
 
     @Override
+    public Optional<PlayerSnapshot> findById(Long playerId) {
+        return Optional.ofNullable(playerMapper.selectById(playerId)).map(PlayerReadAdapter::toSnapshot);
+    }
+
+    @Override
     public Optional<PlayerSnapshot> findByUserId(Long userId) {
         return Optional.ofNullable(findEntityByUserId(playerMapper, userId)).map(PlayerReadAdapter::toSnapshot);
     }

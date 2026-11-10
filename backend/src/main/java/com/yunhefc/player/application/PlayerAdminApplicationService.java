@@ -81,6 +81,15 @@ public class PlayerAdminApplicationService {
         return PageResponse.of(items, result.getTotal(), page.page(), page.pageSize());
     }
 
+    /**
+     * 账号生命周期编排在审核事务内组装响应；teamId 由调用方传入，避免依赖调用方安全上下文。
+     */
+    @Transactional(readOnly = true)
+    public PlayerAdminView adminView(Long teamId, Long playerId) {
+        Player player = requirePlayer(teamId, playerId);
+        return toView(player, userAccountReadPort.find(player.getUserId()).orElse(null));
+    }
+
     @Transactional
     public PlayerAdminView update(Long playerId, PlayerUpdateRequest request) {
         Long teamId = CurrentUser.principal().teamId();

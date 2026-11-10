@@ -82,7 +82,8 @@ public class OutboxRelay {
         if (EventTypes.AUDIT_RECORDED.equals(eventType)) {
             return messagingProperties.getAuditTopic();
         }
-        if (EventTypes.ROLE_CHANGED.equals(eventType)) {
+        if (EventTypes.ROLE_CHANGED.equals(eventType)
+                || EventTypes.ACCOUNT_APPROVED.equals(eventType)) {
             return messagingProperties.getNotificationTopic();
         }
         throw new IllegalArgumentException("事件类型未配置 topic: " + eventType);

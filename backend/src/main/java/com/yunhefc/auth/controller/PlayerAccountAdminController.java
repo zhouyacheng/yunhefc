@@ -4,10 +4,13 @@ import com.yunhefc.auth.application.AccountLifecycleApplicationService;
 import com.yunhefc.common.api.ApiResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import com.yunhefc.player.dto.PlayerDtos.PlayerAdminView;
+import com.yunhefc.player.dto.PlayerDtos.PlayerConvertRequest;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -26,5 +29,13 @@ public class PlayerAccountAdminController {
     @Idempotent("PLR-07")
     public ApiResponse<PlayerAdminView> approve(@PathVariable Long id) {
         return ApiResponse.ok(accountLifecycleService.approve(id));
+    }
+
+    @PostMapping("/{id}/convert")
+    @PreAuthorize("hasAuthority('player:edit:any')")
+    @Idempotent("PLR-08")
+    public ApiResponse<PlayerAdminView> convert(@PathVariable Long id,
+                                                @Valid @RequestBody PlayerConvertRequest request) {
+        return ApiResponse.ok(accountLifecycleService.convert(id, request.jersey()));
     }
 }

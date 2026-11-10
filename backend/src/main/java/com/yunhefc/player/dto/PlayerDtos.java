@@ -55,6 +55,10 @@ public final class PlayerDtos {
             Instant createdAt) {
     }
 
+    public record PlayerConvertRequest(
+            @Min(0) @Max(65535) Integer jersey) {
+    }
+
     public record PlayerUpdateRequest(
             @Size(max = 32) String name,
             @Min(0) @Max(65535) Integer jersey,

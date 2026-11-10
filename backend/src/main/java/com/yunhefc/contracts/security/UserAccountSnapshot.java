@@ -11,6 +11,7 @@ public record UserAccountSnapshot(
         String phoneMasked,
         Integer status,
         String statusLabel,
+        boolean admin,
         Set<String> roles,
         Instant createdAt) {
 }

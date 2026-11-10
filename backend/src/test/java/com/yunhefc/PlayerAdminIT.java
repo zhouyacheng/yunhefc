@@ -60,6 +60,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].typeLabel").value("PLAYER"))
                 .andExpect(jsonPath("$.data.items[0].positionLabel").value("FORWARD"))
                 .andExpect(jsonPath("$.data.items[0].statusLabel").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.items[0].admin").value(false))
                 .andExpect(jsonPath("$.data.items[0].phoneMasked").value("139****0411"))
                 .andExpect(jsonPath("$.data.items[0].roles[0]").value("PLAYER"))
                 .andExpect(jsonPath("$.data.items[0].secondaryPositions[0]").value(1))
@@ -100,7 +101,8 @@ class PlayerAdminIT extends IntegrationTestSupport {
                         .param("name", "M02列表").param("admin", "true"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.items[0].name").value("M02列表丙"));
+                .andExpect(jsonPath("$.data.items[0].name").value("M02列表丙"))
+                .andExpect(jsonPath("$.data.items[0].admin").value(true));
 
         mockMvc.perform(get("/api/v1/b/players").cookie(admin)
                         .param("name", "M02列表").param("admin", "false"))
@@ -158,6 +160,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].name").value("M02权限管理员"))
+                .andExpect(jsonPath("$.data.items[0].admin").value(true))
                 .andExpect(jsonPath("$.data.items[0].roles[0]").value("M02_ROLE_MANAGER"));
 
         mockMvc.perform(get("/api/v1/b/players").cookie(admin)
@@ -200,6 +203,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.skill").value(5))
                 .andExpect(jsonPath("$.data.status").value(1))
                 .andExpect(jsonPath("$.data.statusLabel").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.admin").value(false))
                 .andExpect(jsonPath("$.data.roles[0]").value("PLAYER"))
                 .andExpect(jsonPath("$.data.userId").value(userIdA));
 

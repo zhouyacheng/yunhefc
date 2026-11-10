@@ -182,6 +182,7 @@ public class PlayerAdminApplicationService {
                 account == null ? null : account.phoneMasked(),
                 account == null ? null : account.status(),
                 account == null ? null : account.statusLabel(),
+                account != null && account.admin(),
                 account == null ? Set.of() : account.roles(),
                 account == null ? null : account.createdAt());
     }

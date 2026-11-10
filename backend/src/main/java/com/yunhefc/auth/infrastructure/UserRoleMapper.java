@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -87,10 +88,17 @@ public interface UserRoleMapper {
     List<Long> findActiveUserIdsByRole(@Param("roleId") Long roleId);
 
     @Select("""
+            <script>
             SELECT DISTINCT ur.user_id
             FROM user_role ur
             JOIN app_role r ON r.id = ur.role_id AND r.is_deleted = 0
             WHERE ur.is_deleted = 0
+            <if test="userIds != null and !userIds.isEmpty()">
+              AND ur.user_id IN
+              <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+                #{userId}
+              </foreach>
+            </if>
               AND (
                 r.code = 'ADMIN'
                 OR EXISTS (
@@ -100,8 +108,13 @@ public interface UserRoleMapper {
                     WHERE rp.role_id = r.id AND rp.is_deleted = 0 AND p.code = 'role:manage:any'
                 )
               )
+            </script>
             """)
-    List<Long> findAdminUserIds();
+    List<Long> findAdminUserIds(@Param("userIds") Collection<Long> userIds);
+
+    default List<Long> findAdminUserIds() {
+        return findAdminUserIds(null);
+    }
 
     @Select("""
             SELECT COUNT(*)

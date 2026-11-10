@@ -44,6 +44,7 @@ public final class PlayerDtos {
             String phoneMasked,
             Integer status,
             String statusLabel,
+            boolean admin,
             Set<String> roles,
             Instant createdAt) {
     }

@@ -31,7 +31,9 @@ public class UserAccountReadAdapter implements UserAccountReadPort {
         if (user == null) {
             return Optional.empty();
         }
-        return Optional.of(toSnapshot(user, new LinkedHashSet<>(userRoleMapper.findRoleCodes(userId))));
+        Set<String> roles = new LinkedHashSet<>(userRoleMapper.findRoleCodes(userId));
+        boolean admin = !userRoleMapper.findAdminUserIds(List.of(userId)).isEmpty();
+        return Optional.of(toSnapshot(user, roles, admin));
     }
 
     @Override
@@ -39,13 +41,16 @@ public class UserAccountReadAdapter implements UserAccountReadPort {
         if (userIds == null || userIds.isEmpty()) {
             return Map.of();
         }
+        List<Long> ids = List.copyOf(userIds);
         Map<Long, Set<String>> roles = new LinkedHashMap<>();
-        for (UserRoleRow row : userRoleMapper.findRoleCodesByUserIds(List.copyOf(userIds))) {
+        for (UserRoleRow row : userRoleMapper.findRoleCodesByUserIds(ids)) {
             roles.computeIfAbsent(row.getUserId(), id -> new LinkedHashSet<>()).add(row.getCode());
         }
+        Set<Long> adminUserIds = new LinkedHashSet<>(userRoleMapper.findAdminUserIds(ids));
         Map<Long, UserAccountSnapshot> snapshots = new LinkedHashMap<>();
-        for (AppUser user : userMapper.selectBatchIds(userIds)) {
-            snapshots.put(user.getId(), toSnapshot(user, roles.getOrDefault(user.getId(), Set.of())));
+        for (AppUser user : userMapper.selectBatchIds(ids)) {
+            snapshots.put(user.getId(), toSnapshot(
+                    user, roles.getOrDefault(user.getId(), Set.of()), adminUserIds.contains(user.getId())));
         }
         return snapshots;
     }
@@ -68,12 +73,13 @@ public class UserAccountReadAdapter implements UserAccountReadPort {
         return userIds;
     }
 
-    private UserAccountSnapshot toSnapshot(AppUser user, Set<String> roles) {
+    private UserAccountSnapshot toSnapshot(AppUser user, Set<String> roles, boolean admin) {
         return new UserAccountSnapshot(
                 user.getId(),
                 UserViewAssembler.maskPhone(user.getPhone()),
                 user.getStatus().code(),
                 user.getStatus().label(),
+                admin,
                 roles,
                 user.getCreatedAt());
     }

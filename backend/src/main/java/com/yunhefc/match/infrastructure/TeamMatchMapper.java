@@ -32,13 +32,16 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
             """)
     TeamMatch selectByIdForUpdate(@Param("id") Long id, @Param("teamId") Long teamId);
 
-    // 报名截止是最早的时间边界；到达后由应用层按截止/锁定/开赛/结束推导目标状态。
+    // 只取按当前状态已到达下一时间边界的行，避免每分钟对无推进的比赛加锁。
     @Select("""
-            SELECT id, status, manual_status, signup_deadline, cancel_lock, start_at, end_at, version
+            SELECT id, team_id, status, manual_status, signup_deadline, cancel_lock, start_at, end_at, version
             FROM team_match
             WHERE is_deleted = 0 AND manual_status = 0
-              AND status IN (0, 1, 2, 3)
               AND signup_deadline <= #{now}
+              AND (status = 0
+                   OR (status = 1 AND cancel_lock <= #{now})
+                   OR (status = 2 AND start_at <= #{now})
+                   OR (status = 3 AND end_at <= #{now}))
             """)
     List<TeamMatch> selectAutoAdvanceCandidates(@Param("now") Instant now);
 

@@ -144,7 +144,7 @@ public class MatchAdminApplicationService {
             throw versionConflict(match.getVersion());
         }
 
-        Map<String, Object> before = snapshot(match);
+        Map<String, Object> before = MatchAuditSnapshot.of(match);
         applyChanges(match, request);
 
         int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
@@ -180,7 +180,7 @@ public class MatchAdminApplicationService {
         }
 
         TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
-        auditRecorder.recordCurrent("MATCH_UPDATE", "MATCH", matchId, before, snapshot(saved));
+        auditRecorder.recordCurrent("MATCH_UPDATE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
         return toView(saved, counts(matchId));
     }
 
@@ -202,7 +202,7 @@ public class MatchAdminApplicationService {
             throw versionConflict(match.getVersion());
         }
 
-        Map<String, Object> before = snapshot(match);
+        Map<String, Object> before = MatchAuditSnapshot.of(match);
         // 未显式恢复自动流转时，手动修改默认停止自动流转。
         boolean manualStatus = request.manualStatus() == null || request.manualStatus();
         int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
@@ -223,7 +223,7 @@ public class MatchAdminApplicationService {
         }
 
         TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
-        auditRecorder.recordCurrent("MATCH_STATUS_CHANGE", "MATCH", matchId, before, snapshot(saved));
+        auditRecorder.recordCurrent("MATCH_STATUS_CHANGE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
         return toView(saved, counts(matchId));
     }
 
@@ -273,7 +273,7 @@ public class MatchAdminApplicationService {
         MatchTimeRules.Schedule schedule = MatchTimeRules.validateAndDerive(
                 request.startAt(), request.endAt());
 
-        Map<String, Object> before = snapshot(match);
+        Map<String, Object> before = MatchAuditSnapshot.of(match);
         int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
                 .eq(TeamMatch::getId, matchId)
                 .eq(TeamMatch::getTeamId, teamId)
@@ -291,7 +291,7 @@ public class MatchAdminApplicationService {
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
                 current -> MatchStatusMachine.requirePostponable(current.getStatus()));
-        auditRecorder.recordCurrent("MATCH_POSTPONE", "MATCH", matchId, before, snapshot(saved));
+        auditRecorder.recordCurrent("MATCH_POSTPONE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
         return toView(saved, counts(matchId));
     }
 
@@ -307,7 +307,7 @@ public class MatchAdminApplicationService {
         MatchTimeRules.Schedule schedule = MatchTimeRules.validateAndDerive(
                 request.startAt(), request.endAt());
 
-        Map<String, Object> before = snapshot(match);
+        Map<String, Object> before = MatchAuditSnapshot.of(match);
         int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
                 .eq(TeamMatch::getId, matchId)
                 .eq(TeamMatch::getTeamId, teamId)
@@ -324,7 +324,7 @@ public class MatchAdminApplicationService {
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
                 current -> MatchStatusMachine.requireReschedulable(current.getStatus()));
-        auditRecorder.recordCurrent("MATCH_RESCHEDULE", "MATCH", matchId, before, snapshot(saved));
+        auditRecorder.recordCurrent("MATCH_RESCHEDULE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
         return toView(saved, counts(matchId));
     }
 
@@ -338,7 +338,7 @@ public class MatchAdminApplicationService {
         TeamMatch match = lockForTransition(matchId, teamId, request.version(),
                 MatchStatusMachine::requireCancellable);
 
-        Map<String, Object> before = snapshot(match);
+        Map<String, Object> before = MatchAuditSnapshot.of(match);
         int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
                 .eq(TeamMatch::getId, matchId)
                 .eq(TeamMatch::getTeamId, teamId)
@@ -351,7 +351,7 @@ public class MatchAdminApplicationService {
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
                 current -> MatchStatusMachine.requireCancellable(current.getStatus()));
-        Map<String, Object> after = snapshot(saved);
+        Map<String, Object> after = MatchAuditSnapshot.of(saved);
         after.put("reason", request.reason().strip());
         auditRecorder.recordCurrent("MATCH_CANCEL", "MATCH", matchId, before, after);
         return toView(saved, counts(matchId));
@@ -553,7 +553,7 @@ public class MatchAdminApplicationService {
         match.setTotalMatchNo((int) (teamMatchMapper.maxTotalMatchNo(teamId) + 1));
         teamMatchMapper.insert(match);
         TeamMatch saved = teamMatchMapper.selectById(match.getId());
-        auditRecorder.recordCurrent("MATCH_CREATE", "MATCH", saved.getId(), null, snapshot(saved));
+        auditRecorder.recordCurrent("MATCH_CREATE", "MATCH", saved.getId(), null, MatchAuditSnapshot.of(saved));
         return toView(saved, RegistrationQueueCounts.EMPTY);
     }
 
@@ -584,37 +584,6 @@ public class MatchAdminApplicationService {
     private String defaultWhenBlank(String value, String fallback) {
         String normalized = MatchQueryParsing.normalize(value);
         return normalized == null ? fallback : normalized;
-    }
-
-    private Map<String, Object> snapshot(TeamMatch match) {
-        Map<String, Object> values = new LinkedHashMap<>();
-        values.put("title", match.getTitle());
-        values.put("type", match.getType().code());
-        values.put("format", match.getFormat());
-        values.put("startAt", match.getStartAt());
-        values.put("endAt", match.getEndAt());
-        values.put("signupDeadline", match.getSignupDeadline());
-        values.put("cancelLock", match.getCancelLock());
-        values.put("venue", match.getVenue());
-        values.put("competition", match.getCompetition());
-        values.put("season", match.getSeason());
-        values.put("round", match.getRound());
-        values.put("homeTeamName", match.getHomeTeamName());
-        values.put("awayTeamName", match.getAwayTeamName());
-        values.put("ourSide", match.getOurSide() == null ? null : match.getOurSide().code());
-        values.put("status", match.getStatus().code());
-        values.put("manualStatus", match.getManualStatus());
-        values.put("capacity", match.getCapacity());
-        values.put("guestCapacity", match.getGuestCapacity());
-        values.put("waitlistCapacity", match.getWaitlistCapacity());
-        values.put("includeGuests", match.getIncludeGuests());
-        values.put("scoreHome", match.getScoreHome());
-        values.put("scoreAway", match.getScoreAway());
-        values.put("seasonMatchNo", match.getSeasonMatchNo());
-        values.put("totalMatchNo", match.getTotalMatchNo());
-        values.put("statusUpdatedAt", match.getStatusUpdatedAt());
-        values.put("statusUpdatedBy", match.getStatusUpdatedBy());
-        return values;
     }
 
     private MatchAdminView toView(TeamMatch match, RegistrationQueueCounts counts) {

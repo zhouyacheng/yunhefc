@@ -66,6 +66,34 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
         assertThat(jdbc.queryForObject(
                 "SELECT status_updated_by FROM team_match WHERE id = ?", Long.class, afterEnd)).isNull();
+
+        assertThat(autoAuditCount(beforeDeadline)).isZero();
+        assertThat(autoAuditCount(afterDeadline)).isEqualTo(1);
+        assertThat(autoAuditCount(afterLock)).isEqualTo(1);
+        assertThat(autoAuditCount(afterStart)).isEqualTo(1);
+        assertThat(autoAuditCount(afterEnd)).isEqualTo(1);
+        assertThat(auditStatus(afterDeadline, true)).isZero();
+        assertThat(auditStatus(afterDeadline, false)).isEqualTo(1);
+        assertThat(auditStatus(afterLock, true)).isEqualTo(1);
+        assertThat(auditStatus(afterLock, false)).isEqualTo(2);
+        assertThat(auditStatus(afterStart, true)).isEqualTo(2);
+        assertThat(auditStatus(afterStart, false)).isEqualTo(3);
+        assertThat(auditStatus(afterEnd, true)).isEqualTo(3);
+        assertThat(auditStatus(afterEnd, false)).isEqualTo(4);
+
+        assertThat(auditField(afterEnd, "$.action")).isEqualTo("MATCH_AUTO_STATUS_CHANGE");
+        assertThat(auditField(afterEnd, "$.actorName")).isEqualTo("系统");
+        assertThat(auditField(afterEnd, "$.teamId")).isEqualTo("1");
+        assertThat(auditField(afterEnd, "$.targetType")).isEqualTo("MATCH");
+        assertThat(auditField(afterEnd, "$.targetId")).isEqualTo(String.valueOf(afterEnd));
+        assertThat(auditFieldType(afterEnd, "$.actorUserId")).isEqualTo("NULL");
+        assertThat(auditSnapshotFieldType(afterEnd, true, "statusUpdatedAt")).isEqualTo("NULL");
+        assertThat(auditSnapshotFieldType(afterEnd, false, "statusUpdatedAt")).isEqualTo("STRING");
+        assertThat(auditSnapshotFieldType(afterEnd, false, "statusUpdatedBy")).isEqualTo("NULL");
+        assertThat(Instant.parse(auditStatusUpdatedAt(afterEnd)))
+                .isEqualTo(statusUpdatedAt(afterEnd).toInstant());
+        assertThat(auditAggregateType(afterEnd)).isEqualTo("AUDIT");
+        assertThat(auditTeamId(afterEnd)).isEqualTo(1L);
     }
 
     @Test
@@ -77,6 +105,9 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
         assertThat(autoStatusService.advance()).isEqualTo(1);
         assertState(missed, 4, 1, true);
+        assertThat(autoAuditCount(missed)).isEqualTo(1);
+        assertThat(auditStatus(missed, true)).isZero();
+        assertThat(auditStatus(missed, false)).isEqualTo(4);
     }
 
     @Test
@@ -101,10 +132,13 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
         assertState(cancelled, 6, 0, false);
         assertState(postponed, 5, 0, false);
         assertState(finished, 4, 0, false);
+        for (Long matchId : List.of(manual, cancelled, postponed, finished)) {
+            assertThat(autoAuditCount(matchId)).isZero();
+        }
     }
 
     @Test
-    void neverMovesBackwards() {
+    void doesNotAdvanceBeforeTimeBoundaries() {
         Instant now = Instant.now();
         Long locked = insertMatch("M03自动不回退锁定", 2, false,
                 now.plusSeconds(3_600), now.plusSeconds(7_200),
@@ -117,6 +151,26 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
         assertState(locked, 2, 0, false);
         assertState(inProgress, 3, 0, false);
+        assertThat(autoAuditCount(locked)).isZero();
+        assertThat(autoAuditCount(inProgress)).isZero();
+    }
+
+    @Test
+    void nonAdvancingRowsWriteNoAudit() {
+        Instant now = Instant.now();
+        Long locked = insertMatch("M03自动候选无推进锁定", 2, false,
+                now.minusSeconds(60), now.plusSeconds(3_600),
+                now.plusSeconds(7_200), now.plusSeconds(18_000));
+        Long inProgress = insertMatch("M03自动候选无推进进行中", 3, false,
+                now.minusSeconds(60), now.minusSeconds(30),
+                now.plusSeconds(3_600), now.plusSeconds(18_000));
+
+        assertThat(autoStatusService.advance()).isZero();
+
+        assertState(locked, 2, 0, false);
+        assertState(inProgress, 3, 0, false);
+        assertThat(autoAuditCount(locked)).isZero();
+        assertThat(autoAuditCount(inProgress)).isZero();
     }
 
     @Test
@@ -128,10 +182,14 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
         assertThat(autoStatusService.advance()).isEqualTo(1);
         Timestamp firstUpdatedAt = statusUpdatedAt(matchId);
+        assertThat(autoAuditCount(matchId)).isEqualTo(1);
+        int firstAuditTotal = auditTotal();
 
         assertThat(autoStatusService.advance()).isZero();
         assertState(matchId, 4, 1, true);
         assertThat(statusUpdatedAt(matchId)).isEqualTo(firstUpdatedAt);
+        assertThat(autoAuditCount(matchId)).isEqualTo(1);
+        assertThat(auditTotal()).isEqualTo(firstAuditTotal);
     }
 
     @Test
@@ -158,6 +216,90 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
     private Timestamp statusUpdatedAt(Long matchId) {
         return jdbc.queryForObject(
                 "SELECT status_updated_at FROM team_match WHERE id = ?", Timestamp.class, matchId);
+    }
+
+    private int autoAuditCount(Long matchId) {
+        return jdbc.queryForObject("""
+                SELECT COUNT(*) FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_AUTO_STATUS_CHANGE'
+                """, Integer.class, matchId);
+    }
+
+    private int auditTotal() {
+        return jdbc.queryForObject(
+                "SELECT COUNT(*) FROM outbox_event WHERE event_type = 'AUDIT_RECORDED'", Integer.class);
+    }
+
+    private String auditField(Long matchId, String jsonPath) {
+        return jdbc.queryForObject("""
+                SELECT JSON_UNQUOTE(JSON_EXTRACT(payload_json, ?))
+                FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_AUTO_STATUS_CHANGE'
+                ORDER BY id ASC LIMIT 1
+                """, String.class, jsonPath, matchId);
+    }
+
+    private String auditFieldType(Long matchId, String jsonPath) {
+        return jdbc.queryForObject("""
+                SELECT JSON_TYPE(JSON_EXTRACT(payload_json, ?))
+                FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_AUTO_STATUS_CHANGE'
+                ORDER BY id ASC LIMIT 1
+                """, String.class, jsonPath, matchId);
+    }
+
+    private int auditStatus(Long matchId, boolean before) {
+        String column = before ? "beforeJson" : "afterJson";
+        return jdbc.queryForObject("""
+                SELECT JSON_EXTRACT(JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.%s')), '$.status')
+                FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_AUTO_STATUS_CHANGE'
+                ORDER BY id ASC LIMIT 1
+                """.formatted(column), Integer.class, matchId);
+    }
+
+    private String auditStatusUpdatedAt(Long matchId) {
+        return jdbc.queryForObject("""
+                SELECT JSON_UNQUOTE(JSON_EXTRACT(
+                    JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.afterJson')), '$.statusUpdatedAt'))
+                FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_AUTO_STATUS_CHANGE'
+                ORDER BY id ASC LIMIT 1
+                """, String.class, matchId);
+    }
+
+    private String auditSnapshotFieldType(Long matchId, boolean before, String field) {
+        String column = before ? "beforeJson" : "afterJson";
+        return jdbc.queryForObject("""
+                SELECT JSON_TYPE(JSON_EXTRACT(JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.%s')), '$.%s'))
+                FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_AUTO_STATUS_CHANGE'
+                ORDER BY id ASC LIMIT 1
+                """.formatted(column, field), String.class, matchId);
+    }
+
+    private String auditAggregateType(Long matchId) {
+        return jdbc.queryForObject("""
+                SELECT aggregate_type FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_AUTO_STATUS_CHANGE'
+                LIMIT 1
+                """, String.class, matchId);
+    }
+
+    private Long auditTeamId(Long matchId) {
+        return jdbc.queryForObject("""
+                SELECT team_id FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_AUTO_STATUS_CHANGE'
+                LIMIT 1
+                """, Long.class, matchId);
     }
 
     private Long insertMatch(String title, int status, boolean manualStatus,

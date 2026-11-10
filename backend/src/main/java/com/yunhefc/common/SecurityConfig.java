@@ -62,6 +62,9 @@ public class SecurityConfig {
                                 "/api/v1/c/auth/wechat/bind-phone",
                                 "/api/v1/b/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/c/invites/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/c/team/players",
+                                "/api/v1/c/team/stats").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, exception) ->

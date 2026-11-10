@@ -1,9 +1,14 @@
 package com.yunhefc.player.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhefc.contracts.player.PlayerPublicSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
+import com.yunhefc.contracts.player.PlayerType;
+import com.yunhefc.contracts.security.UserAccountReadPort;
 import com.yunhefc.player.domain.Player;
+import com.yunhefc.player.domain.SecondaryPositions;
 import com.yunhefc.player.infrastructure.PlayerMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -11,12 +16,17 @@ import org.springframework.stereotype.Component;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
 public class PlayerReadAdapter implements PlayerReadPort {
 
+    private static final int ACTIVE = 1;
+
     private final PlayerMapper playerMapper;
+    private final UserAccountReadPort userAccountReadPort;
+    private final ObjectMapper objectMapper;
 
     @Override
     public Optional<PlayerSnapshot> findByUserId(Long userId) {
@@ -32,6 +42,21 @@ public class PlayerReadAdapter implements PlayerReadPort {
                         .in(Player::getUserId, userIds))
                 .stream()
                 .map(PlayerReadAdapter::toSnapshot)
+                .toList();
+    }
+
+    @Override
+    public List<PlayerPublicSnapshot> findPublicRoster(Long teamId) {
+        List<Player> players = playerMapper.selectList(new LambdaQueryWrapper<Player>()
+                .eq(Player::getTeamId, teamId)
+                .eq(Player::getType, PlayerType.PLAYER));
+        if (players.isEmpty()) {
+            return List.of();
+        }
+        Set<Long> activeUserIds = userAccountReadPort.findUserIds(ACTIVE, null);
+        return players.stream()
+                .filter(player -> activeUserIds.contains(player.getUserId()))
+                .map(this::toPublicSnapshot)
                 .toList();
     }
 
@@ -51,5 +76,18 @@ public class PlayerReadAdapter implements PlayerReadPort {
                 player.getType().code(),
                 player.getPosition().code(),
                 player.getSkill());
+    }
+
+    private PlayerPublicSnapshot toPublicSnapshot(Player player) {
+        return new PlayerPublicSnapshot(
+                player.getId(),
+                player.getName(),
+                player.getJersey(),
+                player.getPosition().code(),
+                SecondaryPositions.parse(objectMapper, player.getSecondaryPositions()),
+                player.getRegion(),
+                player.getAvatarUrl(),
+                player.getSkill(),
+                player.getType().code());
     }
 }

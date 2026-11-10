@@ -4,7 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.api.PageQuery;
@@ -17,6 +16,7 @@ import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.UserAccountReadPort;
 import com.yunhefc.contracts.security.UserAccountSnapshot;
 import com.yunhefc.player.domain.Player;
+import com.yunhefc.player.domain.SecondaryPositions;
 import com.yunhefc.player.dto.PlayerDtos.PlayerAdminQuery;
 import com.yunhefc.player.dto.PlayerDtos.PlayerAdminView;
 import com.yunhefc.player.dto.PlayerDtos.PlayerUpdateRequest;
@@ -101,7 +101,7 @@ public class PlayerAdminApplicationService {
         if (secondaryProvided) {
             secondary = validateSecondary(request.secondaryPositions(), effectivePosition);
         } else if (newPosition != null) {
-            List<Integer> existing = parseSecondary(player.getSecondaryPositions());
+            List<Integer> existing = SecondaryPositions.parse(objectMapper, player.getSecondaryPositions());
             if (existing.contains(effectivePosition)) {
                 secondary = existing.stream().filter(code -> code != effectivePosition).toList();
             }
@@ -164,7 +164,7 @@ public class PlayerAdminApplicationService {
     }
 
     private PlayerAdminView toView(Player player, UserAccountSnapshot account) {
-        List<Integer> secondary = parseSecondary(player.getSecondaryPositions());
+        List<Integer> secondary = SecondaryPositions.parse(objectMapper, player.getSecondaryPositions());
         return new PlayerAdminView(
                 player.getId(),
                 player.getName(),
@@ -193,7 +193,7 @@ public class PlayerAdminApplicationService {
         values.put("jersey", player.getJersey());
         values.put("type", player.getType().code());
         values.put("position", player.getPosition().code());
-        values.put("secondaryPositions", parseSecondary(player.getSecondaryPositions()));
+        values.put("secondaryPositions", SecondaryPositions.parse(objectMapper, player.getSecondaryPositions()));
         values.put("region", player.getRegion());
         values.put("avatarUrl", player.getAvatarUrl());
         values.put("skill", player.getSkill());
@@ -214,18 +214,6 @@ public class PlayerAdminApplicationService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "副位置不能包含主位置");
         }
         return List.copyOf(unique);
-    }
-
-    private List<Integer> parseSecondary(String json) {
-        if (json == null || json.isBlank()) {
-            return List.of();
-        }
-        try {
-            return objectMapper.readValue(json, new TypeReference<List<Integer>>() {
-            });
-        } catch (JsonProcessingException ex) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "副位置数据格式错误");
-        }
     }
 
     private String toJson(List<Integer> positions) {

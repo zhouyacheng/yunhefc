@@ -9,4 +9,9 @@ public interface PlayerReadPort {
     Optional<PlayerSnapshot> findByUserId(Long userId);
 
     List<PlayerSnapshot> findByUserIds(Collection<Long> userIds);
+
+    /**
+     * 球队页公开名单：正式球员且账号 ACTIVE。
+     */
+    List<PlayerPublicSnapshot> findPublicRoster(Long teamId);
 }

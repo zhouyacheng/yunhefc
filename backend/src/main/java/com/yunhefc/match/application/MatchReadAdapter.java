@@ -7,6 +7,8 @@ import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -18,6 +20,16 @@ public class MatchReadAdapter implements MatchReadPort {
     @Override
     public Optional<MatchSnapshot> findById(Long matchId) {
         return Optional.ofNullable(teamMatchMapper.selectById(matchId)).map(MatchReadAdapter::toSnapshot);
+    }
+
+    @Override
+    public List<MatchSnapshot> findByIds(Collection<Long> matchIds) {
+        if (matchIds == null || matchIds.isEmpty()) {
+            return List.of();
+        }
+        return teamMatchMapper.selectBatchIds(matchIds).stream()
+                .map(MatchReadAdapter::toSnapshot)
+                .toList();
     }
 
     private static MatchSnapshot toSnapshot(TeamMatch match) {

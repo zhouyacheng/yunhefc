@@ -7,6 +7,8 @@ import com.yunhefc.auth.domain.RoleCodes;
 import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
+import com.yunhefc.auth.infrastructure.RolePermissionMapper;
+import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
@@ -16,6 +18,7 @@ import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.player.PlayerType;
+import com.yunhefc.contracts.registration.RegistrationLifecyclePort;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.infra.outbox.OutboxService;
 import com.yunhefc.player.application.PlayerAdminApplicationService;
@@ -42,9 +45,12 @@ public class AccountLifecycleApplicationService {
     private final AppUserMapper userMapper;
     private final AppRoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
+    private final RolePermissionMapper rolePermissionMapper;
+    private final TeamMapper teamMapper;
     private final PlayerReadPort playerReadPort;
     private final PlayerAdminApplicationService playerAdminService;
     private final PlayerProfileApplicationService playerProfileService;
+    private final RegistrationLifecyclePort registrationLifecyclePort;
     private final AuditRecorder auditRecorder;
     private final OutboxService outboxService;
 
@@ -56,12 +62,7 @@ public class AccountLifecycleApplicationService {
         AuthPrincipal actor = CurrentUser.principal();
         PlayerSnapshot player = requirePlayer(actor.teamId(), playerId);
         // 行锁串行化并发审核，保证审计与通知只写一次
-        AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
-                .eq(AppUser::getId, player.userId())
-                .last("FOR UPDATE"));
-        if (user == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "账号不存在");
-        }
+        AppUser user = lockUser(player.userId());
         if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "已注销账号不能审核");
         }
@@ -87,12 +88,7 @@ public class AccountLifecycleApplicationService {
             return playerAdminService.adminView(actor.teamId(), playerId);
         }
         // 行锁串行化账号状态变更，避免与注销交错
-        AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
-                .eq(AppUser::getId, player.userId())
-                .last("FOR UPDATE"));
-        if (user == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "账号不存在");
-        }
+        AppUser user = lockUser(player.userId());
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "仅正常状态的账号可转正");
         }
@@ -106,6 +102,53 @@ public class AccountLifecycleApplicationService {
         Map<String, Object> after = snapshot(converted.get(), userRoleMapper.findRoleCodes(user.getId()));
         auditRecorder.recordCurrent("PLAYER_CONVERT", "PLAYER", playerId, before, after);
         return playerAdminService.adminView(actor.teamId(), playerId);
+    }
+
+    /**
+     * PLR-09：注销不可恢复；已注销幂等返回。最后管理员保护与角色变更共用球队行锁。
+     */
+    @Transactional
+    public PlayerAdminView disable(Long playerId, String reason) {
+        AuthPrincipal actor = CurrentUser.principal();
+        PlayerSnapshot player = requirePlayer(actor.teamId(), playerId);
+        // 串行化最后管理员校验：并发注销/降权各自看到对方的旧状态会同时通过
+        if (teamMapper.lockTeamId() == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "球队未初始化");
+        }
+        // 行锁串行化账号状态变更，避免与审核/转正交错
+        AppUser user = lockUser(player.userId());
+        if (user.getStatus() == UserStatus.DISABLED) {
+            return playerAdminService.adminView(actor.teamId(), playerId);
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "仅正常状态的账号可注销");
+        }
+        if (rolePermissionMapper.countActiveUsersWithRoleManageExcluding(user.getId()) == 0) {
+            throw new BusinessException(ErrorCode.LAST_ADMIN_PROTECTED);
+        }
+
+        userMapper.updateStatus(user.getId(), UserStatus.DISABLED.code());
+        registrationLifecyclePort.cancelActiveForDisabledPlayer(
+                actor.teamId(), playerId, actor.userId());
+
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("status", UserStatus.DISABLED.code());
+        after.put("reason", reason.strip());
+        auditRecorder.recordCurrent("USER_DISABLE", "USER", user.getId(),
+                Map.of("status", user.getStatus().code()), after);
+        outboxService.append(actor.teamId(), "USER", user.getId(), EventTypes.ACCOUNT_DISABLED,
+                Map.of("userId", user.getId(), "actorUserId", actor.userId()));
+        return playerAdminService.adminView(actor.teamId(), playerId);
+    }
+
+    private AppUser lockUser(Long userId) {
+        AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
+                .eq(AppUser::getId, userId)
+                .last("FOR UPDATE"));
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "账号不存在");
+        }
+        return user;
     }
 
     private PlayerSnapshot requirePlayer(Long teamId, Long playerId) {

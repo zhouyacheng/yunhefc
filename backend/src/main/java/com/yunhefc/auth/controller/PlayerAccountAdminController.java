@@ -5,6 +5,7 @@ import com.yunhefc.common.api.ApiResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import com.yunhefc.player.dto.PlayerDtos.PlayerAdminView;
 import com.yunhefc.player.dto.PlayerDtos.PlayerConvertRequest;
+import com.yunhefc.player.dto.PlayerDtos.PlayerDisableRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -37,5 +38,13 @@ public class PlayerAccountAdminController {
     public ApiResponse<PlayerAdminView> convert(@PathVariable Long id,
                                                 @Valid @RequestBody PlayerConvertRequest request) {
         return ApiResponse.ok(accountLifecycleService.convert(id, request.jersey()));
+    }
+
+    @PostMapping("/{id}/disable")
+    @PreAuthorize("hasAuthority('player:edit:any')")
+    @Idempotent("PLR-09")
+    public ApiResponse<PlayerAdminView> disable(@PathVariable Long id,
+                                                @Valid @RequestBody PlayerDisableRequest request) {
+        return ApiResponse.ok(accountLifecycleService.disable(id, request.reason()));
     }
 }

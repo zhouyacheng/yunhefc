@@ -33,7 +33,13 @@ public class SessionAuthFilter extends OncePerRequestFilter {
                     : SessionKeys.C_USER_ID;
             Object value = session.getAttribute(key);
             if (value instanceof Long userId) {
-                userAccessPort.load(userId).ifPresent(principal -> authenticate(principal, request));
+                userAccessPort.load(userId).ifPresentOrElse(
+                        principal -> authenticate(principal, request),
+                        () -> {
+                            // 账号已注销或不存在：清除会话中可能残留的 SecurityContext 并立即失效
+                            SecurityContextHolder.clearContext();
+                            session.invalidate();
+                        });
             }
         }
         chain.doFilter(request, response);

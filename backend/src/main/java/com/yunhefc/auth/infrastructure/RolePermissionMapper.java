@@ -43,4 +43,18 @@ public interface RolePermissionMapper {
             WHERE u.status = 1 AND u.is_deleted = 0 AND p.code = 'role:manage:any'
             """)
     int countActiveUsersWithRoleManage();
+
+    /**
+     * 模拟剔除指定用户后，仍拥有 role:manage:any 的 ACTIVE 用户数；用于注销前的最后管理员保护。
+     */
+    @Select("""
+            SELECT COUNT(DISTINCT u.id)
+            FROM app_user u
+            JOIN user_role ur ON ur.user_id = u.id AND ur.is_deleted = 0
+            JOIN role_permission rp ON rp.role_id = ur.role_id AND rp.is_deleted = 0
+            JOIN permission p ON p.id = rp.permission_id AND p.is_deleted = 0
+            WHERE u.status = 1 AND u.is_deleted = 0 AND p.code = 'role:manage:any'
+              AND u.id <> #{userId}
+            """)
+    int countActiveUsersWithRoleManageExcluding(@Param("userId") Long userId);
 }

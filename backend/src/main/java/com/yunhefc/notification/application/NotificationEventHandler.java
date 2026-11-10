@@ -33,7 +33,8 @@ public class NotificationEventHandler {
         try {
             OutboxMessage event = objectMapper.readValue(message, OutboxMessage.class);
             if (!EventTypes.ROLE_CHANGED.equals(event.eventType())
-                    && !EventTypes.ACCOUNT_APPROVED.equals(event.eventType())) {
+                    && !EventTypes.ACCOUNT_APPROVED.equals(event.eventType())
+                    && !EventTypes.ACCOUNT_DISABLED.equals(event.eventType())) {
                 return;
             }
             if (consumedEventMapper.tryInsert(GROUP, event.eventId(), topic, partition, offset) == 0) {
@@ -48,6 +49,10 @@ public class NotificationEventHandler {
                 notification.setType(NotificationType.ACCOUNT_APPROVED);
                 notification.setTitle("账号审核通过");
                 notification.setBody("你的账号已审核通过，现在可以报名参加比赛");
+            } else if (EventTypes.ACCOUNT_DISABLED.equals(event.eventType())) {
+                notification.setType(NotificationType.ACCOUNT_DISABLED);
+                notification.setTitle("账号已注销");
+                notification.setBody("你的账号已被管理员注销，历史数据将保留");
             } else {
                 notification.setType(NotificationType.ROLE_CHANGED);
                 notification.setTitle("角色变更");

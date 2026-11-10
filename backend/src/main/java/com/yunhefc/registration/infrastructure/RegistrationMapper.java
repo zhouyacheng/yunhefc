@@ -1,11 +1,13 @@
 package com.yunhefc.registration.infrastructure;
 
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.yunhefc.registration.domain.Registration;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 @Mapper
-public interface RegistrationMapper {
+public interface RegistrationMapper extends BaseMapper<Registration> {
 
     @Select("""
             SELECT COUNT(*)

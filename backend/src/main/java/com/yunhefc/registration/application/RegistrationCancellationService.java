@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * 取消报名与同池递补的共享实现；普通取消与 P-05 注销编排复用。
+ * 取消/移除报名与同池递补的共享实现；普通取消、管理员移除与 P-05 注销编排复用。
  * 调用方必须已持有对应比赛的 team_match 行锁，递补因此按比赛串行。
  */
 @Service
@@ -27,14 +27,28 @@ public class RegistrationCancellationService {
      * @return 被递补球员 ID；未触发递补返回空
      */
     public Optional<Long> cancelAndPromote(Registration registration, Long cancelledBy, Instant now) {
-        int cancelled = registrationMapper.update(null, new LambdaUpdateWrapper<Registration>()
+        return terminateAndPromote(registration, cancelledBy, now, RegistrationStatus.CANCELLED);
+    }
+
+    /**
+     * 管理员移除有效报名；移除 CONFIRMED 时同池最早 WAITLISTED 递补。
+     *
+     * @return 被递补球员 ID；未触发递补返回空
+     */
+    public Optional<Long> removeAndPromote(Registration registration, Long removedBy, Instant now) {
+        return terminateAndPromote(registration, removedBy, now, RegistrationStatus.REMOVED);
+    }
+
+    private Optional<Long> terminateAndPromote(Registration registration, Long terminatedBy,
+                                               Instant now, RegistrationStatus terminalStatus) {
+        int terminated = registrationMapper.update(null, new LambdaUpdateWrapper<Registration>()
                 .eq(Registration::getId, registration.getId())
                 .in(Registration::getStatus,
                         RegistrationStatus.CONFIRMED, RegistrationStatus.WAITLISTED)
-                .set(Registration::getStatus, RegistrationStatus.CANCELLED)
+                .set(Registration::getStatus, terminalStatus)
                 .set(Registration::getCancelledAt, now)
-                .set(Registration::getCancelledBy, cancelledBy));
-        if (cancelled == 0 || registration.getStatus() != RegistrationStatus.CONFIRMED) {
+                .set(Registration::getCancelledBy, terminatedBy));
+        if (terminated == 0 || registration.getStatus() != RegistrationStatus.CONFIRMED) {
             return Optional.empty();
         }
         return promoteEarliestWaitlisted(registration);

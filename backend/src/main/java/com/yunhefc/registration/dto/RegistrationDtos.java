@@ -27,4 +27,10 @@ public final class RegistrationDtos {
      */
     public record CancellationResult(boolean cancelled, Long promotedPlayerId, boolean promoted) {
     }
+
+    /**
+     * 管理员移除结果；未触发递补时 promotedPlayerId 为 null。
+     */
+    public record RemovalResult(boolean removed, Long promotedPlayerId, boolean promoted) {
+    }
 }

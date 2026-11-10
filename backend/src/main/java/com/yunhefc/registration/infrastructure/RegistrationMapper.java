@@ -39,6 +39,16 @@ public interface RegistrationMapper extends BaseMapper<Registration> {
 
     List<RegistrationQueueRow> selectQueueCounts(@Param("matchIds") Collection<Long> matchIds);
 
+    // 管理员移除在持有比赛行锁后复核：当前读绕过事务快照与 MyBatis 本地缓存。
+    @Select("""
+            SELECT id, match_id, player_id, type, status, registered_at, cancelled_at,
+                   cancelled_by, updated_at, is_deleted
+            FROM registration
+            WHERE id = #{id} AND is_deleted = 0
+            FOR UPDATE
+            """)
+    Registration selectByIdForUpdate(@Param("id") Long id);
+
     // 注销编排使用当前读扫描：与报名事务的共享账号锁配合，注销后不残留有效报名。
     @Select("""
             SELECT id, match_id, player_id, type, status, registered_at, cancelled_at,

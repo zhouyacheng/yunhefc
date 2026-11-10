@@ -24,7 +24,6 @@ import com.yunhefc.auth.infrastructure.PrincipalMapper;
 import com.yunhefc.auth.infrastructure.PrincipalRow;
 import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
-import com.yunhefc.auth.infrastructure.UserRoleRow;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.security.BackendPermissions;
 import com.yunhefc.common.api.PageResponse;
@@ -49,7 +48,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -213,29 +211,10 @@ public class AuthService implements UserAccessPort {
                 .eq(status != null, AppUser::getStatus, status)
                 .orderByAsc(AppUser::getId);
         Page<AppUser> result = userMapper.selectPage(new Page<>(page, pageSize), wrapper);
-        List<Long> userIds = result.getRecords().stream().map(AppUser::getId).toList();
-        Map<Long, PlayerSnapshot> players = new HashMap<>();
-        for (PlayerSnapshot player : playerReadPort.findByUserIds(userIds)) {
-            players.put(player.userId(), player);
-        }
-        Map<Long, Set<String>> roles = new HashMap<>();
-        if (!userIds.isEmpty()) {
-            for (UserRoleRow row : userRoleMapper.findRoleCodesByUserIds(userIds)) {
-                roles.computeIfAbsent(row.getUserId(), id -> new LinkedHashSet<>()).add(row.getCode());
-            }
-        }
-        List<UserSummary> items = result.getRecords().stream().map(user -> {
-            PlayerSnapshot player = players.get(user.getId());
-            return new UserSummary(
-                    user.getId(),
-                    player == null ? null : player.name(),
-                    UserViewAssembler.maskPhone(user.getPhone()),
-                    user.getStatus().code(),
-                    user.getStatus().label(),
-                    roles.getOrDefault(user.getId(), Set.of()),
-                    player == null ? null : player.type(),
-                    player == null ? null : PlayerType.of(player.type()).label());
-        }).toList();
+        Map<Long, UserSummary> summaries = userViewAssembler.toSummaries(result.getRecords());
+        List<UserSummary> items = result.getRecords().stream()
+                .map(user -> summaries.get(user.getId()))
+                .toList();
         return PageResponse.of(items, result.getTotal(), page, pageSize);
     }
 
@@ -285,14 +264,13 @@ public class AuthService implements UserAccessPort {
         if (row == null) {
             return Optional.empty();
         }
+        PlayerSnapshot player = playerReadPort.findByUserId(userId).orElse(null);
         return Optional.of(new AuthPrincipal(
                 row.getId(),
                 row.getPhone(),
                 row.getStatus(),
-                row.getTeamId(),
-                row.getPlayerName() == null
-                        ? UserViewAssembler.maskPhone(row.getPhone())
-                        : row.getPlayerName(),
+                player == null ? teamId() : player.teamId(),
+                player == null ? UserViewAssembler.maskPhone(row.getPhone()) : player.name(),
                 splitCodes(row.getRoles()),
                 splitCodes(row.getPermissions())));
     }

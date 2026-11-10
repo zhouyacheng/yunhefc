@@ -33,7 +33,7 @@ public class DataRetentionService {
         int idempotency = idempotencyKeyMapper.deleteExpiredBefore(now);
         int consumed = consumedEventMapper.deleteProcessedBefore(now.minus(PROCESSED_RETENTION));
         int outbox = outboxEventMapper.deleteSentBefore(now.minus(SENT_OUTBOX_RETENTION));
-        log.info("data retention cleanup done, idempotency={}, consumed={}, outbox={}",
+        log.debug("data retention cleanup done, idempotency={}, consumed={}, outbox={}",
                 idempotency, consumed, outbox);
     }
 }

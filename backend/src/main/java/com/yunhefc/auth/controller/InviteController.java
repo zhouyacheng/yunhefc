@@ -51,11 +51,11 @@ public class InviteController {
     @PostMapping("/c/matches/{id}/invites")
     @PreAuthorize("hasAuthority('invite:create:match')")
     @Idempotent("INV-03")
-    public ApiResponse<Map<String, Object>> createMatchInvite(@PathVariable Long id,
-                                                             @Valid @RequestBody MatchInviteCreateRequest request) {
+    public ApiResponse<InviteCreatedView> createMatchInvite(@PathVariable Long id,
+                                                            @Valid @RequestBody MatchInviteCreateRequest request) {
         InviteCreatedView invite = inviteService.createMatchInvite(
                 CurrentUser.principal().userId(), id, request.expiresInDays(), request.maxUses());
-        return ApiResponse.ok(Map.of("inviteUrl", invite.inviteUrl(), "expiresAt", invite.expiresAt()));
+        return ApiResponse.ok(invite);
     }
 
     @GetMapping("/b/invites")
@@ -72,9 +72,8 @@ public class InviteController {
     @PostMapping("/b/invites")
     @PreAuthorize("hasAuthority('invite:manage:any')")
     @Idempotent("INV-05")
-    public ApiResponse<Map<String, Object>> create(@Valid @RequestBody InviteCreateRequest request) {
-        InviteCreatedView invite = inviteService.create(CurrentUser.principal().userId(), request);
-        return ApiResponse.ok(Map.of("inviteUrl", invite.inviteUrl(), "expiresAt", invite.expiresAt()));
+    public ApiResponse<InviteCreatedView> create(@Valid @RequestBody InviteCreateRequest request) {
+        return ApiResponse.ok(inviteService.create(CurrentUser.principal().userId(), request));
     }
 
     @PostMapping("/b/invites/{id}/revoke")

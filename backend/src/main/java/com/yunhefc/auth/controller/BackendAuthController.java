@@ -6,11 +6,8 @@ import com.yunhefc.auth.dto.AuthDtos.BLoginResponse;
 import com.yunhefc.auth.dto.AuthDtos.BMeView;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.common.api.ApiResponse;
-import com.yunhefc.common.error.BusinessException;
-import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.ratelimit.RedisRateLimiter;
 import com.yunhefc.common.security.AuthSessionService;
-import com.yunhefc.common.security.BackendPermissions;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.security.Hashing;
 import com.yunhefc.contracts.security.AuthPrincipal;
@@ -63,12 +60,9 @@ public class BackendAuthController {
     }
 
     @GetMapping("/me")
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("@backendPermissionGuard.hasBackendPermission(authentication)")
     public ApiResponse<BMeView> me() {
         AuthPrincipal principal = CurrentUser.principal();
-        if (!BackendPermissions.hasBackendPermission(principal.permissions())) {
-            throw new BusinessException(ErrorCode.FORBIDDEN);
-        }
         AuthResult result = authService.meResult(principal.userId());
         return ApiResponse.ok(new BMeView(result.user(), result.permissions(), authService.sections(result.permissions())));
     }

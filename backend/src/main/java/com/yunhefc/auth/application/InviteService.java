@@ -15,6 +15,7 @@ import com.yunhefc.auth.dto.AuthDtos.InviteCreatedView;
 import com.yunhefc.auth.dto.AuthDtos.InviteView;
 import com.yunhefc.auth.dto.AuthDtos.MatchSummary;
 import com.yunhefc.auth.dto.AuthDtos.TeamView;
+import com.yunhefc.auth.dto.AuthDtos.UserSummary;
 import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
 import com.yunhefc.auth.infrastructure.InviteLinkMapper;
@@ -32,6 +33,7 @@ import com.yunhefc.contracts.match.MatchReadPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
+import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.registration.MatchRosterPort;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
 import org.springframework.stereotype.Service;
@@ -39,7 +41,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -156,7 +159,7 @@ public class InviteService {
             return view;
         }
 
-        if (player.type() == 1) {
+        if (player.type() == PlayerType.PLAYER.code()) {
             return toView(invite);
         }
 
@@ -230,8 +233,21 @@ public class InviteService {
                         .eq(type != null, InviteLink::getType, type)
                         .eq(status != null, InviteLink::getStatus, status)
                         .orderByDesc(InviteLink::getId));
-        return PageResponse.of(result.getRecords().stream().map(this::toView).toList(),
+        List<InviteLink> records = result.getRecords();
+        Team team = records.isEmpty() ? null : teamMapper.selectById(records.get(0).getTeamId());
+        Map<Long, UserSummary> inviters = inviterSummaries(records);
+        return PageResponse.of(records.stream()
+                        .map(invite -> toView(invite, team, inviters))
+                        .toList(),
                 result.getTotal(), page, pageSize);
+    }
+
+    private Map<Long, UserSummary> inviterSummaries(List<InviteLink> invites) {
+        List<Long> userIds = invites.stream().map(InviteLink::getInviterUserId).distinct().toList();
+        if (userIds.isEmpty()) {
+            return Map.of();
+        }
+        return userViewAssembler.toSummaries(userMapper.selectBatchIds(userIds));
     }
 
     @Transactional
@@ -305,10 +321,23 @@ public class InviteService {
     }
 
     private InviteView toView(InviteLink invite) {
-        Team team = teamMapper.selectById(invite.getTeamId());
+        return toView(invite, null, null);
+    }
+
+    /**
+     * inviters 非 null 表示来自批量查询，批次内缺失的用户直接视为不存在，避免回退成逐行查询。
+     */
+    private InviteView toView(InviteLink invite, Team teamOverride, Map<Long, UserSummary> inviters) {
+        Team team = teamOverride == null ? teamMapper.selectById(invite.getTeamId()) : teamOverride;
         MatchSnapshot match = invite.getMatchId() == null ? null
                 : matchReadPort.findById(invite.getMatchId()).orElse(null);
-        AppUser inviter = userMapper.selectById(invite.getInviterUserId());
+        UserSummary inviter;
+        if (inviters != null) {
+            inviter = inviters.get(invite.getInviterUserId());
+        } else {
+            AppUser inviterUser = userMapper.selectById(invite.getInviterUserId());
+            inviter = inviterUser == null ? null : userViewAssembler.toSummary(inviterUser);
+        }
         InviteStatus effectiveStatus = invite.getStatus();
         if (effectiveStatus == InviteStatus.ACTIVE && invite.getExpiresAt().isBefore(Instant.now(clock))) {
             effectiveStatus = InviteStatus.EXPIRED;
@@ -324,7 +353,7 @@ public class InviteService {
                 match == null ? null : new MatchSummary(match.id(), match.title(), match.startAt(),
                         match.endAt(), match.venue(), match.status(), match.homeTeamName(),
                         match.awayTeamName()),
-                inviter == null ? null : userViewAssembler.toSummary(inviter),
+                inviter,
                 invite.getExpiresAt(),
                 invite.getMaxUses(),
                 invite.getUsedCount(),

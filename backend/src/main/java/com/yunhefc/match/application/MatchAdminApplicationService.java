@@ -20,7 +20,9 @@ import com.yunhefc.match.domain.OurSide;
 import com.yunhefc.match.domain.TeamMatch;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminView;
+import com.yunhefc.match.dto.MatchDtos.MatchCancelRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchCreateRequest;
+import com.yunhefc.match.dto.MatchDtos.MatchScheduleRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchStatusRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchUpdateRequest;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
@@ -38,6 +40,7 @@ import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +48,7 @@ public class MatchAdminApplicationService {
 
     private static final int CREATE_ATTEMPTS = 20;
     private static final String DEFAULT_FORMAT = "8人制";
+    private static final String MATCH_EDIT_PERMISSION = "match:edit:any";
     private static final String OUR_TEAM_MARKER = "云河FC";
 
     private final TeamMatchMapper teamMatchMapper;
@@ -182,6 +186,10 @@ public class MatchAdminApplicationService {
 
     @Transactional
     public MatchAdminView changeStatus(Long matchId, MatchStatusRequest request) {
+        return doChangeStatus(matchId, request);
+    }
+
+    private MatchAdminView doChangeStatus(Long matchId, MatchStatusRequest request) {
         MatchStatus target = MatchStatus.of(request.status());
         MatchStatusMachine.requireManualTarget(target);
         Long teamId = CurrentUser.principal().teamId();
@@ -217,6 +225,162 @@ public class MatchAdminApplicationService {
         TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
         auditRecorder.recordCurrent("MATCH_STATUS_CHANGE", "MATCH", matchId, before, snapshot(saved));
         return toView(saved, counts(matchId));
+    }
+
+    /**
+     * C 端详情页状态入口（MAT-12）：普通状态同 MAT-06；延期/取消分别复用 MAT-07/MAT-08。
+     */
+    @Transactional
+    public MatchAdminView changeStatusFromPublic(Long matchId, MatchStatusRequest request) {
+        MatchStatus target = MatchStatus.of(request.status());
+        if (target == MatchStatus.POSTPONED) {
+            if (!CurrentUser.principal().permissions().contains(MATCH_EDIT_PERMISSION)) {
+                throw new BusinessException(ErrorCode.FORBIDDEN);
+            }
+            Map<String, String> details = new LinkedHashMap<>();
+            if (request.startAt() == null) {
+                details.put("startAt", "不能为空");
+            }
+            if (request.endAt() == null) {
+                details.put("endAt", "不能为空");
+            }
+            if (!details.isEmpty()) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                        "延期必须提供新开始/结束时间", Map.of("details", details));
+            }
+            return doPostpone(matchId,
+                    new MatchScheduleRequest(request.startAt(), request.endAt(), request.version()));
+        }
+        if (target == MatchStatus.CANCELLED) {
+            if (request.reason() == null || request.reason().isBlank()) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                        "取消必须填写原因", Map.of("details", Map.of("reason", "不能为空")));
+            }
+            return doCancel(matchId, new MatchCancelRequest(request.reason(), request.version()));
+        }
+        return doChangeStatus(matchId, request);
+    }
+
+    @Transactional
+    public MatchAdminView postpone(Long matchId, MatchScheduleRequest request) {
+        return doPostpone(matchId, request);
+    }
+
+    private MatchAdminView doPostpone(Long matchId, MatchScheduleRequest request) {
+        Long teamId = CurrentUser.principal().teamId();
+        TeamMatch match = lockForTransition(matchId, teamId, request.version(),
+                MatchStatusMachine::requirePostponable);
+        MatchTimeRules.Schedule schedule = MatchTimeRules.validateAndDerive(
+                request.startAt(), request.endAt());
+
+        Map<String, Object> before = snapshot(match);
+        int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
+                .eq(TeamMatch::getId, matchId)
+                .eq(TeamMatch::getTeamId, teamId)
+                .eq(TeamMatch::getVersion, request.version())
+                .notIn(TeamMatch::getStatus,
+                        MatchStatus.FINISHED, MatchStatus.POSTPONED, MatchStatus.CANCELLED)
+                .set(TeamMatch::getStartAt, schedule.startAt())
+                .set(TeamMatch::getEndAt, schedule.endAt())
+                .set(TeamMatch::getSignupDeadline, schedule.signupDeadline())
+                .set(TeamMatch::getCancelLock, schedule.cancelLock())
+                .set(TeamMatch::getStatus, MatchStatus.POSTPONED)
+                .set(TeamMatch::getManualStatus, true)
+                .set(TeamMatch::getStatusUpdatedAt, Instant.now(clock))
+                .set(TeamMatch::getStatusUpdatedBy, CurrentUser.principal().userId())
+                .set(TeamMatch::getVersion, match.getVersion() + 1));
+        TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
+                current -> MatchStatusMachine.requirePostponable(current.getStatus()));
+        auditRecorder.recordCurrent("MATCH_POSTPONE", "MATCH", matchId, before, snapshot(saved));
+        return toView(saved, counts(matchId));
+    }
+
+    @Transactional
+    public MatchAdminView reschedule(Long matchId, MatchScheduleRequest request) {
+        return doReschedule(matchId, request);
+    }
+
+    private MatchAdminView doReschedule(Long matchId, MatchScheduleRequest request) {
+        Long teamId = CurrentUser.principal().teamId();
+        TeamMatch match = lockForTransition(matchId, teamId, request.version(),
+                MatchStatusMachine::requireReschedulable);
+        MatchTimeRules.Schedule schedule = MatchTimeRules.validateAndDerive(
+                request.startAt(), request.endAt());
+
+        Map<String, Object> before = snapshot(match);
+        int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
+                .eq(TeamMatch::getId, matchId)
+                .eq(TeamMatch::getTeamId, teamId)
+                .eq(TeamMatch::getVersion, request.version())
+                .eq(TeamMatch::getStatus, MatchStatus.POSTPONED)
+                .set(TeamMatch::getStartAt, schedule.startAt())
+                .set(TeamMatch::getEndAt, schedule.endAt())
+                .set(TeamMatch::getSignupDeadline, schedule.signupDeadline())
+                .set(TeamMatch::getCancelLock, schedule.cancelLock())
+                .set(TeamMatch::getStatus, MatchStatus.SIGNUP_OPEN)
+                .set(TeamMatch::getManualStatus, false)
+                .set(TeamMatch::getStatusUpdatedAt, Instant.now(clock))
+                .set(TeamMatch::getStatusUpdatedBy, CurrentUser.principal().userId())
+                .set(TeamMatch::getVersion, match.getVersion() + 1));
+        TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
+                current -> MatchStatusMachine.requireReschedulable(current.getStatus()));
+        auditRecorder.recordCurrent("MATCH_RESCHEDULE", "MATCH", matchId, before, snapshot(saved));
+        return toView(saved, counts(matchId));
+    }
+
+    @Transactional
+    public MatchAdminView cancel(Long matchId, MatchCancelRequest request) {
+        return doCancel(matchId, request);
+    }
+
+    private MatchAdminView doCancel(Long matchId, MatchCancelRequest request) {
+        Long teamId = CurrentUser.principal().teamId();
+        TeamMatch match = lockForTransition(matchId, teamId, request.version(),
+                MatchStatusMachine::requireCancellable);
+
+        Map<String, Object> before = snapshot(match);
+        int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
+                .eq(TeamMatch::getId, matchId)
+                .eq(TeamMatch::getTeamId, teamId)
+                .eq(TeamMatch::getVersion, request.version())
+                .notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED)
+                .set(TeamMatch::getStatus, MatchStatus.CANCELLED)
+                .set(TeamMatch::getManualStatus, true)
+                .set(TeamMatch::getStatusUpdatedAt, Instant.now(clock))
+                .set(TeamMatch::getStatusUpdatedBy, CurrentUser.principal().userId())
+                .set(TeamMatch::getVersion, match.getVersion() + 1));
+        TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
+                current -> MatchStatusMachine.requireCancellable(current.getStatus()));
+        Map<String, Object> after = snapshot(saved);
+        after.put("reason", request.reason().strip());
+        auditRecorder.recordCurrent("MATCH_CANCEL", "MATCH", matchId, before, after);
+        return toView(saved, counts(matchId));
+    }
+
+    private TeamMatch lockForTransition(Long matchId, Long teamId, Integer version,
+                                        Consumer<MatchStatus> stateGuard) {
+        TeamMatch match = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+        if (match == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
+        }
+        stateGuard.accept(match.getStatus());
+        if (!version.equals(match.getVersion())) {
+            throw versionConflict(match.getVersion());
+        }
+        return match;
+    }
+
+    private TeamMatch reloadAfterTransition(int updated, Long matchId, Long teamId,
+                                            Consumer<TeamMatch> stateGuard) {
+        TeamMatch current = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+        if (current == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
+        }
+        if (updated == 0) {
+            stateGuard.accept(current);
+            throw versionConflict(current.getVersion());
+        }
+        return current;
     }
 
     private void rejectUnknownFields(MatchUpdateRequest request) {

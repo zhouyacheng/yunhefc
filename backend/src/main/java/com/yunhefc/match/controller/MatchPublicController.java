@@ -54,6 +54,6 @@ public class MatchPublicController {
     @Idempotent("MAT-12")
     public ApiResponse<MatchAdminView> changeStatus(@PathVariable Long id,
                                                     @Valid @RequestBody MatchStatusRequest request) {
-        return ApiResponse.ok(matchAdminService.changeStatus(id, request));
+        return ApiResponse.ok(matchAdminService.changeStatusFromPublic(id, request));
     }
 }

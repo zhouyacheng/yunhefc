@@ -43,6 +43,54 @@ class MatchStatusMachineTest {
     }
 
     @Test
+    void postponeAcceptsOnlyPreMatchOrInProgressStatuses() {
+        for (MatchStatus status : EnumSet.of(
+                MatchStatus.SIGNUP_OPEN,
+                MatchStatus.SIGNUP_CLOSED,
+                MatchStatus.LOCKED,
+                MatchStatus.IN_PROGRESS)) {
+            assertThatCode(() -> MatchStatusMachine.requirePostponable(status))
+                    .doesNotThrowAnyException();
+        }
+
+        for (MatchStatus status : EnumSet.of(
+                MatchStatus.FINISHED,
+                MatchStatus.POSTPONED,
+                MatchStatus.CANCELLED)) {
+            assertThatThrownBy(() -> MatchStatusMachine.requirePostponable(status))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.errorCode()).isEqualTo(ErrorCode.MATCH_STATE_CONFLICT));
+        }
+    }
+
+    @Test
+    void rescheduleAcceptsOnlyPostponed() {
+        assertThatCode(() -> MatchStatusMachine.requireReschedulable(MatchStatus.POSTPONED))
+                .doesNotThrowAnyException();
+
+        for (MatchStatus status : EnumSet.complementOf(EnumSet.of(MatchStatus.POSTPONED))) {
+            assertThatThrownBy(() -> MatchStatusMachine.requireReschedulable(status))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.errorCode()).isEqualTo(ErrorCode.MATCH_STATE_CONFLICT));
+        }
+    }
+
+    @Test
+    void cancelAcceptsEveryNonTerminalStatus() {
+        for (MatchStatus status : EnumSet.complementOf(
+                EnumSet.of(MatchStatus.FINISHED, MatchStatus.CANCELLED))) {
+            assertThatCode(() -> MatchStatusMachine.requireCancellable(status))
+                    .doesNotThrowAnyException();
+        }
+
+        for (MatchStatus status : EnumSet.of(MatchStatus.FINISHED, MatchStatus.CANCELLED)) {
+            assertThatThrownBy(() -> MatchStatusMachine.requireCancellable(status))
+                    .isInstanceOfSatisfying(BusinessException.class, ex ->
+                            assertThat(ex.errorCode()).isEqualTo(ErrorCode.MATCH_STATE_CONFLICT));
+        }
+    }
+
+    @Test
     void autoAdvanceOnlyMovesForwardBetweenOrdinaryStatuses() {
         assertThat(MatchStatusMachine.canAutoAdvance(MatchStatus.SIGNUP_OPEN, MatchStatus.SIGNUP_CLOSED)).isTrue();
         assertThat(MatchStatusMachine.canAutoAdvance(MatchStatus.SIGNUP_OPEN, MatchStatus.IN_PROGRESS)).isTrue();

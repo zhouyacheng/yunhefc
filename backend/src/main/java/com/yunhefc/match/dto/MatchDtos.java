@@ -67,7 +67,21 @@ public final class MatchDtos {
     public record MatchStatusRequest(
             @NotNull @Min(0) @Max(6) Integer status,
             @NotNull @Min(0) Integer version,
-            Boolean manualStatus) {
+            Boolean manualStatus,
+            @Size(max = 200) String reason,
+            Instant startAt,
+            Instant endAt) {
+    }
+
+    public record MatchScheduleRequest(
+            @NotNull Instant startAt,
+            @NotNull Instant endAt,
+            @NotNull @Min(0) Integer version) {
+    }
+
+    public record MatchCancelRequest(
+            @NotBlank @Size(max = 200) String reason,
+            @NotNull @Min(0) Integer version) {
     }
 
     /**

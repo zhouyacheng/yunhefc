@@ -106,7 +106,7 @@ class MatchStatusIT extends IntegrationTestSupport {
     }
 
     @Test
-    void postponedAndCancelledTargetsAreRejectedOnBothEntrances() throws Exception {
+    void postponedAndCancelledTargetsAreRejectedOnBackendAndNeedPayloadOnPublicEntrance() throws Exception {
         Cookie admin = bAdminLogin("13900000703");
         Long matchId = createMatch(admin, "M03专用状态拒绝", "2026-12-10T20:00:00");
         Cookie cAdmin = cAdminLogin("13900000704");
@@ -115,9 +115,10 @@ class MatchStatusIT extends IntegrationTestSupport {
             changeB(admin, matchId, "{\"status\":" + target + ",\"version\":0}")
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.code").value(40905));
+            // C 端延期/取消走专用分支，缺少新时间或原因时按参数校验拒绝。
             changeC(cAdmin, matchId, "{\"status\":" + target + ",\"version\":0}")
-                    .andExpect(status().isConflict())
-                    .andExpect(jsonPath("$.code").value(40905));
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(40001));
         }
 
         assertThat(jdbc.queryForObject(

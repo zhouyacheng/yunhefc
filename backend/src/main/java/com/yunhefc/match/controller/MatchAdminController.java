@@ -6,7 +6,9 @@ import com.yunhefc.common.idempotency.Idempotent;
 import com.yunhefc.match.application.MatchAdminApplicationService;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchAdminView;
+import com.yunhefc.match.dto.MatchDtos.MatchCancelRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchCreateRequest;
+import com.yunhefc.match.dto.MatchDtos.MatchScheduleRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchStatusRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchUpdateRequest;
 import jakarta.validation.Valid;
@@ -68,5 +70,29 @@ public class MatchAdminController {
     public ApiResponse<MatchAdminView> changeStatus(@PathVariable Long id,
                                                     @Valid @RequestBody MatchStatusRequest request) {
         return ApiResponse.ok(matchAdminService.changeStatus(id, request));
+    }
+
+    @PostMapping("/{id}/postpone")
+    @PreAuthorize("hasAuthority('match:edit:any')")
+    @Idempotent("MAT-07")
+    public ApiResponse<MatchAdminView> postpone(@PathVariable Long id,
+                                                @Valid @RequestBody MatchScheduleRequest request) {
+        return ApiResponse.ok(matchAdminService.postpone(id, request));
+    }
+
+    @PostMapping("/{id}/reschedule")
+    @PreAuthorize("hasAuthority('match:edit:any')")
+    @Idempotent("MAT-11")
+    public ApiResponse<MatchAdminView> reschedule(@PathVariable Long id,
+                                                  @Valid @RequestBody MatchScheduleRequest request) {
+        return ApiResponse.ok(matchAdminService.reschedule(id, request));
+    }
+
+    @PostMapping("/{id}/cancel")
+    @PreAuthorize("hasAuthority('match:status:any')")
+    @Idempotent("MAT-08")
+    public ApiResponse<MatchAdminView> cancel(@PathVariable Long id,
+                                              @Valid @RequestBody MatchCancelRequest request) {
+        return ApiResponse.ok(matchAdminService.cancel(id, request));
     }
 }

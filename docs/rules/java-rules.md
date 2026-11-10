@@ -105,7 +105,7 @@ com.yunhefc.<domain>/
 
 ### 4.2 风格
 
-- 构造函数注入；禁止字段 `@Autowired`。
+- 使用 Lombok `@RequiredArgsConstructor` + `private final` 字段实现构造器注入；禁止字段 `@Autowired`，不再手写构造函数。
 - 字段尽量 `final`；DTO/事件优先使用 `record`；实体使用类 + Lombok。
 - 不使用通配符 import；不写无意义注释；注释解释“为什么”，不是“做了什么”。
 - 优先 Java 21 语法：`record`、`switch` 表达式、`var`（局部且类型明显时）。

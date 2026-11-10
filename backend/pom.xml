@@ -131,6 +131,10 @@
                     <includes>
                         <include>**/*IT.java</include>
                     </includes>
+                    <environmentVariables>
+                        <!-- 复用 MySQL/Redis 测试容器；Flyway 在持久库上只应用新迁移 -->
+                        <TESTCONTAINERS_REUSE_ENABLE>true</TESTCONTAINERS_REUSE_ENABLE>
+                    </environmentVariables>
                 </configuration>
                 <executions>
                     <execution>

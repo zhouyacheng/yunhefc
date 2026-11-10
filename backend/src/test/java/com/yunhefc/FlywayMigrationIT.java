@@ -13,7 +13,11 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import org.testcontainers.utility.DockerImageName;
 
+/**
+ * 必须使用全新空库：断言迁移历史与种子数据精确计数，不要并入共享容器基类。
+ */
 @SpringBootTest(
         webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
         properties = {"management.health.redis.enabled=false", "yunhefc.kafka.listener-enabled=false", "yunhefc.outbox.enabled=false", "yunhefc.wechat.enabled=true", "yunhefc.wechat.mode=mock", "yunhefc.wechat.require-wechat-ua=false"})
@@ -21,10 +25,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 class FlywayMigrationIT {
 
     @Container
-    static final MySQLContainer<?> MYSQL = new MySQLContainer<>("mysql:8.4")
+    static final MySQLContainer<?> MYSQL = new MySQLContainer<>(DockerImageName.parse("mysql:8.4"))
             .withDatabaseName("yunhefc")
             .withUsername("yunhefc")
-            .withPassword("yunhefc");
+            .withPassword("yunhefc")
+            .withReuse(false);
 
     @DynamicPropertySource
     static void datasourceProperties(DynamicPropertyRegistry registry) {

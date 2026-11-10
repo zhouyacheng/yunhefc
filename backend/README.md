@@ -1,11 +1,12 @@
 # 云河FC 后端
 
-Spring Boot 3.5.x / Java 21 单部署单元。当前仅包含骨架与 Flyway 基线，尚未实现业务接口。
+Spring Boot 3.5.x / Java 21 单部署单元。当前已实现 M01–M03 接口。
 
 ## 本地运行
 
 ```bash
-./mvnw test          # Testcontainers 空库迁移 + 健康检查
+./mvnw test          # 单元测试（不起容器）
+./mvnw verify        # 单元 + 集成测试（推荐）
 ./mvnw spring-boot:run
 ```
 
@@ -19,6 +20,23 @@ Spring Boot 3.5.x / Java 21 单部署单元。当前仅包含骨架与 Flyway �
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
 | `SERVER_PORT` | `8080` |
 | `SMS_MOCK_ENABLED` | `false`；本地开发需显式设为 `true`，否则注册/重置密码/绑定手机返回 50001 |
+
+## 测试
+
+前置：Docker 正在运行；首次运行会拉取 `mysql:8.4` 与 `redis:6.2.24`。
+
+- `./mvnw test` 只跑 `*Test`（含 ArchUnit）；`./mvnw verify` 额外跑 `*IT`（Failsafe）。
+- 整个 Failsafe JVM 共享一套 MySQL/Redis 单例容器；每个测试方法前清空业务表、用 Flyway V3 恢复种子数据并 `FLUSHDB`。
+- Failsafe 默认设置 `TESTCONTAINERS_REUSE_ENABLE=true`：容器跨运行复用，Flyway 首次全量迁移，之后只校验/应用新增迁移。IDE 直接运行测试时需自行设置该环境变量才能跨运行复用。
+- 复用容器不会在 `mvnw verify` 结束后删除。需要强制全新数据库时：
+
+```bash
+docker ps -a --filter ancestor=mysql:8.4
+docker ps -a --filter ancestor=redis:6.2.24
+docker rm -f <容器ID>
+```
+
+- 修改已应用的 Flyway 迁移会导致 checksum 校验失败（Flyway 11 已移除 `cleanOnValidationError`）；删除复用容器后重跑即可。`FlywayMigrationIT` 始终使用独立的全新 MySQL。
 
 ## Flyway
 

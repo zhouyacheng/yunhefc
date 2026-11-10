@@ -65,6 +65,9 @@ public final class AuthDtos {
     public record AuthResponse(UserView user, PlayerView player, Set<String> permissions, String csrfToken) {
     }
 
+    public record RegisterResult(UserView user, PlayerView player) {
+    }
+
     public record RegisterResponse(UserView user, PlayerView player, String csrfToken) {
     }
 

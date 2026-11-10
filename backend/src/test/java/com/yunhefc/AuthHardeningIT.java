@@ -78,6 +78,23 @@ class AuthHardeningIT extends IntegrationTestSupport {
                                 """.formatted(phone)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(40103));
+
+        sendSms(phone);
+        mockMvc.perform(post("/api/v1/c/auth/register")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","code":"123456","password":"Passw0rd!","name":"锁定后注册","position":2}
+                                """.formatted(phone)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/c/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","password":"Passw0rd!"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk());
     }
 
     @Test

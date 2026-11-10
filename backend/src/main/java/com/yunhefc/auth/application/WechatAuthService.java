@@ -31,6 +31,8 @@ import com.yunhefc.player.application.PlayerProfileApplicationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,7 @@ import java.util.regex.Pattern;
 @Service
 public class WechatAuthService {
 
+    private static final Logger log = LoggerFactory.getLogger(WechatAuthService.class);
     private static final Pattern PHONE = Pattern.compile("^1\\d{10}$");
 
     private final WechatProperties properties;
@@ -58,6 +61,7 @@ public class WechatAuthService {
     private final PlayerReadPort playerReadPort;
     private final PlayerProfileApplicationService playerProfileService;
     private final SmsCodeService smsCodeService;
+    private final LoginAttemptService loginAttemptService;
     private final AuthSessionService sessionService;
     private final UserViewAssembler userViewAssembler;
     private final Clock clock;
@@ -73,6 +77,7 @@ public class WechatAuthService {
             PlayerReadPort playerReadPort,
             PlayerProfileApplicationService playerProfileService,
             SmsCodeService smsCodeService,
+            LoginAttemptService loginAttemptService,
             AuthSessionService sessionService,
             UserViewAssembler userViewAssembler,
             Clock clock) {
@@ -86,6 +91,7 @@ public class WechatAuthService {
         this.playerReadPort = playerReadPort;
         this.playerProfileService = playerProfileService;
         this.smsCodeService = smsCodeService;
+        this.loginAttemptService = loginAttemptService;
         this.sessionService = sessionService;
         this.userViewAssembler = userViewAssembler;
         this.clock = clock;
@@ -186,6 +192,8 @@ public class WechatAuthService {
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException ex) {
+            // 唯一键异常文本含原始手机号/openid，只记录脱敏手机号
+            log.warn("微信绑定记录唯一键冲突, phone={}", UserViewAssembler.maskPhone(request.phone()));
             String cause = ex.getMostSpecificCause().getMessage();
             if (cause != null && cause.contains("uk_user_phone")) {
                 throw new BusinessException(ErrorCode.PHONE_EXISTS);
@@ -215,10 +223,10 @@ public class WechatAuthService {
         if (user.getOpenid() != null && !user.getOpenid().equals(openid)) {
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "账号已绑定其他微信");
         }
-        user.setOpenid(openid);
         try {
             userMapper.updateOpenid(user.getId(), openid);
         } catch (DuplicateKeyException ex) {
+            log.warn("微信绑定唯一键冲突, phone={}", UserViewAssembler.maskPhone(user.getPhone()));
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "该微信已绑定其他账号");
         }
     }
@@ -238,6 +246,7 @@ public class WechatAuthService {
         if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
+        loginAttemptService.clear(user.getPhone());
         PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
         Set<String> permissions = new LinkedHashSet<>(userRoleMapper.findPermissionCodes(user.getId()));
         String csrf = sessionService.establish(request, response, SessionKeys.C_USER_ID, user.getId());

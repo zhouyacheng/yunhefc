@@ -159,7 +159,6 @@ public class InviteService {
             return toView(invite);
         }
 
-        user.setStatus(UserStatus.ACTIVE);
         userMapper.updateStatus(userId, UserStatus.ACTIVE.code());
         playerProfileService.promoteToFormal(userId);
         AppRole guestRole = role(invite.getTeamId(), RoleCodes.GUEST);

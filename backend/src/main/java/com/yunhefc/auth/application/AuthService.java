@@ -14,6 +14,7 @@ import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.auth.dto.AuthDtos.MeView;
 import com.yunhefc.auth.dto.AuthDtos.PlayerView;
 import com.yunhefc.auth.dto.AuthDtos.RegisterRequest;
+import com.yunhefc.auth.dto.AuthDtos.RegisterResult;
 import com.yunhefc.auth.dto.AuthDtos.ResetPasswordRequest;
 import com.yunhefc.auth.dto.AuthDtos.UserSummary;
 import com.yunhefc.auth.dto.AuthDtos.UserView;
@@ -34,6 +35,8 @@ import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccessPort;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -51,8 +54,12 @@ import java.util.regex.Pattern;
 @Service
 public class AuthService implements UserAccessPort {
 
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
     private static final Pattern PHONE = Pattern.compile("^1\\d{10}$");
     private static final Pattern PASSWORD = Pattern.compile("^(?=.*[A-Za-z])(?=.*\\d).{8,64}$");
+    // 未知账号也执行一次 BCrypt 比较，避免通过响应时延枚举已注册手机号
+    private static final String DUMMY_PASSWORD_HASH =
+            "$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG";
 
     private final AppUserMapper userMapper;
     private final AppRoleMapper roleMapper;
@@ -106,21 +113,21 @@ public class AuthService implements UserAccessPort {
     }
 
     @Transactional
-    public AuthResult register(RegisterRequest request) {
+    public RegisterResult register(RegisterRequest request) {
         validatePhone(request.phone());
         validatePassword(request.password());
         if (request.position() == null || request.position() < 0 || request.position() > 3) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "位置必须为 0–3");
         }
-        smsCodeService.verify(request.phone(), "REGISTER", request.code());
-        if (userMapper.selectCount(new LambdaQueryWrapper<AppUser>().eq(AppUser::getPhone, request.phone())) > 0) {
-            throw new BusinessException(ErrorCode.PHONE_EXISTS);
-        }
-
         InviteLink invite = request.inviteToken() == null || request.inviteToken().isBlank()
                 ? null
                 : inviteService.findUsableForRegistration(request.inviteToken());
         boolean teamInvite = invite != null && invite.getType() == InviteType.TEAM;
+
+        smsCodeService.verify(request.phone(), "REGISTER", request.code());
+        if (userMapper.selectCount(new LambdaQueryWrapper<AppUser>().eq(AppUser::getPhone, request.phone())) > 0) {
+            throw new BusinessException(ErrorCode.PHONE_EXISTS);
+        }
 
         Long teamId = teamId();
         Instant now = Instant.now(clock);
@@ -133,6 +140,7 @@ public class AuthService implements UserAccessPort {
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException ex) {
+            log.warn("注册手机号唯一键冲突, phone={}", UserViewAssembler.maskPhone(request.phone()));
             throw new BusinessException(ErrorCode.PHONE_EXISTS);
         }
 
@@ -151,7 +159,8 @@ public class AuthService implements UserAccessPort {
         }
         auditRecorder.record(teamId, user.getId(), request.name(), "ACCOUNT_REGISTER", "USER",
                 user.getId(), null, java.util.Map.of("status", user.getStatus().code(), "role", roleCode));
-        return new AuthResult(userView(user), playerView(player), permissions(user.getId()));
+        loginAttemptService.clear(request.phone());
+        return new RegisterResult(userView(user), playerView(player));
     }
 
     public AuthResult login(LoginRequest request, boolean backend) {
@@ -159,6 +168,7 @@ public class AuthService implements UserAccessPort {
         loginAttemptService.check(request.phone());
         AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getPhone, request.phone()));
         if (user == null || user.getPasswordHash() == null) {
+            passwordEncoder.matches(request.password(), DUMMY_PASSWORD_HASH);
             loginAttemptService.recordFailure(request.phone());
             throw new BusinessException(ErrorCode.INVALID_CREDENTIALS);
         }
@@ -178,9 +188,7 @@ public class AuthService implements UserAccessPort {
         if (backend && !BackendPermissions.hasBackendPermission(permissions)) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "账号没有后台权限");
         }
-        Instant lastLoginAt = Instant.now(clock);
-        user.setLastLoginAt(lastLoginAt);
-        userMapper.updateLastLoginAt(user.getId(), lastLoginAt);
+        userMapper.updateLastLoginAt(user.getId(), Instant.now(clock));
         return new AuthResult(userView(user), player(user.getId()), permissions);
     }
 
@@ -215,8 +223,8 @@ public class AuthService implements UserAccessPort {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
         String passwordHash = passwordEncoder.encode(request.newPassword());
-        user.setPasswordHash(passwordHash);
         userMapper.updatePasswordHash(user.getId(), passwordHash);
+        loginAttemptService.clear(request.phone());
         PlayerSnapshot player = playerByUserId(user.getId());
         auditRecorder.record(player == null ? null : player.teamId(), user.getId(),
                 player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.name(),
@@ -261,8 +269,10 @@ public class AuthService implements UserAccessPort {
         try {
             userMapper.updatePhone(userId, phone);
         } catch (DuplicateKeyException ex) {
+            log.warn("换绑手机号唯一键冲突, phone={}", UserViewAssembler.maskPhone(phone));
             throw new BusinessException(ErrorCode.PHONE_EXISTS);
         }
+        loginAttemptService.clear(phone);
         auditRecorder.recordCurrent("PHONE_CHANGE", "USER", userId,
                 java.util.Map.of("phone", UserViewAssembler.maskPhone(before)),
                 java.util.Map.of("phone", UserViewAssembler.maskPhone(phone)));

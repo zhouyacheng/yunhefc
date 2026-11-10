@@ -1,6 +1,7 @@
 package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -81,5 +82,44 @@ class WechatAuthIT extends IntegrationTestSupport {
         mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
                         .param("redirect", "https://evil.example"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void wechatLoginClearsPasswordLoginFailures() throws Exception {
+        String phone = "13900000992";
+        jdbc.update("INSERT INTO app_user (phone, password_hash, openid, status) VALUES (?, ?, ?, 1)",
+                phone, passwordEncoder.encode("Passw0rd!"), "mock-openid-wechat-login");
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/c/auth/login")
+                            .with(csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"phone":"%s","password":"Wrong123!"}
+                                    """.formatted(phone)))
+                    .andExpect(status().isUnauthorized())
+                    .andExpect(jsonPath("$.code").value(40102));
+        }
+
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie(authorize, "YHFC_C"))
+                        .param("code", "wechat-login")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.needBindPhone").value(false));
+
+        mockMvc.perform(post("/api/v1/c/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","password":"Passw0rd!"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk());
     }
 }

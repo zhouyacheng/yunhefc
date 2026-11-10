@@ -113,6 +113,7 @@ class AuthServiceTest {
 
         verify(userMapper).updatePhone(7L, "13900000002");
         verify(userMapper, never()).updateById(any(AppUser.class));
+        verify(loginAttemptService).clear("13900000002");
     }
 
     @Test
@@ -123,6 +124,7 @@ class AuthServiceTest {
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_CREDENTIALS);
 
+        verify(passwordEncoder).matches(eq("Wrong123!"), any(String.class));
         verify(loginAttemptService).recordFailure("13900000009");
     }
 
@@ -153,6 +155,7 @@ class AuthServiceTest {
 
         verify(userMapper).updatePasswordHash(7L, "new-hash");
         verify(userMapper, never()).updateById(any(AppUser.class));
+        verify(loginAttemptService).clear("13900000001");
     }
 
     private AppUser user(Long id, String phone) {

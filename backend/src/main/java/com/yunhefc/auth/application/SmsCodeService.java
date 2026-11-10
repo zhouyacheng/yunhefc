@@ -3,6 +3,8 @@ package com.yunhefc.auth.application;
 import com.yunhefc.common.config.SmsProperties;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +15,7 @@ import java.util.Set;
 @Service
 public class SmsCodeService {
 
+    private static final Logger log = LoggerFactory.getLogger(SmsCodeService.class);
     private static final Set<String> PURPOSES = Set.of("REGISTER", "RESET", "BIND");
     private static final int MAX_ATTEMPTS = 5;
 
@@ -44,14 +47,14 @@ public class SmsCodeService {
         String key = key(phone, purpose);
         String stored = redis.opsForValue().get(key);
         if (stored == null || !stored.equals(code)) {
-            String attemptsKey = attemptsKey(key);
-            Long attempts = redis.opsForValue().increment(attemptsKey);
+            String attemptKey = attemptsKey(key);
+            Long attempts = redis.opsForValue().increment(attemptKey);
             if (attempts != null && attempts == 1) {
-                redis.expire(attemptsKey, Duration.ofSeconds(ttlSeconds));
+                redis.expire(attemptKey, Duration.ofSeconds(ttlSeconds));
             }
             if (attempts != null && attempts >= MAX_ATTEMPTS) {
                 redis.delete(key);
-                redis.delete(attemptsKey);
+                redis.delete(attemptKey);
                 throw new BusinessException(ErrorCode.RATE_LIMITED, "验证码尝试次数过多",
                         Map.of("retryAfterSeconds", ttlSeconds));
             }
@@ -63,6 +66,7 @@ public class SmsCodeService {
 
     private void requireMockEnabled() {
         if (!mockEnabled) {
+            log.error("短信服务未配置，已拒绝验证码操作；请配置真实短信或仅在开发环境开启 yunhefc.sms.mock-enabled");
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "短信服务暂不可用");
         }
     }

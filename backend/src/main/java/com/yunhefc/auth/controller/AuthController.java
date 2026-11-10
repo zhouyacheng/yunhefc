@@ -6,14 +6,15 @@ import com.yunhefc.auth.dto.AuthDtos.AuthResult;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.auth.dto.AuthDtos.MeView;
 import com.yunhefc.auth.dto.AuthDtos.RegisterRequest;
-import com.yunhefc.auth.dto.AuthDtos.RegisterResponse;
 import com.yunhefc.auth.dto.AuthDtos.RegisterResult;
 import com.yunhefc.auth.dto.AuthDtos.ResetPasswordRequest;
+import com.yunhefc.auth.dto.AuthDtos.SessionResponse;
 import com.yunhefc.auth.dto.AuthDtos.SmsCodeRequest;
 import com.yunhefc.common.api.ApiResponse;
 import com.yunhefc.common.ratelimit.RedisRateLimiter;
 import com.yunhefc.common.security.AuthSessionService;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.common.security.Hashing;
 import com.yunhefc.contracts.security.SessionKeys;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -45,25 +46,26 @@ public class AuthController {
 
     @PostMapping("/auth/sms-codes")
     public ApiResponse<Map<String, Integer>> sms(@Valid @RequestBody SmsCodeRequest request) {
-        rateLimiter.check("sms:" + request.phone(), 5, Duration.ofMinutes(1));
+        rateLimiter.check("sms:" + Hashing.sha256(request.phone()), 5, Duration.ofMinutes(1));
         return ApiResponse.ok(Map.of("expiresIn", authService.sendSms(request.phone(), request.purpose())));
     }
 
     @PostMapping("/auth/register")
-    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request,
-                                                  HttpServletRequest servletRequest,
-                                                  HttpServletResponse response) {
+    public ApiResponse<SessionResponse> register(@Valid @RequestBody RegisterRequest request,
+                                                 HttpServletRequest servletRequest,
+                                                 HttpServletResponse response) {
         RegisterResult result = authService.register(request);
         String csrfToken = authSessionService.establish(
                 servletRequest, response, SessionKeys.C_USER_ID, result.user().id());
-        return ApiResponse.ok(new RegisterResponse(result.user(), result.player(), csrfToken));
+        return ApiResponse.ok(new SessionResponse(result.user(), result.player(), csrfToken));
     }
 
     @PostMapping("/auth/login")
     public ApiResponse<AuthResponse> login(@Valid @RequestBody LoginRequest request,
                                            HttpServletRequest servletRequest,
                                            HttpServletResponse response) {
-        rateLimiter.check("login:" + request.phone() + ":" + servletRequest.getRemoteAddr(), 10, Duration.ofMinutes(1));
+        rateLimiter.check("login:" + Hashing.sha256(request.phone()) + ":" + servletRequest.getRemoteAddr(),
+                10, Duration.ofMinutes(1));
         AuthResult result = authService.login(request, false);
         return ApiResponse.ok(authResponse(result, SessionKeys.C_USER_ID, servletRequest, response));
     }

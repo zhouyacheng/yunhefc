@@ -3,6 +3,7 @@ package com.yunhefc.auth.application;
 import com.yunhefc.common.config.SmsProperties;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.common.security.Hashing;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -36,7 +37,7 @@ public class SmsCodeService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "不支持的验证码用途");
         }
         requireMockEnabled();
-        String key = key(phone, purpose);
+        String key = key(purpose, phone);
         redis.opsForValue().set(key, mockCode, Duration.ofSeconds(ttlSeconds));
         redis.delete(attemptsKey(key));
         return (int) ttlSeconds;
@@ -44,7 +45,7 @@ public class SmsCodeService {
 
     public void verify(String phone, String purpose, String code) {
         requireMockEnabled();
-        String key = key(phone, purpose);
+        String key = key(purpose, phone);
         String stored = redis.opsForValue().get(key);
         if (stored == null || !stored.equals(code)) {
             String attemptKey = attemptsKey(key);
@@ -71,8 +72,8 @@ public class SmsCodeService {
         }
     }
 
-    private String key(String phone, String purpose) {
-        return "yunhefc:auth:sms:" + purpose + ":" + phone;
+    static String key(String purpose, String phone) {
+        return "yunhefc:auth:sms:" + purpose + ":" + Hashing.sha256(phone);
     }
 
     private String attemptsKey(String key) {

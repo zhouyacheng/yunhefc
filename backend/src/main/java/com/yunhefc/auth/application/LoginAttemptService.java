@@ -2,6 +2,7 @@ package com.yunhefc.auth.application;
 
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.common.security.Hashing;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
@@ -48,6 +49,6 @@ public class LoginAttemptService {
     }
 
     private String key(String phone) {
-        return "yunhefc:auth:login-fail:" + phone;
+        return "yunhefc:auth:login-fail:" + Hashing.sha256(phone);
     }
 }

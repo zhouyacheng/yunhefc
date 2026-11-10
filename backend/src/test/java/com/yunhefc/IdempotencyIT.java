@@ -64,6 +64,39 @@ class IdempotencyIT extends IntegrationTestSupport {
     }
 
     @Test
+    void expiredRecordIsNotReplayedAndDoesNotBlockNewRequest() throws Exception {
+        Cookie admin = adminLogin("13900000804");
+        Long adminId = jdbc.queryForObject(
+                "SELECT id FROM app_user WHERE phone = '13900000804'", Long.class);
+
+        mockMvc.perform(post("/api/v1/b/invites")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "idem-expired-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":0}"))
+                .andExpect(status().isOk());
+
+        jdbc.update("""
+                UPDATE idempotency_key SET expires_at = ?
+                WHERE user_id = ? AND endpoint = 'INV-05' AND idem_key = 'idem-expired-1'
+                """, java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)), adminId);
+
+        mockMvc.perform(post("/api/v1/b/invites")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "idem-expired-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"type\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.inviteUrl").isNotEmpty());
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM invite_link WHERE inviter_user_id = ?", Integer.class, adminId))
+                .isEqualTo(2);
+    }
+
+    @Test
     void staleInProgressPlaceholderIsReclaimedAfterGracePeriod() throws Exception {
         Cookie admin = adminLogin("13900000032");
         Long adminId = jdbc.queryForObject(

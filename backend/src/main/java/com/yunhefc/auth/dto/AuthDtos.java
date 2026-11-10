@@ -68,7 +68,7 @@ public final class AuthDtos {
     public record RegisterResult(UserView user, PlayerView player) {
     }
 
-    public record RegisterResponse(UserView user, PlayerView player, String csrfToken) {
+    public record SessionResponse(UserView user, PlayerView player, String csrfToken) {
     }
 
     public record BLoginResponse(UserView user, Set<String> permissions, String csrfToken) {
@@ -127,33 +127,23 @@ public final class AuthDtos {
     }
 
     public record InviteView(
-            Integer type,
-            TeamView team,
-            MatchSummary match,
-            UserView inviter,
-            Instant expiresAt,
-            Integer maxUses,
-            Integer usedCount,
-            Integer remainingUses,
-            Integer status,
-            String statusLabel,
-            boolean exhausted) {
-    }
-
-    public record InviteAdminView(
             Long id,
             Integer type,
             String typeLabel,
             TeamView team,
+            Long matchId,
             MatchSummary match,
-            UserView inviter,
+            UserSummary inviter,
             Instant expiresAt,
             Integer maxUses,
             Integer usedCount,
             Integer remainingUses,
             Integer status,
             String statusLabel,
-            String inviteUrl,
+            boolean exhausted,
             Instant createdAt) {
+    }
+
+    public record InviteCreatedView(String inviteUrl, Instant expiresAt) {
     }
 }

@@ -1,6 +1,7 @@
 package com.yunhefc.infra.outbox;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -56,6 +57,9 @@ public interface OutboxEventMapper extends BaseMapper<OutboxEvent> {
             WHERE id = #{id}
             """)
     int markSent(@Param("id") Long id);
+
+    @Delete("DELETE FROM outbox_event WHERE status = 1 AND sent_at < #{before}")
+    int deleteSentBefore(@Param("before") Instant before);
 
     @Update("""
             UPDATE outbox_event

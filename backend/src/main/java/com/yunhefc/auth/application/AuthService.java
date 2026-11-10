@@ -20,8 +20,11 @@ import com.yunhefc.auth.dto.AuthDtos.UserSummary;
 import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
+import com.yunhefc.auth.infrastructure.PrincipalMapper;
+import com.yunhefc.auth.infrastructure.PrincipalRow;
 import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
+import com.yunhefc.auth.infrastructure.UserRoleRow;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.security.BackendPermissions;
 import com.yunhefc.common.api.PageResponse;
@@ -46,8 +49,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -64,6 +69,7 @@ public class AuthService implements UserAccessPort {
             "$2a$10$dXJ3SW6G7P50lGmMkkmwe.20cQQubK3.HZWzG3YB1tlRy.fqvM/BG";
 
     private final AppUserMapper userMapper;
+    private final PrincipalMapper principalMapper;
     private final AppRoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
     private final TeamMapper teamMapper;
@@ -207,17 +213,28 @@ public class AuthService implements UserAccessPort {
                 .eq(status != null, AppUser::getStatus, status)
                 .orderByAsc(AppUser::getId);
         Page<AppUser> result = userMapper.selectPage(new Page<>(page, pageSize), wrapper);
+        List<Long> userIds = result.getRecords().stream().map(AppUser::getId).toList();
+        Map<Long, PlayerSnapshot> players = new HashMap<>();
+        for (PlayerSnapshot player : playerReadPort.findByUserIds(userIds)) {
+            players.put(player.userId(), player);
+        }
+        Map<Long, Set<String>> roles = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            for (UserRoleRow row : userRoleMapper.findRoleCodesByUserIds(userIds)) {
+                roles.computeIfAbsent(row.getUserId(), id -> new LinkedHashSet<>()).add(row.getCode());
+            }
+        }
         List<UserSummary> items = result.getRecords().stream().map(user -> {
-            PlayerView player = player(user.getId());
+            PlayerSnapshot player = players.get(user.getId());
             return new UserSummary(
                     user.getId(),
                     player == null ? null : player.name(),
                     UserViewAssembler.maskPhone(user.getPhone()),
                     user.getStatus().code(),
                     user.getStatus().label(),
-                    new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())),
+                    roles.getOrDefault(user.getId(), Set.of()),
                     player == null ? null : player.type(),
-                    player == null ? null : player.typeLabel());
+                    player == null ? null : PlayerType.of(player.type()).label());
         }).toList();
         return PageResponse.of(items, result.getTotal(), page, pageSize);
     }
@@ -264,19 +281,27 @@ public class AuthService implements UserAccessPort {
 
     @Override
     public Optional<AuthPrincipal> load(Long userId) {
-        AppUser user = userMapper.selectById(userId);
-        if (user == null || user.getStatus() == UserStatus.DISABLED) {
+        PrincipalRow row = principalMapper.find(userId);
+        if (row == null) {
             return Optional.empty();
         }
-        PlayerSnapshot player = playerReadPort.findByUserId(userId).orElse(null);
         return Optional.of(new AuthPrincipal(
-                user.getId(),
-                user.getPhone(),
-                user.getStatus().code(),
-                player == null ? teamId() : player.teamId(),
-                player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.name(),
-                new LinkedHashSet<>(userRoleMapper.findRoleCodes(userId)),
-                permissions(userId)));
+                row.getId(),
+                row.getPhone(),
+                row.getStatus(),
+                row.getTeamId(),
+                row.getPlayerName() == null
+                        ? UserViewAssembler.maskPhone(row.getPhone())
+                        : row.getPlayerName(),
+                splitCodes(row.getRoles()),
+                splitCodes(row.getPermissions())));
+    }
+
+    private static Set<String> splitCodes(String value) {
+        if (value == null || value.isBlank()) {
+            return Set.of();
+        }
+        return new LinkedHashSet<>(List.of(value.split(",")));
     }
 
     public List<String> sections(Set<String> permissions) {

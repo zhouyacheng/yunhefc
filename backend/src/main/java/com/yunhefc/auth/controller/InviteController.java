@@ -2,8 +2,8 @@ package com.yunhefc.auth.controller;
 
 import com.yunhefc.auth.application.AuthService;
 import com.yunhefc.auth.application.InviteService;
-import com.yunhefc.auth.dto.AuthDtos.InviteAdminView;
 import com.yunhefc.auth.dto.AuthDtos.InviteCreateRequest;
+import com.yunhefc.auth.dto.AuthDtos.InviteCreatedView;
 import com.yunhefc.auth.dto.AuthDtos.InviteView;
 import com.yunhefc.auth.dto.AuthDtos.MatchInviteCreateRequest;
 import com.yunhefc.common.api.ApiResponse;
@@ -53,14 +53,14 @@ public class InviteController {
     @Idempotent("INV-03")
     public ApiResponse<Map<String, Object>> createMatchInvite(@PathVariable Long id,
                                                              @Valid @RequestBody MatchInviteCreateRequest request) {
-        InviteAdminView invite = inviteService.createMatchInvite(
+        InviteCreatedView invite = inviteService.createMatchInvite(
                 CurrentUser.principal().userId(), id, request.expiresInDays(), request.maxUses());
         return ApiResponse.ok(Map.of("inviteUrl", invite.inviteUrl(), "expiresAt", invite.expiresAt()));
     }
 
     @GetMapping("/b/invites")
     @PreAuthorize("hasAuthority('invite:manage:any')")
-    public ApiResponse<PageResponse<InviteAdminView>> list(
+    public ApiResponse<PageResponse<InviteView>> list(
             @RequestParam(required = false) Integer type,
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "1") long page,
@@ -73,7 +73,7 @@ public class InviteController {
     @PreAuthorize("hasAuthority('invite:manage:any')")
     @Idempotent("INV-05")
     public ApiResponse<Map<String, Object>> create(@Valid @RequestBody InviteCreateRequest request) {
-        InviteAdminView invite = inviteService.create(CurrentUser.principal().userId(), request);
+        InviteCreatedView invite = inviteService.create(CurrentUser.principal().userId(), request);
         return ApiResponse.ok(Map.of("inviteUrl", invite.inviteUrl(), "expiresAt", invite.expiresAt()));
     }
 

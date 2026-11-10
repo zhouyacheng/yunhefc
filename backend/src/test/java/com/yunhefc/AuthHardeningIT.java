@@ -166,6 +166,13 @@ class AuthHardeningIT extends IntegrationTestSupport {
                 .andReturn();
         Cookie session = cookie(relogin, "YHFC_C");
 
+        mockMvc.perform(get("/api/v1/c/me").cookie(session))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/v1/c/me/registrations").cookie(session))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(40303));
+
         mockMvc.perform(post("/api/v1/c/matches/1/invites")
                         .cookie(session)
                         .with(csrf())
@@ -179,6 +186,29 @@ class AuthHardeningIT extends IntegrationTestSupport {
                         .cookie(session)
                         .with(csrf()))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void backendMeRequiresBackendPermission() throws Exception {
+        Long userId = insertActiveUser("13900000103", "Passw0rd!");
+        Long roleId = insertCustomRole("TEMP_BACKEND", "player:view:any");
+        jdbc.update("INSERT INTO user_role (user_id, role_id) VALUES (?, ?)", userId, roleId);
+
+        MvcResult login = mockMvc.perform(post("/api/v1/b/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000103","password":"Passw0rd!"}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie session = cookie(login, "YHFC_B");
+
+        jdbc.update("UPDATE user_role SET is_deleted = 1 WHERE user_id = ?", userId);
+
+        mockMvc.perform(get("/api/v1/b/me").cookie(session))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(40301));
     }
 
     @Test

@@ -8,6 +8,8 @@ import com.yunhefc.player.infrastructure.PlayerMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -19,6 +21,18 @@ public class PlayerReadAdapter implements PlayerReadPort {
     @Override
     public Optional<PlayerSnapshot> findByUserId(Long userId) {
         return Optional.ofNullable(findEntityByUserId(playerMapper, userId)).map(PlayerReadAdapter::toSnapshot);
+    }
+
+    @Override
+    public List<PlayerSnapshot> findByUserIds(Collection<Long> userIds) {
+        if (userIds == null || userIds.isEmpty()) {
+            return List.of();
+        }
+        return playerMapper.selectList(new LambdaQueryWrapper<Player>()
+                        .in(Player::getUserId, userIds))
+                .stream()
+                .map(PlayerReadAdapter::toSnapshot)
+                .toList();
     }
 
     static Player findEntityByUserId(PlayerMapper playerMapper, Long userId) {

@@ -8,9 +8,9 @@ import com.yunhefc.auth.domain.Team;
 import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.dto.AuthDtos.AuthResponse;
 import com.yunhefc.auth.dto.AuthDtos.PlayerView;
+import com.yunhefc.auth.dto.AuthDtos.SessionResponse;
 import com.yunhefc.auth.dto.WechatDtos.AuthorizeResponse;
 import com.yunhefc.auth.dto.WechatDtos.BindPhoneRequest;
-import com.yunhefc.auth.dto.WechatDtos.BindPhoneResponse;
 import com.yunhefc.auth.dto.WechatDtos.CallbackResponse;
 import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
@@ -121,8 +121,8 @@ public class WechatAuthService {
     }
 
     @Transactional
-    public BindPhoneResponse bindPhone(BindPhoneRequest request, HttpServletRequest servletRequest,
-                                       HttpServletResponse response) {
+    public SessionResponse bindPhone(BindPhoneRequest request, HttpServletRequest servletRequest,
+                                     HttpServletResponse response) {
         HttpSession session = servletRequest.getSession(false);
         String openid = session == null ? null : (String) session.getAttribute(SessionKeys.WECHAT_OPENID);
         if (openid == null || openid.isBlank()) {
@@ -150,7 +150,7 @@ public class WechatAuthService {
 
         session.removeAttribute(SessionKeys.WECHAT_OPENID);
         AuthResponse result = login(user, servletRequest, response);
-        return new BindPhoneResponse(result.user(), result.player(), result.csrfToken());
+        return new SessionResponse(result.user(), result.player(), result.csrfToken());
     }
 
     private AppUser createUser(BindPhoneRequest request, String openid) {

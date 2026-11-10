@@ -6,9 +6,13 @@ import com.yunhefc.auth.dto.AuthDtos.BLoginResponse;
 import com.yunhefc.auth.dto.AuthDtos.BMeView;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.error.BusinessException;
+import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.ratelimit.RedisRateLimiter;
 import com.yunhefc.common.security.AuthSessionService;
+import com.yunhefc.common.security.BackendPermissions;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.common.security.Hashing;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.SessionKeys;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,7 +48,8 @@ public class BackendAuthController {
     public ApiResponse<BLoginResponse> login(@Valid @RequestBody LoginRequest request,
                                              HttpServletRequest servletRequest,
                                              HttpServletResponse response) {
-        rateLimiter.check("login:" + request.phone() + ":" + servletRequest.getRemoteAddr(), 10, Duration.ofMinutes(1));
+        rateLimiter.check("login:" + Hashing.sha256(request.phone()) + ":" + servletRequest.getRemoteAddr(),
+                10, Duration.ofMinutes(1));
         AuthResult result = authService.login(request, true);
         String csrfToken = authSessionService.establish(
                 servletRequest, response, SessionKeys.B_USER_ID, result.user().id());
@@ -61,6 +66,9 @@ public class BackendAuthController {
     @PreAuthorize("isAuthenticated()")
     public ApiResponse<BMeView> me() {
         AuthPrincipal principal = CurrentUser.principal();
+        if (!BackendPermissions.hasBackendPermission(principal.permissions())) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
         AuthResult result = authService.meResult(principal.userId());
         return ApiResponse.ok(new BMeView(result.user(), result.permissions(), authService.sections(result.permissions())));
     }

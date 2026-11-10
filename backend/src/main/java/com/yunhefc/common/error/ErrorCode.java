@@ -13,6 +13,7 @@ public enum ErrorCode {
     ADMIN_SECTION_FORBIDDEN(40302, HttpStatus.FORBIDDEN, "无后台分区权限"),
     ACCOUNT_PENDING(40303, HttpStatus.FORBIDDEN, "待审核账号不能执行该操作"),
     NOT_FOUND(40401, HttpStatus.NOT_FOUND, "资源不存在"),
+    METHOD_NOT_ALLOWED(40501, HttpStatus.METHOD_NOT_ALLOWED, "请求方法不支持"),
     DUPLICATE_JERSEY(40904, HttpStatus.CONFLICT, "正式球员号码冲突"),
     IDEMPOTENCY_KEY_REUSED(40906, HttpStatus.CONFLICT, "同一幂等键对应不同请求"),
     PHONE_EXISTS(40907, HttpStatus.CONFLICT, "手机号已注册"),
@@ -22,6 +23,7 @@ public enum ErrorCode {
     IDEMPOTENCY_IN_PROGRESS(40915, HttpStatus.CONFLICT, "幂等请求正在处理中"),
     LAST_ADMIN_PROTECTED(40913, HttpStatus.CONFLICT, "不能移除最后一个管理员"),
     DEFAULT_ROLE_PROTECTED(40914, HttpStatus.CONFLICT, "默认角色不可删除"),
+    UNSUPPORTED_MEDIA_TYPE(41501, HttpStatus.UNSUPPORTED_MEDIA_TYPE, "请求媒体类型不支持"),
     BUSINESS_RULE_VIOLATION(42201, HttpStatus.UNPROCESSABLE_ENTITY, "业务规则不满足"),
     RATE_LIMITED(42901, HttpStatus.TOO_MANY_REQUESTS, "触发限流"),
     INTERNAL_ERROR(50001, HttpStatus.INTERNAL_SERVER_ERROR, "服务端错误");

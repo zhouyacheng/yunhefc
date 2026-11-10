@@ -1,9 +1,9 @@
 package com.yunhefc.auth.controller;
 
 import com.yunhefc.auth.application.WechatAuthService;
+import com.yunhefc.auth.dto.AuthDtos.SessionResponse;
 import com.yunhefc.auth.dto.WechatDtos.AuthorizeResponse;
 import com.yunhefc.auth.dto.WechatDtos.BindPhoneRequest;
-import com.yunhefc.auth.dto.WechatDtos.BindPhoneResponse;
 import com.yunhefc.auth.dto.WechatDtos.CallbackResponse;
 import com.yunhefc.common.api.ApiResponse;
 import jakarta.servlet.http.HttpServletRequest;
@@ -43,7 +43,7 @@ public class WechatAuthController {
     }
 
     @PostMapping("/bind-phone")
-    public ApiResponse<BindPhoneResponse> bindPhone(@Valid @RequestBody BindPhoneRequest request,
+    public ApiResponse<SessionResponse> bindPhone(@Valid @RequestBody BindPhoneRequest request,
                                                     HttpServletRequest servletRequest,
                                                     HttpServletResponse response) {
         return ApiResponse.ok(wechatAuthService.bindPhone(request, servletRequest, response));

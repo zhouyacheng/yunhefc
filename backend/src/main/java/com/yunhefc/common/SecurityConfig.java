@@ -6,6 +6,7 @@ import com.yunhefc.common.api.RequestIdFilter;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.PendingAccountFilter;
 import com.yunhefc.common.security.SessionAuthFilter;
+import com.yunhefc.common.session.SessionCookieRefreshFilter;
 import com.yunhefc.contracts.security.UserAccessPort;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,7 @@ import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.session.web.http.HttpSessionIdResolver;
 
 @Configuration
 @EnableMethodSecurity
@@ -30,6 +32,7 @@ public class SecurityConfig {
 
     private final UserAccessPort userAccessPort;
     private final ObjectMapper objectMapper;
+    private final HttpSessionIdResolver sessionIdResolver;
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -67,7 +70,8 @@ public class SecurityConfig {
                                 writeError(response, ErrorCode.FORBIDDEN)))
                 .addFilterBefore(new RequestIdFilter(), CsrfFilter.class)
                 .addFilterAfter(new SessionAuthFilter(userAccessPort), RequestIdFilter.class)
-                .addFilterAfter(new PendingAccountFilter(objectMapper), SessionAuthFilter.class);
+                .addFilterAfter(new SessionCookieRefreshFilter(sessionIdResolver), SessionAuthFilter.class)
+                .addFilterAfter(new PendingAccountFilter(objectMapper), SessionCookieRefreshFilter.class);
 
         return http.build();
     }

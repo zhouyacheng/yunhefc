@@ -29,6 +29,20 @@ public interface UserRoleMapper {
             """)
     List<String> findPermissionCodes(@Param("userId") Long userId);
 
+    @Select("""
+            <script>
+            SELECT ur.user_id, r.code
+            FROM user_role ur
+            JOIN app_role r ON r.id = ur.role_id
+            WHERE ur.user_id IN
+            <foreach collection="userIds" item="userId" open="(" separator="," close=")">
+                #{userId}
+            </foreach>
+              AND ur.is_deleted = 0 AND r.is_deleted = 0
+            </script>
+            """)
+    List<UserRoleRow> findRoleCodesByUserIds(@Param("userIds") List<Long> userIds);
+
     @Select("SELECT role_id FROM user_role WHERE user_id = #{userId} AND is_deleted = 0")
     List<Long> findRoleIds(@Param("userId") Long userId);
 

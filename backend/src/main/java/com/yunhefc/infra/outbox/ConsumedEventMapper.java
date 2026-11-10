@@ -1,8 +1,11 @@
 package com.yunhefc.infra.outbox;
 
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+
+import java.time.Instant;
 
 @Mapper
 public interface ConsumedEventMapper {
@@ -15,4 +18,7 @@ public interface ConsumedEventMapper {
     int tryInsert(@Param("group") String group, @Param("eventId") String eventId,
                   @Param("topic") String topic, @Param("partition") int partition,
                   @Param("offset") long offset);
+
+    @Delete("DELETE FROM consumed_event WHERE processed_at < #{before}")
+    int deleteProcessedBefore(@Param("before") Instant before);
 }

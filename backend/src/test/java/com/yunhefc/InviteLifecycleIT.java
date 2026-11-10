@@ -188,6 +188,25 @@ class InviteLifecycleIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[?(@.id == " + inviteId + ")]").exists());
     }
 
+    @Test
+    void inviteViewExposesMatchIdAndInviterSummaryWithoutInviteUrl() throws Exception {
+        Cookie admin = adminLogin("13900000806");
+        Long matchId = insertMatch(103);
+        String token = createInvite(admin, "{\"type\":1,\"matchId\":" + matchId + "}");
+
+        mockMvc.perform(get("/api/v1/c/invites/" + token))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchId").value(matchId))
+                .andExpect(jsonPath("$.data.typeLabel").value("MATCH"))
+                .andExpect(jsonPath("$.data.inviter.id").isNumber())
+                .andExpect(jsonPath("$.data.inviter.roles").isArray());
+
+        mockMvc.perform(get("/api/v1/b/invites").cookie(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[?(@.id > 0)]").exists())
+                .andExpect(jsonPath("$.data.items[0].inviteUrl").doesNotExist());
+    }
+
     private Cookie register(String phone) throws Exception {
         return register(phone, null);
     }

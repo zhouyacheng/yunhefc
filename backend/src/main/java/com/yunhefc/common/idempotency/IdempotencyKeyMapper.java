@@ -16,11 +16,22 @@ public interface IdempotencyKeyMapper extends BaseMapper<IdempotencyKey> {
                    created_at, expires_at, is_deleted
             FROM idempotency_key
             WHERE user_id = #{userId} AND endpoint = #{endpoint} AND idem_key = #{idemKey}
-              AND is_deleted = 0
+              AND is_deleted = 0 AND expires_at > #{now}
             LIMIT 1
             """)
     IdempotencyKey find(@Param("userId") Long userId, @Param("endpoint") String endpoint,
-                        @Param("idemKey") String idemKey);
+                        @Param("idemKey") String idemKey, @Param("now") Instant now);
+
+    @Delete("""
+            DELETE FROM idempotency_key
+            WHERE user_id = #{userId} AND endpoint = #{endpoint} AND idem_key = #{idemKey}
+              AND expires_at <= #{now}
+            """)
+    int deleteExpired(@Param("userId") Long userId, @Param("endpoint") String endpoint,
+                      @Param("idemKey") String idemKey, @Param("now") Instant now);
+
+    @Delete("DELETE FROM idempotency_key WHERE expires_at <= #{now}")
+    int deleteExpiredBefore(@Param("now") Instant now);
 
     @Delete("DELETE FROM idempotency_key WHERE id = #{id}")
     int deletePhysical(@Param("id") Long id);

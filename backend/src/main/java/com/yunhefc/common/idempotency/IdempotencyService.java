@@ -25,26 +25,28 @@ public class IdempotencyService {
 
     public ApiResponse<?> execute(Long userId, String endpoint, String idemKey, String requestHash,
                                   Callable<ApiResponse<?>> action) throws Exception {
-        IdempotencyKey existing = mapper.find(userId, endpoint, idemKey);
+        Instant now = Instant.now(clock);
+        IdempotencyKey existing = mapper.find(userId, endpoint, idemKey, now);
         if (existing != null) {
             ApiResponse<?> replayed = replayOrReclaim(existing, requestHash);
             if (replayed != null) {
                 return replayed;
             }
         }
+        // 过期记录不再 replay；先物理清理，避免唯一键阻止新占位
+        mapper.deleteExpired(userId, endpoint, idemKey, now);
 
         IdempotencyKey row = new IdempotencyKey();
         row.setUserId(userId);
         row.setEndpoint(endpoint);
         row.setIdemKey(idemKey);
         row.setRequestHash(requestHash);
-        Instant now = Instant.now(clock);
         row.setCreatedAt(now);
         row.setExpiresAt(now.plusSeconds(24 * 3600));
         try {
             mapper.insert(row);
         } catch (DuplicateKeyException ex) {
-            IdempotencyKey winner = mapper.find(userId, endpoint, idemKey);
+            IdempotencyKey winner = mapper.find(userId, endpoint, idemKey, now);
             if (winner == null) {
                 throw new BusinessException(ErrorCode.IDEMPOTENCY_IN_PROGRESS);
             }

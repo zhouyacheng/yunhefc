@@ -18,7 +18,7 @@ import java.time.Duration;
 class SmsCodeServiceTest {
 
     private static final String PHONE = "13900000000";
-    private static final String KEY = "yunhefc:auth:sms:REGISTER:" + PHONE;
+    private static final String KEY = SmsCodeService.key("REGISTER", PHONE);
 
     @Test
     void failsClosedWhenMockDisabled() {
@@ -30,6 +30,13 @@ class SmsCodeServiceTest {
         assertThatThrownBy(() -> service.verify(PHONE, "REGISTER", "123456"))
                 .isInstanceOf(BusinessException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INTERNAL_ERROR);
+    }
+
+    @Test
+    void redisKeyDoesNotContainPlainPhone() {
+        assertThat(SmsCodeService.key("REGISTER", PHONE))
+                .doesNotContain(PHONE)
+                .startsWith("yunhefc:auth:sms:REGISTER:");
     }
 
     @Test

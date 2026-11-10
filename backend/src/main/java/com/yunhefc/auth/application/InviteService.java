@@ -10,12 +10,11 @@ import com.yunhefc.auth.domain.InviteType;
 import com.yunhefc.auth.domain.RoleCodes;
 import com.yunhefc.auth.domain.Team;
 import com.yunhefc.auth.domain.UserStatus;
-import com.yunhefc.auth.dto.AuthDtos.InviteAdminView;
 import com.yunhefc.auth.dto.AuthDtos.InviteCreateRequest;
+import com.yunhefc.auth.dto.AuthDtos.InviteCreatedView;
 import com.yunhefc.auth.dto.AuthDtos.InviteView;
 import com.yunhefc.auth.dto.AuthDtos.MatchSummary;
 import com.yunhefc.auth.dto.AuthDtos.TeamView;
-import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
 import com.yunhefc.auth.infrastructure.InviteLinkMapper;
@@ -28,6 +27,7 @@ import com.yunhefc.common.config.AppProperties;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.common.security.Hashing;
 import com.yunhefc.contracts.match.MatchReadPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
@@ -37,9 +37,6 @@ import com.yunhefc.player.application.PlayerProfileApplicationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.HexFormat;
@@ -182,7 +179,7 @@ public class InviteService {
     }
 
     @Transactional
-    public InviteAdminView create(Long inviterUserId, InviteCreateRequest request) {
+    public InviteCreatedView create(Long inviterUserId, InviteCreateRequest request) {
         InviteType type = parseType(request.type());
         if (type == InviteType.MATCH && request.matchId() == null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "比赛邀请必须指定比赛");
@@ -194,25 +191,28 @@ public class InviteService {
         if (type == InviteType.MATCH && matchReadPort.findById(request.matchId()).isEmpty()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
         }
-        InviteAdminView view = createInternal(teamId, type, request.matchId(), inviterUserId,
+        CreatedInvite created = createInternal(teamId, type, request.matchId(), inviterUserId,
                 request.expiresInDays(), request.maxUses());
-        auditRecorder.recordCurrent("INVITE_CREATE", "INVITE", view.id(), null,
-                java.util.Map.of("type", view.type(), "expiresAt", view.expiresAt(),
-                        "maxUses", view.maxUses() == null ? "" : view.maxUses()));
-        return view;
+        auditCreate(created.invite());
+        return new InviteCreatedView(inviteUrl(created.rawToken()), created.invite().getExpiresAt());
     }
 
     @Transactional
-    public InviteAdminView createMatchInvite(Long inviterUserId, Long matchId, Integer expiresInDays, Integer maxUses) {
+    public InviteCreatedView createMatchInvite(Long inviterUserId, Long matchId, Integer expiresInDays,
+                                               Integer maxUses) {
         MatchSnapshot match = matchReadPort.findById(matchId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
         ensureCanCreateMatchInvite(inviterUserId, matchId);
-        InviteAdminView view = createInternal(match.teamId(), InviteType.MATCH, matchId,
+        CreatedInvite created = createInternal(match.teamId(), InviteType.MATCH, matchId,
                 inviterUserId, expiresInDays, maxUses);
-        auditRecorder.recordCurrent("INVITE_CREATE", "INVITE", view.id(), null,
-                java.util.Map.of("type", view.type(), "expiresAt", view.expiresAt(),
-                        "maxUses", view.maxUses() == null ? "" : view.maxUses()));
-        return view;
+        auditCreate(created.invite());
+        return new InviteCreatedView(inviteUrl(created.rawToken()), created.invite().getExpiresAt());
+    }
+
+    private void auditCreate(InviteLink invite) {
+        auditRecorder.recordCurrent("INVITE_CREATE", "INVITE", invite.getId(), null,
+                java.util.Map.of("type", invite.getType().code(), "expiresAt", invite.getExpiresAt(),
+                        "maxUses", invite.getMaxUses() == null ? "" : invite.getMaxUses()));
     }
 
     private void ensureCanCreateMatchInvite(Long inviterUserId, Long matchId) {
@@ -224,13 +224,13 @@ public class InviteService {
         }
     }
 
-    public PageResponse<InviteAdminView> list(Integer type, Integer status, long page, long pageSize) {
+    public PageResponse<InviteView> list(Integer type, Integer status, long page, long pageSize) {
         Page<InviteLink> result = inviteLinkMapper.selectPage(new Page<>(page, pageSize),
                 new LambdaQueryWrapper<InviteLink>()
                         .eq(type != null, InviteLink::getType, type)
                         .eq(status != null, InviteLink::getStatus, status)
                         .orderByDesc(InviteLink::getId));
-        return PageResponse.of(result.getRecords().stream().map(this::toAdminView).toList(),
+        return PageResponse.of(result.getRecords().stream().map(this::toView).toList(),
                 result.getTotal(), page, pageSize);
     }
 
@@ -250,8 +250,8 @@ public class InviteService {
                 java.util.Map.of("status", InviteStatus.REVOKED.code()));
     }
 
-    private InviteAdminView createInternal(Long teamId, InviteType type, Long matchId, Long inviterUserId,
-                                           Integer expiresInDays, Integer maxUses) {
+    private CreatedInvite createInternal(Long teamId, InviteType type, Long matchId, Long inviterUserId,
+                                         Integer expiresInDays, Integer maxUses) {
         int days = expiresInDays == null ? 7 : expiresInDays;
         if (days < 1 || days > 30) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "有效期必须为 1–30 天");
@@ -264,7 +264,7 @@ public class InviteService {
         InviteLink invite = new InviteLink();
         invite.setTeamId(teamId);
         invite.setType(type);
-        invite.setTokenHash(sha256(rawToken));
+        invite.setTokenHash(Hashing.sha256(rawToken));
         invite.setMatchId(matchId);
         invite.setInviterUserId(inviterUserId);
         invite.setExpiresAt(now.plusSeconds(days * 24L * 3600));
@@ -274,7 +274,11 @@ public class InviteService {
         invite.setCreatedAt(now);
         invite.setUpdatedAt(now);
         inviteLinkMapper.insert(invite);
-        return toAdminView(invite, rawToken);
+        return new CreatedInvite(invite, rawToken);
+    }
+
+    private String inviteUrl(String rawToken) {
+        return publicBaseUrl + "/invite.html?token=" + rawToken;
     }
 
     private InviteLink findByToken(String rawToken) {
@@ -289,7 +293,7 @@ public class InviteService {
         if (rawToken == null || rawToken.isBlank()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "邀请不存在");
         }
-        return sha256(rawToken);
+        return Hashing.sha256(rawToken);
     }
 
     private boolean isUsable(InviteLink invite) {
@@ -312,46 +316,26 @@ public class InviteService {
         boolean exhausted = invite.getMaxUses() != null && invite.getUsedCount() >= invite.getMaxUses();
         Integer remaining = invite.getMaxUses() == null ? null : Math.max(0, invite.getMaxUses() - invite.getUsedCount());
         return new InviteView(
+                invite.getId(),
                 invite.getType().code(),
+                invite.getType().label(),
                 team == null ? null : new TeamView(team.getId(), team.getName(), team.getShortName()),
+                invite.getMatchId(),
                 match == null ? null : new MatchSummary(match.id(), match.title(), match.startAt(),
                         match.endAt(), match.venue(), match.status(), match.homeTeamName(),
                         match.awayTeamName()),
-                inviter == null ? null : inviterView(inviter),
+                inviter == null ? null : userViewAssembler.toSummary(inviter),
                 invite.getExpiresAt(),
                 invite.getMaxUses(),
                 invite.getUsedCount(),
                 remaining,
                 effectiveStatus.code(),
                 effectiveStatus.label(),
-                exhausted);
-    }
-
-    private InviteAdminView toAdminView(InviteLink invite) {
-        return toAdminView(invite, null);
-    }
-
-    private InviteAdminView toAdminView(InviteLink invite, String rawToken) {
-        InviteView view = toView(invite);
-        return new InviteAdminView(
-                invite.getId(),
-                view.type(),
-                InviteType.of(view.type()).label(),
-                view.team(),
-                view.match(),
-                view.inviter(),
-                view.expiresAt(),
-                view.maxUses(),
-                view.usedCount(),
-                view.remainingUses(),
-                view.status(),
-                view.statusLabel(),
-                rawToken == null ? null : publicBaseUrl + "/invite.html?token=" + rawToken,
+                exhausted,
                 invite.getCreatedAt());
     }
 
-    private UserView inviterView(AppUser user) {
-        return userViewAssembler.toView(user);
+    private record CreatedInvite(InviteLink invite, String rawToken) {
     }
 
     private InviteType parseType(int code) {
@@ -376,12 +360,4 @@ public class InviteService {
         return team.getId();
     }
 
-    private String sha256(String value) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException ex) {
-            throw new IllegalStateException(ex);
-        }
-    }
 }

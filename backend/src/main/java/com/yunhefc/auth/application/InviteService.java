@@ -102,8 +102,11 @@ public class InviteService {
         return invite;
     }
 
+    /**
+     * 必须在事务内调用：FOR UPDATE 的锁随事务结束释放，事务外调用无法阻止并发撤销。
+     */
     public InviteLink findUsableForAccept(String rawToken, Long userId) {
-        InviteLink invite = findByToken(rawToken);
+        InviteLink invite = findByTokenForUpdate(rawToken);
         if (invite == null || invite.getStatus() != InviteStatus.ACTIVE
                 || invite.getExpiresAt().isBefore(Instant.now(clock))) {
             throw new BusinessException(ErrorCode.INVITE_UNAVAILABLE);
@@ -128,7 +131,8 @@ public class InviteService {
         if (inviteUseMapper.insertIgnore(invite.getId(), userId) == 0) {
             return;
         }
-        if (inviteLinkMapper.incrementUsedCount(invite.getId()) == 0) {
+        // 条件更新同时校验状态、过期与次数，避免已撤销/过期邀请在并发接受时被消费
+        if (inviteLinkMapper.incrementUsedCount(invite.getId(), Instant.now(clock)) == 0) {
             throw new BusinessException(ErrorCode.INVITE_UNAVAILABLE);
         }
     }
@@ -232,15 +236,17 @@ public class InviteService {
 
     @Transactional
     public void revoke(Long id) {
-        InviteLink invite = inviteLinkMapper.selectById(id);
+        // 锁定邀请行，保证审计快照准确，并避免覆盖并发接受写入的 used_count
+        InviteLink invite = inviteLinkMapper.findByIdForUpdate(id);
         if (invite == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        invite.setStatus(InviteStatus.REVOKED);
-        invite.setRevokedAt(Instant.now(clock));
-        inviteLinkMapper.updateById(invite);
+        if (invite.getStatus() == InviteStatus.REVOKED) {
+            return;
+        }
+        inviteLinkMapper.revoke(id, Instant.now(clock));
         auditRecorder.recordCurrent("INVITE_REVOKE", "INVITE", id,
-                java.util.Map.of("status", InviteStatus.ACTIVE.code()),
+                java.util.Map.of("status", invite.getStatus().code()),
                 java.util.Map.of("status", InviteStatus.REVOKED.code()));
     }
 
@@ -272,10 +278,18 @@ public class InviteService {
     }
 
     private InviteLink findByToken(String rawToken) {
+        return inviteLinkMapper.findByTokenHash(requireTokenHash(rawToken));
+    }
+
+    private InviteLink findByTokenForUpdate(String rawToken) {
+        return inviteLinkMapper.findByTokenHashForUpdate(requireTokenHash(rawToken));
+    }
+
+    private String requireTokenHash(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "邀请不存在");
         }
-        return inviteLinkMapper.findByTokenHash(sha256(rawToken));
+        return sha256(rawToken);
     }
 
     private boolean isUsable(InviteLink invite) {

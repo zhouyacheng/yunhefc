@@ -137,6 +137,7 @@ public class RoleService {
 
     @Transactional
     public RoleView setPermissions(Long roleId, List<String> codes) {
+        lockTeam();
         AppRole role = requireRole(roleId);
         List<String> before = rolePermissionMapper.findPermissionCodes(roleId);
         List<Permission> permissions = validatePermissions(codes);
@@ -157,6 +158,7 @@ public class RoleService {
 
     @Transactional
     public UserRolesView assignRoles(Long userId, UserRolesRequest request) {
+        lockTeam();
         AppUser user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "账号不存在");
@@ -240,6 +242,13 @@ public class RoleService {
     private RoleView view(AppRole role) {
         return new RoleView(role.getId(), role.getCode(), role.getName(), role.getIsDefault() == 1,
                 rolePermissionMapper.findPermissionCodes(role.getId()));
+    }
+
+    private void lockTeam() {
+        // 串行化最后管理员校验：并发降权各自看到对方的旧状态时会同时通过，写偏斜导致零管理员
+        if (teamMapper.lockTeamId() == null) {
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "球队未初始化");
+        }
     }
 
     private Long teamId() {

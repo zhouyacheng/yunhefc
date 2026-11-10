@@ -87,6 +87,23 @@ public interface UserRoleMapper {
     List<Long> findActiveUserIdsByRole(@Param("roleId") Long roleId);
 
     @Select("""
+            SELECT DISTINCT ur.user_id
+            FROM user_role ur
+            JOIN app_role r ON r.id = ur.role_id AND r.is_deleted = 0
+            WHERE ur.is_deleted = 0
+              AND (
+                r.code = 'ADMIN'
+                OR EXISTS (
+                    SELECT 1
+                    FROM role_permission rp
+                    JOIN permission p ON p.id = rp.permission_id AND p.is_deleted = 0
+                    WHERE rp.role_id = r.id AND rp.is_deleted = 0 AND p.code = 'role:manage:any'
+                )
+              )
+            """)
+    List<Long> findAdminUserIds();
+
+    @Select("""
             SELECT COUNT(*)
             FROM user_role ur
             JOIN app_user u ON u.id = ur.user_id

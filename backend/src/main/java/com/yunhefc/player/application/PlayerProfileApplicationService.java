@@ -1,5 +1,6 @@
 package com.yunhefc.player.application;
 
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.player.PlayerSnapshot;
@@ -8,6 +9,7 @@ import com.yunhefc.contracts.player.Position;
 import com.yunhefc.player.domain.Player;
 import com.yunhefc.player.infrastructure.PlayerMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -40,7 +42,13 @@ public class PlayerProfileApplicationService {
         if (player.getType() == PlayerType.PLAYER) {
             return;
         }
-        player.setType(PlayerType.PLAYER);
-        playerMapper.updateById(player);
+        try {
+            playerMapper.update(null, new LambdaUpdateWrapper<Player>()
+                    .eq(Player::getId, player.getId())
+                    .eq(Player::getType, PlayerType.GUEST)
+                    .set(Player::getType, PlayerType.PLAYER));
+        } catch (DuplicateKeyException ex) {
+            throw new BusinessException(ErrorCode.DUPLICATE_JERSEY);
+        }
     }
 }

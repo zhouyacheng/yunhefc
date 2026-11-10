@@ -15,6 +15,8 @@ public enum ErrorCode {
     NOT_FOUND(40401, HttpStatus.NOT_FOUND, "资源不存在"),
     METHOD_NOT_ALLOWED(40501, HttpStatus.METHOD_NOT_ALLOWED, "请求方法不支持"),
     VERSION_CONFLICT(40901, HttpStatus.CONFLICT, "版本冲突"),
+    DUPLICATE_ACTIVE_REGISTRATION(40902, HttpStatus.CONFLICT, "已有有效报名/候补"),
+    CAPACITY_FULL(40903, HttpStatus.CONFLICT, "名额与候补均已满"),
     DUPLICATE_JERSEY(40904, HttpStatus.CONFLICT, "正式球员号码冲突"),
     MATCH_STATE_CONFLICT(40905, HttpStatus.CONFLICT, "比赛状态不允许该操作"),
     IDEMPOTENCY_KEY_REUSED(40906, HttpStatus.CONFLICT, "同一幂等键对应不同请求"),

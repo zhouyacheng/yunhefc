@@ -20,5 +20,22 @@ public interface RegistrationMapper extends BaseMapper<Registration> {
             """)
     int countActiveFormalRegistration(@Param("matchId") Long matchId, @Param("playerId") Long playerId);
 
+    @Select("""
+            SELECT COUNT(*)
+            FROM registration r
+            WHERE r.match_id = #{matchId} AND r.player_id = #{playerId}
+              AND r.status IN (0, 1) AND r.is_deleted = 0
+            """)
+    int countActiveRegistration(@Param("matchId") Long matchId, @Param("playerId") Long playerId);
+
+    @Select("""
+            SELECT COUNT(*)
+            FROM registration r
+            WHERE r.match_id = #{matchId} AND r.type = #{type} AND r.status = #{status}
+              AND r.is_deleted = 0
+            """)
+    int countByTypeAndStatus(@Param("matchId") Long matchId, @Param("type") int type,
+                             @Param("status") int status);
+
     List<RegistrationQueueRow> selectQueueCounts(@Param("matchIds") Collection<Long> matchIds);
 }

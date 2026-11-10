@@ -32,13 +32,18 @@ public class MatchReadAdapter implements MatchReadPort {
                 .toList();
     }
 
-    private static MatchSnapshot toSnapshot(TeamMatch match) {
+    static MatchSnapshot toSnapshot(TeamMatch match) {
         return new MatchSnapshot(
                 match.getId(),
                 match.getTeamId(),
                 match.getTitle(),
                 match.getStartAt(),
                 match.getEndAt(),
+                match.getSignupDeadline(),
+                match.getCancelLock(),
+                match.getCapacity(),
+                match.getGuestCapacity(),
+                match.getWaitlistCapacity(),
                 match.getVenue(),
                 match.getStatus().code(),
                 match.getHomeTeamName(),

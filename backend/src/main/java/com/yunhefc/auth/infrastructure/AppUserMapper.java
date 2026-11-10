@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yunhefc.auth.domain.AppUser;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.Instant;
@@ -31,4 +32,10 @@ public interface AppUserMapper extends BaseMapper<AppUser> {
 
     @Update("UPDATE app_user SET status = #{status} WHERE id = #{id} AND is_deleted = 0")
     int updateStatus(@Param("id") Long id, @Param("status") int status);
+
+    /**
+     * 报名事务的共享锁：注销编排持有排他锁时阻塞，解锁后读到 DISABLED，避免注销后残留报名。
+     */
+    @Select("SELECT status FROM app_user WHERE id = #{id} AND is_deleted = 0 FOR SHARE")
+    Integer selectStatusByIdForShare(@Param("id") Long id);
 }

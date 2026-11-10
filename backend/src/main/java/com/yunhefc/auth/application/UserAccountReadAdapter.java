@@ -2,6 +2,7 @@ package com.yunhefc.auth.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.auth.domain.AppUser;
+import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.auth.infrastructure.UserRoleRow;
@@ -34,6 +35,12 @@ public class UserAccountReadAdapter implements UserAccountReadPort {
         Set<String> roles = new LinkedHashSet<>(userRoleMapper.findRoleCodes(userId));
         boolean admin = !userRoleMapper.findAdminUserIds(List.of(userId)).isEmpty();
         return Optional.of(toSnapshot(user, roles, admin));
+    }
+
+    @Override
+    public Optional<Boolean> lockActiveForRegistration(Long userId) {
+        Integer status = userMapper.selectStatusByIdForShare(userId);
+        return Optional.ofNullable(status).map(code -> code == UserStatus.ACTIVE.code());
     }
 
     @Override

@@ -38,4 +38,14 @@ public interface RegistrationMapper extends BaseMapper<Registration> {
                              @Param("status") int status);
 
     List<RegistrationQueueRow> selectQueueCounts(@Param("matchIds") Collection<Long> matchIds);
+
+    // 注销编排使用当前读扫描：与报名事务的共享账号锁配合，注销后不残留有效报名。
+    @Select("""
+            SELECT id, match_id, player_id, type, status, registered_at, cancelled_at,
+                   cancelled_by, updated_at, is_deleted
+            FROM registration
+            WHERE player_id = #{playerId} AND status IN (0, 1) AND is_deleted = 0
+            FOR UPDATE
+            """)
+    List<Registration> selectActiveByPlayerIdForUpdate(@Param("playerId") Long playerId);
 }

@@ -1,5 +1,6 @@
 package com.yunhefc.contracts.match;
 
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -11,4 +12,10 @@ public interface MatchRegistrationContextPort {
      * 锁定比赛行并返回报名所需快照；比赛不存在或不属于该球队返回空。
      */
     Optional<MatchSnapshot> lockForRegistration(Long matchId, Long teamId);
+
+    /**
+     * 按主键升序锁定球队所有未开赛比赛行（报名中/报名截止/锁定/已延期），返回其 ID。
+     * 注销编排先锁比赛再扫描报名，避免与取消/递补在比赛与报名行上交叉等待。
+     */
+    List<Long> lockNotStartedMatchIds(Long teamId);
 }

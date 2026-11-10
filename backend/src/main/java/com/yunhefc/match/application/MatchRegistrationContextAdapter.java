@@ -6,6 +6,7 @@ import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -18,5 +19,10 @@ public class MatchRegistrationContextAdapter implements MatchRegistrationContext
     public Optional<MatchSnapshot> lockForRegistration(Long matchId, Long teamId) {
         return Optional.ofNullable(teamMatchMapper.selectByIdForUpdate(matchId, teamId))
                 .map(MatchReadAdapter::toSnapshot);
+    }
+
+    @Override
+    public List<Long> lockNotStartedMatchIds(Long teamId) {
+        return teamMatchMapper.lockNotStartedIds(teamId);
     }
 }

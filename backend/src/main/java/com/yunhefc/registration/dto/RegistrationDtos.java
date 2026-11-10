@@ -21,4 +21,10 @@ public final class RegistrationDtos {
 
     public record RegistrationResponse(RegistrationView registration) {
     }
+
+    /**
+     * 取消结果；未触发递补时 promotedPlayerId 为 null。
+     */
+    public record CancellationResult(boolean cancelled, Long promotedPlayerId, boolean promoted) {
+    }
 }

@@ -32,6 +32,15 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
             """)
     TeamMatch selectByIdForUpdate(@Param("id") Long id, @Param("teamId") Long teamId);
 
+    // 注销编排先锁定全部未开赛比赛行，再扫描报名：与报名/取消/递补共用比赛行锁，且不持有报名行等待比赛。
+    @Select("""
+            SELECT id FROM team_match
+            WHERE team_id = #{teamId} AND is_deleted = 0 AND status IN (0, 1, 2, 5)
+            ORDER BY id
+            FOR UPDATE
+            """)
+    List<Long> lockNotStartedIds(@Param("teamId") Long teamId);
+
     // 只取按当前状态已到达下一时间边界的行，避免每分钟对无推进的比赛加锁。
     @Select("""
             SELECT id, team_id, status, manual_status, signup_deadline, cancel_lock, start_at, end_at, version

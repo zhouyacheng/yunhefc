@@ -3,6 +3,7 @@ package com.yunhefc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -54,6 +55,59 @@ class AuthHardeningIT extends IntegrationTestSupport {
         mockMvc.perform(get("/api/v1/b/me").cookie(cookie(login, "YHFC_B")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.sections[?(@ == 'dashboard')]").exists());
+    }
+
+    @Test
+    void passwordResetAllowsLoginWithNewPassword() throws Exception {
+        String phone = "13900000993";
+        jdbc.update("INSERT INTO app_user (phone, password_hash, status) VALUES (?, ?, 1)",
+                phone, passwordEncoder.encode("OldPassw0rd!"));
+
+        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","purpose":"RESET"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/c/auth/password/reset")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","code":"123456","newPassword":"NewPassw0rd!"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/c/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","password":"NewPassw0rd!"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void adminCanChangePhoneAndUserLogsInWithIt() throws Exception {
+        Cookie admin = adminLogin("13900000994");
+        Long userId = insertActiveUser("13900000995", "Passw0rd!");
+
+        mockMvc.perform(patch("/api/v1/b/users/" + userId + "/phone")
+                        .cookie(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000996"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.phoneMasked").value("139****0996"));
+
+        mockMvc.perform(post("/api/v1/c/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000996","password":"Passw0rd!"}
+                                """))
+                .andExpect(status().isOk());
     }
 
     @Test

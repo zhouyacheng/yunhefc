@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { Tabbar, TabbarItem } from 'vant';
+import { onMounted } from 'vue';
 
 import { useSessionStore } from '../stores/session';
 
 const session = useSessionStore();
+
+// 赛程是公开页，直接进入时也要恢复已登录用户的头部状态。
+onMounted(() => {
+  void session.ensureLoaded().catch(() => undefined);
+});
 </script>
 
 <template>

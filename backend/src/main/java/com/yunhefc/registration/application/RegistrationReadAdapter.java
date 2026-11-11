@@ -6,6 +6,7 @@ import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
+import com.yunhefc.contracts.registration.ConfirmedRegistration;
 import com.yunhefc.contracts.registration.RegistrationQueueCounts;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.registration.RegistrationRosterPage;
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,6 +90,22 @@ public class RegistrationReadAdapter implements RegistrationReadPort {
                         .orderByAsc(Registration::getId))
                 .stream()
                 .map(Registration::getPlayerId)
+                .toList();
+    }
+
+    @Override
+    public List<ConfirmedRegistration> findConfirmedRoster(Long matchId) {
+        Map<Long, Integer> byPlayer = new LinkedHashMap<>();
+        registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                        .select(Registration::getPlayerId, Registration::getType)
+                        .eq(Registration::getMatchId, matchId)
+                        .eq(Registration::getStatus, RegistrationStatus.CONFIRMED)
+                        .orderByAsc(Registration::getId))
+                .forEach(registration -> byPlayer.putIfAbsent(
+                        registration.getPlayerId(), registration.getType().code()));
+        return byPlayer.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(entry -> new ConfirmedRegistration(entry.getKey(), entry.getValue()))
                 .toList();
     }
 

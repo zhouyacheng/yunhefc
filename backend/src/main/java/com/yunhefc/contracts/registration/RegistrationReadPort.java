@@ -36,4 +36,9 @@ public interface RegistrationReadPort {
      * 比赛 CONFIRMED 报名的 playerId，按报名时间、ID 升序。
      */
     List<Long> findConfirmedPlayerIds(Long matchId);
+
+    /**
+     * 比赛 CONFIRMED 报名名单（playerId + 报名类型），按 playerId 升序去重。
+     */
+    List<ConfirmedRegistration> findConfirmedRoster(Long matchId);
 }

@@ -47,6 +47,67 @@ test('B 端：B03 选择比赛并标记考勤', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('B 端：B06 生成分组并展示 A/B', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/admin/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000001');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/admin\/matches$/);
+
+  await page.goto('/admin/grouping');
+  await expect(page).toHaveURL(/\/admin\/grouping$/);
+
+  // 1001 场为已锁定队内赛，种子数据已生成 10 A / 9 B。
+  await page.locator('.match-picker').click();
+  await page
+    .locator('.el-select-dropdown__item')
+    .filter({ hasText: '橙队VS兰队' })
+    .filter({ hasText: '已锁定' })
+    .click();
+
+  await expect(page.locator('.group-admin-column')).toHaveCount(2);
+  await expect(page.getByText('测试门将01').first()).toBeVisible();
+  await expect(page.getByText('总分差')).toBeVisible();
+
+  await page.getByRole('button', { name: /生成分组|重新生成/ }).click();
+  await page
+    .locator('.el-message-box')
+    .getByRole('button', { name: /重新生成|确定/ })
+    .click({ timeout: 2000 })
+    .catch(() => undefined);
+
+  await expect(page.locator('.group-admin-column')).toHaveCount(2);
+  await expect(page.getByText('测试门将01').first()).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：只读球员可查看分组但不能生成', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/admin/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000002');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page.locator('.admin-sidebar')).toBeVisible();
+
+  await page.goto('/admin/grouping');
+  await expect(page).toHaveURL(/\/admin\/grouping$/);
+  await page.locator('.match-picker').click();
+  await page
+    .locator('.el-select-dropdown__item')
+    .filter({ hasText: '橙队VS兰队' })
+    .filter({ hasText: '已锁定' })
+    .click();
+
+  await expect(page.locator('.group-admin-column')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: /生成分组|重新生成/ })).toBeDisabled();
+
+  expect(errors).toEqual([]);
+});
+
 test('B 端：B04 录入/编辑事件并保存比分', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 

@@ -1,11 +1,17 @@
 export type MatchType = 0 | 1 | 2 | 3;
 export type MatchStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
+export const MATCH_STATUS_LOCKED: MatchStatus = 2;
 export const MATCH_STATUS_IN_PROGRESS: MatchStatus = 3;
 export const MATCH_STATUS_FINISHED: MatchStatus = 4;
 export const MATCH_STATUS_POSTPONED: MatchStatus = 5;
 export const MATCH_STATUS_CANCELLED: MatchStatus = 6;
 export type MatchSide = 0 | 1;
+
+/** 队内赛/训练赛才允许分组与阵容。 */
+export function isInternalMatchType(type: MatchType | null | undefined): boolean {
+  return type === 1 || type === 2;
+}
 
 /** 05 §4 MatchSummary。 */
 export interface MatchSummary {
@@ -231,6 +237,79 @@ export interface EventDeleteResult {
 export interface PromotionResult {
   promotedPlayerId?: number | null;
   promoted: boolean;
+}
+
+export type GroupingTeam = 'A' | 'B';
+
+/** 05 §4 GroupingView.weights；当前有效配置（已按规格回退）。 */
+export interface GroupingWeights {
+  manualWeight: number;
+  autoWeight: number;
+  appearanceWeight: number;
+  goalWeight: number;
+  assistWeight: number;
+  minAppearances: number;
+}
+
+/** 05 §4 GroupedPlayer。 */
+export interface GroupedPlayer {
+  playerId: number;
+  name: string;
+  jersey?: number | null;
+  position: number;
+  manualScore?: number | null;
+  autoScore?: number | null;
+  finalScore?: number | null;
+}
+
+export interface GroupingTeams {
+  A: GroupedPlayer[];
+  B: GroupedPlayer[];
+}
+
+/** 05 §4 GroupingView。 */
+export interface GroupingView {
+  teams: GroupingTeams;
+  weights: GroupingWeights;
+  diff: number;
+  warnings: string[];
+  savedAt?: string | null;
+}
+
+export interface GroupingScores {
+  A: number;
+  B: number;
+  diff: number;
+}
+
+export interface GroupingRosterDiff {
+  changed: boolean;
+  addedPlayerIds: number[];
+  removedPlayerIds: number[];
+}
+
+/** 05 §4 GroupingAdmin。 */
+export interface GroupingAdmin extends GroupingView {
+  scores: GroupingScores;
+  rosterFingerprint: string | null;
+  generatedAt: string | null;
+  ungroupedPlayerIds: number[];
+  rosterDiff: GroupingRosterDiff;
+}
+
+export interface GroupingGenerateRequest {
+  confirm?: boolean;
+}
+
+export interface GroupingResponse {
+  grouping: GroupingAdmin;
+}
+
+export function groupingTeamName(
+  match: Pick<MatchSummary, 'homeTeamName' | 'awayTeamName'>,
+  team: GroupingTeam,
+): string {
+  return team === 'A' ? match.homeTeamName : match.awayTeamName;
 }
 
 export const MATCH_TYPE_TEXT: Readonly<Record<MatchType, string>> = {

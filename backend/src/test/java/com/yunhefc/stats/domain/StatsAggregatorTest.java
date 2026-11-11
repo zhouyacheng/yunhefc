@@ -69,7 +69,7 @@ class StatsAggregatorTest {
     private static MatchSnapshot match(Long id, int status) {
         return new MatchSnapshot(id, TEAM_ID, "统计测试", START, START.plusSeconds(7_200),
                 START.minusSeconds(86_400), START.minusSeconds(3_600), 30, 4, 2, "场地",
-                status, "橙队", "兰队", null, "2026", 1, null);
+                status, "橙队", "兰队", null, "2026", 1, null, true);
     }
 
     private static AttendanceSnapshot attendance(Long matchId, Long playerId, int status) {

@@ -24,11 +24,19 @@ public record MatchSnapshot(
         Instant statusUpdatedAt,
         String season,
         Integer type,
-        Integer ourSide) {
+        Integer ourSide,
+        Boolean includeGuests) {
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
     private static final int INTERNAL = 1;
     private static final int TRAINING = 2;
+
+    /**
+     * 报名含外挂开关；默认包含。
+     */
+    public boolean guestsIncluded() {
+        return includeGuests == null || includeGuests;
+    }
 
     /**
      * 汇总赛季：比赛 season 字段，为空时取开赛时间在 Asia/Shanghai 的年份。

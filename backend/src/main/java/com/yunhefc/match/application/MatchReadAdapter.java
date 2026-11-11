@@ -60,6 +60,18 @@ public class MatchReadAdapter implements MatchReadPort {
                 .toList();
     }
 
+    @Override
+    public int countFinishedInSeason(Long teamId, String season) {
+        return (int) findSeasonMatches(teamId, season).stream()
+                .filter(MatchSnapshot::finished)
+                .count();
+    }
+
+    @Override
+    public Optional<MatchSnapshot> lockForGrouping(Long matchId, Long teamId) {
+        return findByIdForUpdate(matchId, teamId);
+    }
+
     static MatchSnapshot toSnapshot(TeamMatch match) {
         return new MatchSnapshot(
                 match.getId(),
@@ -79,6 +91,7 @@ public class MatchReadAdapter implements MatchReadPort {
                 match.getStatusUpdatedAt(),
                 match.getSeason(),
                 match.getType().code(),
-                match.getOurSide() == null ? null : match.getOurSide().code());
+                match.getOurSide() == null ? null : match.getOurSide().code(),
+                match.getIncludeGuests());
     }
 }

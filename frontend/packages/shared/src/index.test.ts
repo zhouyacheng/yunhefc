@@ -9,6 +9,8 @@ import {
   eventEntryOpen,
   eventHalfText,
   eventTypeText,
+  groupingTeamName,
+  isInternalMatchType,
   isPage,
   matchStatusText,
   matchStatusTone,
@@ -45,6 +47,15 @@ describe('enum helpers', () => {
     expect(matchStatusTone(4)).toBe('success');
     expect(matchStatusTone(3)).toBe('warning');
     expect(matchStatusTone(0)).toBe('neutral');
+  });
+
+  it('recognizes internal and training matches and maps grouping team names', () => {
+    expect(isInternalMatchType(1)).toBe(true);
+    expect(isInternalMatchType(2)).toBe(true);
+    expect(isInternalMatchType(0)).toBe(false);
+    expect(isInternalMatchType(undefined)).toBe(false);
+    expect(groupingTeamName({ homeTeamName: '橙队', awayTeamName: '兰队' }, 'A')).toBe('橙队');
+    expect(groupingTeamName({ homeTeamName: '橙队', awayTeamName: '兰队' }, 'B')).toBe('兰队');
   });
 
   it('maps attendance codes to display text', () => {

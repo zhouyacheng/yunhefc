@@ -41,6 +41,27 @@ test('C 端：登录后进入比赛详情并签到', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('C 端：比赛详情分组 Tab 只读展示', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000002');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/matches$/);
+
+  await page.goto('/matches/1001');
+  await expect(page).toHaveURL(/\/matches\/1001$/);
+  await page.getByRole('button', { name: '分组' }).click();
+
+  await expect(page.locator('.grouping-column')).toHaveCount(2);
+  await expect(page.getByText('测试门将01').first()).toBeVisible();
+  await expect(page.getByText('总分差')).toBeVisible();
+  await expect(page.getByRole('button', { name: /生成分组|保存分组/ })).toHaveCount(0);
+
+  expect(errors).toEqual([]);
+});
+
 test('C 端：录入进球后时间线与推导比分更新', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 

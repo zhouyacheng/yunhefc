@@ -4,6 +4,8 @@ import {
   EVENT_CREATE_OWN,
   EVENT_EDIT_ANY,
   EVENT_EDIT_OWN,
+  GROUPING_GENERATE_ANY,
+  GROUPING_VIEW_ANY,
   hasPermission,
 } from '@yunhefc/permissions';
 import type {
@@ -15,6 +17,9 @@ import type {
   EventTimeline,
   EventType,
   EventUpdate,
+  GroupedPlayer,
+  GroupingTeam,
+  GroupingView,
   MatchDetail,
   MatchEvent,
   MyMatchRegistration,
@@ -33,9 +38,12 @@ import {
   eventHalfText,
   eventTypeText,
   formatDateTime,
+  groupingTeamName,
+  isInternalMatchType,
   matchStatusText,
   matchStatusTone,
   matchTypeText,
+  positionText,
 } from '@yunhefc/shared';
 import { Button, Empty, Loading, Popup, Tag } from 'vant';
 import { computed, onMounted, reactive, ref } from 'vue';
@@ -49,7 +57,7 @@ const route = useRoute();
 const session = useSessionStore();
 const matchId = Number(route.params.id);
 
-type TabName = 'overview' | 'events';
+type TabName = 'overview' | 'events' | 'grouping';
 
 const activeTab = ref<TabName>('overview');
 const match = ref<MatchDetail | null>(null);
@@ -70,6 +78,11 @@ const eventModalOpen = ref(false);
 const editingEvent = ref<MatchEvent | null>(null);
 const eventFormError = ref('');
 const eventSubmitting = ref(false);
+
+const grouping = ref<GroupingView | null>(null);
+const groupingLoading = ref(false);
+const groupingError = ref('');
+const groupingTeams: GroupingTeam[] = ['A', 'B'];
 const form = reactive({
   type: 0 as EventType,
   team: 0 as EventTeam,
@@ -143,8 +156,46 @@ const eventDisabledReason = computed(() => {
   }
   return '';
 });
-const internalMatch = computed(() => match.value?.type === 1 || match.value?.type === 2);
+const internalMatch = computed(() => isInternalMatchType(match.value?.type));
 const teamLocked = computed(() => !isEventAdmin.value && !internalMatch.value);
+const canViewGrouping = computed(
+  () =>
+    internalMatch.value &&
+    session.isAuthenticated &&
+    hasPermission(session.permissions, GROUPING_VIEW_ANY),
+);
+const canManageGrouping = computed(() =>
+  hasPermission(session.permissions, GROUPING_GENERATE_ANY),
+);
+const hasGrouping = computed(
+  () => Boolean(grouping.value && (grouping.value.teams.A.length || grouping.value.teams.B.length)),
+);
+const groupingPositionBuckets = [
+  { key: 0, label: positionText(0) },
+  { key: 1, label: positionText(1) },
+  { key: 2, label: positionText(2) },
+  { key: 3, label: positionText(3) },
+  { key: -1, label: '位置未知' },
+];
+
+function groupingPositionInBucket(position: number, bucket: number): boolean {
+  return bucket === -1 ? position < 0 || position > 3 : position === bucket;
+}
+
+const groupingPositionRows = computed(() =>
+  groupingPositionBuckets.map((bucket) => ({
+    position: bucket.key,
+    label: bucket.label,
+    a:
+      grouping.value?.teams.A.filter((player) =>
+        groupingPositionInBucket(player.position, bucket.key),
+      ).length ?? 0,
+    b:
+      grouping.value?.teams.B.filter((player) =>
+        groupingPositionInBucket(player.position, bucket.key),
+      ).length ?? 0,
+  })),
+);
 const displayedScore = computed(() => eventDerived.value ?? match.value?.derivedScore ?? null);
 const showAdminLink = computed(() => session.isAuthenticated && isEventAdmin.value);
 const adminBase =
@@ -152,6 +203,9 @@ const adminBase =
   (import.meta.env.DEV ? 'http://localhost:5274/admin/' : '/admin/');
 const adminEventsUrl = computed(
   () => `${adminBase.endsWith('/') ? adminBase : `${adminBase}/`}events?match=${matchId}`,
+);
+const adminGroupingUrl = computed(
+  () => `${adminBase.endsWith('/') ? adminBase : `${adminBase}/`}grouping?match=${matchId}`,
 );
 const goalCount = computed(() => events.value.filter((event) => event.type === 0).length);
 const cardCount = computed(
@@ -443,6 +497,52 @@ function openEventsTab(): void {
   }
 }
 
+function groupingTeamLabel(team: GroupingTeam): string {
+  return match.value ? groupingTeamName(match.value, team) : `${team} 队`;
+}
+
+function groupingTotal(team: GroupingTeam): string {
+  const total = (grouping.value?.teams[team] ?? []).reduce(
+    (sum, player) => sum + (player.finalScore ?? 0),
+    0,
+  );
+  return total.toFixed(2);
+}
+
+function groupingPlayers(team: GroupingTeam, position: number): GroupedPlayer[] {
+  return (grouping.value?.teams[team] ?? []).filter((player) =>
+    groupingPositionInBucket(player.position, position),
+  );
+}
+
+function groupingPlayerLabel(player: GroupedPlayer): string {
+  const jersey = player.jersey === null || player.jersey === undefined ? '' : ` #${player.jersey}`;
+  return `${player.name}${jersey}`;
+}
+
+async function loadGrouping(): Promise<void> {
+  if (!canViewGrouping.value) {
+    return;
+  }
+  groupingLoading.value = true;
+  groupingError.value = '';
+  try {
+    grouping.value = await api.get<GroupingView>(`/matches/${matchId}/grouping`);
+  } catch (caught) {
+    grouping.value = null;
+    groupingError.value = isApiError(caught) ? caught.message : '分组加载失败，请稍后重试';
+  } finally {
+    groupingLoading.value = false;
+  }
+}
+
+function openGroupingTab(): void {
+  activeTab.value = 'grouping';
+  if (!grouping.value && !groupingLoading.value) {
+    void loadGrouping();
+  }
+}
+
 onMounted(load);
 </script>
 
@@ -492,6 +592,15 @@ onMounted(load);
         >
           事件
         </button>
+        <button
+          v-if="canViewGrouping"
+          type="button"
+          class="detail-tab"
+          :class="{ 'detail-tab--active': activeTab === 'grouping' }"
+          @click="openGroupingTab"
+        >
+          分组
+        </button>
       </nav>
 
       <section v-if="activeTab === 'overview'" class="card registration-card">
@@ -540,7 +649,7 @@ onMounted(load);
         <p v-if="actionError" class="action-error">{{ actionError }}</p>
       </section>
 
-      <template v-else>
+      <template v-else-if="activeTab === 'events'">
         <section class="card events-summary">
           <div class="card-head">
             <h2>比赛事件</h2>
@@ -642,6 +751,85 @@ onMounted(load);
               </div>
             </div>
           </div>
+        </section>
+      </template>
+
+      <template v-else-if="activeTab === 'grouping'">
+        <section class="card grouping-summary">
+          <div class="card-head">
+            <h2>队内分组</h2>
+            <span class="muted small">
+              {{ grouping?.savedAt ? '已保存' : hasGrouping ? '草稿' : '尚未生成' }}
+            </span>
+          </div>
+          <div class="stat-grid">
+            <div>
+              <b>{{ groupingTotal('A') }}</b
+              ><span>A 队总分</span>
+            </div>
+            <div>
+              <b>{{ groupingTotal('B') }}</b
+              ><span>B 队总分</span>
+            </div>
+            <div>
+              <b>{{ (grouping?.diff ?? 0).toFixed(2) }}</b
+              ><span>总分差</span>
+            </div>
+          </div>
+          <a v-if="canManageGrouping" class="ghost-link" :href="adminGroupingUrl">去管理后台</a>
+        </section>
+
+        <section class="card grouping-panel">
+          <div v-if="groupingLoading" class="state state--inline">
+            <Loading size="20">分组加载中…</Loading>
+          </div>
+
+          <div v-else-if="groupingError" class="state state--inline">
+            <p class="muted">{{ groupingError }}</p>
+            <Button size="small" @click="loadGrouping">重试</Button>
+          </div>
+
+          <Empty v-else-if="!hasGrouping" description="尚未生成分组" />
+
+          <template v-else>
+            <div class="grouping-warnings">
+              <p v-for="warning in grouping?.warnings ?? []" :key="warning" class="grouping-warning">
+                {{ warning }}
+              </p>
+            </div>
+
+            <div class="grouping-board">
+              <section v-for="team in groupingTeams" :key="team" class="grouping-column">
+                <header class="grouping-head">
+                  <h3>{{ team }} 队 · {{ groupingTeamLabel(team) }}</h3>
+                  <span class="muted small">{{ groupingTotal(team) }} 分</span>
+                </header>
+                <div
+                  v-for="bucket in groupingPositionBuckets"
+                  :key="bucket.key"
+                  class="grouping-position"
+                >
+                  <p class="grouping-position__title">{{ bucket.label }}</p>
+                  <div
+                    v-for="player in groupingPlayers(team, bucket.key)"
+                    :key="player.playerId"
+                    class="grouping-row"
+                  >
+                    <span>{{ groupingPlayerLabel(player) }}</span>
+                    <small>{{ (player.finalScore ?? 0).toFixed(2) }}</small>
+                  </div>
+                  <p v-if="!groupingPlayers(team, bucket.key).length" class="muted small">—</p>
+                </div>
+              </section>
+            </div>
+
+            <div class="grouping-distribution">
+              <div v-for="row in groupingPositionRows" :key="row.position">
+                <span>{{ row.label }}</span>
+                <b>{{ row.a }} : {{ row.b }}</b>
+              </div>
+            </div>
+          </template>
         </section>
       </template>
     </template>

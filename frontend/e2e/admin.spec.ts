@@ -202,9 +202,73 @@ test('B 端：B05 阵型模板复制、重命名、删除', async ({ page }) => 
     .getByRole('button', { name: '删除' })
     .click();
   await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click();
-  await expect(
-    page.locator('.template-card--custom').filter({ hasText: renamedName }),
-  ).toHaveCount(0);
+  await expect(page.locator('.template-card--custom').filter({ hasText: renamedName })).toHaveCount(
+    0,
+  );
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B05 选阵型并排满 8 人首发后保存，C03 只读查看', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/admin/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000001');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/admin\/matches$/);
+
+  await page.goto('/admin/lineup');
+  await expect(page).toHaveURL(/\/admin\/lineup$/);
+  await page.locator('.match-picker').click();
+  await page
+    .locator('.el-select-dropdown__item')
+    .filter({ hasText: '橙队VS兰队' })
+    .filter({ hasText: '已锁定' })
+    .click();
+  await expect(page.locator('.pitch')).toBeVisible();
+
+  await page.locator('.formation-picker').click();
+  await page
+    .locator('.el-select-dropdown__item:visible')
+    .filter({ hasText: '3-2-2（预置）' })
+    .first()
+    .click();
+  // 重复运行时旧阵容已有首发，切换阵型会弹确认。
+  const switchBox = page.locator('.el-message-box');
+  const needsSwitch = await switchBox
+    .waitFor({ state: 'visible', timeout: 1500 })
+    .then(() => true)
+    .catch(() => false);
+  if (needsSwitch) {
+    await switchBox.getByRole('button', { name: '切换' }).click();
+  }
+
+  for (let index = 0; index < 8; index += 1) {
+    const slot = page.locator('.pitch-slot:not(.pitch-slot--filled)').first();
+    if ((await slot.count()) === 0) {
+      break;
+    }
+    await page.locator('.bench-item--bench .bench-select').first().click();
+    await slot.click();
+  }
+  await expect(page.locator('.pitch-slot--filled')).toHaveCount(8);
+  await page.getByRole('button', { name: '保存阵容' }).click();
+  await expect(page.getByText('阵容已保存')).toBeVisible();
+  await expect(page.locator('.lineup-version')).toContainText('v');
+
+  // C 端正式球员只读查看同一场比赛的阵容。
+  await page.goto('http://localhost:5273/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000002');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/matches$/);
+
+  await page.goto('http://localhost:5273/matches/1001');
+  await page.getByRole('button', { name: '阵容' }).click();
+  await expect(page.locator('.lineup-slot--filled')).toHaveCount(8);
+  await expect(page.getByText('测试门将01').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: /保存阵容/ })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

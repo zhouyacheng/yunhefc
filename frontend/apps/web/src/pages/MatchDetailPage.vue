@@ -6,6 +6,7 @@ import {
   EVENT_EDIT_OWN,
   GROUPING_GENERATE_ANY,
   GROUPING_VIEW_ANY,
+  LINEUP_VIEW_ANY,
   hasPermission,
 } from '@yunhefc/permissions';
 import type {
@@ -20,6 +21,8 @@ import type {
   GroupedPlayer,
   GroupingTeam,
   GroupingView,
+  LineupSide,
+  LineupView,
   MatchDetail,
   MatchEvent,
   MyMatchRegistration,
@@ -40,6 +43,7 @@ import {
   formatDateTime,
   groupingTeamName,
   isInternalMatchType,
+  isOpponentLineupSide,
   matchStatusText,
   matchStatusTone,
   matchTypeText,
@@ -57,7 +61,7 @@ const route = useRoute();
 const session = useSessionStore();
 const matchId = Number(route.params.id);
 
-type TabName = 'overview' | 'events' | 'grouping';
+type TabName = 'overview' | 'events' | 'grouping' | 'lineup';
 
 const activeTab = ref<TabName>('overview');
 const match = ref<MatchDetail | null>(null);
@@ -84,6 +88,11 @@ const grouping = ref<GroupingView | null>(null);
 const groupingLoading = ref(false);
 const groupingError = ref('');
 const groupingTeams: GroupingTeam[] = ['A', 'B'];
+
+const lineup = ref<LineupView | null>(null);
+const lineupSide = ref<LineupSide>(0);
+const lineupLoading = ref(false);
+const lineupError = ref('');
 const form = reactive({
   type: 0 as EventType,
   team: 0 as EventTeam,
@@ -165,11 +174,9 @@ const canViewGrouping = computed(
     session.isAuthenticated &&
     hasPermission(session.permissions, GROUPING_VIEW_ANY),
 );
-const canManageGrouping = computed(() =>
-  hasPermission(session.permissions, GROUPING_GENERATE_ANY),
-);
-const hasGrouping = computed(
-  () => Boolean(grouping.value && (grouping.value.teams.A.length || grouping.value.teams.B.length)),
+const canManageGrouping = computed(() => hasPermission(session.permissions, GROUPING_GENERATE_ANY));
+const hasGrouping = computed(() =>
+  Boolean(grouping.value && (grouping.value.teams.A.length || grouping.value.teams.B.length)),
 );
 const groupingPositionBuckets = [
   { key: 0, label: positionText(0) },
@@ -552,6 +559,71 @@ function openGroupingTab(): void {
   }
 }
 
+const canViewLineup = computed(
+  () => session.isAuthenticated && hasPermission(session.permissions, LINEUP_VIEW_ANY),
+);
+const lineupOpponent = computed(() => isOpponentLineupSide(match.value, lineupSide.value));
+const lineupStarterMap = computed(() => {
+  const map = new Map<string, NonNullable<LineupView['starters'][number]['player']>>();
+  lineup.value?.starters.forEach((starter) => {
+    if (starter.player) {
+      map.set(starter.slotKey, starter.player);
+    }
+  });
+  return map;
+});
+
+function lineupStarter(slotKey: string) {
+  return lineupStarterMap.value.get(slotKey) ?? null;
+}
+
+function lineupPlayerLabel(player: { name: string; jersey?: number | null }): string {
+  return player.jersey === null || player.jersey === undefined
+    ? player.name
+    : `${player.name} #${player.jersey}`;
+}
+
+function defaultLineupSide(): LineupSide {
+  return isInternalMatchType(match.value?.type) ? 0 : ((match.value?.ourSide ?? 0) as LineupSide);
+}
+
+async function loadLineup(side: LineupSide): Promise<void> {
+  lineupLoading.value = true;
+  lineupError.value = '';
+  try {
+    const result = await api.get<LineupView>(`/matches/${matchId}/lineups/${side}`);
+    if (lineupSide.value === side) {
+      lineup.value = result;
+    }
+  } catch (caught) {
+    if (lineupSide.value === side) {
+      lineup.value = null;
+      lineupError.value = isApiError(caught) ? caught.message : '阵容加载失败，请稍后重试';
+    }
+  } finally {
+    if (lineupSide.value === side) {
+      lineupLoading.value = false;
+    }
+  }
+}
+
+function switchLineupSide(next: LineupSide): void {
+  if (next === lineupSide.value) {
+    return;
+  }
+  lineupSide.value = next;
+  lineup.value = null;
+  void loadLineup(next);
+}
+
+function openLineupTab(): void {
+  activeTab.value = 'lineup';
+  if (!lineup.value && !lineupLoading.value) {
+    lineupSide.value = defaultLineupSide();
+    void loadLineup(lineupSide.value);
+  }
+}
+
 onMounted(load);
 </script>
 
@@ -600,6 +672,15 @@ onMounted(load);
           @click="openEventsTab"
         >
           事件
+        </button>
+        <button
+          v-if="canViewLineup"
+          type="button"
+          class="detail-tab"
+          :class="{ 'detail-tab--active': activeTab === 'lineup' }"
+          @click="openLineupTab"
+        >
+          阵容
         </button>
         <button
           v-if="canViewGrouping"
@@ -763,6 +844,79 @@ onMounted(load);
         </section>
       </template>
 
+      <template v-else-if="activeTab === 'lineup'">
+        <section class="card lineup-summary">
+          <div class="card-head">
+            <h2>阵容</h2>
+            <span class="muted small">{{ lineup?.formation.name ?? '尚未安排' }}</span>
+          </div>
+          <div class="lineup-side-switch">
+            <button
+              type="button"
+              class="lineup-side"
+              :class="{ 'lineup-side--active': lineupSide === 0 }"
+              @click="switchLineupSide(0)"
+            >
+              {{ match.homeTeamName }}
+            </button>
+            <button
+              type="button"
+              class="lineup-side"
+              :class="{ 'lineup-side--active': lineupSide === 1 }"
+              @click="switchLineupSide(1)"
+            >
+              {{ match.awayTeamName }}
+            </button>
+          </div>
+          <p v-if="lineupOpponent" class="muted small">对手方仅展示阵型与占位，不展示球员。</p>
+        </section>
+
+        <section class="card lineup-panel">
+          <div v-if="lineupLoading" class="state state--inline">
+            <Loading size="20">阵容加载中…</Loading>
+          </div>
+
+          <div v-else-if="lineupError" class="state state--inline">
+            <p class="muted">{{ lineupError }}</p>
+            <Button size="small" @click="loadLineup(lineupSide)">重试</Button>
+          </div>
+
+          <template v-else-if="lineup">
+            <div class="lineup-pitch">
+              <span class="lineup-pitch-line" />
+              <span class="lineup-pitch-circle" />
+              <span
+                v-for="slot in lineup.formation.slots"
+                :key="slot.slotKey"
+                class="lineup-slot"
+                :class="{ 'lineup-slot--filled': lineupStarter(slot.slotKey) }"
+                :style="{ left: `${slot.x}%`, top: `${slot.y}%` }"
+              >
+                <template v-if="lineupStarter(slot.slotKey)">
+                  <b>{{ lineupStarter(slot.slotKey)?.jersey ?? '—' }}</b>
+                  <small>{{ lineupStarter(slot.slotKey)?.name }}</small>
+                </template>
+                <span v-else class="lineup-slot__empty">{{ positionText(slot.role) }}</span>
+              </span>
+            </div>
+
+            <div class="lineup-bench">
+              <div class="card-head">
+                <h3>替补</h3>
+                <span class="muted small">{{ lineup.bench.length }} 人</span>
+              </div>
+              <p v-if="lineupOpponent" class="muted small">对手方不录入球员。</p>
+              <div v-else-if="lineup.bench.length" class="lineup-bench-list">
+                <span v-for="player in lineup.bench" :key="player.id" class="lineup-bench-item">
+                  {{ lineupPlayerLabel(player) }}
+                </span>
+              </div>
+              <p v-else class="muted small">暂无替补</p>
+            </div>
+          </template>
+        </section>
+      </template>
+
       <template v-else-if="activeTab === 'grouping'">
         <section class="card grouping-summary">
           <div class="card-head">
@@ -802,7 +956,11 @@ onMounted(load);
 
           <template v-else>
             <div class="grouping-warnings">
-              <p v-for="warning in grouping?.warnings ?? []" :key="warning" class="grouping-warning">
+              <p
+                v-for="warning in grouping?.warnings ?? []"
+                :key="warning"
+                class="grouping-warning"
+              >
                 {{ warning }}
               </p>
             </div>

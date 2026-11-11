@@ -38,7 +38,7 @@ export const router = createRouter({
       path: '/',
       component: AdminShell,
       children: [
-        { path: '', name: 'home', component: () => import('../pages/HomePage.vue') },
+        { path: '', redirect: '/dashboard' },
         ...ADMIN_SECTIONS.map((section) => ({
           path: section,
           name: section,
@@ -73,10 +73,6 @@ router.beforeEach(async (to) => {
   await session.ensureLoaded().catch(() => undefined);
   if (!session.isAuthenticated) {
     return { name: 'login', query: { redirect: toBrowserPath(to.fullPath) } };
-  }
-
-  if (to.path === '/') {
-    return session.homePath;
   }
 
   const section = to.meta.section;

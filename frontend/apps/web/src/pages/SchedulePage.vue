@@ -2,7 +2,14 @@
 import type { QueryParams } from '@yunhefc/api-client';
 import { isApiError } from '@yunhefc/api-client';
 import type { MatchSummary, Page } from '@yunhefc/shared';
-import { formatDate, formatDateTime, matchStatusText, matchTypeText } from '@yunhefc/shared';
+import {
+  MATCH_STATUS_TEXT,
+  formatDate,
+  formatDateTime,
+  matchStatusText,
+  matchStatusTone,
+  matchTypeText,
+} from '@yunhefc/shared';
 import { Button, DropdownItem, DropdownMenu, Empty, Loading, Pagination, Tag } from 'vant';
 import { onMounted, ref } from 'vue';
 
@@ -10,13 +17,10 @@ import { api } from '../api/client';
 
 const statusOptions = [
   { text: '全部状态', value: 'all' },
-  { text: '报名中', value: 0 },
-  { text: '报名截止', value: 1 },
-  { text: '已锁定', value: 2 },
-  { text: '进行中', value: 3 },
-  { text: '已结束', value: 4 },
-  { text: '已延期', value: 5 },
-  { text: '已取消', value: 6 },
+  ...Object.entries(MATCH_STATUS_TEXT).map(([value, text]) => ({
+    text,
+    value: Number(value),
+  })),
 ];
 
 const rows = ref<MatchSummary[]>([]);
@@ -26,6 +30,7 @@ const pageSize = ref(10);
 const statusValue = ref<string | number>('all');
 const loading = ref(false);
 const error = ref('');
+let requestSeq = 0;
 
 function scoreText(match: MatchSummary): string {
   if (match.scoreHome === null || match.scoreHome === undefined) {
@@ -35,19 +40,12 @@ function scoreText(match: MatchSummary): string {
 }
 
 function statusTagType(match: MatchSummary): 'primary' | 'success' | 'warning' | 'danger' {
-  if (match.status === 6 || match.status === 5) {
-    return 'danger';
-  }
-  if (match.status === 4) {
-    return 'success';
-  }
-  if (match.status === 3) {
-    return 'warning';
-  }
-  return 'primary';
+  const tone = matchStatusTone(match.status);
+  return tone === 'neutral' ? 'primary' : tone;
 }
 
 async function load(): Promise<void> {
+  const seq = ++requestSeq;
   loading.value = true;
   error.value = '';
   try {
@@ -61,12 +59,20 @@ async function load(): Promise<void> {
       query.status = Number(statusValue.value);
     }
     const result = await api.get<Page<MatchSummary>>('/matches', { query });
+    if (seq !== requestSeq) {
+      return;
+    }
     rows.value = result.items;
     total.value = result.total;
   } catch (caught) {
+    if (seq !== requestSeq) {
+      return;
+    }
     error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
   } finally {
-    loading.value = false;
+    if (seq === requestSeq) {
+      loading.value = false;
+    }
   }
 }
 
@@ -91,12 +97,7 @@ onMounted(load);
     </header>
 
     <DropdownMenu class="filters">
-      <DropdownItem
-        v-model="statusValue"
-        :options="statusOptions"
-        title="全部状态"
-        @change="reload"
-      />
+      <DropdownItem v-model="statusValue" :options="statusOptions" @change="reload" />
     </DropdownMenu>
 
     <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>

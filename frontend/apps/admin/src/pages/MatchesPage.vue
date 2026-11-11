@@ -2,7 +2,13 @@
 import type { QueryParams } from '@yunhefc/api-client';
 import { isApiError } from '@yunhefc/api-client';
 import type { MatchAdmin, Page } from '@yunhefc/shared';
-import { formatDateTime, MATCH_STATUS_TEXT, matchStatusText, matchTypeText } from '@yunhefc/shared';
+import {
+  MATCH_STATUS_TEXT,
+  formatDateTime,
+  matchStatusText,
+  matchStatusTone,
+  matchTypeText,
+} from '@yunhefc/shared';
 import { onMounted, ref } from 'vue';
 
 import { api } from '../api/client';
@@ -19,21 +25,15 @@ const pageSize = ref(10);
 const status = ref<string | undefined>(undefined);
 const loading = ref(false);
 const error = ref('');
+let requestSeq = 0;
 
 function statusTag(statusCode: number): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
-  if (statusCode === 6 || statusCode === 5) {
-    return 'danger';
-  }
-  if (statusCode === 4) {
-    return 'success';
-  }
-  if (statusCode === 3) {
-    return 'warning';
-  }
-  return 'info';
+  const tone = matchStatusTone(statusCode);
+  return tone === 'neutral' ? 'info' : tone;
 }
 
 async function load(): Promise<void> {
+  const seq = ++requestSeq;
   loading.value = true;
   error.value = '';
   try {
@@ -47,12 +47,20 @@ async function load(): Promise<void> {
       query.status = Number(status.value);
     }
     const result = await api.get<Page<MatchAdmin>>('/matches', { query });
+    if (seq !== requestSeq) {
+      return;
+    }
     rows.value = result.items;
     total.value = result.total;
   } catch (caught) {
+    if (seq !== requestSeq) {
+      return;
+    }
     error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
   } finally {
-    loading.value = false;
+    if (seq === requestSeq) {
+      loading.value = false;
+    }
   }
 }
 

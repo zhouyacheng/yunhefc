@@ -242,9 +242,6 @@ importers:
       '@yunhefc/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
-      '@yunhefc/permissions':
-        specifier: workspace:*
-        version: link:../../packages/permissions
       '@yunhefc/shared':
         specifier: workspace:*
         version: link:../../packages/shared

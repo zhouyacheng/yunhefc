@@ -129,6 +129,29 @@ describe('401 handling', () => {
     expect(isUnauthorized(error)).toBe(false);
     expect(onUnauthorized).not.toHaveBeenCalled();
   });
+
+  it('treats an empty 401 body as unauthenticated', async () => {
+    const { client, onUnauthorized } = harness(async () => new Response(null, { status: 401 }));
+
+    const error = await client.get('/matches').catch((caught: unknown) => caught);
+
+    expect(isUnauthorized(error)).toBe(true);
+    expect(onUnauthorized).toHaveBeenCalledWith('/login?redirect=%2Fmatches%3Fpage%3D2');
+  });
+
+  it('does not report an empty error body as success', async () => {
+    const { client } = harness(
+      async () => new Response(null, { status: 500, statusText: 'Internal Server Error' }),
+    );
+
+    const error = await client.get('/matches').catch((caught: unknown) => caught);
+
+    expect(error).toMatchObject({
+      status: 500,
+      code: 500,
+      message: 'Internal Server Error',
+    });
+  });
 });
 
 describe('CSRF', () => {
@@ -179,15 +202,44 @@ describe('CSRF', () => {
     ]);
   });
 
-  it('does not retry a 403 when a token was already present', async () => {
-    const { client, calls } = harness(async () =>
-      json({ code: 40301, message: '无权限', data: null }, 403),
-    );
+  it('refreshes a stale token once and retries the write', async () => {
+    const { client, calls } = harness(async (url) => {
+      if (url.endsWith('/auth/csrf')) {
+        return json(envelope({ token: 'csrf-fresh', headerName: 'X-XSRF-TOKEN' }));
+      }
+      const token = new Headers(calls.at(-1)?.init.headers).get('X-XSRF-TOKEN');
+      return token === 'csrf-stale'
+        ? json({ code: 40301, message: '无权限', data: null }, 403)
+        : json(envelope({ ok: true }));
+    });
 
-    client.setCsrfToken('csrf-1');
+    client.setCsrfToken('csrf-stale');
+    await expect(client.post('/anything', {})).resolves.toEqual({ ok: true });
+
+    expect(calls.map((call) => call.url)).toEqual([
+      '/api/v1/c/anything',
+      '/api/v1/c/auth/csrf',
+      '/api/v1/c/anything',
+    ]);
+    expect(new Headers(calls[2]?.init.headers).get('X-XSRF-TOKEN')).toBe('csrf-fresh');
+  });
+
+  it('retries a genuine 403 only once', async () => {
+    const { client, calls } = harness(async (url) => {
+      if (url.endsWith('/auth/csrf')) {
+        return json(envelope({ token: 'csrf-fresh', headerName: 'X-XSRF-TOKEN' }));
+      }
+      return json({ code: 40301, message: '无权限', data: null }, 403);
+    });
+
+    client.setCsrfToken('csrf-stale');
     await expect(client.post('/anything', {})).rejects.toBeInstanceOf(ApiError);
 
-    expect(calls).toHaveLength(1);
+    expect(calls.map((call) => call.url)).toEqual([
+      '/api/v1/c/anything',
+      '/api/v1/c/auth/csrf',
+      '/api/v1/c/anything',
+    ]);
   });
 });
 
@@ -230,6 +282,18 @@ describe('write helpers', () => {
     expect(newIdempotencyKey()).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
     );
+  });
+
+  it('sends a JSON body and Idempotency-Key on DELETE', async () => {
+    const { client, calls } = harness(async () => json(envelope({ ok: true })));
+    client.setCsrfToken('csrf-1');
+
+    await client.delete('/events/1', { version: 2 }, { idempotencyKey: 'idem-2' });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.init.body).toBe('{"version":2}');
+    expect(new Headers(calls[0]?.init.headers).get('Content-Type')).toBe('application/json');
+    expect(new Headers(calls[0]?.init.headers).get('Idempotency-Key')).toBe('idem-2');
   });
 });
 

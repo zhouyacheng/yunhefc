@@ -48,8 +48,11 @@ export interface MatchDetail extends MatchSummary {
   myRegistration?: Registration | null;
 }
 
-/** 05 §4 MatchAdmin（GET /b/matches 列表项为 MatchAdmin）。 */
-export interface MatchAdmin extends MatchDetail {
+/**
+ * 05 §4 MatchAdmin。后端 MAT-09/MAT-10 的 MatchAdminView 未返回
+ * derivedScore/myRegistration，故按实际响应声明为可选。
+ */
+export type MatchAdmin = Omit<MatchDetail, 'derivedScore' | 'myRegistration'> & {
   includeGuests: boolean;
   manualStatus: boolean;
   statusUpdatedAt?: string | null;
@@ -57,7 +60,9 @@ export interface MatchAdmin extends MatchDetail {
   createdBy: number;
   createdAt: string;
   updatedAt: string;
-}
+  derivedScore?: DerivedScore;
+  myRegistration?: Registration | null;
+};
 
 export interface Score {
   scoreHome: number | null;
@@ -148,4 +153,20 @@ export function matchTypeText(code: number | null | undefined): string {
 
 export function matchStatusText(code: number | null | undefined): string {
   return code === null || code === undefined ? '' : (MATCH_STATUS_TEXT[code as MatchStatus] ?? '');
+}
+
+/** 跨端统一的状态语气，由各组件库映射到自己的颜色类型。 */
+export type MatchStatusTone = 'neutral' | 'success' | 'warning' | 'danger';
+
+export function matchStatusTone(code: number | null | undefined): MatchStatusTone {
+  if (code === 5 || code === 6) {
+    return 'danger';
+  }
+  if (code === 4) {
+    return 'success';
+  }
+  if (code === 3) {
+    return 'warning';
+  }
+  return 'neutral';
 }

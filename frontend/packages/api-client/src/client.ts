@@ -107,8 +107,8 @@ export class ApiClient {
     return this.request<T>('PATCH', path, { ...options, body });
   }
 
-  delete<T>(path: string, options: RequestOptions = {}): Promise<T> {
-    return this.request<T>('DELETE', path, options);
+  delete<T>(path: string, body?: unknown, options: RequestOptions = {}): Promise<T> {
+    return this.request<T>('DELETE', path, { ...options, body });
   }
 
   async request<T>(
@@ -126,7 +126,9 @@ export class ApiClient {
 
     let response = await this.send(method, url, options);
 
-    if (isWrite && response.status === 403 && !this.csrfToken) {
+    // token 可能已过期或被其他标签页/会话轮换：403 时重取一次并重试一次。
+    if (isWrite && response.status === 403) {
+      this.clearCsrfToken();
       await this.fetchCsrfToken().catch(() => undefined);
       if (this.csrfToken) {
         response = await this.send(method, url, options);
@@ -287,11 +289,14 @@ export class ApiClient {
         });
       }
     }
-    const envelope = (body ?? {
-      code: ERROR_CODES.OK,
-      message: 'success',
-      data: undefined,
-    }) as Partial<ApiEnvelope<T>> & { data: T };
+    const envelope =
+      body === undefined || body === null
+        ? ({
+            code: response.status === 401 ? ERROR_CODES.UNAUTHENTICATED : response.status,
+            message: response.ok ? 'success' : response.statusText || '请求失败',
+            data: undefined,
+          } as Partial<ApiEnvelope<T>> & { data: T })
+        : (body as Partial<ApiEnvelope<T>> & { data: T });
     return { ...envelope, requestId: envelope.requestId ?? requestId };
   }
 

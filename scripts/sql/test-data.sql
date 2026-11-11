@@ -50,7 +50,8 @@ VALUES
   (1018, '13910000018', NULL, NULL, 1),
   (1019, '13910000019', NULL, NULL, 1),
   (1020, '13910000020', NULL, NULL, 1)
-ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash);
+ON DUPLICATE KEY UPDATE
+  password_hash = IF(id IN (1001, 1002), VALUES(password_hash), password_hash);
 
 -- 球员档案：正式球员号码 21-35 唯一，外挂 36-40 不参与正式唯一约束
 INSERT IGNORE INTO player
@@ -214,5 +215,5 @@ COMMIT;
 -- 说明：
 -- 1. 本脚本只用于测试库；执行前请确认 schema.sql 已执行。
 -- 2. 若已有同号球队/角色，会复用；球员/比赛使用 1000+ ID，避免与常规自增数据冲突。
--- 3. 1001/1002 的测试密码为 Passw0rd!；重跑脚本会覆盖这两个账号的密码哈希。
+-- 3. 1001/1002 的测试密码为 Passw0rd!；重跑脚本只会覆盖这两个账号的密码哈希，其余账号保持不变。
 -- 4. 1001 场为状态 2（锁定）+ 已保存分组，可用于阵容/分组联调；1002 场为状态 4（已结束），可用于事件/考勤/统计联调。

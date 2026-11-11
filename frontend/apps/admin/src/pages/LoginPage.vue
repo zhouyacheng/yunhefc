@@ -17,6 +17,7 @@ const errorMessage = ref('');
 const errorCode = ref<number | null>(null);
 
 const noBackendPermission = computed(() => errorCode.value === ERROR_CODES.FORBIDDEN);
+const webUrl = import.meta.env.VITE_WEB_URL ?? (import.meta.env.DEV ? 'http://localhost:5273' : '');
 
 async function submit(): Promise<void> {
   errorMessage.value = '';
@@ -77,7 +78,8 @@ async function submit(): Promise<void> {
           show-icon
         />
         <p v-if="noBackendPermission" class="login-hint">
-          请使用具备后台权限的账号，或前往 C 端登录。
+          请使用具备后台权限的账号<span v-if="webUrl">，或 <a :href="webUrl">前往 C 端登录</a></span
+          >。
         </p>
 
         <el-button class="login-submit" type="primary" native-type="submit" :loading="submitting">

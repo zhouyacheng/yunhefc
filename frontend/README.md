@@ -15,7 +15,7 @@ pnpm dev:web      # http://localhost:5273
 pnpm dev:admin    # http://localhost:5274/admin/
 ```
 
-Vite dev 把 `/api` 代理到 `http://localhost:8080`，并去掉转发请求的 `Origin`，因此不需要额外 CORS 配置。admin 的 `BASE_URL` 默认 `/admin/`，部署在 admin 子域根路径时用 `ADMIN_BASE_URL=/` 构建。
+Vite dev 把 `/api` 代理到 `http://localhost:8080`，并去掉转发请求的 `Origin`，因此不需要额外 CORS 配置。admin 的 `BASE_URL` 默认 `/admin/`，部署在 admin 子域根路径时用 `ADMIN_BASE_URL=/` 构建；B 端登录页的“前往 C 端”链接用 `VITE_WEB_URL` 配置，dev 默认 `http://localhost:5273`。
 
 ## 后端 dev profile 与测试数据
 
@@ -29,12 +29,14 @@ SPRING_PROFILES_ACTIVE=dev \
 ./mvnw spring-boot:run
 ```
 
-测试数据（含两场比赛，账号 1001/1002 的密码为 `Passw0rd!`）：
+测试数据（含两场比赛，账号 1001/1002 的密码为 `Passw0rd!`）。在仓库根目录执行：
 
 ```bash
 mysql -uyunhefc -pyunhefc yunhefc < scripts/sql/test-data.sql
 # 或容器内：docker exec -i <mysql容器> mysql -uyunhefc -pyunhefc yunhefc < scripts/sql/test-data.sql
 ```
+
+若本地容器映射到非默认端口（如 MySQL 3307、Redis 6380），上面的 `DB_URL`/`REDIS_PORT` 按实际端口替换。
 
 > `test-data.sql` 仅用于测试库；重跑会覆盖 1001/1002 的密码哈希。
 
@@ -56,7 +58,7 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-覆盖：C 登录 → 赛程真实分页；未登录访问受保护页跳登录并带 `redirect`；B 管理员登录 → 比赛列表；无权限分区侧栏过滤与直访 403；均断言无 console error。
+覆盖：C 登录 → 赛程真实分页；未登录访问受保护页跳登录并带 `redirect`；B 管理员登录 → 比赛列表；无权限分区侧栏过滤与直访 403。两条登录冒烟额外断言无 console error；redirect/403 用例只断言页面结果（会话探测会产生预期的 401 网络日志）。
 
 ## 约定
 

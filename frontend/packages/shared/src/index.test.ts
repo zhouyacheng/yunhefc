@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { emptyPage, isPage, matchStatusText, matchTypeText, readLabel } from './index';
+import {
+  emptyPage,
+  isPage,
+  matchStatusText,
+  matchStatusTone,
+  matchTypeText,
+  readLabel,
+} from './index';
 
 describe('Page helper', () => {
   it('recognizes the 05 pagination shape', () => {
@@ -24,5 +31,12 @@ describe('enum helpers', () => {
     expect(matchStatusText(2)).toBe('已锁定');
     expect(matchTypeText(1)).toBe('队内赛');
     expect(matchStatusText(undefined)).toBe('');
+  });
+
+  it('maps match statuses to a shared tone', () => {
+    expect(matchStatusTone(6)).toBe('danger');
+    expect(matchStatusTone(4)).toBe('success');
+    expect(matchStatusTone(3)).toBe('warning');
+    expect(matchStatusTone(0)).toBe('neutral');
   });
 });

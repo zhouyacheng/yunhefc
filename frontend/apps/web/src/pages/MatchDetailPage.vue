@@ -51,7 +51,7 @@ const checkInHint = computed(() => {
   if (windowState.value === 'after') {
     return '签到已结束：比赛当天 23:59 截止';
   }
-  return '';
+  return '签到窗口开放中：开赛前 4 小时至比赛当天 23:59';
 });
 const loginTarget = computed(() => ({
   name: 'login',

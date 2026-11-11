@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.player.PlayerReadPort;
+import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.registration.RegistrationQueueCounts;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.registration.RegistrationRosterPage;
@@ -75,6 +76,30 @@ public class RegistrationReadAdapter implements RegistrationReadPort {
         return new RegistrationRosterPage(
                 result.getRecords().stream().map(RegistrationReadAdapter::toSnapshot).toList(),
                 result.getTotal());
+    }
+
+    @Override
+    public List<Long> findActiveUserIds(Long teamId, Long matchId) {
+        List<Registration> registrations = registrationMapper.selectList(
+                new LambdaQueryWrapper<Registration>()
+                        .eq(Registration::getMatchId, matchId)
+                        .in(Registration::getStatus,
+                                RegistrationStatus.CONFIRMED, RegistrationStatus.WAITLISTED)
+                        .orderByAsc(Registration::getRegisteredAt)
+                        .orderByAsc(Registration::getId));
+        if (registrations.isEmpty()) {
+            return List.of();
+        }
+        Map<Long, PlayerSnapshot> players = playerReadPort.findByIds(teamId,
+                        registrations.stream().map(Registration::getPlayerId).toList())
+                .stream()
+                .collect(Collectors.toMap(PlayerSnapshot::id, Function.identity()));
+        return registrations.stream()
+                .map(registration -> players.get(registration.getPlayerId()))
+                .filter(player -> player != null)
+                .map(PlayerSnapshot::userId)
+                .distinct()
+                .toList();
     }
 
     private static RegistrationType parseType(Integer type) {

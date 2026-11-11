@@ -3,6 +3,7 @@ package com.yunhefc.notification.application;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.contracts.messaging.EventTypes;
+import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.infra.outbox.ConsumedEventMapper;
 import com.yunhefc.infra.outbox.OutboxMessage;
 import com.yunhefc.notification.domain.Notification;
@@ -14,6 +15,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 
 @Service
@@ -23,9 +28,12 @@ public class NotificationEventHandler {
     public static final String GROUP = "yunhefc-notification";
 
     private static final Logger log = LoggerFactory.getLogger(NotificationEventHandler.class);
+    private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
+    private static final DateTimeFormatter START_AT_FORMAT = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationMapper notificationMapper;
     private final ConsumedEventMapper consumedEventMapper;
+    private final RegistrationReadPort registrationReadPort;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -41,12 +49,56 @@ public class NotificationEventHandler {
             }
             Map<String, Object> payload = objectMapper.readValue(event.payload(), new TypeReference<>() {
             });
-            notificationMapper.insert(build(event.eventType(), payload));
+            if (EventTypes.MATCH_POSTPONED.equals(event.eventType())
+                    || EventTypes.MATCH_CANCELLED.equals(event.eventType())) {
+                insertForActiveRegistrants(event, payload);
+            } else {
+                notificationMapper.insert(build(event.eventType(), payload));
+            }
         } catch (Exception ex) {
             log.error("notification event handling failed, topic={}, partition={}, offset={}",
                     topic, partition, offset, ex);
             throw new IllegalStateException("处理通知事件失败", ex);
         }
+    }
+
+    /**
+     * 赛程变更广播给比赛当前全部有效报名者；报名域只经 contracts 只读端口访问。
+     */
+    private void insertForActiveRegistrants(OutboxMessage event, Map<String, Object> payload) {
+        Long matchId = longValue(payload.get("matchId"));
+        List<Notification> notifications = registrationReadPort
+                .findActiveUserIds(event.teamId(), matchId).stream()
+                .map(userId -> buildMatchNotification(event.eventType(), payload, userId))
+                .toList();
+        if (!notifications.isEmpty()) {
+            notificationMapper.insertBatch(notifications);
+        }
+    }
+
+    private Notification buildMatchNotification(String eventType, Map<String, Object> payload,
+                                                Long userId) {
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setRefType("MATCH");
+        notification.setRefId(longValue(payload.get("matchId")));
+        String matchTitle = String.valueOf(payload.get("matchTitle"));
+        if (EventTypes.MATCH_CANCELLED.equals(eventType)) {
+            notification.setType(NotificationType.MATCH_CANCELLED);
+            notification.setTitle("比赛取消");
+            notification.setBody("「" + matchTitle + "」已取消：" + payload.getOrDefault("reason", ""));
+            return notification;
+        }
+        boolean rescheduled = Boolean.TRUE.equals(payload.get("rescheduled"));
+        notification.setType(NotificationType.MATCH_POSTPONED);
+        notification.setTitle(rescheduled ? "比赛恢复报名" : "比赛延期");
+        notification.setBody("「" + matchTitle + "」已" + (rescheduled ? "重新排期" : "延期")
+                + "至 " + formatStartAt(payload.get("startAt")) + "，请留意最新安排。");
+        return notification;
+    }
+
+    private static String formatStartAt(Object value) {
+        return START_AT_FORMAT.format(Instant.parse(String.valueOf(value)).atZone(ZONE));
     }
 
     private Notification build(String eventType, Map<String, Object> payload) {

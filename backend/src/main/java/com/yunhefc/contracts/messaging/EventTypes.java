@@ -10,13 +10,16 @@ public final class EventTypes {
     public static final String ACCOUNT_DISABLED = "ACCOUNT_DISABLED";
     public static final String REGISTRATION_CONFIRMED = "REGISTRATION_CONFIRMED";
     public static final String WAITLIST_PROMOTED = "WAITLIST_PROMOTED";
+    public static final String MATCH_POSTPONED = "MATCH_POSTPONED";
+    public static final String MATCH_CANCELLED = "MATCH_CANCELLED";
 
     /**
      * 投递到通知 topic 并被站内信消费者处理的领域事件；新增类型时只维护此处。
      */
     public static final Set<String> NOTIFICATION_EVENTS = Set.of(
             ROLE_CHANGED, ACCOUNT_APPROVED, ACCOUNT_DISABLED,
-            REGISTRATION_CONFIRMED, WAITLIST_PROMOTED);
+            REGISTRATION_CONFIRMED, WAITLIST_PROMOTED,
+            MATCH_POSTPONED, MATCH_CANCELLED);
 
     private EventTypes() {
     }

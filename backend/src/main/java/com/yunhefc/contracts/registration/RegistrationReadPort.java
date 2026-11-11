@@ -26,4 +26,9 @@ public interface RegistrationReadPort {
      * 比赛报名名单分页；type/status 为空时不过滤，按报名时间、ID 升序。
      */
     RegistrationRosterPage findRoster(Long matchId, Integer type, Integer status, long page, long pageSize);
+
+    /**
+     * 比赛全部有效报名（CONFIRMED/WAITLISTED）对应账号，按报名时间、ID 升序去重。
+     */
+    List<Long> findActiveUserIds(Long teamId, Long matchId);
 }

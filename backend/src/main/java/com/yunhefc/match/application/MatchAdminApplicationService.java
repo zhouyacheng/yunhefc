@@ -8,10 +8,12 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.registration.RegistrationQueueCounts;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.settings.RegistrationDefaults;
 import com.yunhefc.contracts.settings.RegistrationDefaultsPort;
+import com.yunhefc.infra.outbox.OutboxService;
 import com.yunhefc.match.domain.MatchStatus;
 import com.yunhefc.match.domain.MatchStatusMachine;
 import com.yunhefc.match.domain.MatchTimeRules;
@@ -55,6 +57,7 @@ public class MatchAdminApplicationService {
     private final RegistrationDefaultsPort registrationDefaultsPort;
     private final RegistrationReadPort registrationReadPort;
     private final AuditRecorder auditRecorder;
+    private final OutboxService outboxService;
     private final Clock clock;
     private final TransactionTemplate transactionTemplate;
 
@@ -292,6 +295,7 @@ public class MatchAdminApplicationService {
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
                 current -> MatchStatusMachine.requirePostponable(current.getStatus()));
         auditRecorder.recordCurrent("MATCH_POSTPONE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
+        appendScheduleChangedEvent(saved, false);
         return toView(saved, counts(matchId));
     }
 
@@ -325,6 +329,7 @@ public class MatchAdminApplicationService {
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
                 current -> MatchStatusMachine.requireReschedulable(current.getStatus()));
         auditRecorder.recordCurrent("MATCH_RESCHEDULE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
+        appendScheduleChangedEvent(saved, true);
         return toView(saved, counts(matchId));
     }
 
@@ -351,10 +356,24 @@ public class MatchAdminApplicationService {
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
                 current -> MatchStatusMachine.requireCancellable(current.getStatus()));
+        String reason = request.reason().strip();
         Map<String, Object> after = MatchAuditSnapshot.of(saved);
-        after.put("reason", request.reason().strip());
+        after.put("reason", reason);
         auditRecorder.recordCurrent("MATCH_CANCEL", "MATCH", matchId, before, after);
+        outboxService.append(saved.getTeamId(), "MATCH", matchId, EventTypes.MATCH_CANCELLED,
+                Map.of("matchId", matchId, "matchTitle", saved.getTitle(), "reason", reason));
         return toView(saved, counts(matchId));
+    }
+
+    /**
+     * 延期与重新排期共用 MATCH_POSTPONED 事件，由 rescheduled 区分文案。
+     */
+    private void appendScheduleChangedEvent(TeamMatch match, boolean rescheduled) {
+        outboxService.append(match.getTeamId(), "MATCH", match.getId(), EventTypes.MATCH_POSTPONED,
+                Map.of("matchId", match.getId(),
+                        "matchTitle", match.getTitle(),
+                        "startAt", match.getStartAt(),
+                        "rescheduled", rescheduled));
     }
 
     private TeamMatch lockForTransition(Long matchId, Long teamId, Integer version,

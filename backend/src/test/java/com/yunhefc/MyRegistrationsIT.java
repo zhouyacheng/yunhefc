@@ -16,6 +16,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -138,12 +139,17 @@ class MyRegistrationsIT extends IntegrationTestSupport {
     void paginatesByLatestRegistrationAndValidatesParameters() throws Exception {
         Cookie admin = bAdminLogin("13900001105");
         Cookie player = playerLogin("13900001106", "我的报名分页");
+        Long playerPk = playerId("13900001106");
         Long firstMatch = null;
         Long lastMatch = null;
         for (int day = 1; day <= 11; day++) {
             Long matchId = createMatch(admin, "M04我的报名分页" + day,
                     "2099-08-%02dT20:00:00".formatted(day));
-            signup(player, matchId);
+            // 分页用例需要 11 条报名记录，直接落库，避免触发报名接口限流
+            jdbc.update("""
+                    INSERT INTO registration (match_id, player_id, type, status, registered_at)
+                    VALUES (?, ?, 1, 0, ?)
+                    """, matchId, playerPk, Timestamp.valueOf(LocalDateTime.of(2099, 8, day, 12, 0)));
             firstMatch = firstMatch == null ? matchId : firstMatch;
             lastMatch = matchId;
         }

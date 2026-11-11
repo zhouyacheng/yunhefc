@@ -36,6 +36,14 @@ public record MatchSnapshot(
     }
 
     /**
+     * 已取消/已延期：签到、事件等作废场次操作一律拒绝。
+     */
+    public boolean cancelledOrPostponed() {
+        return status != null
+                && (status == MatchStatusCodes.CANCELLED || status == MatchStatusCodes.POSTPONED);
+    }
+
+    /**
      * 球员可自行取消报名的状态：仅报名中与报名截止；锁定及之后、已取消、已延期都不允许。
      */
     public boolean cancellationOpen() {

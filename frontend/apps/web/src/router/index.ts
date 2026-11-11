@@ -39,6 +39,11 @@ export const router = createRouter({
         { path: '', redirect: '/matches' },
         { path: 'matches', name: 'matches', component: () => import('../pages/SchedulePage.vue') },
         {
+          path: 'matches/:id',
+          name: 'match-detail',
+          component: () => import('../pages/MatchDetailPage.vue'),
+        },
+        {
           path: 'account',
           name: 'account',
           component: () => import('../pages/AccountPage.vue'),

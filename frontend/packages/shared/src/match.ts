@@ -125,6 +125,12 @@ export interface MyRegistration {
   match: MatchSummary;
 }
 
+/** 05 §4 REG-04 本人报名与考勤；未报名或无考勤记录时对应字段为 null。 */
+export interface MyMatchRegistration {
+  registration?: Registration | null;
+  attendance?: Attendance | null;
+}
+
 export interface PromotionResult {
   promotedPlayerId?: number | null;
   promoted: boolean;
@@ -169,4 +175,47 @@ export function matchStatusTone(code: number | null | undefined): MatchStatusTon
     return 'warning';
   }
   return 'neutral';
+}
+
+export const REGISTRATION_STATUS_TEXT: Readonly<Record<number, string>> = {
+  0: '已确认',
+  1: '候补中',
+  2: '已取消',
+  3: '已移除',
+};
+
+export const ATTENDANCE_STATUS_TEXT: Readonly<Record<number, string>> = {
+  0: '正常',
+  1: '缺勤',
+  2: '临时到场',
+};
+
+export const ATTENDANCE_SOURCE_TEXT: Readonly<Record<number, string>> = {
+  0: '自助签到',
+  1: '管理员',
+  2: '系统',
+};
+
+export type CheckInWindowState = 'open' | 'before' | 'after';
+
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const CHECK_IN_OPENS_BEFORE_MS = 4 * 60 * 60 * 1000;
+
+/**
+ * 签到窗口：开赛前 4 小时至比赛当天 23:59（Asia/Shanghai）。
+ * 仅用于按钮启用与禁用说明；服务端仍按同一规则强校验。
+ */
+export function checkInWindowState(startAt: string, now: number = Date.now()): CheckInWindowState {
+  const start = Date.parse(startAt);
+  if (Number.isNaN(start)) {
+    return 'after';
+  }
+  if (now < start - CHECK_IN_OPENS_BEFORE_MS) {
+    return 'before';
+  }
+  // Asia/Shanghai 固定 UTC+8：比赛当天结束 = 次日 00:00（本地）。
+  const localDayStart =
+    Math.floor((start + SHANGHAI_OFFSET_MS) / DAY_MS) * DAY_MS - SHANGHAI_OFFSET_MS;
+  return now < localDayStart + DAY_MS ? 'open' : 'after';
 }

@@ -16,4 +16,11 @@ public record RegistrationSnapshot(
         Instant registeredAt,
         Instant cancelledAt,
         boolean active) {
+
+    /**
+     * 已确认报名：仅 CONFIRMED 可自助签到与进入考勤统计。
+     */
+    public boolean confirmed() {
+        return status != null && status == RegistrationStatusCodes.CONFIRMED;
+    }
 }

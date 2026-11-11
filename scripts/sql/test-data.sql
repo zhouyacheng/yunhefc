@@ -87,7 +87,8 @@ SELECT u.id, @guest_role_id FROM app_user u WHERE u.id BETWEEN 1016 AND 1020;
 
 INSERT IGNORE INTO user_role (user_id, role_id) VALUES (1001, @admin_role_id);
 
--- 两场测试比赛：1001 锁定（用于分组/阵容），1002 已结束（用于事件/考勤/统计）
+-- 三场测试比赛：1001 锁定（用于分组/阵容），1002 已结束（用于事件/考勤/统计），
+-- 1003 开赛时间随脚本滚动（用于 C 端签到黄金路径）
 INSERT IGNORE INTO team_match
   (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
    venue, competition, season, round, home_team_name, away_team_name, our_side,
@@ -111,6 +112,32 @@ FROM player WHERE id BETWEEN 1001 AND 1019;
 INSERT IGNORE INTO registration (match_id, player_id, type, status, registered_at)
 SELECT 1002, id, type, 0, '2026-10-25 09:00:00'
 FROM player WHERE id BETWEEN 1001 AND 1010 OR id BETWEEN 1016 AND 1017;
+
+-- 签到联调：1003 场开赛时间随脚本执行滚动到 2 小时后，保证 C 端 Playwright 黄金路径处于签到窗口内。
+SET @checkin_start = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR);
+INSERT INTO team_match
+  (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
+   venue, competition, season, round, home_team_name, away_team_name, our_side,
+   status, manual_status, capacity, guest_capacity, waitlist_capacity, include_guests,
+   score_home, score_away, season_match_no, total_match_no, version, created_by)
+VALUES
+  (1003, @team_id, 'M05签到联调赛', 1, '8人制',
+   @checkin_start, DATE_ADD(@checkin_start, INTERVAL 2 HOUR),
+   DATE(@checkin_start), DATE_ADD(DATE(@checkin_start), INTERVAL 10 HOUR),
+   '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 3, '橙队', '兰队', NULL,
+   2, 1, 30, 4, 2, 1, 0, 0, 3, 3, 0, 1001)
+ON DUPLICATE KEY UPDATE
+  start_at = VALUES(start_at), end_at = VALUES(end_at),
+  signup_deadline = VALUES(signup_deadline), cancel_lock = VALUES(cancel_lock),
+  season = VALUES(season), status = VALUES(status), manual_status = VALUES(manual_status),
+  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no);
+
+-- 1002（测试登录账号）在 1003 场确认报名；重跑脚本时重置考勤，保证签到黄金路径可重复执行。
+INSERT INTO registration (match_id, player_id, type, status, registered_at)
+VALUES (1003, 1002, 1, 0, UTC_TIMESTAMP())
+ON DUPLICATE KEY UPDATE status = 0, cancelled_at = NULL;
+
+DELETE FROM attendance WHERE match_id = 1003 AND player_id = 1002;
 
 -- 考勤：1002 场部分正常/缺勤/临时到场（1020 未报名，临时到场）
 INSERT IGNORE INTO attendance (match_id, player_id, status, source, recorded_by)
@@ -216,4 +243,5 @@ COMMIT;
 -- 1. 本脚本只用于测试库；执行前请确认 schema.sql 已执行。
 -- 2. 若已有同号球队/角色，会复用；球员/比赛使用 1000+ ID，避免与常规自增数据冲突。
 -- 3. 1001/1002 的测试密码为 Passw0rd!；重跑脚本只会覆盖这两个账号的密码哈希，其余账号保持不变。
--- 4. 1001 场为状态 2（锁定）+ 已保存分组，可用于阵容/分组联调；1002 场为状态 4（已结束），可用于事件/考勤/统计联调。
+-- 4. 1001 场为状态 2（锁定）+ 已保存分组，可用于阵容/分组联调；1002 场为状态 4（已结束），可用于事件/考勤/统计联调；
+--    1003 场为状态 2（锁定）、开赛时间随脚本滚动到 2 小时后，用于 C 端签到黄金路径。

@@ -110,30 +110,37 @@ onMounted(load);
     <Empty v-else-if="rows.length === 0" description="暂无符合条件的比赛" />
 
     <div v-else class="match-list">
-      <article v-for="match in rows" :key="match.id" class="match-card">
-        <div class="match-card__top">
-          <span class="match-card__date">{{ formatDate(match.startAt) }}</span>
-          <Tag :type="statusTagType(match)" plain>{{ matchStatusText(match.status) }}</Tag>
-          <span class="muted small">第 {{ match.seasonMatchNo }} 场</span>
-        </div>
+      <RouterLink
+        v-for="match in rows"
+        :key="match.id"
+        class="match-card-link"
+        :to="`/matches/${match.id}`"
+      >
+        <article class="match-card">
+          <div class="match-card__top">
+            <span class="match-card__date">{{ formatDate(match.startAt) }}</span>
+            <Tag :type="statusTagType(match)" plain>{{ matchStatusText(match.status) }}</Tag>
+            <span class="muted small">第 {{ match.seasonMatchNo }} 场</span>
+          </div>
 
-        <div class="match-card__teams">
-          <span>{{ match.homeTeamName }}</span>
-          <strong>{{ scoreText(match) }}</strong>
-          <span>{{ match.awayTeamName }}</span>
-        </div>
+          <div class="match-card__teams">
+            <span>{{ match.homeTeamName }}</span>
+            <strong>{{ scoreText(match) }}</strong>
+            <span>{{ match.awayTeamName }}</span>
+          </div>
 
-        <div class="match-card__meta muted small">
-          <span>{{ matchTypeText(match.type) }}</span>
-          <span>{{ formatDateTime(match.startAt) }}</span>
-          <span>{{ match.venue }}</span>
-        </div>
+          <div class="match-card__meta muted small">
+            <span>{{ matchTypeText(match.type) }}</span>
+            <span>{{ formatDateTime(match.startAt) }}</span>
+            <span>{{ match.venue }}</span>
+          </div>
 
-        <div class="match-card__queue small">
-          正式 {{ match.confirmedCount }} · 外挂 {{ match.guestCount }} · 候补
-          {{ match.waitlistCount }}
-        </div>
-      </article>
+          <div class="match-card__queue small">
+            正式 {{ match.confirmedCount }} · 外挂 {{ match.guestCount }} · 候补
+            {{ match.waitlistCount }}
+          </div>
+        </article>
+      </RouterLink>
     </div>
 
     <footer v-if="total > 0" class="page-footer">

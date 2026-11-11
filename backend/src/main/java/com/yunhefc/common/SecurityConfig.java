@@ -23,6 +23,7 @@ import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.HttpSessionCsrfTokenRepository;
+import org.springframework.security.web.session.SessionManagementFilter;
 import org.springframework.session.web.http.HttpSessionIdResolver;
 
 @Configuration
@@ -74,7 +75,9 @@ public class SecurityConfig {
                         .accessDeniedHandler((request, response, exception) ->
                                 writeError(response, ErrorCode.FORBIDDEN)))
                 .addFilterBefore(new RequestIdFilter(), CsrfFilter.class)
-                .addFilterAfter(new SessionAuthFilter(userAccessPort), RequestIdFilter.class)
+                // 认证必须晚于 SessionManagementFilter：否则首个已登录请求会被判为“请求内新认证”，
+                // 触发 CsrfAuthenticationStrategy 轮换 CSRF token，使登录响应返回的 token 失效。
+                .addFilterAfter(new SessionAuthFilter(userAccessPort), SessionManagementFilter.class)
                 .addFilterAfter(new SessionCookieRefreshFilter(sessionIdResolver), SessionAuthFilter.class)
                 .addFilterAfter(new PendingAccountFilter(objectMapper), SessionCookieRefreshFilter.class);
 

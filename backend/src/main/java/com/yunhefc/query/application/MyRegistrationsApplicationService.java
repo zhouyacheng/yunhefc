@@ -5,6 +5,8 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.attendance.AttendanceReadPort;
+import com.yunhefc.contracts.attendance.AttendanceSnapshot;
 import com.yunhefc.contracts.match.MatchSummaryReadPort;
 import com.yunhefc.contracts.match.MatchSummarySnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
@@ -13,6 +15,7 @@ import com.yunhefc.contracts.registration.RegistrationQueueCounts;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.registration.RegistrationSnapshot;
 import com.yunhefc.contracts.security.AuthPrincipal;
+import com.yunhefc.query.dto.MyRegistrationDtos.AttendanceView;
 import com.yunhefc.query.dto.MyRegistrationDtos.MatchSummary;
 import com.yunhefc.query.dto.MyRegistrationDtos.MyMatchRegistrationView;
 import com.yunhefc.query.dto.MyRegistrationDtos.MyRegistration;
@@ -36,6 +39,7 @@ public class MyRegistrationsApplicationService {
     private final RegistrationReadPort registrationReadPort;
     private final MatchSummaryReadPort matchSummaryReadPort;
     private final PlayerReadPort playerReadPort;
+    private final AttendanceReadPort attendanceReadPort;
 
     @Transactional(readOnly = true)
     public PageResponse<MyRegistration> list(String scope, long page, long pageSize) {
@@ -78,20 +82,38 @@ public class MyRegistrationsApplicationService {
         matchSummaryReadPort.findSummary(matchId, principal.teamId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
 
-        RegistrationView registration = registrationReadPort
+        RegistrationSnapshot found = registrationReadPort
                 .findActiveByUser(matchId, principal.userId())
-                .map(found -> new RegistrationView(
-                        found.id(),
-                        found.playerId(),
-                        found.type(),
-                        found.typeLabel(),
-                        found.status(),
-                        found.statusLabel(),
-                        found.registeredAt(),
-                        found.cancelledAt(),
-                        found.active()))
                 .orElse(null);
-        return new MyMatchRegistrationView(registration, null);
+        if (found == null) {
+            return new MyMatchRegistrationView(null, null);
+        }
+        RegistrationView registration = new RegistrationView(
+                found.id(),
+                found.playerId(),
+                found.type(),
+                found.typeLabel(),
+                found.status(),
+                found.statusLabel(),
+                found.registeredAt(),
+                found.cancelledAt(),
+                found.active());
+        AttendanceView attendance = attendanceReadPort
+                .findByMatchAndPlayer(matchId, found.playerId())
+                .map(MyRegistrationsApplicationService::toAttendanceView)
+                .orElse(null);
+        return new MyMatchRegistrationView(registration, attendance);
+    }
+
+    private static AttendanceView toAttendanceView(AttendanceSnapshot attendance) {
+        return new AttendanceView(
+                attendance.id(),
+                attendance.playerId(),
+                attendance.status(),
+                attendance.statusLabel(),
+                attendance.source(),
+                attendance.sourceLabel(),
+                attendance.recordedAt());
     }
 
     /**

@@ -39,7 +39,7 @@ public final class MyRegistrationDtos {
     }
 
     /**
-     * REG-04 本人报名状态；未报名时 registration 为 null，M05 落地前 attendance 恒为 null。
+     * REG-04 本人报名状态；未报名或无考勤记录时对应字段为 null。
      */
     public record MyMatchRegistrationView(RegistrationView registration, AttendanceView attendance) {
     }

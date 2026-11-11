@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ATTENDANCE_SOURCE_TEXT,
+  ATTENDANCE_STATUS_TEXT,
+  checkInWindowState,
   emptyPage,
   isPage,
   matchStatusText,
@@ -38,5 +41,32 @@ describe('enum helpers', () => {
     expect(matchStatusTone(4)).toBe('success');
     expect(matchStatusTone(3)).toBe('warning');
     expect(matchStatusTone(0)).toBe('neutral');
+  });
+
+  it('maps attendance codes to display text', () => {
+    expect(ATTENDANCE_STATUS_TEXT[0]).toBe('正常');
+    expect(ATTENDANCE_STATUS_TEXT[2]).toBe('临时到场');
+    expect(ATTENDANCE_SOURCE_TEXT[0]).toBe('自助签到');
+    expect(ATTENDANCE_SOURCE_TEXT[2]).toBe('系统');
+  });
+});
+
+describe('check-in window', () => {
+  // 2026-11-15 20:00 Asia/Shanghai = 12:00Z；窗口 16:00–23:59 本地。
+  const startAt = '2026-11-15T12:00:00Z';
+
+  it('opens four hours before start and closes at end of match day', () => {
+    expect(checkInWindowState(startAt, Date.parse('2026-11-15T07:59:59Z'))).toBe('before');
+    expect(checkInWindowState(startAt, Date.parse('2026-11-15T08:00:00Z'))).toBe('open');
+    expect(checkInWindowState(startAt, Date.parse('2026-11-15T15:59:59Z'))).toBe('open');
+    expect(checkInWindowState(startAt, Date.parse('2026-11-15T16:00:00Z'))).toBe('after');
+  });
+
+  it('handles an early-morning match whose window starts the previous day', () => {
+    // 2026-11-16 01:00 Asia/Shanghai = 17:00Z，窗口从 2026-11-15 21:00 本地开始。
+    const earlyStart = '2026-11-15T17:00:00Z';
+    expect(checkInWindowState(earlyStart, Date.parse('2026-11-15T12:59:59Z'))).toBe('before');
+    expect(checkInWindowState(earlyStart, Date.parse('2026-11-15T13:00:00Z'))).toBe('open');
+    expect(checkInWindowState(earlyStart, Date.parse('2026-11-15T15:00:00Z'))).toBe('open');
   });
 });

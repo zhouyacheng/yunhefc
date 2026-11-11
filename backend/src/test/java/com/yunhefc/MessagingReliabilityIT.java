@@ -176,6 +176,25 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
     }
 
     @Test
+    void notificationHandlerIgnoresUnsupportedAndMissingEventType() throws Exception {
+        OutboxMessage missingType = new OutboxMessage("notification-missing-type", 1L, "MATCH", 42L,
+                null, "{\"userId\":1}");
+        notificationEventHandler.apply(objectMapper.writeValueAsString(missingType),
+                NOTIFICATION_TOPIC, 0, 31L);
+
+        OutboxMessage unsupported = new OutboxMessage("notification-unsupported", 1L, "MATCH", 42L,
+                "MATCH_STARTED", "{\"userId\":1}");
+        notificationEventHandler.apply(objectMapper.writeValueAsString(unsupported),
+                NOTIFICATION_TOPIC, 0, 32L);
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM consumed_event WHERE event_id IN (?, ?)", Integer.class,
+                "notification-missing-type", "notification-unsupported")).isZero();
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM notification WHERE ref_id = 42", Integer.class)).isZero();
+    }
+
+    @Test
     void outboxWrittenInTransactionRollsBackWithFailedBusinessChange() {
         Long before = jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event", Long.class);
 

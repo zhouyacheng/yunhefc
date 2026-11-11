@@ -22,7 +22,9 @@ public class MatchRegistrationContextAdapter implements MatchRegistrationContext
     }
 
     @Override
-    public List<Long> lockNotStartedMatchIds(Long teamId) {
-        return teamMatchMapper.lockNotStartedIds(teamId);
+    public List<MatchSnapshot> lockNotStartedMatches(Long teamId) {
+        return teamMatchMapper.lockNotStartedMatches(teamId).stream()
+                .map(MatchReadAdapter::toSnapshot)
+                .toList();
     }
 }

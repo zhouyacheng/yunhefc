@@ -59,7 +59,7 @@ public class RegistrationAdminApplicationService {
 
         Instant now = Instant.now(clock);
         Optional<Long> promotedPlayerId = registrationCancellationService
-                .removeAndPromote(registration, principal.userId(), now);
+                .removeAndPromote(registration, principal.userId(), now, match);
         auditRecorder.recordCurrent("REGISTRATION_REMOVE", "REGISTRATION", registrationId,
                 auditBefore(registration),
                 auditAfter(registration, principal.userId(), now, promotedPlayerId.orElse(null)));

@@ -16,6 +16,7 @@ import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccountReadPort;
+import com.yunhefc.infra.outbox.OutboxService;
 import com.yunhefc.registration.domain.Registration;
 import com.yunhefc.registration.domain.RegistrationStatus;
 import com.yunhefc.registration.domain.RegistrationType;
@@ -48,9 +49,10 @@ class RegistrationApplicationServiceTest {
     private final UserAccountReadPort userAccountReadPort = mock(UserAccountReadPort.class);
     private final RegistrationCancellationService cancellationService =
             mock(RegistrationCancellationService.class);
+    private final OutboxService outboxService = mock(OutboxService.class);
     private final RegistrationApplicationService service = new RegistrationApplicationService(
             registrationMapper, matchPort, playerReadPort, userAccountReadPort, cancellationService,
-            Clock.fixed(NOW, ZoneOffset.UTC));
+            outboxService, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @AfterEach
     void clearSecurityContext() {
@@ -94,7 +96,7 @@ class RegistrationApplicationServiceTest {
         when(playerReadPort.findByUserId(USER_ID)).thenReturn(Optional.of(formalPlayer()));
         Registration confirmed = registration(RegistrationStatus.CONFIRMED, RegistrationType.PLAYER);
         when(registrationMapper.selectOne(any())).thenReturn(confirmed);
-        when(cancellationService.cancelAndPromote(confirmed, USER_ID, NOW))
+        when(cancellationService.cancelAndPromote(confirmed, USER_ID, NOW, openMatch()))
                 .thenReturn(Optional.of(PROMOTED_PLAYER_ID));
 
         CancellationResult result = service.cancelMyRegistration(MATCH_ID);
@@ -112,7 +114,7 @@ class RegistrationApplicationServiceTest {
         when(playerReadPort.findByUserId(USER_ID)).thenReturn(Optional.of(formalPlayer()));
         Registration waitlisted = registration(RegistrationStatus.WAITLISTED, RegistrationType.PLAYER);
         when(registrationMapper.selectOne(any())).thenReturn(waitlisted);
-        when(cancellationService.cancelAndPromote(waitlisted, USER_ID, NOW))
+        when(cancellationService.cancelAndPromote(waitlisted, USER_ID, NOW, openMatch()))
                 .thenReturn(Optional.empty());
 
         CancellationResult result = service.cancelMyRegistration(MATCH_ID);

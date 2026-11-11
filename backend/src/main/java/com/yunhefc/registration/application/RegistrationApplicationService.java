@@ -6,11 +6,13 @@ import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.contracts.match.MatchRegistrationContextPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
+import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccountReadPort;
+import com.yunhefc.infra.outbox.OutboxService;
 import com.yunhefc.registration.domain.Registration;
 import com.yunhefc.registration.domain.RegistrationPolicy;
 import com.yunhefc.registration.domain.RegistrationStatus;
@@ -40,6 +42,7 @@ public class RegistrationApplicationService {
     private final PlayerReadPort playerReadPort;
     private final UserAccountReadPort userAccountReadPort;
     private final RegistrationCancellationService registrationCancellationService;
+    private final OutboxService outboxService;
     private final Clock clock;
 
     /**
@@ -88,6 +91,11 @@ public class RegistrationApplicationService {
                     matchId, player.id(), ex);
             throw new BusinessException(ErrorCode.DUPLICATE_ACTIVE_REGISTRATION);
         }
+        if (status == RegistrationStatus.CONFIRMED) {
+            outboxService.append(match.teamId(), "MATCH", matchId,
+                    EventTypes.REGISTRATION_CONFIRMED,
+                    RegistrationNotificationPayload.of(match, principal.userId()));
+        }
         log.info("registration created, registrationId={}, matchId={}, playerId={}, status={}",
                 registration.getId(), matchId, player.id(), status.code());
         return toView(registration);
@@ -122,7 +130,7 @@ public class RegistrationApplicationService {
         }
 
         Optional<Long> promotedPlayerId = registrationCancellationService.cancelAndPromote(
-                registration, principal.userId(), now);
+                registration, principal.userId(), now, match);
         log.info("registration cancelled, registrationId={}, matchId={}, playerId={}, promotedPlayerId={}",
                 registration.getId(), matchId, player.id(), promotedPlayerId.orElse(null));
         return new CancellationResult(true, promotedPlayerId.orElse(null), promotedPlayerId.isPresent());

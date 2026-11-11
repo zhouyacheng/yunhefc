@@ -1,6 +1,7 @@
 package com.yunhefc.registration.application;
 
 import com.yunhefc.contracts.match.MatchRegistrationContextPort;
+import com.yunhefc.contracts.match.MatchSnapshot;
 import com.yunhefc.contracts.registration.RegistrationLifecyclePort;
 import com.yunhefc.registration.domain.Registration;
 import com.yunhefc.registration.infrastructure.RegistrationMapper;
@@ -10,9 +11,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -31,8 +33,9 @@ public class RegistrationLifecycleApplicationService implements RegistrationLife
     @Override
     @Transactional
     public void cancelActiveForDisabledPlayer(Long teamId, Long playerId, Long cancelledBy) {
-        Set<Long> cancellable = new HashSet<>(
-                matchRegistrationContextPort.lockNotStartedMatchIds(teamId));
+        Map<Long, MatchSnapshot> cancellable = matchRegistrationContextPort
+                .lockNotStartedMatches(teamId).stream()
+                .collect(Collectors.toMap(MatchSnapshot::id, Function.identity()));
         List<Registration> active = registrationMapper.selectActiveByPlayerIdForUpdate(playerId);
         if (active.isEmpty()) {
             return;
@@ -40,8 +43,10 @@ public class RegistrationLifecycleApplicationService implements RegistrationLife
 
         Instant now = Instant.now(clock);
         for (Registration registration : active) {
-            if (cancellable.contains(registration.getMatchId())) {
-                registrationCancellationService.cancelAndPromote(registration, cancelledBy, now);
+            MatchSnapshot match = cancellable.get(registration.getMatchId());
+            if (match != null) {
+                registrationCancellationService.cancelAndPromote(
+                        registration, cancelledBy, now, match);
             }
         }
     }

@@ -14,8 +14,9 @@ public interface MatchRegistrationContextPort {
     Optional<MatchSnapshot> lockForRegistration(Long matchId, Long teamId);
 
     /**
-     * 按主键升序锁定球队所有未开赛比赛行（报名中/报名截止/锁定/已延期），返回其 ID。
-     * 注销编排先锁比赛再扫描报名，避免与取消/递补在比赛与报名行上交叉等待。
+     * 按主键升序锁定球队所有未开赛比赛行（报名中/报名截止/锁定/已延期）并返回当前快照。
+     * 注销编排先锁比赛再扫描报名，避免与取消/递补在比赛与报名行上交叉等待；
+     * 快照来自锁定读，不受事务一致性读视图影响。
      */
-    List<Long> lockNotStartedMatchIds(Long teamId);
+    List<MatchSnapshot> lockNotStartedMatches(Long teamId);
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { isApiError, newIdempotencyKey } from '@yunhefc/api-client';
+import { ERROR_CODES, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import {
   EVENT_CREATE_OWN,
   EVENT_EDIT_ANY,
@@ -77,6 +77,7 @@ const roster = ref<RegistrationRow[]>([]);
 const eventModalOpen = ref(false);
 const editingEvent = ref<MatchEvent | null>(null);
 const eventFormError = ref('');
+const selectorError = ref('');
 const eventSubmitting = ref(false);
 
 const grouping = ref<GroupingView | null>(null);
@@ -382,6 +383,7 @@ function resetForm(): void {
   form.half = 0;
   form.penalty = false;
   eventFormError.value = '';
+  selectorError.value = '';
 }
 
 async function openCreate(): Promise<void> {
@@ -413,6 +415,7 @@ async function openEdit(event: MatchEvent): Promise<void> {
   form.half = event.half;
   form.penalty = event.penalty;
   eventFormError.value = '';
+  selectorError.value = '';
   await loadRoster();
   eventModalOpen.value = true;
 }
@@ -466,6 +469,7 @@ async function submitEvent(): Promise<void> {
   }
   eventSubmitting.value = true;
   eventFormError.value = '';
+  selectorError.value = '';
   try {
     if (editingEvent.value) {
       const update: EventUpdate = {
@@ -484,7 +488,12 @@ async function submitEvent(): Promise<void> {
     activeTab.value = 'events';
     await loadEvents();
   } catch (caught) {
-    eventFormError.value = isApiError(caught) ? caught.message : '事件保存失败，请稍后重试';
+    if (isApiError(caught) && caught.code === ERROR_CODES.GROUPING_MISMATCH) {
+      // 行内提示违规字段与球员，并引导到 B06 重新生成分组。
+      selectorError.value = caught.message;
+    } else {
+      eventFormError.value = isApiError(caught) ? caught.message : '事件保存失败，请稍后重试';
+    }
   } finally {
     eventSubmitting.value = false;
   }
@@ -916,6 +925,11 @@ onMounted(load);
           <input v-model.number="form.minute" type="number" min="1" max="120" placeholder="1–120" />
         </label>
 
+        <p v-if="selectorError" class="action-error">
+          {{ selectorError }}
+          <a v-if="showAdminLink" :href="adminGroupingUrl">去 B06 重新生成分组</a>
+          <span v-else>请联系管理员到 B06 重新生成分组</span>
+        </p>
         <p v-if="eventFormError" class="action-error">{{ eventFormError }}</p>
 
         <Button

@@ -449,8 +449,8 @@ async function submitEvent(): Promise<void> {
     ElMessage.success(editingEvent.value ? '事件已更新' : '事件已录入');
     await loadTimeline();
   } catch (caught) {
-    if (isApiError(caught) && caught.code === 42203) {
-      // 分组校验在票 09 接入；预留选人器行内错误位。
+    if (isApiError(caught) && caught.code === ERROR_CODES.GROUPING_MISMATCH) {
+      // 行内提示违规字段与球员，并引导到 B06 重新生成分组。
       selectorError.value = caught.message;
     } else if (needsRefresh(caught)) {
       dialogVisible.value = false;
@@ -773,6 +773,13 @@ onMounted(loadMatches);
 
         <p v-if="selectorError" class="form-error selector-error" role="alert">
           {{ selectorError }}
+          <router-link
+            v-if="selectedMatchId !== null"
+            class="selector-error__link"
+            :to="{ path: '/grouping', query: { match: selectedMatchId } }"
+          >
+            去 B06 重新生成分组
+          </router-link>
         </p>
         <p v-if="eventFormError" class="form-error">{{ eventFormError }}</p>
         <p v-if="!loadingRoster && !rosterPlayers.length" class="hint">
@@ -945,6 +952,13 @@ onMounted(loadMatches);
   padding: 8px 10px;
   background: var(--el-color-danger-light-9);
   border-radius: 6px;
+}
+
+.selector-error__link {
+  display: inline-block;
+  margin-top: 4px;
+  color: var(--el-color-primary);
+  text-decoration: underline;
 }
 
 .muted {

@@ -2,6 +2,7 @@ package com.yunhefc.event.domain;
 
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.contracts.grouping.SavedGroupingSnapshot;
 
 /**
  * 事件字段矩阵：结构错误 40001，跨字段业务规则 42201（04 §8.1）。
@@ -50,6 +51,32 @@ public final class EventRules {
         }
         require(fields.assistPlayerId() == null && !fields.penalty(),
                 "助攻与点球只能用于进球事件");
+    }
+
+    /**
+     * 已保存分组的归属校验：HOME=A 组、AWAY=B 组；草稿不约束，OWN_GOAL 按 event.team 校验。
+     */
+    public static void validateGrouping(EventFields fields, SavedGroupingSnapshot snapshot) {
+        if (snapshot == null || snapshot.savedAt() == null || fields.team() == null) {
+            return;
+        }
+        requireGroup(snapshot, "playerId", fields.playerId(), fields.team());
+        requireGroup(snapshot, "assistPlayerId", fields.assistPlayerId(), fields.team());
+        requireGroup(snapshot, "inPlayerId", fields.inPlayerId(), fields.team());
+        requireGroup(snapshot, "outPlayerId", fields.outPlayerId(), fields.team());
+    }
+
+    private static void requireGroup(SavedGroupingSnapshot snapshot, String field, Long playerId,
+                                     EventTeam team) {
+        if (playerId == null) {
+            return;
+        }
+        Integer group = snapshot.playerTeams().get(playerId);
+        if (group == null || group != team.code()) {
+            throw new BusinessException(ErrorCode.GROUPING_MISMATCH,
+                    "球员分组不匹配：" + field + "=" + playerId + " 不在事件所属队（"
+                            + team.name() + "）分组中");
+        }
     }
 
     private static void require(boolean condition, String message) {

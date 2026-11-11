@@ -23,6 +23,15 @@ public interface MatchGroupingMapper extends BaseMapper<MatchGrouping> {
             """)
     MatchGrouping selectByMatchIncludingDeleted(@Param("matchId") Long matchId);
 
+    // 仅已保存且未删除的分组约束事件选人；草稿与已清除均视为无快照。
+    @Select("""
+            SELECT id, match_id, manual_weight, auto_weight, roster_fingerprint, generated_at,
+                   saved_at, created_by, created_at, updated_at, is_deleted
+            FROM match_grouping
+            WHERE match_id = #{matchId} AND saved_at IS NOT NULL AND is_deleted = 0
+            """)
+    MatchGrouping selectSavedByMatch(@Param("matchId") Long matchId);
+
     @Update("""
             UPDATE match_grouping
             SET manual_weight = #{manualWeight}, auto_weight = #{autoWeight},

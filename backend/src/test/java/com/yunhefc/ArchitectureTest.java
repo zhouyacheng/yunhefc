@@ -48,6 +48,13 @@ class ArchitectureTest {
                     .because("stats 只读依赖各域 contracts 端口，不直读其他业务域");
 
     @ArchTest
+    static final ArchRule eventMustOnlyReadGroupingThroughContracts =
+            noClasses().that().resideInAPackage("com.yunhefc.event..")
+                    .should().dependOnClassesThat().resideInAPackage("com.yunhefc.grouping..")
+                    .because("event 只经 contracts.grouping 只读 port 读取已保存分组，"
+                            + "不依赖 grouping application/domain/表");
+
+    @ArchTest
     static final ArchRule onlyQueryAndGroupingMayDependOnStats =
             noClasses().that().resideInAnyPackage(domainPackagesExcept("stats", "query", "grouping"))
                     .should().dependOnClassesThat().resideInAPackage("com.yunhefc.stats..")

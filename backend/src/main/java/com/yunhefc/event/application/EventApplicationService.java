@@ -8,6 +8,7 @@ import com.yunhefc.common.api.RequestContext;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.grouping.GroupingReadPort;
 import com.yunhefc.contracts.match.MatchReadPort;
 import com.yunhefc.contracts.match.MatchScoreChange;
 import com.yunhefc.contracts.match.MatchScoreSnapshot;
@@ -76,6 +77,7 @@ public class EventApplicationService {
     private final PlayerReadPort playerReadPort;
     private final RegistrationReadPort registrationReadPort;
     private final UserAccountReadPort userAccountReadPort;
+    private final GroupingReadPort groupingReadPort;
     private final TeamReadPort teamReadPort;
     private final AuditRecorder auditRecorder;
     private final ObjectMapper objectMapper;
@@ -135,6 +137,7 @@ public class EventApplicationService {
             }
         }
         requireEligiblePlayers(match, selectedPlayerIds(fields));
+        requireSavedGrouping(match, fields);
 
         Instant now = Instant.now(clock);
         MatchEvent event = new MatchEvent();
@@ -173,6 +176,7 @@ public class EventApplicationService {
             requireOwnEvent(match, principal, event, merged);
         }
         requireEligiblePlayers(match, selectedPlayerIds(merged));
+        requireSavedGrouping(match, merged);
 
         Map<String, Object> before = auditSnapshot(event);
         Instant now = Instant.now(clock);
@@ -342,6 +346,17 @@ public class EventApplicationService {
         if (!active) {
             throw violation("球员账号不可用");
         }
+    }
+
+    /**
+     * 报名前置通过后再校验已保存分组；无分组/草稿不约束，已有事件不回溯。
+     */
+    private void requireSavedGrouping(MatchSnapshot match, EventRules.EventFields fields) {
+        if (selectedPlayerIds(fields).isEmpty()) {
+            return;
+        }
+        groupingReadPort.findSavedByMatch(match.id())
+                .ifPresent(snapshot -> EventRules.validateGrouping(fields, snapshot));
     }
 
     private void requireEventStatus(MatchSnapshot match) {

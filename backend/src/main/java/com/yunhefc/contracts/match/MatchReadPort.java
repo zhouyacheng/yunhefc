@@ -9,6 +9,11 @@ public interface MatchReadPort {
 
     Optional<MatchSnapshot> findById(Long matchId);
 
+    /**
+     * 写路径读取比赛并锁定行，与取消/延期等状态变更串行化。
+     */
+    Optional<MatchSnapshot> findByIdForUpdate(Long matchId, Long teamId);
+
     List<MatchSnapshot> findByIds(Collection<Long> matchIds);
 
     /**

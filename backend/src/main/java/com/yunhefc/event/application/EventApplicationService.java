@@ -9,6 +9,8 @@ import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.contracts.match.MatchReadPort;
+import com.yunhefc.contracts.match.MatchScoreChange;
+import com.yunhefc.contracts.match.MatchScoreSnapshot;
 import com.yunhefc.contracts.match.MatchSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
@@ -27,12 +29,17 @@ import com.yunhefc.event.domain.EventType;
 import com.yunhefc.event.domain.MatchEvent;
 import com.yunhefc.event.dto.EventDtos.DerivedScoreView;
 import com.yunhefc.event.dto.EventDtos.EventCreateRequest;
+import com.yunhefc.event.dto.EventDtos.EventDeleteRequest;
+import com.yunhefc.event.dto.EventDtos.EventDeleteResponse;
 import com.yunhefc.event.dto.EventDtos.EventPlayer;
 import com.yunhefc.event.dto.EventDtos.EventTimeline;
 import com.yunhefc.event.dto.EventDtos.EventUpdateRequest;
 import com.yunhefc.event.dto.EventDtos.EventView;
+import com.yunhefc.event.dto.EventDtos.ScoreUpdateRequest;
+import com.yunhefc.event.dto.EventDtos.ScoreView;
 import com.yunhefc.event.infrastructure.EventHistoryMapper;
 import com.yunhefc.event.infrastructure.MatchEventMapper;
+import com.yunhefc.match.application.MatchScoreApplicationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,6 +72,7 @@ public class EventApplicationService {
     private final MatchEventMapper matchEventMapper;
     private final EventHistoryMapper eventHistoryMapper;
     private final MatchReadPort matchReadPort;
+    private final MatchScoreApplicationService matchScoreApplicationService;
     private final PlayerReadPort playerReadPort;
     private final RegistrationReadPort registrationReadPort;
     private final UserAccountReadPort userAccountReadPort;
@@ -97,11 +105,26 @@ public class EventApplicationService {
     @Transactional
     public EventView create(Long matchId, EventCreateRequest request) {
         AuthPrincipal principal = CurrentUser.principal();
-        MatchSnapshot match = requireMatch(matchId, principal.teamId());
+        MatchSnapshot match = requireMatchForUpdate(matchId, principal.teamId());
         requireEventStatus(match);
-        EventRules.EventFields fields = toFields(request);
-        boolean admin = isAdmin(principal);
+        return doCreate(match, request, principal, isAdmin(principal));
+    }
 
+    /**
+     * EVT-06：管理员可录入任意类型与任意球员，不受 24h 与换人限制；
+     * 选人前置与 EVT-02 相同（管理员不豁免），已取消/延期 40905。
+     */
+    @Transactional
+    public EventView createAsAdmin(Long matchId, EventCreateRequest request) {
+        AuthPrincipal principal = CurrentUser.principal();
+        MatchSnapshot match = requireMatchForUpdate(matchId, principal.teamId());
+        requireMatchActive(match, "录入事件");
+        return doCreate(match, request, principal, true);
+    }
+
+    private EventView doCreate(MatchSnapshot match, EventCreateRequest request,
+                               AuthPrincipal principal, boolean admin) {
+        EventRules.EventFields fields = toFields(request);
         if (!admin) {
             requirePlayerCreateWindow(match);
             if (fields.type() == EventType.SUBSTITUTION) {
@@ -115,7 +138,7 @@ public class EventApplicationService {
 
         Instant now = Instant.now(clock);
         MatchEvent event = new MatchEvent();
-        event.setMatchId(matchId);
+        event.setMatchId(match.id());
         apply(event, fields);
         event.setCreatedBy(principal.userId());
         event.setCreatedAt(now);
@@ -126,7 +149,7 @@ public class EventApplicationService {
         recordHistory(event.getId(), EventHistory.CREATE, null, auditSnapshot(event), principal);
         auditRecorder.recordCurrent("EVENT_CREATE", "EVENT", event.getId(), null, auditSnapshot(event));
         log.info("event created, eventId={}, matchId={}, type={}, creator={}",
-                event.getId(), matchId, event.getType(), principal.userId());
+                event.getId(), match.id(), event.getType(), principal.userId());
         return toView(event, loadPlayers(match.teamId(), List.of(event)));
     }
 
@@ -137,14 +160,12 @@ public class EventApplicationService {
     @Transactional
     public EventView update(Long eventId, EventUpdateRequest request) {
         AuthPrincipal principal = CurrentUser.principal();
-        MatchEvent event = Optional.ofNullable(matchEventMapper.selectById(eventId))
-                .filter(item -> item.getDeletedAt() == null)
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "事件不存在"));
-        MatchSnapshot match = requireMatch(event.getMatchId(), principal.teamId());
-        requireMatchActive(match);
+        MatchEvent event = requireEvent(eventId);
+        MatchSnapshot match = requireMatchForUpdate(event.getMatchId(), principal.teamId());
+        requireMatchActive(match, "修改事件");
 
         if (!request.getVersion().equals(event.getVersion())) {
-            throw new BusinessException(ErrorCode.VERSION_CONFLICT);
+            throw versionConflict(event.getVersion());
         }
         EventRules.EventFields merged = merge(event, request);
         boolean admin = isAdmin(principal);
@@ -177,7 +198,7 @@ public class EventApplicationService {
             if (current == null || current.getDeletedAt() != null) {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "事件不存在");
             }
-            throw new BusinessException(ErrorCode.VERSION_CONFLICT);
+            throw versionConflict(current.getVersion());
         }
         event.setVersion(request.getVersion() + 1);
         event.setUpdatedAt(now);
@@ -188,6 +209,68 @@ public class EventApplicationService {
         log.info("event updated, eventId={}, matchId={}, version={}, editor={}",
                 eventId, event.getMatchId(), event.getVersion(), principal.userId());
         return toView(event, loadPlayers(match.teamId(), List.of(event)));
+    }
+
+    /**
+     * EVT-04：软删除保留原记录；删除后时间线与推导比分不再计入，历史仍可追溯。
+     */
+    @Transactional
+    public EventDeleteResponse delete(Long eventId, EventDeleteRequest request) {
+        AuthPrincipal principal = CurrentUser.principal();
+        MatchEvent event = requireEvent(eventId);
+        MatchSnapshot match = requireMatchForUpdate(event.getMatchId(), principal.teamId());
+        requireMatchActive(match, "删除事件");
+        if (!request.version().equals(event.getVersion())) {
+            throw versionConflict(event.getVersion());
+        }
+
+        Instant now = Instant.now(clock);
+        int updated = matchEventMapper.softDelete(eventId, request.version(), principal.userId(), now);
+        if (updated == 0) {
+            MatchEvent current = matchEventMapper.selectById(eventId);
+            if (current == null || current.getDeletedAt() != null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND, "事件不存在");
+            }
+            throw versionConflict(current.getVersion());
+        }
+
+        Map<String, Object> before = auditSnapshot(event);
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("deletedAt", now);
+        recordHistory(eventId, EventHistory.DELETE, before, after, principal);
+        auditRecorder.recordCurrent("EVENT_DELETE", "EVENT", eventId, before, after);
+        log.info("event deleted, eventId={}, matchId={}, deleter={}",
+                eventId, event.getMatchId(), principal.userId());
+        return new EventDeleteResponse(eventId, now);
+    }
+
+    /**
+     * EVT-05：存储比分独立于事件；与推导值不一致只提示不阻断。
+     */
+    @Transactional
+    public ScoreView updateScore(Long matchId, ScoreUpdateRequest request) {
+        AuthPrincipal principal = CurrentUser.principal();
+        MatchScoreChange change = matchScoreApplicationService.updateScore(matchId, principal.teamId(),
+                request.scoreHome(), request.scoreAway(), request.version());
+        // 事件写与比赛写都锁同一比赛行，这里读到的推导比分与刚落库的存储比分一致。
+        DerivedScoreView derived = derivedScore(matchId);
+        auditRecorder.recordCurrent("SCORE_UPDATE", "MATCH", matchId,
+                scoreSnapshot(change.before(), null), scoreSnapshot(change.after(), derived));
+        log.info("match score updated, matchId={}, score={}:{}, version={}, editor={}",
+                matchId, change.after().scoreHome(), change.after().scoreAway(),
+                change.after().version(), principal.userId());
+        return new ScoreView(change.after().scoreHome(), change.after().scoreAway(), derived);
+    }
+
+    private MatchEvent requireEvent(Long eventId) {
+        return Optional.ofNullable(matchEventMapper.selectById(eventId))
+                .filter(item -> item.getDeletedAt() == null)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "事件不存在"));
+    }
+
+    private DerivedScoreView derivedScore(Long matchId) {
+        List<MatchEvent> events = matchEventMapper.selectActiveByMatch(matchId);
+        return events.isEmpty() ? null : toDerived(EventScore.from(events));
     }
 
     private void requireOwnTeamAndPlayer(MatchSnapshot match, AuthPrincipal principal,
@@ -270,9 +353,10 @@ public class EventApplicationService {
         }
     }
 
-    private void requireMatchActive(MatchSnapshot match) {
+    private void requireMatchActive(MatchSnapshot match, String action) {
         if (match.cancelledOrPostponed()) {
-            throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT, "比赛已取消或已延期，不能修改事件");
+            throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT,
+                    "比赛已取消或已延期，不能" + action);
         }
     }
 
@@ -284,6 +368,19 @@ public class EventApplicationService {
         return matchReadPort.findById(matchId)
                 .filter(match -> match.teamId().equals(teamId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
+    }
+
+    /**
+     * 写路径锁比赛行：与取消/延期等状态变更串行化，避免状态校验后比赛被并发改为终态。
+     */
+    private MatchSnapshot requireMatchForUpdate(Long matchId, Long teamId) {
+        return matchReadPort.findByIdForUpdate(matchId, teamId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
+    }
+
+    private static BusinessException versionConflict(int currentVersion) {
+        return new BusinessException(ErrorCode.VERSION_CONFLICT,
+                "事件已被他人修改，请刷新后重试", Map.of("currentVersion", currentVersion));
     }
 
     private EventRules.EventFields toFields(EventCreateRequest request) {
@@ -391,6 +488,18 @@ public class EventApplicationService {
         values.put("half", event.getHalf().code());
         values.put("penalty", event.getPenalty());
         values.put("version", event.getVersion());
+        return values;
+    }
+
+    private static Map<String, Object> scoreSnapshot(MatchScoreSnapshot snapshot,
+                                                     DerivedScoreView derived) {
+        Map<String, Object> values = new LinkedHashMap<>();
+        values.put("scoreHome", snapshot.scoreHome());
+        values.put("scoreAway", snapshot.scoreAway());
+        if (derived != null) {
+            values.put("derivedScoreHome", derived.scoreHome());
+            values.put("derivedScoreAway", derived.scoreAway());
+        }
         return values;
     }
 

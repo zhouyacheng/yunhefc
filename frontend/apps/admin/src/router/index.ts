@@ -16,6 +16,9 @@ function sectionComponent(section: AdminSection) {
   if (section === 'registrations') {
     return () => import('../pages/RegistrationsPage.vue');
   }
+  if (section === 'events') {
+    return () => import('../pages/EventsPage.vue');
+  }
   return () => import('../pages/SectionPage.vue');
 }
 

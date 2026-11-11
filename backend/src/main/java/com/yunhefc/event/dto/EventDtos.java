@@ -90,6 +90,15 @@ public final class EventDtos {
         }
     }
 
+    public record EventDeleteRequest(@NotNull @Min(0) Integer version) {
+    }
+
+    public record ScoreUpdateRequest(
+            @NotNull @Min(0) @Max(255) Integer scoreHome,
+            @NotNull @Min(0) @Max(255) Integer scoreAway,
+            @NotNull @Min(0) Integer version) {
+    }
+
     public record EventPlayer(
             Long id,
             String name,
@@ -124,5 +133,17 @@ public final class EventDtos {
     }
 
     public record EventResponse(EventView event) {
+    }
+
+    public record EventDeleteResponse(Long eventId, Instant deletedAt) {
+    }
+
+    /**
+     * 存储比分与事件推导比分并排返回；两者不一致时仅提示，不阻断。
+     */
+    public record ScoreView(Integer scoreHome, Integer scoreAway, DerivedScoreView derived) {
+    }
+
+    public record ScoreResponse(ScoreView score) {
     }
 }

@@ -5,7 +5,9 @@ import com.yunhefc.event.domain.MatchEvent;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
+import java.time.Instant;
 import java.util.List;
 
 @Mapper
@@ -35,4 +37,14 @@ public interface MatchEventMapper extends BaseMapper<MatchEvent> {
             WHERE match_id = #{matchId} AND is_deleted = 0 AND deleted_at IS NULL
             """)
     List<MatchEvent> selectActiveByMatch(@Param("matchId") Long matchId);
+
+    // 伪删除保留原记录：同时写 is_deleted、deleted_at、deleted_by，并按 version 乐观锁收敛并发。
+    @Update("""
+            UPDATE match_event
+            SET is_deleted = 1, deleted_at = #{now}, deleted_by = #{userId},
+                updated_by = #{userId}, updated_at = #{now}, version = version + 1
+            WHERE id = #{id} AND version = #{version} AND is_deleted = 0 AND deleted_at IS NULL
+            """)
+    int softDelete(@Param("id") Long id, @Param("version") int version,
+                   @Param("userId") Long userId, @Param("now") Instant now);
 }

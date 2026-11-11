@@ -75,6 +75,17 @@ export interface Score {
   derived?: DerivedScore;
 }
 
+/** EVT-05 存储比分修正；与赛程编辑共用比赛 version。 */
+export interface ScoreUpdate {
+  scoreHome: number;
+  scoreAway: number;
+  version: number;
+}
+
+export interface ScoreResponse {
+  score: Score;
+}
+
 /** MAT-05 请求体；赛季/类型/我方主客不可改。 */
 export interface MatchUpdate {
   title?: string;
@@ -211,6 +222,11 @@ export interface EventCreate {
 
 /** EVT-03 部分更新：未出现的字段保持原值。 */
 export type EventUpdate = Partial<EventCreate> & { version: number };
+
+export interface EventDeleteResult {
+  eventId: number;
+  deletedAt: string;
+}
 
 export interface PromotionResult {
   promotedPlayerId?: number | null;

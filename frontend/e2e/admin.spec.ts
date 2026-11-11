@@ -47,6 +47,68 @@ test('B 端：B03 选择比赛并标记考勤', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
+test('B 端：B04 录入/编辑事件并保存比分', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/admin/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000001');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/admin\/matches$/);
+
+  await page.goto('/admin/events');
+  await expect(page).toHaveURL(/\/admin\/events$/);
+  await expect(page.getByText('事件 / 比分')).toBeVisible();
+
+  // 1004 场进行中，1002 已确认报名；重跑脚本会软删除上一轮事件。
+  await page.locator('.match-picker').click();
+  await page.locator('.el-select-dropdown__item').filter({ hasText: 'M06事件联调赛' }).click();
+  await expect(page.getByText('事件推导')).toBeVisible();
+
+  await page.getByRole('button', { name: '录入事件' }).click();
+  const dialog = page.locator('.el-dialog');
+  await expect(dialog.getByText('录入事件')).toBeVisible();
+  await dialog.getByRole('combobox', { name: '球员', exact: true }).click();
+  await page
+    .locator('.el-select-dropdown__item:visible')
+    .filter({ hasText: '测试后卫01' })
+    .first()
+    .click();
+  await dialog.locator('.el-form-item').filter({ hasText: '分钟' }).locator('input').fill('77');
+  await dialog.getByRole('button', { name: '保存事件' }).click();
+
+  const row = page
+    .locator('.event-row')
+    .filter({ hasText: '进球' })
+    .filter({ hasText: '测试后卫01' })
+    .filter({ hasText: "77'" })
+    .first();
+  await expect(row).toBeVisible();
+
+  await row.getByRole('button', { name: '编辑' }).click();
+  await dialog.locator('.el-form-item').filter({ hasText: '分钟' }).locator('input').fill('78');
+  await dialog.getByRole('button', { name: '保存事件' }).click();
+  await expect(
+    page.locator('.event-row').filter({ hasText: '测试后卫01' }).filter({ hasText: "78'" }).first(),
+  ).toBeVisible();
+
+  // 保存一个与当前推导比分不同的存储比分，确保断言真的依赖 PATCH 成功。
+  const derivedText = await page.locator('.score-meta dd').nth(1).innerText();
+  const [derivedHome, derivedAway] = derivedText.split(':').map((part) => Number(part.trim()));
+  const newHome = (derivedHome + 1) % 256;
+  const newAway = (derivedAway + 1) % 256;
+  const scoreInputs = page.locator('.score-row input');
+  await scoreInputs.nth(0).fill(String(newHome));
+  await scoreInputs.nth(1).fill(String(newAway));
+  await page.getByRole('button', { name: '保存比分' }).click();
+  await expect(page.locator('.score-meta dd').first()).toHaveText(`${newHome} : ${newAway}`);
+
+  // 存储比分与事件推导不一致时只提示不阻断。
+  await expect(page.locator('.hint--warning').first()).toContainText('不一致');
+
+  expect(errors).toEqual([]);
+});
+
 test('B 端：侧栏按 sections 过滤，直访无权限分区显示 403', async ({ page }) => {
   await page.goto('/admin/login');
   await page.getByPlaceholder('请输入手机号').fill('13910000002');

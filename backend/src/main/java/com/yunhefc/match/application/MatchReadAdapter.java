@@ -25,6 +25,12 @@ public class MatchReadAdapter implements MatchReadPort {
     }
 
     @Override
+    public Optional<MatchSnapshot> findByIdForUpdate(Long matchId, Long teamId) {
+        return Optional.ofNullable(teamMatchMapper.selectByIdForUpdate(matchId, teamId))
+                .map(MatchReadAdapter::toSnapshot);
+    }
+
+    @Override
     public List<MatchSnapshot> findByIds(Collection<Long> matchIds) {
         if (matchIds == null || matchIds.isEmpty()) {
             return List.of();

@@ -8,7 +8,9 @@
 - 设计文档：`docs/design/01`–`06`（模块、页面、架构、数据库、API、评审结果）
 - 静态可交互原型：`prototype/`，纯 HTML/CSS/JS，无后端、无构建、无外部依赖
 - 数据库基线：`scripts/sql/schema.sql`、`quartz.sql`
-- 后端、前端、部署目录尚未纳入本仓库
+- 后端：`backend/`（Spring Boot 单部署单元，M01–M04 已实现）
+- 前端：`frontend/`（pnpm workspace，C/B 双端骨架与登录/只读列表已建立，见 `frontend/README.md`）
+- `deploy/` 尚未创建
 
 原型覆盖比赛创建与状态流转、延期/重新排期、报名/候补/签到、事件录入、阵容与模板、分组、RBAC 角色权限、球员管理、邀请链接、球队展示等主流程。数据存浏览器 `localStorage`，key 为 `yunhefc_prototype_v1`。
 
@@ -23,6 +25,8 @@ python3 -m http.server 4173 --directory prototype
 ## 目录
 
 ```
+backend/    Spring Boot 后端
+frontend/   前端 pnpm workspace（C 端 / B 端 / 共享包）
 docs/       需求文档
 prototype/  静态可交互原型
 ```

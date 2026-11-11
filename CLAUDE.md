@@ -2,11 +2,11 @@
 
 ## 0. 当前阶段
 
-- **设计冻结**：需求 v1.15；设计文档 01 v0.12、02 v0.13、03 v1.11、04 v0.16、05 v0.20、06 v1.35。
+- **设计冻结**：需求 v1.15；设计文档 01 v0.13、02 v0.14、03 v1.12、04 v0.17、05 v0.22、06 v1.37。
 - **评审通过**：P-01~P-25 已确认；设计成果不再主动变更。
-- **代码状态**：`backend/` 骨架、Flyway V1–V5、M01（C/B 认证、RBAC、邀请、Redis 会话、Outbox、幂等、微信 mock/real）、M02（PLR-01/03/05/06/07/08/09、STA-01）与 M03（MAT-02/03/04/05/06/07/08/09/10/11/12 及 MATCH-05 自动流转）已实现；`frontend/`、`deploy/` 尚未创建。
+- **代码状态**：`backend/` 骨架、Flyway V1–V5、M01（C/B 认证、RBAC、邀请、Redis 会话、Outbox、幂等、微信 mock/real）、M02（PLR-01/03/05/06/07/08/09、STA-01）、M03（MAT-02/03/04/05/06/07/08/09/10/11/12 及 MATCH-05 自动流转）与 M04（报名/候补/递补）已实现；`frontend/` pnpm workspace（C/B 壳层、登录、赛程/比赛列表、api-client/permissions/shared、Vitest + Playwright 基线）已建立；`deploy/` 尚未创建。
 - **原型定位**：`prototype/` 仅演示交互与信息架构，不是生产代码；正式实现以设计文档为准。
-- **下一步**：进入 M04 报名模块（REG-*）。
+- **下一步**：进入 M05 考勤模块（ATT-*），按 `.scratch/m05-m08-build/issues/` 顺序交付。
 
 ## 1. 唯一事实源
 
@@ -66,7 +66,7 @@ docs/rules/        database/api/kafka/logging/java 规则
 scripts/sql/       schema.sql、quartz.sql、test-data.sql
 prototype/         静态可交互原型
 backend/           (planned) Spring Boot 单部署单元
-frontend/          (planned) pnpm workspace
+frontend/          pnpm workspace
 frontend/apps/web/     C 端 Vue 3 + Vant
 frontend/apps/admin/   B 端 Vue 3 + Element Plus
 frontend/packages/     共享 API、权限与类型

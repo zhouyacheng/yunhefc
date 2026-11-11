@@ -2,7 +2,7 @@
 -- 适用：MySQL 8.4，先执行 schema.sql；测试库使用，不要在生产执行。
 -- 枚举字段使用 04 §2.4 的数字编码；角色 code 仍为字符串 GUEST/PLAYER/ADMIN。
 -- 假设：球队为“云河FC”，创建/审核人为测试账号 1001；球员 1001-1015 为正式，1016-1020 为外挂。
--- 说明：password_hash 留空，测试数据不用于密码登录；需要登录时另行设置 BCrypt 哈希。
+-- 说明：仅为 1001（ADMIN）/1002（PLAYER）写入测试密码 Passw0rd!，其余账号 password_hash 为空。
 
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
@@ -27,10 +27,11 @@ SET @player_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code
 SET @admin_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code = 'ADMIN' LIMIT 1);
 
 -- 账号：1001-1015 正式，1016-1020 外挂
-INSERT IGNORE INTO app_user (id, phone, password_hash, openid, status)
+-- 1001（ADMIN）与 1002（PLAYER）写入测试密码 Passw0rd!，供 dev profile + Playwright 冒烟登录；其余账号保留 NULL。
+INSERT INTO app_user (id, phone, password_hash, openid, status)
 VALUES
-  (1001, '13910000001', NULL, NULL, 1),
-  (1002, '13910000002', NULL, NULL, 1),
+  (1001, '13910000001', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1),
+  (1002, '13910000002', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1),
   (1003, '13910000003', NULL, NULL, 1),
   (1004, '13910000004', NULL, NULL, 1),
   (1005, '13910000005', NULL, NULL, 1),
@@ -48,7 +49,8 @@ VALUES
   (1017, '13910000017', NULL, NULL, 1),
   (1018, '13910000018', NULL, NULL, 1),
   (1019, '13910000019', NULL, NULL, 1),
-  (1020, '13910000020', NULL, NULL, 1);
+  (1020, '13910000020', NULL, NULL, 1)
+ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash);
 
 -- 球员档案：正式球员号码 21-35 唯一，外挂 36-40 不参与正式唯一约束
 INSERT IGNORE INTO player
@@ -212,5 +214,5 @@ COMMIT;
 -- 说明：
 -- 1. 本脚本只用于测试库；执行前请确认 schema.sql 已执行。
 -- 2. 若已有同号球队/角色，会复用；球员/比赛使用 1000+ ID，避免与常规自增数据冲突。
--- 3. password_hash 留空；需要密码登录时请另行生成 BCrypt 哈希。
+-- 3. 1001/1002 的测试密码为 Passw0rd!；重跑脚本会覆盖这两个账号的密码哈希。
 -- 4. 1001 场为状态 2（锁定）+ 已保存分组，可用于阵容/分组联调；1002 场为状态 4（已结束），可用于事件/考勤/统计联调。

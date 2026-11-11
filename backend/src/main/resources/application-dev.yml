@@ -1,0 +1,12 @@
+# 本地联调：短信走 mock，微信走 mock，关闭 Kafka 消费与 Outbox 中继，减少本地依赖。
+yunhefc:
+  sms:
+    mock-enabled: true
+  wechat:
+    enabled: true
+    mode: mock
+    require-wechat-ua: false
+  kafka:
+    listener-enabled: false
+  outbox:
+    enabled: false

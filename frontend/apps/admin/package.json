@@ -1,0 +1,27 @@
+{
+  "name": "@yunhefc/admin",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -p tsconfig.json && vite build",
+    "typecheck": "vue-tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@yunhefc/api-client": "workspace:*",
+    "@yunhefc/permissions": "workspace:*",
+    "@yunhefc/shared": "workspace:*",
+    "element-plus": "^2.14.8",
+    "pinia": "^4.1.0",
+    "vue": "^3.5.45",
+    "vue-router": "^5.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "vite": "^8.3.8",
+    "vue-tsc": "^3.3.14"
+  }
+}

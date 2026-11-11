@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -24,6 +25,16 @@ public interface MatchGroupingPlayerMapper extends BaseMapper<MatchGroupingPlaye
 
     @Delete("DELETE FROM match_grouping_player WHERE grouping_id = #{groupingId}")
     int deleteByGroupingId(@Param("groupingId") Long groupingId);
+
+    // 调整分组只改归属，保留成员行 id、分数快照与 created_at（04 §5.20）。
+    @Update("""
+            UPDATE match_grouping_player
+            SET team = #{team}
+            WHERE grouping_id = #{groupingId} AND player_id = #{playerId}
+            """)
+    int updateTeam(@Param("groupingId") Long groupingId,
+                   @Param("playerId") Long playerId,
+                   @Param("team") int team);
 
     @Insert("""
             <script>

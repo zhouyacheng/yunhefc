@@ -3,10 +3,15 @@ import { ERROR_CODES, isApiError, newIdempotencyKey } from '@yunhefc/api-client'
 import { GROUPING_GENERATE_ANY, hasPermission } from '@yunhefc/permissions';
 import type {
   GroupedPlayer,
+  GroupingAdjustRequest,
   GroupingAdmin,
+  GroupingClearResult,
   GroupingGenerateRequest,
   GroupingResponse,
+  GroupingSaveRequest,
+  GroupingSaveResponse,
   GroupingTeam,
+  GroupingTeams,
   MatchSummary,
   Page,
   RegistrationRow,
@@ -20,7 +25,7 @@ import {
   positionText,
 } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, onMounted, ref } from 'vue';
+import { computed, h, onMounted, ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 import { api, publicApi } from '../api/client';
@@ -37,6 +42,10 @@ const loadingMatches = ref(false);
 const loadingGrouping = ref(false);
 const loadingRoster = ref(false);
 const generating = ref(false);
+const saving = ref(false);
+const clearing = ref(false);
+const draftTeams = ref<GroupingTeams>({ A: [], B: [] });
+const selectedPlayer = ref<{ playerId: number; team: GroupingTeam } | null>(null);
 const error = ref('');
 const groupingError = ref('');
 const rosterError = ref('');
@@ -93,15 +102,43 @@ const confirmedRoster = computed(() => {
 const formalRoster = computed(() => confirmedRoster.value.filter((row) => row.type === 1));
 const guestRoster = computed(() => confirmedRoster.value.filter((row) => row.type === 0));
 
-const groupedTeamByPlayer = computed(() => {
+function teamAssignments(teams: GroupingTeams): Map<number, GroupingTeam> {
   const map = new Map<number, GroupingTeam>();
-  for (const team of ['A', 'B'] as const) {
-    for (const player of grouping.value?.teams[team] ?? []) {
+  for (const team of groupingTeams) {
+    for (const player of teams[team]) {
       map.set(player.playerId, team);
     }
   }
   return map;
+}
+
+const groupedTeamByPlayer = computed(() => teamAssignments(draftTeams.value));
+
+const dirty = computed(() => {
+  const saved = grouping.value;
+  if (!saved) {
+    return false;
+  }
+  const assignments = teamAssignments(saved.teams);
+  const draftSize = draftTeams.value.A.length + draftTeams.value.B.length;
+  if (draftSize !== assignments.size) {
+    return true;
+  }
+  return groupingTeams.some((team) =>
+    draftTeams.value[team].some((player) => assignments.get(player.playerId) !== team),
+  );
 });
+
+watch(
+  () => grouping.value,
+  (value) => {
+    draftTeams.value = value
+      ? { A: [...value.teams.A], B: [...value.teams.B] }
+      : { A: [], B: [] };
+    selectedPlayer.value = null;
+  },
+  { immediate: true },
+);
 const ungroupedIds = computed(() => new Set(grouping.value?.ungroupedPlayerIds ?? []));
 const candidateIds = computed(() => {
   const ids = new Set<number>(ungroupedIds.value);
@@ -134,8 +171,8 @@ const positionRows = computed(() =>
   positionBuckets.map((bucket) => ({
     position: bucket.key,
     label: bucket.label,
-    a: grouping.value?.teams.A.filter((player) => inBucket(player.position, bucket.key)).length ?? 0,
-    b: grouping.value?.teams.B.filter((player) => inBucket(player.position, bucket.key)).length ?? 0,
+    a: draftTeams.value.A.filter((player) => inBucket(player.position, bucket.key)).length,
+    b: draftTeams.value.B.filter((player) => inBucket(player.position, bucket.key)).length,
   })),
 );
 
@@ -151,14 +188,21 @@ const rosterDiffNames = computed(() => {
   };
 });
 
-function teamTotal(team: GroupingTeam): string {
-  return (grouping.value?.scores[team] ?? 0).toFixed(2);
+function teamScore(team: GroupingTeam): number {
+  return draftTeams.value[team].reduce(
+    (total, player) => total + (player.finalScore ?? 0),
+    0,
+  );
 }
 
+function teamTotal(team: GroupingTeam): string {
+  return teamScore(team).toFixed(2);
+}
+
+const teamDiff = computed(() => Math.abs(teamScore('A') - teamScore('B')).toFixed(2));
+
 function playersByPosition(team: GroupingTeam, position: number): GroupedPlayer[] {
-  return (grouping.value?.teams[team] ?? []).filter((player) =>
-    inBucket(player.position, position),
-  );
+  return draftTeams.value[team].filter((player) => inBucket(player.position, position));
 }
 
 function playerLabel(player: { name: string; jersey?: number | null; position: number }): string {
@@ -334,6 +378,269 @@ async function startGenerate(): Promise<void> {
   await generate(hasGrouping.value);
 }
 
+function toggleSelect(playerId: number, team: GroupingTeam): void {
+  if (!canGenerate.value) {
+    return;
+  }
+  selectedPlayer.value =
+    selectedPlayer.value?.playerId === playerId ? null : { playerId, team };
+}
+
+function movePlayer(playerId: number, target: GroupingTeam): void {
+  if (!canGenerate.value) {
+    return;
+  }
+  const inA = draftTeams.value.A.some((player) => player.playerId === playerId);
+  const inB = draftTeams.value.B.some((player) => player.playerId === playerId);
+  if ((!inA && !inB) || (inA && target === 'A') || (inB && target === 'B')) {
+    selectedPlayer.value = null;
+    return;
+  }
+  const player = inA
+    ? draftTeams.value.A.find((item) => item.playerId === playerId)
+    : draftTeams.value.B.find((item) => item.playerId === playerId);
+  if (!player) {
+    return;
+  }
+  draftTeams.value = {
+    A:
+      target === 'A'
+        ? [...draftTeams.value.A, player]
+        : draftTeams.value.A.filter((item) => item.playerId !== playerId),
+    B:
+      target === 'B'
+        ? [...draftTeams.value.B, player]
+        : draftTeams.value.B.filter((item) => item.playerId !== playerId),
+  };
+  selectedPlayer.value = null;
+}
+
+function onDragStart(event: DragEvent, player: GroupedPlayer, team: GroupingTeam): void {
+  if (!canGenerate.value) {
+    event.preventDefault();
+    return;
+  }
+  selectedPlayer.value = { playerId: player.playerId, team };
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', String(player.playerId));
+  }
+}
+
+function onDragOver(event: DragEvent): void {
+  if (canGenerate.value) {
+    event.preventDefault();
+  }
+}
+
+function onColumnClick(event: MouseEvent, team: GroupingTeam): void {
+  const selected = selectedPlayer.value;
+  if (!canGenerate.value || !selected || selected.team === team) {
+    return;
+  }
+  const target = event.target as HTMLElement | null;
+  if (target?.closest('.group-player')) {
+    return;
+  }
+  movePlayer(selected.playerId, team);
+}
+
+function onDrop(event: DragEvent, team: GroupingTeam): void {
+  event.preventDefault();
+  if (!canGenerate.value) {
+    return;
+  }
+  const raw = event.dataTransfer?.getData('text/plain');
+  const playerId = raw ? Number(raw) : selectedPlayer.value?.playerId;
+  if (playerId !== undefined && Number.isInteger(playerId) && playerId > 0) {
+    movePlayer(playerId, team);
+  }
+}
+
+function playerNames(ids: number[]): string {
+  const byId = new Map(confirmedRoster.value.map((row) => [row.player.id, row.player.name]));
+  return ids.map((id) => byId.get(id) ?? `球员#${id}`).join('、');
+}
+
+async function confirmSaveWarnings(view: GroupingAdmin): Promise<boolean> {
+  const lines: string[] = [];
+  const diff = view.rosterDiff;
+  if (diff.changed) {
+    const parts: string[] = [];
+    if (diff.addedPlayerIds.length) {
+      parts.push(`新增：${playerNames(diff.addedPlayerIds)}`);
+    }
+    if (diff.removedPlayerIds.length) {
+      parts.push(`移除：${playerNames(diff.removedPlayerIds)}`);
+    }
+    lines.push(`本场确认名单已变化${parts.length ? `（${parts.join('；')}）` : ''}。`);
+  }
+  lines.push(...view.warnings);
+  lines.push('保存后事件与阵容将按此分组约束，名单变化不会自动重算。');
+  try {
+    await ElMessageBox.confirm(
+      h('div', lines.map((line) => h('p', line))),
+      '保存分组',
+      { type: 'warning', confirmButtonText: '仍然保存', cancelButtonText: '取消' },
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function postSave(
+  matchId: number,
+  view: GroupingAdmin,
+  confirm: boolean,
+): Promise<void> {
+  if (!view.rosterFingerprint) {
+    throw new Error('分组缺少名单指纹');
+  }
+  const request: GroupingSaveRequest = {
+    expectedFingerprint: view.rosterFingerprint,
+    confirm,
+  };
+  const response = await api.post<GroupingSaveResponse>(
+    `/matches/${matchId}/grouping/save`,
+    request,
+    { idempotencyKey: newIdempotencyKey() },
+  );
+  if (matchId === selectedMatchId.value) {
+    grouping.value = { ...view, savedAt: response.savedAt };
+    ElMessage.success('分组已保存');
+  }
+}
+
+async function handleGroupingError(caught: unknown): Promise<void> {
+  if (isApiError(caught) && caught.code === ERROR_CODES.GROUPING_FINGERPRINT_CONFLICT) {
+    actionError.value = '本场确认名单已变化，请重新生成分组后再调整或保存。';
+    if (selectedMatchId.value !== null) {
+      await loadGrouping(selectedMatchId.value);
+    }
+    return;
+  }
+  if (isApiError(caught) && caught.code === ERROR_CODES.MATCH_STATE_CONFLICT) {
+    const message = caught.message;
+    await loadMatches();
+    // loadMatches 经 refreshSelected 清空提示，因此在刷新后回填。
+    actionError.value = message;
+    return;
+  }
+  actionError.value = isApiError(caught) ? caught.message : '操作失败，请稍后重试';
+}
+
+async function saveGrouping(): Promise<void> {
+  const matchId = selectedMatchId.value;
+  const current = grouping.value;
+  if (matchId === null || !current || saving.value || !canGenerate.value) {
+    return;
+  }
+  saving.value = true;
+  actionError.value = '';
+  try {
+    let working = current;
+    if (dirty.value) {
+      if (current.savedAt) {
+        try {
+          await ElMessageBox.confirm(
+            '当前分组已保存；调整后会回到草稿状态，需要再次保存。是否继续？',
+            '调整已保存分组',
+            { type: 'warning', confirmButtonText: '继续调整', cancelButtonText: '取消' },
+          );
+        } catch {
+          return;
+        }
+      }
+      if (!current.rosterFingerprint) {
+        actionError.value = '分组缺少名单指纹，请重新生成分组';
+        return;
+      }
+      const body: GroupingAdjustRequest = {
+        teams: {
+          A: draftTeams.value.A.map((player) => player.playerId),
+          B: draftTeams.value.B.map((player) => player.playerId),
+        },
+        expectedFingerprint: current.rosterFingerprint,
+        confirm: Boolean(current.savedAt),
+      };
+      const adjusted = await api.patch<GroupingResponse>(`/matches/${matchId}/grouping`, body, {
+        idempotencyKey: newIdempotencyKey(),
+      });
+      if (matchId !== selectedMatchId.value) {
+        return;
+      }
+      grouping.value = adjusted.grouping;
+      working = adjusted.grouping;
+    }
+
+    const confirm = working.warnings.length > 0 || working.rosterDiff.changed;
+    if (confirm && !(await confirmSaveWarnings(working))) {
+      return;
+    }
+    try {
+      await postSave(matchId, working, confirm);
+    } catch (caught) {
+      if (matchId !== selectedMatchId.value) {
+        return;
+      }
+      if (isApiError(caught) && caught.code === ERROR_CODES.CONFIRM_REQUIRED) {
+        // 重新读取，确保确认框列出的是服务端当前警告/名单差异。
+        await loadGrouping(matchId);
+        if (matchId !== selectedMatchId.value) {
+          return;
+        }
+        const latest = grouping.value ?? working;
+        if (!(await confirmSaveWarnings(latest))) {
+          return;
+        }
+        await postSave(matchId, latest, true);
+      } else {
+        throw caught;
+      }
+    }
+  } catch (caught) {
+    if (matchId === selectedMatchId.value) {
+      await handleGroupingError(caught);
+    }
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function clearGrouping(): Promise<void> {
+  const matchId = selectedMatchId.value;
+  if (matchId === null || clearing.value || !canGenerate.value || !hasGrouping.value) {
+    return;
+  }
+  try {
+    await ElMessageBox.confirm(
+      '清除后将删除当前分组与保存快照，需要重新生成。是否继续？',
+      '清除分组',
+      { type: 'warning', confirmButtonText: '清除', cancelButtonText: '取消' },
+    );
+  } catch {
+    return;
+  }
+  clearing.value = true;
+  actionError.value = '';
+  try {
+    await api.delete<GroupingClearResult>(`/matches/${matchId}/grouping`, undefined, {
+      idempotencyKey: newIdempotencyKey(),
+    });
+    if (matchId === selectedMatchId.value) {
+      ElMessage.success('分组已清除');
+      await loadGrouping(matchId);
+    }
+  } catch (caught) {
+    if (matchId === selectedMatchId.value) {
+      await handleGroupingError(caught);
+    }
+  } finally {
+    clearing.value = false;
+  }
+}
+
 function retryGrouping(): void {
   if (selectedMatchId.value !== null) {
     void loadGrouping(selectedMatchId.value);
@@ -391,6 +698,9 @@ onMounted(loadMatches);
             <el-tag size="small" :type="hasGrouping ? 'success' : 'info'" effect="plain">
               {{ statusLabel }}
             </el-tag>
+            <el-tag v-if="dirty" size="small" type="warning" effect="plain" class="status-tag">
+              有未保存调整
+            </el-tag>
             <p v-if="grouping?.generatedAt" class="muted small">
               生成于 {{ formatDateTime(grouping.generatedAt) }}
               <template v-if="grouping.savedAt">
@@ -398,14 +708,34 @@ onMounted(loadMatches);
               </template>
             </p>
           </div>
-          <el-button
-            type="primary"
-            :disabled="!canGenerate"
-            :loading="generating"
-            @click="startGenerate"
-          >
-            {{ hasGrouping ? '重新生成' : '生成分组' }}
-          </el-button>
+          <div class="toolbar-actions">
+            <el-button
+              v-if="hasGrouping"
+              :disabled="!canGenerate || saving || clearing"
+              :loading="clearing"
+              @click="clearGrouping"
+            >
+              清除分组
+            </el-button>
+            <el-button
+              v-if="hasGrouping"
+              type="primary"
+              plain
+              :disabled="!canGenerate || saving || clearing"
+              :loading="saving"
+              @click="saveGrouping"
+            >
+              保存分组
+            </el-button>
+            <el-button
+              type="primary"
+              :disabled="!canGenerate || saving"
+              :loading="generating"
+              @click="startGenerate"
+            >
+              {{ hasGrouping ? '重新生成' : '生成分组' }}
+            </el-button>
+          </div>
         </section>
 
         <el-alert
@@ -445,16 +775,16 @@ onMounted(loadMatches);
           <div class="summary-card">
             <span>A 队总分</span>
             <b>{{ teamTotal('A') }}</b>
-            <small>{{ grouping?.teams.A.length ?? 0 }} 人</small>
+            <small>{{ draftTeams.A.length }} 人</small>
           </div>
           <div class="summary-card">
             <span>B 队总分</span>
             <b>{{ teamTotal('B') }}</b>
-            <small>{{ grouping?.teams.B.length ?? 0 }} 人</small>
+            <small>{{ draftTeams.B.length }} 人</small>
           </div>
           <div class="summary-card">
             <span>总分差</span>
-            <b>{{ (grouping?.diff ?? 0).toFixed(2) }}</b>
+            <b>{{ teamDiff }}</b>
             <small>目标：尽量接近 0</small>
           </div>
         </div>
@@ -487,11 +817,36 @@ onMounted(loadMatches);
           </el-empty>
 
           <template v-else>
+            <p v-if="selectedPlayer && canGenerate" class="hint">
+              已选择球员；点击另一队的“移到 X 队”完成调整，桌面端也可直接拖拽。
+            </p>
             <div class="group-admin-grid">
-              <section v-for="team in groupingTeams" :key="team" class="group-admin-column">
+              <section
+                v-for="team in groupingTeams"
+                :key="team"
+                class="group-admin-column"
+                :class="{
+                  'group-admin-column--drop':
+                    canGenerate && selectedPlayer && selectedPlayer.team !== team,
+                }"
+                @dragover="onDragOver"
+                @drop="onDrop($event, team)"
+                @click="onColumnClick($event, team)"
+              >
                 <header class="group-admin-head">
                   <h3>{{ team }} 队 · {{ groupingTeamName(selectedMatch, team) }}</h3>
-                  <span class="muted small">{{ teamTotal(team) }} 分</span>
+                  <div class="head-actions">
+                    <span class="muted small">{{ teamTotal(team) }} 分</span>
+                    <el-button
+                      v-if="canGenerate && selectedPlayer && selectedPlayer.team !== team"
+                      size="small"
+                      type="primary"
+                      plain
+                      @click="movePlayer(selectedPlayer.playerId, team)"
+                    >
+                      移到 {{ team }} 队
+                    </el-button>
+                  </div>
                 </header>
                 <div v-for="bucket in positionBuckets" :key="bucket.key" class="position-block">
                   <p class="position-title">{{ bucket.label }}</p>
@@ -499,6 +854,14 @@ onMounted(loadMatches);
                     v-for="player in playersByPosition(team, bucket.key)"
                     :key="player.playerId"
                     class="group-player"
+                    :class="{
+                      'group-player--draggable': canGenerate,
+                      'group-player--selected':
+                        selectedPlayer?.playerId === player.playerId,
+                    }"
+                    :draggable="canGenerate"
+                    @dragstart="onDragStart($event, player, team)"
+                    @click="toggleSelect(player.playerId, team)"
                   >
                     <strong>{{ player.name }}</strong>
                     <small>#{{ player.jersey ?? '—' }} · {{ positionText(player.position) }}</small>
@@ -633,6 +996,18 @@ onMounted(loadMatches);
   margin: 0 6px;
 }
 
+.toolbar-actions,
+.head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.toolbar-actions {
+  justify-content: flex-end;
+}
+
 .notice,
 .warning-line {
   margin-bottom: 4px;
@@ -678,6 +1053,12 @@ onMounted(loadMatches);
   border-radius: 12px;
 }
 
+.group-admin-column--drop {
+  cursor: pointer;
+  border-color: var(--el-color-primary);
+  box-shadow: inset 0 0 0 1px var(--el-color-primary);
+}
+
 .group-admin-head {
   display: flex;
   align-items: center;
@@ -714,6 +1095,15 @@ onMounted(loadMatches);
   background: #f8fafc;
   border: 1px solid var(--yh-line);
   border-radius: 9px;
+}
+
+.group-player--draggable {
+  cursor: grab;
+}
+
+.group-player--selected {
+  background: #eff6ff;
+  border-color: var(--el-color-primary);
 }
 
 .group-player small {

@@ -29,9 +29,14 @@ import com.yunhefc.grouping.domain.MatchGrouping;
 import com.yunhefc.grouping.domain.MatchGroupingPlayer;
 import com.yunhefc.grouping.domain.RosterFingerprint;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupedPlayerView;
+import com.yunhefc.grouping.dto.GroupingDtos.GroupingAdjustRequest;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingAdminView;
+import com.yunhefc.grouping.dto.GroupingDtos.GroupingClearResponse;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingRosterDiffView;
+import com.yunhefc.grouping.dto.GroupingDtos.GroupingSaveRequest;
+import com.yunhefc.grouping.dto.GroupingDtos.GroupingSaveResponse;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingScoresView;
+import com.yunhefc.grouping.dto.GroupingDtos.GroupingSnapshotView;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingTeamsView;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingView;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingWeightsView;
@@ -53,6 +58,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -105,12 +111,7 @@ public class GroupingApplicationService {
     @Transactional
     public GroupingAdminView generate(Long matchId, Boolean confirm) {
         AuthPrincipal principal = CurrentUser.principal();
-        MatchSnapshot match = matchReadPort.lockForGrouping(matchId, principal.teamId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
-        requireInternal(match);
-        if (match.status() == null || match.status() != LOCKED) {
-            throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT, "仅已锁定的比赛可以生成分组");
-        }
+        MatchSnapshot match = lockGroupingMatch(matchId);
 
         List<GroupingCandidate> candidates = loadCandidates(match);
         if (candidates.size() < 2) {
@@ -169,6 +170,170 @@ public class GroupingApplicationService {
                 now,
                 List.of(),
                 new GroupingRosterDiffView(false, List.of(), List.of()));
+    }
+
+    /**
+     * GRP-04：玩家手动划分必须覆盖当前候选池；名单变化或客户端指纹过期时拒绝，
+     * 已保存分组被调整后回到草稿。
+     */
+    @Transactional
+    public GroupingAdminView adjust(Long matchId, GroupingAdjustRequest request) {
+        MatchSnapshot match = lockGroupingMatch(matchId);
+        MatchGrouping grouping = groupingMapper.selectByMatchIncludingDeleted(matchId);
+        if (!visible(grouping)) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "尚未生成分组");
+        }
+        List<MatchGroupingPlayer> rows = groupingPlayerMapper.selectByGroupingId(grouping.getId());
+        List<GroupingCandidate> candidates = loadCandidates(match);
+        List<Long> candidateIds = candidateIds(candidates);
+        String currentFingerprint = RosterFingerprint.of(candidateIds);
+        if (!Objects.equals(currentFingerprint, grouping.getRosterFingerprint())
+                || !Objects.equals(currentFingerprint, request.expectedFingerprint())) {
+            throw new BusinessException(ErrorCode.GROUPING_FINGERPRINT_CONFLICT,
+                    "分组名单已变化，请重新生成分组");
+        }
+
+        List<Long> teamAIds = request.teams().teamA();
+        List<Long> teamBIds = request.teams().teamB();
+        validatePartition(candidateIds, teamAIds, teamBIds);
+
+        Map<Long, Integer> currentTeams = rows.stream().collect(Collectors.toMap(
+                MatchGroupingPlayer::getPlayerId, MatchGroupingPlayer::getTeam));
+        if (currentTeams.size() != candidateIds.size()
+                || !currentTeams.keySet().containsAll(candidateIds)) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "分组数据与当前名单不一致，请重新生成分组");
+        }
+        boolean unchanged = teamAIds.stream().allMatch(id -> currentTeams.get(id) == TEAM_A)
+                && teamBIds.stream().allMatch(id -> currentTeams.get(id) == TEAM_B);
+        if (unchanged) {
+            return adminView(matchId);
+        }
+        if (grouping.getSavedAt() != null && !Boolean.TRUE.equals(request.confirm())) {
+            throw new BusinessException(ErrorCode.CONFIRM_REQUIRED,
+                    "已保存的分组调整后需要确认");
+        }
+
+        Map<String, Object> before = auditSnapshot(grouping, rows);
+        groupingMapper.resetSavedAt(grouping.getId());
+        grouping.setSavedAt(null);
+        updateTeams(grouping.getId(), currentTeams, teamAIds, teamBIds);
+        List<MatchGroupingPlayer> newRows = groupingPlayerMapper.selectByGroupingId(grouping.getId());
+        auditRecorder.recordCurrent("grouping.adjust", "team_match", matchId,
+                before, auditSnapshot(grouping, newRows));
+        log.info("grouping adjusted, matchId={}, operator={}",
+                matchId, CurrentUser.principal().userId());
+        return adminView(matchId);
+    }
+
+    /**
+     * GRP-05：保存只写 saved_at，保留生成时指纹；名单变化与均衡警告均需确认。
+     */
+    @Transactional
+    public GroupingSaveResponse save(Long matchId, GroupingSaveRequest request) {
+        MatchSnapshot match = lockGroupingMatch(matchId);
+        MatchGrouping grouping = groupingMapper.selectByMatchIncludingDeleted(matchId);
+        if (!visible(grouping)) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "尚未生成分组");
+        }
+        if (!Objects.equals(grouping.getRosterFingerprint(), request.expectedFingerprint())) {
+            throw new BusinessException(ErrorCode.GROUPING_FINGERPRINT_CONFLICT,
+                    "分组名单已变化，请重新生成分组");
+        }
+
+        List<MatchGroupingPlayer> rows = groupingPlayerMapper.selectByGroupingId(grouping.getId());
+        List<GroupingCandidate> candidates = loadCandidates(match);
+        String currentFingerprint = RosterFingerprint.of(candidateIds(candidates));
+        boolean rosterChanged = !Objects.equals(currentFingerprint, grouping.getRosterFingerprint());
+        Map<Long, PlayerSnapshot> players = loadPlayers(match.teamId(),
+                rows.stream().map(MatchGroupingPlayer::getPlayerId).toList());
+        List<String> warnings = GroupingWarnings.compute(
+                toAssigned(rows.stream().filter(row -> row.getTeam() == TEAM_A).toList(), players),
+                toAssigned(rows.stream().filter(row -> row.getTeam() == TEAM_B).toList(), players),
+                candidates);
+        if ((rosterChanged || !warnings.isEmpty()) && !Boolean.TRUE.equals(request.confirm())) {
+            throw new BusinessException(ErrorCode.CONFIRM_REQUIRED,
+                    rosterChanged ? "名单已变化，保存需要确认" : "分组存在警告，保存需要确认");
+        }
+
+        Map<String, Object> before = auditSnapshot(grouping, rows);
+        Instant now = Instant.now(clock);
+        groupingMapper.markSaved(grouping.getId(), now);
+        grouping.setSavedAt(now);
+        auditRecorder.recordCurrent("grouping.save", "team_match", matchId,
+                before, auditSnapshot(grouping, rows));
+        log.info("grouping saved, matchId={}, operator={}",
+                matchId, CurrentUser.principal().userId());
+        return new GroupingSaveResponse(now, new GroupingSnapshotView(
+                now, grouping.getRosterFingerprint(), toTeamsView(rows, players)));
+    }
+
+    /**
+     * GRP-06：物理删除成员行与主行；无分组时幂等成功且不写审计。
+     */
+    @Transactional
+    public GroupingClearResponse clear(Long matchId) {
+        lockGroupingMatch(matchId);
+        MatchGrouping grouping = groupingMapper.selectByMatchIncludingDeleted(matchId);
+        if (grouping == null) {
+            return new GroupingClearResponse(true);
+        }
+        List<MatchGroupingPlayer> rows = groupingPlayerMapper.selectByGroupingId(grouping.getId());
+        Map<String, Object> before = visible(grouping) ? auditSnapshot(grouping, rows) : null;
+        groupingPlayerMapper.deleteByGroupingId(grouping.getId());
+        groupingMapper.deletePhysical(grouping.getId());
+        if (before != null) {
+            auditRecorder.recordCurrent("grouping.clear", "team_match", matchId, before, null);
+            log.info("grouping cleared, matchId={}, operator={}",
+                    matchId, CurrentUser.principal().userId());
+        }
+        return new GroupingClearResponse(true);
+    }
+
+    private MatchSnapshot lockGroupingMatch(Long matchId) {
+        AuthPrincipal principal = CurrentUser.principal();
+        MatchSnapshot match = matchReadPort.lockForGrouping(matchId, principal.teamId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
+        requireInternal(match);
+        if (match.status() == null || match.status() != LOCKED) {
+            throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT,
+                    "仅已锁定的比赛可以操作分组");
+        }
+        return match;
+    }
+
+    private static void validatePartition(List<Long> candidateIds,
+                                          List<Long> teamAIds, List<Long> teamBIds) {
+        Set<Long> candidates = new HashSet<>(candidateIds);
+        Set<Long> seen = new HashSet<>();
+        for (List<Long> team : List.of(teamAIds, teamBIds)) {
+            for (Long playerId : team) {
+                if (playerId == null || !candidates.contains(playerId)) {
+                    throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                            "分组包含未知或非候选球员");
+                }
+                if (!seen.add(playerId)) {
+                    throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                            "分组存在重复球员");
+                }
+            }
+        }
+        if (seen.size() != candidates.size()) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "分组必须覆盖当前候选池的全部球员");
+        }
+    }
+
+    private void updateTeams(Long groupingId, Map<Long, Integer> currentTeams,
+                             List<Long> teamAIds, List<Long> teamBIds) {
+        teamAIds.stream()
+                .filter(playerId -> currentTeams.get(playerId) != TEAM_A)
+                .forEach(playerId -> groupingPlayerMapper.updateTeam(
+                        groupingId, playerId, TEAM_A));
+        teamBIds.stream()
+                .filter(playerId -> currentTeams.get(playerId) != TEAM_B)
+                .forEach(playerId -> groupingPlayerMapper.updateTeam(
+                        groupingId, playerId, TEAM_B));
     }
 
     private MatchGrouping persist(MatchGrouping existing, Long matchId, GroupingWeights weights,

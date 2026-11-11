@@ -1,6 +1,26 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { collectConsoleErrors } from './support';
+
+/** B06 保存可能依次弹出“调整已保存分组”和“保存分组”确认。 */
+async function confirmGroupingDialogs(page: Page): Promise<void> {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const box = page.locator('.el-message-box');
+    const visible = await box
+      .waitFor({ state: 'visible', timeout: 3000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!visible) {
+      return;
+    }
+    // 弹窗关闭动画会让按钮瞬时脱离 DOM，强制点击避免 Playwright 重试到超时。
+    await box
+      .getByRole('button', { name: /继续调整|仍然保存|确定/ })
+      .first()
+      .click({ force: true });
+    await box.waitFor({ state: 'hidden' }).catch(() => undefined);
+  }
+}
 
 test('B 端：管理员登录后看到比赛列表', async ({ page }) => {
   const errors = collectConsoleErrors(page);
@@ -80,6 +100,56 @@ test('B 端：B06 生成分组并展示 A/B', async ({ page }) => {
 
   await expect(page.locator('.group-admin-column')).toHaveCount(2);
   await expect(page.getByText('测试门将01').first()).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B06 调整 → 保存 → 清除 → 重新生成', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/admin/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000001');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/admin\/matches$/);
+
+  await page.goto('/admin/grouping');
+  await page.locator('.match-picker').click();
+  await page
+    .locator('.el-select-dropdown__item')
+    .filter({ hasText: '橙队VS兰队' })
+    .filter({ hasText: '已锁定' })
+    .click();
+
+  // 从空分组开始，保证后续断言不依赖上一轮遗留状态。
+  if ((await page.getByRole('button', { name: '清除分组' }).count()) > 0) {
+    await page.getByRole('button', { name: '清除分组' }).click();
+    await page.locator('.el-message-box').getByRole('button', { name: '清除' }).click();
+  }
+  await expect(page.getByText('尚未生成分组')).toBeVisible();
+  await page.locator('.toolbar').getByRole('button', { name: '生成分组' }).click();
+  await expect(page.locator('.group-admin-column')).toHaveCount(2);
+
+  const firstTeamColumn = page.locator('.group-admin-column').nth(0);
+  const secondTeamColumn = page.locator('.group-admin-column').nth(1);
+  const player = firstTeamColumn.locator('.group-player').first();
+  const playerName = await player.locator('strong').innerText();
+  await player.click();
+  await page.getByRole('button', { name: '移到 B 队' }).click();
+  await expect(secondTeamColumn.getByText(playerName).first()).toBeVisible();
+  await expect(firstTeamColumn.getByText(playerName)).toHaveCount(0);
+
+  await page.getByRole('button', { name: '保存分组' }).click();
+  await confirmGroupingDialogs(page);
+  await expect(page.locator('.toolbar .el-tag').filter({ hasText: '已保存' })).toBeVisible();
+
+  await page.getByRole('button', { name: '清除分组' }).click();
+  await page.locator('.el-message-box').getByRole('button', { name: '清除' }).click();
+  await expect(page.getByText('尚未生成分组')).toBeVisible();
+
+  await page.locator('.toolbar').getByRole('button', { name: '生成分组' }).click();
+  await expect(page.locator('.group-admin-column')).toHaveCount(2);
+  await expect(page.getByText('总分差')).toBeVisible();
 
   expect(errors).toEqual([]);
 });

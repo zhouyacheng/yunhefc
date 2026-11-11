@@ -1,6 +1,10 @@
 package com.yunhefc.grouping.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -69,6 +73,36 @@ public final class GroupingDtos {
     }
 
     public record GroupingGenerateRequest(Boolean confirm) {
+    }
+
+    public record GroupingTeamsRequest(
+            @JsonProperty("A") @NotNull @Size(max = 100) List<@NotNull Long> teamA,
+            @JsonProperty("B") @NotNull @Size(max = 100) List<@NotNull Long> teamB) {
+    }
+
+    public record GroupingAdjustRequest(
+            @Valid @NotNull GroupingTeamsRequest teams,
+            @NotBlank @Size(max = 64) String expectedFingerprint,
+            Boolean confirm) {
+    }
+
+    public record GroupingSaveRequest(
+            @NotBlank @Size(max = 64) String expectedFingerprint,
+            Boolean confirm) {
+    }
+
+    public record GroupingSnapshotView(
+            Instant savedAt,
+            String rosterFingerprint,
+            GroupingTeamsView teams) {
+    }
+
+    public record GroupingSaveResponse(
+            Instant savedAt,
+            GroupingSnapshotView snapshot) {
+    }
+
+    public record GroupingClearResponse(boolean cleared) {
     }
 
     public record GroupingResponse(GroupingAdminView grouping) {

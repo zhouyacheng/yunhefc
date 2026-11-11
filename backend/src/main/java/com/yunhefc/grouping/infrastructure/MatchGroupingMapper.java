@@ -2,6 +2,7 @@ package com.yunhefc.grouping.infrastructure;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yunhefc.grouping.domain.MatchGrouping;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -35,4 +36,21 @@ public interface MatchGroupingMapper extends BaseMapper<MatchGrouping> {
                   @Param("rosterFingerprint") String rosterFingerprint,
                   @Param("generatedAt") Instant generatedAt,
                   @Param("createdBy") Long createdBy);
+
+    @Update("""
+            UPDATE match_grouping
+            SET saved_at = NULL
+            WHERE id = #{id}
+            """)
+    int resetSavedAt(@Param("id") Long id);
+
+    @Update("""
+            UPDATE match_grouping
+            SET saved_at = #{savedAt}
+            WHERE id = #{id}
+            """)
+    int markSaved(@Param("id") Long id, @Param("savedAt") Instant savedAt);
+
+    @Delete("DELETE FROM match_grouping WHERE id = #{id}")
+    int deletePhysical(@Param("id") Long id);
 }

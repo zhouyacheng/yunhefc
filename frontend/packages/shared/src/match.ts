@@ -301,6 +301,37 @@ export interface GroupingGenerateRequest {
   confirm?: boolean;
 }
 
+export interface GroupingTeamsRequest {
+  A: number[];
+  B: number[];
+}
+
+export interface GroupingAdjustRequest {
+  teams: GroupingTeamsRequest;
+  expectedFingerprint: string;
+  confirm?: boolean;
+}
+
+export interface GroupingSaveRequest {
+  expectedFingerprint: string;
+  confirm?: boolean;
+}
+
+export interface GroupingSnapshot {
+  savedAt: string;
+  rosterFingerprint: string;
+  teams: GroupingTeams;
+}
+
+export interface GroupingSaveResponse {
+  savedAt: string;
+  snapshot: GroupingSnapshot;
+}
+
+export interface GroupingClearResult {
+  cleared: boolean;
+}
+
 export interface GroupingResponse {
   grouping: GroupingAdmin;
 }

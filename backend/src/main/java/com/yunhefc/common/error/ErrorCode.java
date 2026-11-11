@@ -23,6 +23,7 @@ public enum ErrorCode {
     PHONE_EXISTS(40907, HttpStatus.CONFLICT, "手机号已注册"),
     ROLE_IN_USE(40908, HttpStatus.CONFLICT, "角色仍被用户占用"),
     INVITE_UNAVAILABLE(40910, HttpStatus.CONFLICT, "邀请不可用"),
+    GROUPING_FINGERPRINT_CONFLICT(40911, HttpStatus.CONFLICT, "分组名单指纹不一致，需重新生成"),
     ROLE_CODE_EXISTS(40912, HttpStatus.CONFLICT, "角色编码重复"),
     IDEMPOTENCY_IN_PROGRESS(40915, HttpStatus.CONFLICT, "幂等请求正在处理中"),
     LAST_ADMIN_PROTECTED(40913, HttpStatus.CONFLICT, "不能移除最后一个管理员"),

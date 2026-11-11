@@ -1,5 +1,7 @@
 package com.yunhefc.stats.application;
 
+import com.yunhefc.stats.domain.PlayerStatsSummary;
+
 import java.time.Instant;
 
 /**
@@ -12,4 +14,14 @@ public record PlayerStatsRow(
         int goals,
         int assists,
         Instant updatedAt) {
+
+    public static PlayerStatsRow of(PlayerStatsSummary summary, Instant updatedAt) {
+        return new PlayerStatsRow(
+                summary.getPlayerId(),
+                summary.getSeason(),
+                summary.getAppearances(),
+                summary.getGoals(),
+                summary.getAssists(),
+                updatedAt);
+    }
 }

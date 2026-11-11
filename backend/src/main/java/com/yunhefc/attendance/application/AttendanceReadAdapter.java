@@ -8,6 +8,8 @@ import com.yunhefc.contracts.attendance.AttendanceSnapshot;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 @Component
@@ -25,9 +27,20 @@ public class AttendanceReadAdapter implements AttendanceReadPort {
                 .map(AttendanceReadAdapter::toSnapshot);
     }
 
+    @Override
+    public List<AttendanceSnapshot> findByMatchIds(Collection<Long> matchIds) {
+        if (matchIds == null || matchIds.isEmpty()) {
+            return List.of();
+        }
+        return attendanceMapper.selectByMatchIds(matchIds).stream()
+                .map(AttendanceReadAdapter::toSnapshot)
+                .toList();
+    }
+
     private static AttendanceSnapshot toSnapshot(Attendance attendance) {
         return new AttendanceSnapshot(
                 attendance.getId(),
+                attendance.getMatchId(),
                 attendance.getPlayerId(),
                 attendance.getStatus().code(),
                 attendance.getStatus().label(),

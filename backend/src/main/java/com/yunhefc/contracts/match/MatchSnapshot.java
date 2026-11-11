@@ -1,6 +1,7 @@
 package com.yunhefc.contracts.match;
 
 import java.time.Instant;
+import java.time.ZoneId;
 
 /**
  * 跨模块读取的比赛快照。
@@ -21,11 +22,30 @@ public record MatchSnapshot(
         String homeTeamName,
         String awayTeamName,
         Instant statusUpdatedAt,
+        String season,
         Integer type,
         Integer ourSide) {
 
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
     private static final int INTERNAL = 1;
     private static final int TRAINING = 2;
+
+    /**
+     * 汇总赛季：比赛 season 字段，为空时取开赛时间在 Asia/Shanghai 的年份。
+     */
+    public String effectiveSeason() {
+        if (season != null && !season.isBlank()) {
+            return season;
+        }
+        return startAt == null ? null : String.valueOf(startAt.atZone(BUSINESS_ZONE).getYear());
+    }
+
+    /**
+     * 已取消比赛不计任何统计。
+     */
+    public boolean cancelled() {
+        return status != null && status == MatchStatusCodes.CANCELLED;
+    }
 
     /**
      * 队内赛/训练赛：球员可为主客任意球员录入事件。

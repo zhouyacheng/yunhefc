@@ -1,13 +1,10 @@
 package com.yunhefc.stats.application;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.contracts.player.PlayerPublicSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
-import com.yunhefc.stats.domain.PlayerStatsSummary;
-import com.yunhefc.stats.infrastructure.PlayerStatsSummaryMapper;
+import com.yunhefc.stats.infrastructure.StatsCache;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.LocalDate;
@@ -26,8 +23,9 @@ public class StatsQueryService {
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
-    private final PlayerStatsSummaryMapper statsMapper;
+    private final StatsSummaryReader summaryReader;
     private final PlayerReadPort playerReadPort;
+    private final StatsCache statsCache;
     private final Clock clock;
 
     /**
@@ -40,7 +38,6 @@ public class StatsQueryService {
     /**
      * 球队页公开名单的赛季汇总；无汇总行的球员按 0 补齐。
      */
-    @Transactional(readOnly = true)
     public List<RosterStats> rosterStats(Long teamId, String season) {
         Map<Long, PlayerStatsRow> summaries = seasonStats(teamId, season);
         return playerReadPort.findPublicRoster(teamId).stream()
@@ -50,19 +47,24 @@ public class StatsQueryService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * 赛季汇总：优先读缓存，未命中回源汇总表并回填缓存。
+     */
     public Map<Long, PlayerStatsRow> seasonStats(Long teamId, String season) {
-        Map<Long, PlayerStatsRow> rows = new LinkedHashMap<>();
-        statsMapper.selectList(new LambdaQueryWrapper<PlayerStatsSummary>()
-                        .eq(PlayerStatsSummary::getTeamId, teamId)
-                        .eq(PlayerStatsSummary::getSeason, season))
-                .forEach(stats -> rows.put(stats.getPlayerId(), new PlayerStatsRow(
-                        stats.getPlayerId(),
-                        stats.getSeason(),
-                        stats.getAppearances(),
-                        stats.getGoals(),
-                        stats.getAssists(),
-                        stats.getUpdatedAt())));
-        return rows;
+        return statsCache.read(teamId, season)
+                .map(StatsQueryService::indexed)
+                .orElseGet(() -> loadAndCache(teamId, season));
+    }
+
+    private Map<Long, PlayerStatsRow> loadAndCache(Long teamId, String season) {
+        List<PlayerStatsRow> rows = summaryReader.load(teamId, season);
+        statsCache.write(teamId, season, rows);
+        return indexed(rows);
+    }
+
+    private static Map<Long, PlayerStatsRow> indexed(List<PlayerStatsRow> rows) {
+        Map<Long, PlayerStatsRow> indexed = new LinkedHashMap<>();
+        rows.forEach(row -> indexed.put(row.playerId(), row));
+        return indexed;
     }
 }

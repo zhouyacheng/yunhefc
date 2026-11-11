@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -37,6 +38,18 @@ public interface MatchEventMapper extends BaseMapper<MatchEvent> {
             WHERE match_id = #{matchId} AND is_deleted = 0 AND deleted_at IS NULL
             """)
     List<MatchEvent> selectActiveByMatch(@Param("matchId") Long matchId);
+
+    @Select("""
+            <script>
+            SELECT id, match_id, type, player_id, assist_player_id
+            FROM match_event
+            WHERE is_deleted = 0 AND deleted_at IS NULL AND match_id IN
+            <foreach collection="matchIds" item="matchId" open="(" separator="," close=")">
+                #{matchId}
+            </foreach>
+            </script>
+            """)
+    List<MatchEvent> selectStatsEvents(@Param("matchIds") Collection<Long> matchIds);
 
     // 伪删除保留原记录：同时写 is_deleted、deleted_at、deleted_by，并按 version 乐观锁收敛并发。
     @Update("""

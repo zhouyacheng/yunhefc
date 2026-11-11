@@ -20,6 +20,18 @@ public interface AttendanceMapper extends BaseMapper<Attendance> {
             """)
     List<Long> selectPlayerIdsByMatch(@Param("matchId") Long matchId);
 
+    @Select("""
+            <script>
+            SELECT id, match_id, player_id, status, source, recorded_at
+            FROM attendance
+            WHERE is_deleted = 0 AND match_id IN
+            <foreach collection="matchIds" item="matchId" open="(" separator="," close=")">
+                #{matchId}
+            </foreach>
+            </script>
+            """)
+    List<Attendance> selectByMatchIds(@Param("matchIds") Collection<Long> matchIds);
+
     /**
      * 批量补记缺勤；ON DUPLICATE KEY 保证并发/重复执行不覆盖已有记录。
      */

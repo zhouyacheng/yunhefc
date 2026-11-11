@@ -47,6 +47,19 @@ public class MatchReadAdapter implements MatchReadPort {
                 .toList();
     }
 
+    @Override
+    public List<MatchSnapshot> findSeasonMatches(Long teamId, String season) {
+        if (season == null || season.isBlank()) {
+            return List.of();
+        }
+        // SQL 已按 season 预筛；空赛季行需按开赛年份在应用层二次裁决。
+        return teamMatchMapper.selectSeasonMatches(teamId, season, MatchStatus.CANCELLED.code())
+                .stream()
+                .map(MatchReadAdapter::toSnapshot)
+                .filter(match -> season.equals(match.effectiveSeason()))
+                .toList();
+    }
+
     static MatchSnapshot toSnapshot(TeamMatch match) {
         return new MatchSnapshot(
                 match.getId(),
@@ -64,6 +77,7 @@ public class MatchReadAdapter implements MatchReadPort {
                 match.getHomeTeamName(),
                 match.getAwayTeamName(),
                 match.getStatusUpdatedAt(),
+                match.getSeason(),
                 match.getType().code(),
                 match.getOurSide() == null ? null : match.getOurSide().code());
     }

@@ -2,11 +2,13 @@ package com.yunhefc.match.application;
 
 import com.yunhefc.contracts.match.MatchReadPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
+import com.yunhefc.match.domain.MatchStatus;
 import com.yunhefc.match.domain.TeamMatch;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -28,6 +30,13 @@ public class MatchReadAdapter implements MatchReadPort {
             return List.of();
         }
         return teamMatchMapper.selectBatchIds(matchIds).stream()
+                .map(MatchReadAdapter::toSnapshot)
+                .toList();
+    }
+
+    @Override
+    public List<MatchSnapshot> findFinishedBefore(Instant cutoff) {
+        return teamMatchMapper.selectFinishedBefore(MatchStatus.FINISHED.code(), cutoff).stream()
                 .map(MatchReadAdapter::toSnapshot)
                 .toList();
     }

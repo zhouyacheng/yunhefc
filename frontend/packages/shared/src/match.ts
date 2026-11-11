@@ -1,5 +1,9 @@
 export type MatchType = 0 | 1 | 2 | 3;
 export type MatchStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+export const MATCH_STATUS_FINISHED: MatchStatus = 4;
+export const MATCH_STATUS_POSTPONED: MatchStatus = 5;
+export const MATCH_STATUS_CANCELLED: MatchStatus = 6;
 export type MatchSide = 0 | 1;
 
 /** 05 §4 MatchSummary。 */
@@ -99,15 +103,17 @@ export interface Registration {
   active: boolean;
 }
 
+export interface RosterPlayer {
+  id: number;
+  name: string;
+  jersey?: number | null;
+  position: number;
+  positionLabel?: string;
+}
+
 export interface RegistrationRow {
   id: number;
-  player: {
-    id: number;
-    name: string;
-    jersey?: number | null;
-    position: number;
-    positionLabel?: string;
-  };
+  player: RosterPlayer;
   type: number;
   typeLabel?: string;
   status: number;
@@ -119,13 +125,7 @@ export interface RegistrationRow {
 /** 05 §4 AttendanceRow：比赛全队考勤行，含球员展示字段与来源。 */
 export interface AttendanceRow {
   id: number;
-  player: {
-    id: number;
-    name: string;
-    jersey?: number | null;
-    position: number;
-    positionLabel?: string;
-  };
+  player: RosterPlayer;
   status: number;
   statusLabel?: string;
   source: number;

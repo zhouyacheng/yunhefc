@@ -79,6 +79,19 @@ public class RegistrationReadAdapter implements RegistrationReadPort {
     }
 
     @Override
+    public List<Long> findConfirmedPlayerIds(Long matchId) {
+        return registrationMapper.selectList(new LambdaQueryWrapper<Registration>()
+                        .select(Registration::getPlayerId)
+                        .eq(Registration::getMatchId, matchId)
+                        .eq(Registration::getStatus, RegistrationStatus.CONFIRMED)
+                        .orderByAsc(Registration::getRegisteredAt)
+                        .orderByAsc(Registration::getId))
+                .stream()
+                .map(Registration::getPlayerId)
+                .toList();
+    }
+
+    @Override
     public List<Long> findActiveUserIds(Long teamId, Long matchId) {
         List<Registration> registrations = registrationMapper.selectList(
                 new LambdaQueryWrapper<Registration>()

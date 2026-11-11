@@ -47,7 +47,7 @@ import java.util.stream.Collectors;
 public class AttendanceApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(AttendanceApplicationService.class);
-    private static final int ACTIVE_ACCOUNT = 1;
+    private static final int DISABLED_ACCOUNT = 2;
 
     private final AttendanceMapper attendanceMapper;
     private final MatchReadPort matchReadPort;
@@ -164,7 +164,7 @@ public class AttendanceApplicationService {
         Map<String, Object> before = existing.map(AttendanceApplicationService::auditSnapshot)
                 .orElse(null);
         Attendance attendance = write(matchId, player.id(), target, AttendanceSource.ADMIN,
-                principal.userId(), now, existing);
+                principal.userId(), now, existing.orElse(null));
         auditRecorder.recordCurrent("ATTENDANCE_MARK", "ATTENDANCE", attendance.getId(),
                 before, auditSnapshot(attendance));
         log.info("attendance marked, attendanceId={}, matchId={}, playerId={}, status={}",
@@ -173,7 +173,7 @@ public class AttendanceApplicationService {
     }
 
     /**
-     * ATT-06：补录未确认报名的本队 ACTIVE 球员为临时到场；不占报名名额。
+     * ATT-06：补录未确认报名的本队未注销球员为临时到场；不占报名名额。
      */
     @Transactional
     public AttendanceView tempPresent(Long matchId, Long playerId) {
@@ -184,7 +184,7 @@ public class AttendanceApplicationService {
 
         UserAccountSnapshot account = userAccountReadPort.find(player.userId())
                 .orElseThrow(() -> violation("球员账号不存在或已注销"));
-        if (account.status() == null || account.status() != ACTIVE_ACCOUNT) {
+        if (account.status() == null || account.status() == DISABLED_ACCOUNT) {
             throw violation("球员账号不存在或已注销");
         }
         boolean confirmed = registrationReadPort.findActiveByUser(matchId, player.userId())
@@ -205,7 +205,7 @@ public class AttendanceApplicationService {
         Map<String, Object> before = existing.map(AttendanceApplicationService::auditSnapshot)
                 .orElse(null);
         Attendance attendance = write(matchId, player.id(), AttendanceStatus.TEMP_PRESENT,
-                AttendanceSource.ADMIN, principal.userId(), now, existing);
+                AttendanceSource.ADMIN, principal.userId(), now, existing.orElse(null));
         auditRecorder.recordCurrent("ATTENDANCE_TEMP", "ATTENDANCE", attendance.getId(),
                 before, auditSnapshot(attendance));
         log.info("temporary attendance added, attendanceId={}, matchId={}, playerId={}",
@@ -218,15 +218,15 @@ public class AttendanceApplicationService {
      */
     private Attendance write(Long matchId, Long playerId, AttendanceStatus status,
                              AttendanceSource source, Long userId, Instant now,
-                             Optional<Attendance> existing) {
-        Attendance attendance = existing.orElseGet(Attendance::new);
+                             Attendance existing) {
+        Attendance attendance = existing != null ? existing : new Attendance();
         attendance.setMatchId(matchId);
         attendance.setPlayerId(playerId);
         attendance.setStatus(status);
         attendance.setSource(source);
         attendance.setRecordedBy(userId);
         attendance.setRecordedAt(now);
-        if (existing.isPresent()) {
+        if (existing != null) {
             attendanceMapper.updateById(attendance);
             return attendance;
         }

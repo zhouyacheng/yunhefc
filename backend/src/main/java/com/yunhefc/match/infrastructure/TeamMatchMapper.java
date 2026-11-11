@@ -54,6 +54,20 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
             """)
     List<TeamMatch> selectAutoAdvanceCandidates(@Param("now") Instant now);
 
+    // 考勤缺勤候选：已结束且实际结束时间已到 cutoff；提前结束用 status_updated_at，否则用 end_at。
+    @Select("""
+            SELECT id, team_id, title, start_at, end_at, signup_deadline, cancel_lock,
+                   capacity, guest_capacity, waitlist_capacity, venue, status,
+                   home_team_name, away_team_name, status_updated_at
+            FROM team_match
+            WHERE status = #{status} AND is_deleted = 0
+              AND (CASE WHEN status_updated_at IS NOT NULL AND status_updated_at < end_at
+                        THEN status_updated_at ELSE end_at END) <= #{cutoff}
+            ORDER BY id
+            """)
+    List<TeamMatch> selectFinishedBefore(@Param("status") int status,
+                                         @Param("cutoff") Instant cutoff);
+
     // 按主键 + 当前状态 + 版本条件更新：任务重复执行或与他人并发修改时不产生副作用。
     @Update("""
             UPDATE team_match

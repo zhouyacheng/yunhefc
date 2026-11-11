@@ -222,6 +222,8 @@ class AttendanceAdminIT extends IntegrationTestSupport {
         Long cancelledReg = playerLoginOnly("13900003535", "临时已取消", 1);
         Long inactive = playerLoginOnly("13900003536", "临时已注销", 1);
         jdbc.update("UPDATE app_user SET status = 2 WHERE id = ?", userId("13900003536"));
+        Long pending = playerLoginOnly("13900003538", "临时待审核", 1);
+        jdbc.update("UPDATE app_user SET status = 0 WHERE id = ?", userId("13900003538"));
         Long crossTeam = insertPlayerForTeam(2, "13900003537", "临时跨队", 1);
 
         Long matchId = insertMatch("M05临时到场", 2);
@@ -306,12 +308,23 @@ class AttendanceAdminIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.attendance.statusLabel").value("TEMP_PRESENT"));
 
+        // PENDING 账号未注销，仍可补录。
+        mockMvc.perform(post("/api/v1/b/matches/" + matchId + "/attendance/temp")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"playerId\":" + pending + "}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.attendance.status").value(2))
+                .andExpect(jsonPath("$.data.attendance.source").value(1));
+
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM registration WHERE match_id = ?", Integer.class, matchId))
                 .isEqualTo(registrationCount);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM attendance WHERE match_id = ?", Integer.class, matchId))
-                .isEqualTo(3);
+                .isEqualTo(4);
         assertThat(auditCount("ATTENDANCE_TEMP", waitlistedAttendanceId)).isEqualTo(1);
         assertThat(auditCount("ATTENDANCE_TEMP", unregisteredAttendanceId)).isEqualTo(1);
         assertThat(auditAfterField(unregisteredAttendanceId, 1, "$.status")).isEqualTo(2);

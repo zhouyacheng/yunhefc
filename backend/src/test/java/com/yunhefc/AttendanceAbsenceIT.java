@@ -66,22 +66,29 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
     }
 
     @Test
-    void statusUpdatedAtTakesPriorityOverEndAt() {
-        Long alreadyEndedLongAgo = insertMatch("M05缺勤状态时间优先", 4,
+    void usesStatusUpdatedAtOnlyForEarlyFinish() {
+        Long lateFinish = insertMatch("M05缺勤延迟完赛", 4,
                 Instant.now().minus(5, ChronoUnit.HOURS),
                 Instant.now().minus(20, ChronoUnit.HOURS));
-        Long earlyFinished = insertMatch("M05缺勤提前完赛", 4,
+        Long earlyDue = insertMatch("M05缺勤提前完赛", 4,
                 Instant.now().minus(7, ChronoUnit.HOURS),
+                Instant.now().plus(10, ChronoUnit.HOURS));
+        Long earlyNotDue = insertMatch("M05缺勤提前未完赛", 4,
+                Instant.now().minus(5, ChronoUnit.HOURS),
                 Instant.now().plus(10, ChronoUnit.HOURS));
         Long first = insertPlayer("13900003621", "缺勤优先一", 1);
         Long second = insertPlayer("13900003622", "缺勤优先二", 1);
-        register(alreadyEndedLongAgo, first, 0);
-        register(earlyFinished, second, 0);
+        Long third = insertPlayer("13900003623", "缺勤优先三", 1);
+        register(lateFinish, first, 0);
+        register(earlyDue, second, 0);
+        register(earlyNotDue, third, 0);
 
-        assertThat(absenceService.markDueAbsences()).isEqualTo(1);
+        assertThat(absenceService.markDueAbsences()).isEqualTo(2);
 
-        assertThat(attendanceCount(alreadyEndedLongAgo, first)).isZero();
-        assertAttendance(earlyFinished, second, 1, 2, null);
+        // 晚于排期结束才标记完赛：按 end_at 计算，已到期。
+        assertAttendance(lateFinish, first, 1, 2, null);
+        assertAttendance(earlyDue, second, 1, 2, null);
+        assertThat(attendanceCount(earlyNotDue, third)).isZero();
     }
 
     @Test

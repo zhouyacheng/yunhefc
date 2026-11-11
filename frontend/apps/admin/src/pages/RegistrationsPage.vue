@@ -13,6 +13,9 @@ import type {
 import {
   ATTENDANCE_SOURCE_TEXT,
   ATTENDANCE_STATUS_TEXT,
+  MATCH_STATUS_CANCELLED,
+  MATCH_STATUS_FINISHED,
+  MATCH_STATUS_POSTPONED,
   MATCH_STATUS_TEXT,
   REGISTRATION_STATUS_TEXT,
   formatDateTime,
@@ -53,8 +56,11 @@ const selectedMatch = computed(
   () => matches.value.find((match) => match.id === selectedMatchId.value) ?? null,
 );
 const matchStatus = computed(() => selectedMatch.value?.status ?? null);
-const postponedOrCancelled = computed(() => matchStatus.value === 5 || matchStatus.value === 6);
-const cancelled = computed(() => matchStatus.value === 6);
+const postponedOrCancelled = computed(
+  () =>
+    matchStatus.value === MATCH_STATUS_POSTPONED || matchStatus.value === MATCH_STATUS_CANCELLED,
+);
+const cancelled = computed(() => matchStatus.value === MATCH_STATUS_CANCELLED);
 const canMark = computed(
   () => !postponedOrCancelled.value && hasPermission(session.permissions, ATTENDANCE_MARK_ANY),
 );
@@ -62,8 +68,8 @@ const canRemove = computed(
   () =>
     hasPermission(session.permissions, REGISTRATION_REMOVE_ANY) &&
     matchStatus.value !== null &&
-    matchStatus.value !== 4 &&
-    matchStatus.value !== 6,
+    matchStatus.value !== MATCH_STATUS_FINISHED &&
+    matchStatus.value !== MATCH_STATUS_CANCELLED,
 );
 
 const attendanceByPlayer = computed(
@@ -364,7 +370,7 @@ onMounted(loadMatches);
           title="比赛已取消，报名记录保留但已作废，不计考勤。"
         />
         <el-alert
-          v-else-if="matchStatus === 5"
+          v-else-if="matchStatus === MATCH_STATUS_POSTPONED"
           class="notice"
           type="info"
           :closable="false"

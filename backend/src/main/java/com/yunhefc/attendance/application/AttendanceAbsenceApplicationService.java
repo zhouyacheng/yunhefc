@@ -1,8 +1,11 @@
 package com.yunhefc.attendance.application;
 
+import com.yunhefc.attendance.domain.AttendanceSource;
+import com.yunhefc.attendance.domain.AttendanceStatus;
 import com.yunhefc.attendance.infrastructure.AttendanceMapper;
 import com.yunhefc.contracts.match.MatchReadPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
+import com.yunhefc.contracts.registration.RegistrationReadPort;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +14,8 @@ import org.springframework.stereotype.Service;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * 赛后缺勤判定：已结束且实际结束 +6h 已到，给无考勤记录的 CONFIRMED 报名记 ABSENT/SYSTEM。
@@ -25,6 +30,7 @@ public class AttendanceAbsenceApplicationService {
 
     private final AttendanceMapper attendanceMapper;
     private final MatchReadPort matchReadPort;
+    private final RegistrationReadPort registrationReadPort;
     private final Clock clock;
 
     /**
@@ -34,26 +40,42 @@ public class AttendanceAbsenceApplicationService {
         Instant now = Instant.now(clock);
         Instant cutoff = now.minus(ABSENCE_DELAY);
         int created = 0;
-        for (Long matchId : attendanceMapper.selectAbsenceDueMatchIds(cutoff)) {
+        for (MatchSnapshot candidate : matchReadPort.findFinishedBefore(cutoff)) {
             try {
-                MatchSnapshot match = matchReadPort.findById(matchId).orElse(null);
+                // 候选在扫描后可能被取消/延期；逐场当前读后复核，避免给作废场次记缺勤。
+                MatchSnapshot match = matchReadPort.findById(candidate.id()).orElse(null);
                 if (match == null || !match.finished() || !isDue(match, cutoff)) {
                     continue;
                 }
-                created += attendanceMapper.insertSystemAbsences(matchId, now);
+                Set<Long> missing = new HashSet<>(
+                        registrationReadPort.findConfirmedPlayerIds(match.id()));
+                if (missing.isEmpty()) {
+                    continue;
+                }
+                missing.removeAll(attendanceMapper.selectPlayerIdsByMatch(match.id()));
+                if (missing.isEmpty()) {
+                    continue;
+                }
+                created += attendanceMapper.insertAbsences(match.id(), missing,
+                        AttendanceStatus.ABSENT.code(), AttendanceSource.SYSTEM.code(), now);
             } catch (RuntimeException ex) {
                 // 单场失败不影响同一轮其他比赛；下一轮按唯一键幂等重试。
-                log.warn("Absence marking failed, matchId={}", matchId, ex);
+                log.warn("Absence marking failed, matchId={}", candidate.id(), ex);
             }
         }
-        if (created > 0) {
-            log.info("Marked absences automatically, count={}", created);
-        }
+        log.debug("Absence marking finished, created={}", created);
         return created;
     }
 
     private static boolean isDue(MatchSnapshot match, Instant cutoff) {
-        Instant actualEnd = match.statusUpdatedAt() != null ? match.statusUpdatedAt() : match.endAt();
-        return actualEnd != null && !actualEnd.isAfter(cutoff);
+        Instant actualEnd = match.endAt();
+        if (actualEnd == null) {
+            return false;
+        }
+        // 仅提前结束（status_updated_at 早于 end_at）用实际结束时间；延期完成等仍按 end_at。
+        if (match.statusUpdatedAt() != null && match.statusUpdatedAt().isBefore(actualEnd)) {
+            actualEnd = match.statusUpdatedAt();
+        }
+        return !actualEnd.isAfter(cutoff);
     }
 }

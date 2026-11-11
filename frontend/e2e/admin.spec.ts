@@ -154,6 +154,61 @@ test('B 端：B06 调整 → 保存 → 清除 → 重新生成', async ({ page 
   expect(errors).toEqual([]);
 });
 
+test('B 端：B05 阵型模板复制、重命名、删除', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/admin/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000001');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/admin\/matches$/);
+
+  await page.goto('/admin/lineup');
+  await expect(page).toHaveURL(/\/admin\/lineup$/);
+  await expect(page.locator('.template-card--preset')).toHaveCount(8);
+
+  const preset = page.locator('.template-card--preset').first();
+  await expect(preset.getByRole('button', { name: '重命名' })).toBeDisabled();
+  await expect(preset.getByRole('button', { name: '删除' })).toBeDisabled();
+  await expect(preset.getByText('预置阵型只读，可复制后修改。')).toBeVisible();
+
+  const stamp = Date.now();
+  const createdName = `测试阵型${stamp}`;
+  const renamedName = `测试阵型改${stamp}`;
+
+  await preset.getByRole('button', { name: '复制并新建' }).click();
+  const copyDialog = page.locator('.el-dialog').filter({ hasText: '复制预置阵型' });
+  await copyDialog.getByPlaceholder('模板名称').fill(createdName);
+  await copyDialog.getByRole('button', { name: '创建模板' }).click();
+  await expect(
+    page.locator('.template-card--custom').filter({ hasText: createdName }),
+  ).toBeVisible();
+
+  await page
+    .locator('.template-card--custom')
+    .filter({ hasText: createdName })
+    .getByRole('button', { name: '重命名' })
+    .click();
+  const renameDialog = page.locator('.el-dialog').filter({ hasText: '重命名自定义模板' });
+  await renameDialog.getByPlaceholder('新的模板名称').fill(renamedName);
+  await renameDialog.getByRole('button', { name: '保存名称' }).click();
+  await expect(
+    page.locator('.template-card--custom').filter({ hasText: renamedName }),
+  ).toBeVisible();
+
+  await page
+    .locator('.template-card--custom')
+    .filter({ hasText: renamedName })
+    .getByRole('button', { name: '删除' })
+    .click();
+  await page.locator('.el-message-box').getByRole('button', { name: '删除' }).click();
+  await expect(
+    page.locator('.template-card--custom').filter({ hasText: renamedName }),
+  ).toHaveCount(0);
+
+  expect(errors).toEqual([]);
+});
+
 test('B 端：只读球员可查看分组但不能生成', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 

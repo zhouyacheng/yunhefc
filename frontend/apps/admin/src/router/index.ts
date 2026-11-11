@@ -19,6 +19,9 @@ function sectionComponent(section: AdminSection) {
   if (section === 'events') {
     return () => import('../pages/EventsPage.vue');
   }
+  if (section === 'lineup') {
+    return () => import('../pages/LineupPage.vue');
+  }
   if (section === 'grouping') {
     return () => import('../pages/GroupingPage.vue');
   }

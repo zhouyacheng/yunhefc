@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@yunhefc/api-client": "workspace:*",
+    "@yunhefc/permissions": "workspace:*",
     "@yunhefc/shared": "workspace:*",
     "pinia": "^4.1.0",
     "vant": "^4.10.2",

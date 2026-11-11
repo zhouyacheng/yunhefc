@@ -87,8 +87,8 @@ SELECT u.id, @guest_role_id FROM app_user u WHERE u.id BETWEEN 1016 AND 1020;
 
 INSERT IGNORE INTO user_role (user_id, role_id) VALUES (1001, @admin_role_id);
 
--- 三场测试比赛：1001 锁定（用于分组/阵容），1002 已结束（用于事件/考勤/统计），
--- 1003 开赛时间随脚本滚动（用于 C 端签到黄金路径）
+-- 四场测试比赛：1001 锁定（用于分组/阵容），1002 已结束（用于事件/考勤/统计），
+-- 1003 开赛时间随脚本滚动（用于 C 端签到黄金路径），1004 进行中（用于 C 端事件黄金路径）
 INSERT IGNORE INTO team_match
   (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
    venue, competition, season, round, home_team_name, away_team_name, our_side,
@@ -138,6 +138,34 @@ VALUES (1003, 1002, 1, 0, UTC_TIMESTAMP())
 ON DUPLICATE KEY UPDATE status = 0, cancelled_at = NULL;
 
 DELETE FROM attendance WHERE match_id = 1003 AND player_id = 1002;
+
+-- 1004 进行中（C 端事件黄金路径）：1002 确认报名，重跑脚本时清空既有事件。
+SET @event_start = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR);
+INSERT INTO team_match
+  (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
+   venue, competition, season, round, home_team_name, away_team_name, our_side,
+   status, manual_status, capacity, guest_capacity, waitlist_capacity, include_guests,
+   score_home, score_away, season_match_no, total_match_no, version, created_by)
+VALUES
+  (1004, @team_id, 'M06事件联调赛', 0, '8人制',
+   @event_start, DATE_ADD(@event_start, INTERVAL 2 HOUR),
+   DATE(@event_start), DATE_ADD(DATE(@event_start), INTERVAL 10 HOUR),
+   '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 4, '云河FC', '对手FC', 0,
+   3, 1, 30, 4, 2, 1, 0, 0, 4, 4, 0, 1001)
+ON DUPLICATE KEY UPDATE
+  start_at = VALUES(start_at), end_at = VALUES(end_at),
+  signup_deadline = VALUES(signup_deadline), cancel_lock = VALUES(cancel_lock),
+  season = VALUES(season), status = VALUES(status), manual_status = VALUES(manual_status),
+  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no);
+
+INSERT INTO registration (match_id, player_id, type, status, registered_at)
+VALUES (1004, 1002, 1, 0, UTC_TIMESTAMP())
+ON DUPLICATE KEY UPDATE status = 0, cancelled_at = NULL;
+
+-- 事件与历史永久保留：仅软删除上一轮事件，使时间线与推导比分从空开始。
+UPDATE match_event
+SET is_deleted = 1, deleted_at = COALESCE(deleted_at, UTC_TIMESTAMP())
+WHERE match_id = 1004 AND is_deleted = 0;
 
 -- 考勤：1002 场部分正常/缺勤/临时到场（1020 未报名，临时到场）
 INSERT IGNORE INTO attendance (match_id, player_id, status, source, recorded_by)

@@ -6,6 +6,8 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.event.DerivedScoreSnapshot;
+import com.yunhefc.contracts.event.EventScoreReadPort;
 import com.yunhefc.contracts.registration.RegistrationQueueCounts;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.match.MatchSummarySnapshot;
@@ -15,6 +17,7 @@ import com.yunhefc.match.domain.MatchStatus;
 import com.yunhefc.match.domain.MatchTimeRules;
 import com.yunhefc.match.domain.MatchType;
 import com.yunhefc.match.domain.TeamMatch;
+import com.yunhefc.match.dto.MatchDtos.DerivedScore;
 import com.yunhefc.match.dto.MatchDtos.MatchDetail;
 import com.yunhefc.match.dto.MatchDtos.MatchPublicQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchSummary;
@@ -43,6 +46,7 @@ public class MatchPublicApplicationService {
     private final TeamMatchMapper teamMatchMapper;
     private final TeamReadPort teamReadPort;
     private final RegistrationReadPort registrationReadPort;
+    private final EventScoreReadPort eventScoreReadPort;
 
     @Transactional(readOnly = true)
     public PageResponse<MatchSummary> list(MatchPublicQuery query) {
@@ -100,7 +104,10 @@ public class MatchPublicApplicationService {
         }
         RegistrationQueueCounts counts = registrationReadPort.queueCounts(List.of(matchId))
                 .getOrDefault(matchId, RegistrationQueueCounts.EMPTY);
-        return toDetail(match, counts, myRegistration(matchId));
+        DerivedScore derivedScore = eventScoreReadPort.findDerivedScore(matchId)
+                .map(MatchPublicApplicationService::toDerivedScore)
+                .orElse(null);
+        return toDetail(match, counts, derivedScore, myRegistration(matchId));
     }
 
     private RegistrationView myRegistration(Long matchId) {
@@ -151,7 +158,12 @@ public class MatchPublicApplicationService {
                 counts.waitlistCount());
     }
 
-    private MatchDetail toDetail(TeamMatch match, RegistrationQueueCounts counts, RegistrationView mine) {
+    private static DerivedScore toDerivedScore(DerivedScoreSnapshot score) {
+        return new DerivedScore(score.scoreHome(), score.scoreAway());
+    }
+
+    private MatchDetail toDetail(TeamMatch match, RegistrationQueueCounts counts,
+                                 DerivedScore derivedScore, RegistrationView mine) {
         MatchSummarySnapshot summary = MatchSummaryMapping.toSummary(match);
         return new MatchDetail(
                 summary.id(),
@@ -185,7 +197,7 @@ public class MatchPublicApplicationService {
                 match.getGuestCapacity(),
                 match.getWaitlistCapacity(),
                 match.getVersion(),
-                null,
+                derivedScore,
                 mine);
     }
 

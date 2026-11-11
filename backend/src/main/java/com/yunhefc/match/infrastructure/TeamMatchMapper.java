@@ -56,8 +56,8 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
 
     // 考勤缺勤候选：已结束且实际结束时间已到 cutoff；提前结束用 status_updated_at，否则用 end_at。
     @Select("""
-            SELECT id, team_id, title, start_at, end_at, signup_deadline, cancel_lock,
-                   capacity, guest_capacity, waitlist_capacity, venue, status,
+            SELECT id, team_id, title, type, our_side, start_at, end_at, signup_deadline,
+                   cancel_lock, capacity, guest_capacity, waitlist_capacity, venue, status,
                    home_team_name, away_team_name, status_updated_at
             FROM team_match
             WHERE status = #{status} AND is_deleted = 0

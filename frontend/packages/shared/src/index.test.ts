@@ -5,6 +5,10 @@ import {
   ATTENDANCE_STATUS_TEXT,
   checkInWindowState,
   emptyPage,
+  eventEditWindowOpen,
+  eventEntryOpen,
+  eventHalfText,
+  eventTypeText,
   isPage,
   matchStatusText,
   matchStatusTone,
@@ -48,6 +52,28 @@ describe('enum helpers', () => {
     expect(ATTENDANCE_STATUS_TEXT[2]).toBe('临时到场');
     expect(ATTENDANCE_SOURCE_TEXT[0]).toBe('自助签到');
     expect(ATTENDANCE_SOURCE_TEXT[2]).toBe('系统');
+  });
+});
+
+describe('event helpers', () => {
+  it('maps 04 §2.4 event codes to display text', () => {
+    expect(eventTypeText(0)).toBe('进球');
+    expect(eventTypeText(2)).toBe('换人');
+    expect(eventTypeText(4)).toBe('红牌');
+    expect(eventHalfText(1)).toBe('下半场');
+  });
+
+  it('opens event entry only for in-progress or finished matches', () => {
+    expect(eventEntryOpen(3)).toBe(true);
+    expect(eventEntryOpen(4)).toBe(true);
+    expect(eventEntryOpen(2)).toBe(false);
+    expect(eventEntryOpen(6)).toBe(false);
+  });
+
+  it('allows player edits within 24 hours after the match ends', () => {
+    const endAt = '2026-11-15T14:00:00Z';
+    expect(eventEditWindowOpen(endAt, Date.parse('2026-11-16T14:00:00Z'))).toBe(true);
+    expect(eventEditWindowOpen(endAt, Date.parse('2026-11-16T14:00:01Z'))).toBe(false);
   });
 });
 

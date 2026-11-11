@@ -1,6 +1,7 @@
 export type MatchType = 0 | 1 | 2 | 3;
 export type MatchStatus = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
+export const MATCH_STATUS_IN_PROGRESS: MatchStatus = 3;
 export const MATCH_STATUS_FINISHED: MatchStatus = 4;
 export const MATCH_STATUS_POSTPONED: MatchStatus = 5;
 export const MATCH_STATUS_CANCELLED: MatchStatus = 6;
@@ -158,6 +159,59 @@ export interface MyMatchRegistration {
   attendance?: Attendance | null;
 }
 
+export type EventType = 0 | 1 | 2 | 3 | 4;
+export type EventTeam = 0 | 1;
+export type EventHalf = 0 | 1;
+
+export interface EventPlayer {
+  id: number;
+  name: string;
+  jersey?: number | null;
+  position: number;
+  positionLabel?: string;
+}
+
+/** 05 §4 Event。 */
+export interface MatchEvent {
+  id: number;
+  type: EventType;
+  typeLabel?: string;
+  team: EventTeam;
+  teamLabel?: string;
+  player?: EventPlayer | null;
+  assistPlayer?: EventPlayer | null;
+  inPlayer?: EventPlayer | null;
+  outPlayer?: EventPlayer | null;
+  minute: number;
+  half: EventHalf;
+  halfLabel?: string;
+  penalty: boolean;
+  createdBy?: number | null;
+  updatedAt: string;
+  version: number;
+}
+
+/** EVT-01 事件时间线；无有效事件时 derivedScore 为 null。 */
+export interface EventTimeline {
+  items: MatchEvent[];
+  derivedScore?: DerivedScore | null;
+}
+
+export interface EventCreate {
+  type: EventType;
+  team: EventTeam;
+  playerId?: number | null;
+  assistPlayerId?: number | null;
+  inPlayerId?: number | null;
+  outPlayerId?: number | null;
+  minute: number;
+  half: EventHalf;
+  penalty: boolean;
+}
+
+/** EVT-03 部分更新：未出现的字段保持原值。 */
+export type EventUpdate = Partial<EventCreate> & { version: number };
+
 export interface PromotionResult {
   promotedPlayerId?: number | null;
   promoted: boolean;
@@ -202,6 +256,40 @@ export function matchStatusTone(code: number | null | undefined): MatchStatusTon
     return 'warning';
   }
   return 'neutral';
+}
+
+export const EVENT_TYPE_TEXT: Readonly<Record<EventType, string>> = {
+  0: '进球',
+  1: '乌龙球',
+  2: '换人',
+  3: '黄牌',
+  4: '红牌',
+};
+
+export const EVENT_HALF_TEXT: Readonly<Record<EventHalf, string>> = {
+  0: '上半场',
+  1: '下半场',
+};
+
+export function eventTypeText(code: number | null | undefined): string {
+  return code === null || code === undefined ? '' : (EVENT_TYPE_TEXT[code as EventType] ?? '');
+}
+
+export function eventHalfText(code: number | null | undefined): string {
+  return code === null || code === undefined ? '' : (EVENT_HALF_TEXT[code as EventHalf] ?? '');
+}
+
+/** 事件录入仅进行中/已结束。 */
+export function eventEntryOpen(status: number | null | undefined): boolean {
+  return status === MATCH_STATUS_IN_PROGRESS || status === MATCH_STATUS_FINISHED;
+}
+
+const EVENT_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** 球员赛后 24 小时编辑窗口；管理员不受限。仅用于按钮启用说明，服务端强校验。 */
+export function eventEditWindowOpen(endAt: string, now: number = Date.now()): boolean {
+  const end = Date.parse(endAt);
+  return !Number.isNaN(end) && now <= end + EVENT_EDIT_WINDOW_MS;
 }
 
 export const POSITION_TEXT: Readonly<Record<number, string>> = {

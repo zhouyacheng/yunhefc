@@ -179,7 +179,7 @@ class RegistrationApplicationServiceTest {
         return new MatchSnapshot(MATCH_ID, TEAM_ID, "测试比赛",
                 now.plusSeconds(86_400), now.plusSeconds(93_600),
                 now.plusSeconds(3_600), cancelLock,
-                30, 4, 2, "测试场地", status, "橙队", "兰队", null);
+                30, 4, 2, "测试场地", status, "橙队", "兰队", null, 1, null);
     }
 
     private PlayerSnapshot formalPlayer() {

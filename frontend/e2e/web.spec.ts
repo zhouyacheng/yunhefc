@@ -11,7 +11,7 @@ test('C 端：登录后看到真实赛程', async ({ page }) => {
   await page.getByRole('button', { name: '登录' }).click();
 
   await expect(page).toHaveURL(/\/matches$/);
-  await expect(page.locator('.match-card')).toHaveCount(3);
+  await expect(page.locator('.match-card')).toHaveCount(4);
   await expect(page.getByText('已锁定').first()).toBeVisible();
 
   expect(errors).toEqual([]);
@@ -37,6 +37,33 @@ test('C 端：登录后进入比赛详情并签到', async ({ page }) => {
   await expect(page.locator('.attendance-status')).toContainText('正常');
   await expect(page.locator('.attendance-status')).toContainText('自助签到');
   await expect(page.getByRole('button', { name: '签到' })).toHaveCount(0);
+
+  expect(errors).toEqual([]);
+});
+
+test('C 端：录入进球后时间线与推导比分更新', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/login');
+  await page.getByPlaceholder('请输入手机号').fill('13910000002');
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/matches$/);
+
+  // test-data.sql 的 1004 场处于进行中，1002 已确认报名。
+  await page.locator('.match-card-link[href="/matches/1004"]').click();
+  await expect(page).toHaveURL(/\/matches\/1004$/);
+
+  await page.getByRole('button', { name: '事件' }).click();
+  await expect(page.getByText('还没有事件记录')).toBeVisible();
+  await page.getByRole('button', { name: '录入事件' }).click();
+
+  await page.getByPlaceholder('1–120').fill('23');
+  await page.getByRole('button', { name: '保存事件' }).click();
+
+  await expect(page.locator('.event-card').first()).toContainText('进球');
+  await expect(page.locator('.event-card').first()).toContainText('测试后卫01');
+  await expect(page.locator('.match-hero__teams strong')).toHaveText('1 : 0');
 
   expect(errors).toEqual([]);
 });

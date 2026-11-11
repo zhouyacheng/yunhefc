@@ -57,6 +57,8 @@ public class MatchReadAdapter implements MatchReadPort {
                 match.getStatus().code(),
                 match.getHomeTeamName(),
                 match.getAwayTeamName(),
-                match.getStatusUpdatedAt());
+                match.getStatusUpdatedAt(),
+                match.getType().code(),
+                match.getOurSide() == null ? null : match.getOurSide().code());
     }
 }

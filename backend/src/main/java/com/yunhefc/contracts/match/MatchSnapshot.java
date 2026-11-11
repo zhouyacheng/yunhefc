@@ -20,7 +20,26 @@ public record MatchSnapshot(
         Integer status,
         String homeTeamName,
         String awayTeamName,
-        Instant statusUpdatedAt) {
+        Instant statusUpdatedAt,
+        Integer type,
+        Integer ourSide) {
+
+    private static final int INTERNAL = 1;
+    private static final int TRAINING = 2;
+
+    /**
+     * 队内赛/训练赛：球员可为主客任意球员录入事件。
+     */
+    public boolean internalOrTraining() {
+        return type != null && (type == INTERNAL || type == TRAINING);
+    }
+
+    /**
+     * 对外比赛我方所属队；非对外比赛我方主客为空时按主队处理。
+     */
+    public int ourEventTeam() {
+        return ourSide == null ? 0 : ourSide;
+    }
 
     /**
      * 未开赛：报名中/报名截止/锁定/已延期（04 §2.4 状态编码）；已延期通过重新排期回到报名中。
@@ -37,10 +56,18 @@ public record MatchSnapshot(
     }
 
     /**
-     * 已结束：考勤缺勤判定只处理该状态的比赛。
+     * 已结束：考勤缺勤判定与球员事件窗口只处理该状态的比赛。
      */
     public boolean finished() {
         return status != null && status == MatchStatusCodes.FINISHED;
+    }
+
+    /**
+     * 事件录入仅进行中/已结束。
+     */
+    public boolean inProgressOrFinished() {
+        return status != null && (status == MatchStatusCodes.IN_PROGRESS
+                || status == MatchStatusCodes.FINISHED);
     }
 
     /**

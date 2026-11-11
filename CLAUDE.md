@@ -118,3 +118,17 @@ deploy/            (planned) Docker Compose、Nginx
 - 生产部署、公开发布、执行 SQL 脚本。
 - 修改已确认的需求、技术栈或 DB/API 契约。
 - 新增需求文档未定义的功能或模块。
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live as local markdown under `.scratch/<feature>/`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Five canonical roles, label strings equal to their names (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` at the repo root plus `docs/adr/`. See `docs/agents/domain.md`.

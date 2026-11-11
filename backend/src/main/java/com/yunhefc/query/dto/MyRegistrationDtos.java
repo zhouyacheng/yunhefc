@@ -1,5 +1,7 @@
 package com.yunhefc.query.dto;
 
+import com.yunhefc.query.dto.RegistrationDtos.RegistrationRow;
+
 import java.time.Instant;
 
 public final class MyRegistrationDtos {
@@ -8,25 +10,6 @@ public final class MyRegistrationDtos {
     }
 
     public record MyRegistration(RegistrationRow registration, MatchSummary match) {
-    }
-
-    public record RegistrationRow(
-            Long id,
-            PlayerRef player,
-            Integer type,
-            String typeLabel,
-            Integer status,
-            String statusLabel,
-            Instant registeredAt,
-            Instant cancelledAt) {
-    }
-
-    public record PlayerRef(
-            Long id,
-            String name,
-            Integer jersey,
-            Integer position,
-            String positionLabel) {
     }
 
     public record MatchSummary(

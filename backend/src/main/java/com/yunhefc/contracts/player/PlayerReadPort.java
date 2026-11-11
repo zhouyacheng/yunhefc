@@ -10,6 +10,11 @@ public interface PlayerReadPort {
 
     Optional<PlayerSnapshot> findByUserId(Long userId);
 
+    /**
+     * 按球队批量读取球员；不属于该球队或不存在的 ID 不返回。
+     */
+    List<PlayerSnapshot> findByIds(Long teamId, Collection<Long> playerIds);
+
     List<PlayerSnapshot> findByUserIds(Collection<Long> userIds);
 
     /**

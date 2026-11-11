@@ -21,4 +21,9 @@ public interface RegistrationReadPort {
      * 球员在每场比赛中的最新一条报名（含取消/移除历史），按报名时间、ID 降序。
      */
     List<RegistrationSnapshot> findLatestByPlayer(Long playerId);
+
+    /**
+     * 比赛报名名单分页；type/status 为空时不过滤，按报名时间、ID 升序。
+     */
+    RegistrationRosterPage findRoster(Long matchId, Integer type, Integer status, long page, long pageSize);
 }

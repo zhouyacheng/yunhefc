@@ -9,7 +9,6 @@ import com.yunhefc.contracts.match.MatchSummaryReadPort;
 import com.yunhefc.contracts.match.MatchSummarySnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
-import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.registration.RegistrationQueueCounts;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.registration.RegistrationSnapshot;
@@ -17,9 +16,8 @@ import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.query.dto.MyRegistrationDtos.MatchSummary;
 import com.yunhefc.query.dto.MyRegistrationDtos.MyMatchRegistrationView;
 import com.yunhefc.query.dto.MyRegistrationDtos.MyRegistration;
-import com.yunhefc.query.dto.MyRegistrationDtos.PlayerRef;
-import com.yunhefc.query.dto.MyRegistrationDtos.RegistrationRow;
 import com.yunhefc.query.dto.MyRegistrationDtos.RegistrationView;
+import com.yunhefc.query.dto.RegistrationDtos.RegistrationRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -67,7 +65,7 @@ public class MyRegistrationsApplicationService {
                 continue;
             }
             items.add(new MyRegistration(
-                    toRegistrationRow(registration, player),
+                    RegistrationRow.from(registration, player),
                     toMatchSummary(match,
                             counts.getOrDefault(match.id(), RegistrationQueueCounts.EMPTY))));
         }
@@ -109,20 +107,6 @@ public class MyRegistrationsApplicationService {
         int from = (int) Math.min(offset, items.size());
         int to = (int) Math.min((long) from + pageSize, items.size());
         return PageResponse.of(new ArrayList<>(items.subList(from, to)), items.size(), page, pageSize);
-    }
-
-    private RegistrationRow toRegistrationRow(RegistrationSnapshot registration, PlayerSnapshot player) {
-        Position position = Position.of(player.position());
-        return new RegistrationRow(
-                registration.id(),
-                new PlayerRef(player.id(), player.name(), player.jersey(),
-                        position.code(), position.label()),
-                registration.type(),
-                registration.typeLabel(),
-                registration.status(),
-                registration.statusLabel(),
-                registration.registeredAt(),
-                registration.cancelledAt());
     }
 
     private MatchSummary toMatchSummary(MatchSummarySnapshot match, RegistrationQueueCounts counts) {

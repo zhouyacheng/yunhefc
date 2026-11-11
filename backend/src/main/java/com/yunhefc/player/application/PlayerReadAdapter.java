@@ -39,6 +39,19 @@ public class PlayerReadAdapter implements PlayerReadPort {
     }
 
     @Override
+    public List<PlayerSnapshot> findByIds(Long teamId, Collection<Long> playerIds) {
+        if (playerIds == null || playerIds.isEmpty()) {
+            return List.of();
+        }
+        return playerMapper.selectList(new LambdaQueryWrapper<Player>()
+                        .eq(Player::getTeamId, teamId)
+                        .in(Player::getId, playerIds))
+                .stream()
+                .map(PlayerReadAdapter::toSnapshot)
+                .toList();
+    }
+
+    @Override
     public List<PlayerSnapshot> findByUserIds(Collection<Long> userIds) {
         if (userIds == null || userIds.isEmpty()) {
             return List.of();

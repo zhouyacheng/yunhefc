@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunhefc.attendance.infrastructure.AttendanceMapper">
+
+    <select id="selectAbsenceDueMatchIds" resultType="java.lang.Long">
+        SELECT id
+        FROM team_match
+        WHERE status = 4
+          AND is_deleted = 0
+          AND COALESCE(status_updated_at, end_at) &lt;= #{cutoff}
+        ORDER BY id
+    </select>
+
+    <insert id="insertSystemAbsences">
+        INSERT INTO attendance (match_id, player_id, status, source, recorded_at)
+        SELECT r.match_id, r.player_id, 1, 2, #{recordedAt}
+        FROM registration r
+        WHERE r.match_id = #{matchId}
+          AND r.status = 0
+          AND r.is_deleted = 0
+          AND NOT EXISTS (
+              SELECT 1
+              FROM attendance a
+              WHERE a.match_id = r.match_id
+                AND a.player_id = r.player_id
+          )
+    </insert>
+
+</mapper>

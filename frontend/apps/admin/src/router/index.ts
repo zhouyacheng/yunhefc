@@ -1,5 +1,5 @@
 import { safeRedirectPath } from '@yunhefc/api-client';
-import { ADMIN_SECTIONS } from '@yunhefc/permissions';
+import { ADMIN_SECTIONS, type AdminSection } from '@yunhefc/permissions';
 import { toBrowserPath as withBase, toRoutePath as withoutBase } from '@yunhefc/shared';
 import { createRouter, createWebHistory } from 'vue-router';
 
@@ -8,6 +8,16 @@ import { useSessionStore } from '../stores/session';
 
 const appBase = import.meta.env.BASE_URL;
 const loginPath = `${appBase}login`;
+
+function sectionComponent(section: AdminSection) {
+  if (section === 'matches') {
+    return () => import('../pages/MatchesPage.vue');
+  }
+  if (section === 'registrations') {
+    return () => import('../pages/RegistrationsPage.vue');
+  }
+  return () => import('../pages/SectionPage.vue');
+}
 
 export function toRoutePath(browserPath: string): string {
   return withoutBase(browserPath, appBase);
@@ -42,10 +52,7 @@ export const router = createRouter({
         ...ADMIN_SECTIONS.map((section) => ({
           path: section,
           name: section,
-          component:
-            section === 'matches'
-              ? () => import('../pages/MatchesPage.vue')
-              : () => import('../pages/SectionPage.vue'),
+          component: sectionComponent(section),
           meta: { section },
         })),
         {

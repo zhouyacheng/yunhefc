@@ -101,13 +101,40 @@ export interface Registration {
 
 export interface RegistrationRow {
   id: number;
-  player: { id: number; name: string; jersey?: number | null; position: number };
+  player: {
+    id: number;
+    name: string;
+    jersey?: number | null;
+    position: number;
+    positionLabel?: string;
+  };
   type: number;
   typeLabel?: string;
   status: number;
   statusLabel?: string;
   registeredAt: string;
   cancelledAt?: string | null;
+}
+
+/** 05 §4 AttendanceRow：比赛全队考勤行，含球员展示字段与来源。 */
+export interface AttendanceRow {
+  id: number;
+  player: {
+    id: number;
+    name: string;
+    jersey?: number | null;
+    position: number;
+    positionLabel?: string;
+  };
+  status: number;
+  statusLabel?: string;
+  source: number;
+  sourceLabel?: string;
+  recordedAt: string;
+}
+
+export interface RemovalResult extends PromotionResult {
+  removed: boolean;
 }
 
 export interface Attendance {
@@ -175,6 +202,17 @@ export function matchStatusTone(code: number | null | undefined): MatchStatusTon
     return 'warning';
   }
   return 'neutral';
+}
+
+export const POSITION_TEXT: Readonly<Record<number, string>> = {
+  0: '门将',
+  1: '后卫',
+  2: '中场',
+  3: '前锋',
+};
+
+export function positionText(code: number | null | undefined): string {
+  return code === null || code === undefined ? '—' : (POSITION_TEXT[code] ?? '—');
 }
 
 export const REGISTRATION_STATUS_TEXT: Readonly<Record<number, string>> = {

@@ -2,8 +2,10 @@ package com.yunhefc.attendance.controller;
 
 import com.yunhefc.attendance.application.AttendanceApplicationService;
 import com.yunhefc.attendance.dto.AttendanceDtos.AttendanceResponse;
+import com.yunhefc.attendance.dto.AttendanceDtos.AttendanceRow;
 import com.yunhefc.attendance.dto.AttendanceDtos.MyAttendanceResponse;
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -11,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -32,5 +35,15 @@ public class AttendanceController {
     public ApiResponse<MyAttendanceResponse> myAttendance(@PathVariable Long matchId) {
         return ApiResponse.ok(
                 new MyAttendanceResponse(attendanceApplicationService.myAttendance(matchId)));
+    }
+
+    @GetMapping("/attendance")
+    @PreAuthorize("hasAuthority('attendance:view:any')")
+    public ApiResponse<PageResponse<AttendanceRow>> list(
+            @PathVariable Long matchId,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "1") long page,
+            @RequestParam(defaultValue = "10") long pageSize) {
+        return ApiResponse.ok(attendanceApplicationService.list(matchId, status, page, pageSize));
     }
 }

@@ -93,6 +93,7 @@ export interface PlayerPublic {
   name: string;
   jersey?: number | null;
   position: number;
+  positionLabel?: string;
   secondaryPositions?: number[];
   region?: string | null;
   avatarUrl?: string | null;

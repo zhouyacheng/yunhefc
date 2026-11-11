@@ -19,7 +19,8 @@ public record MatchSnapshot(
         String venue,
         Integer status,
         String homeTeamName,
-        String awayTeamName) {
+        String awayTeamName,
+        Instant statusUpdatedAt) {
 
     /**
      * 未开赛：报名中/报名截止/锁定/已延期（04 §2.4 状态编码）；已延期通过重新排期回到报名中。
@@ -33,6 +34,13 @@ public record MatchSnapshot(
 
     public boolean signupOpen() {
         return status != null && status == MatchStatusCodes.SIGNUP_OPEN;
+    }
+
+    /**
+     * 已结束：考勤缺勤判定只处理该状态的比赛。
+     */
+    public boolean finished() {
+        return status != null && status == MatchStatusCodes.FINISHED;
     }
 
     /**

@@ -47,6 +47,7 @@ public class MatchReadAdapter implements MatchReadPort {
                 match.getVenue(),
                 match.getStatus().code(),
                 match.getHomeTeamName(),
-                match.getAwayTeamName());
+                match.getAwayTeamName(),
+                match.getStatusUpdatedAt());
     }
 }

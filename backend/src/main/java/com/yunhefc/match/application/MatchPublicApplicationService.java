@@ -8,12 +8,12 @@ import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.contracts.registration.RegistrationQueueCounts;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
+import com.yunhefc.contracts.match.MatchSummarySnapshot;
 import com.yunhefc.contracts.registration.RegistrationSnapshot;
 import com.yunhefc.contracts.team.TeamReadPort;
 import com.yunhefc.match.domain.MatchStatus;
 import com.yunhefc.match.domain.MatchTimeRules;
 import com.yunhefc.match.domain.MatchType;
-import com.yunhefc.match.domain.OurSide;
 import com.yunhefc.match.domain.TeamMatch;
 import com.yunhefc.match.dto.MatchDtos.MatchDetail;
 import com.yunhefc.match.dto.MatchDtos.MatchPublicQuery;
@@ -124,54 +124,56 @@ public class MatchPublicApplicationService {
     }
 
     private MatchSummary toSummary(TeamMatch match, RegistrationQueueCounts counts) {
+        MatchSummarySnapshot summary = MatchSummaryMapping.toSummary(match);
         return new MatchSummary(
-                match.getId(),
-                match.getTitle(),
-                match.getType().code(),
-                match.getType().label(),
-                match.getStartAt(),
-                match.getEndAt(),
-                match.getVenue(),
-                match.getRound(),
-                match.getSeason(),
-                match.getHomeTeamName(),
-                match.getAwayTeamName(),
-                sideCode(match),
-                sideLabel(match),
-                match.getScoreHome(),
-                match.getScoreAway(),
-                resultText(match),
-                match.getStatus().code(),
-                match.getStatus().label(),
-                match.getTotalMatchNo(),
-                match.getSeasonMatchNo(),
+                summary.id(),
+                summary.title(),
+                summary.type(),
+                summary.typeLabel(),
+                summary.startAt(),
+                summary.endAt(),
+                summary.venue(),
+                summary.round(),
+                summary.season(),
+                summary.homeTeamName(),
+                summary.awayTeamName(),
+                summary.ourSide(),
+                summary.ourSideLabel(),
+                summary.scoreHome(),
+                summary.scoreAway(),
+                summary.resultText(),
+                summary.status(),
+                summary.statusLabel(),
+                summary.totalMatchNo(),
+                summary.seasonMatchNo(),
                 counts.confirmedCount(),
                 counts.guestCount(),
                 counts.waitlistCount());
     }
 
     private MatchDetail toDetail(TeamMatch match, RegistrationQueueCounts counts, RegistrationView mine) {
+        MatchSummarySnapshot summary = MatchSummaryMapping.toSummary(match);
         return new MatchDetail(
-                match.getId(),
-                match.getTitle(),
-                match.getType().code(),
-                match.getType().label(),
-                match.getStartAt(),
-                match.getEndAt(),
-                match.getVenue(),
-                match.getRound(),
-                match.getSeason(),
-                match.getHomeTeamName(),
-                match.getAwayTeamName(),
-                sideCode(match),
-                sideLabel(match),
-                match.getScoreHome(),
-                match.getScoreAway(),
-                resultText(match),
-                match.getStatus().code(),
-                match.getStatus().label(),
-                match.getTotalMatchNo(),
-                match.getSeasonMatchNo(),
+                summary.id(),
+                summary.title(),
+                summary.type(),
+                summary.typeLabel(),
+                summary.startAt(),
+                summary.endAt(),
+                summary.venue(),
+                summary.round(),
+                summary.season(),
+                summary.homeTeamName(),
+                summary.awayTeamName(),
+                summary.ourSide(),
+                summary.ourSideLabel(),
+                summary.scoreHome(),
+                summary.scoreAway(),
+                summary.resultText(),
+                summary.status(),
+                summary.statusLabel(),
+                summary.totalMatchNo(),
+                summary.seasonMatchNo(),
                 counts.confirmedCount(),
                 counts.guestCount(),
                 counts.waitlistCount(),
@@ -185,38 +187,6 @@ public class MatchPublicApplicationService {
                 match.getVersion(),
                 null,
                 mine);
-    }
-
-    /**
-     * 仅已结束比赛给出结果：对外按我方视角胜/负/平，队内/训练给出比分文本；无比分时为 null。
-     */
-    private String resultText(TeamMatch match) {
-        if (match.getStatus() != MatchStatus.FINISHED) {
-            return null;
-        }
-        Integer home = match.getScoreHome();
-        Integer away = match.getScoreAway();
-        if (home == null || away == null) {
-            return null;
-        }
-        OurSide side = match.getOurSide();
-        if (side == null) {
-            return home + ":" + away;
-        }
-        int ours = side == OurSide.HOME ? home : away;
-        int theirs = side == OurSide.HOME ? away : home;
-        if (ours > theirs) {
-            return "胜";
-        }
-        return ours < theirs ? "负" : "平";
-    }
-
-    private Integer sideCode(TeamMatch match) {
-        return match.getOurSide() == null ? null : match.getOurSide().code();
-    }
-
-    private String sideLabel(TeamMatch match) {
-        return match.getOurSide() == null ? null : match.getOurSide().label();
     }
 
     private Instant monthStart(YearMonth month) {

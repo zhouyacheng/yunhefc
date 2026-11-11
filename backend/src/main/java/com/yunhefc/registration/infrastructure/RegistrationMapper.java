@@ -58,4 +58,7 @@ public interface RegistrationMapper extends BaseMapper<Registration> {
             FOR UPDATE
             """)
     List<Registration> selectActiveByPlayerIdForUpdate(@Param("playerId") Long playerId);
+
+    // “我的报名”每场比赛只取最新一条，含已取消/移除历史；窗口查询见 RegistrationMapper.xml。
+    List<Registration> selectLatestByPlayer(@Param("playerId") Long playerId);
 }

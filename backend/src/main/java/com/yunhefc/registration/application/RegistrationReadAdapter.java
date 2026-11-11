@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
@@ -47,6 +48,13 @@ public class RegistrationReadAdapter implements RegistrationReadPort {
                 .map(RegistrationReadAdapter::toSnapshot);
     }
 
+    @Override
+    public List<RegistrationSnapshot> findLatestByPlayer(Long playerId) {
+        return registrationMapper.selectLatestByPlayer(playerId).stream()
+                .map(RegistrationReadAdapter::toSnapshot)
+                .toList();
+    }
+
     private static RegistrationQueueCounts toCounts(RegistrationQueueRow row) {
         return new RegistrationQueueCounts(
                 row.getConfirmedCount(), row.getGuestCount(), row.getWaitlistCount());
@@ -55,6 +63,7 @@ public class RegistrationReadAdapter implements RegistrationReadPort {
     private static RegistrationSnapshot toSnapshot(Registration registration) {
         return new RegistrationSnapshot(
                 registration.getId(),
+                registration.getMatchId(),
                 registration.getPlayerId(),
                 registration.getType().code(),
                 registration.getType().label(),

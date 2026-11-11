@@ -18,4 +18,22 @@
         GROUP BY match_id
     </select>
 
+    <select id="selectLatestByPlayer"
+            resultType="com.yunhefc.registration.domain.Registration">
+        SELECT id, match_id, player_id, type, status, registered_at, cancelled_at,
+               cancelled_by, updated_at, is_deleted
+        FROM (
+            SELECT r.id, r.match_id, r.player_id, r.type, r.status, r.registered_at,
+                   r.cancelled_at, r.cancelled_by, r.updated_at, r.is_deleted,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY r.match_id
+                       ORDER BY r.registered_at DESC, r.id DESC
+                   ) AS rn
+            FROM registration r
+            WHERE r.player_id = #{playerId} AND r.is_deleted = 0
+        ) latest
+        WHERE latest.rn = 1
+        ORDER BY latest.registered_at DESC, latest.id DESC
+    </select>
+
 </mapper>

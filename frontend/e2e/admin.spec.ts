@@ -10,12 +10,16 @@ const VALID_PNG = Buffer.from(
   'base64',
 );
 
-async function loginAdmin(page: Page, phone = '13910000001'): Promise<void> {
+async function loginAdmin(
+  page: Page,
+  phone = '13910000001',
+  landing: RegExp = /\/admin\/matches$/,
+): Promise<void> {
   await page.goto('/admin/login');
   await page.getByPlaceholder('请输入手机号').fill(phone);
   await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
   await page.getByRole('button', { name: '登录' }).click();
-  await expect(page).toHaveURL(/\/admin\/matches$/);
+  await expect(page).toHaveURL(landing);
 }
 
 const shanghaiInputFormatter = new Intl.DateTimeFormat('sv-SE', {
@@ -640,6 +644,105 @@ test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
   await expect(page.getByRole('button', { name: '通过' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '转正' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '注销' })).toHaveCount(0);
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B08 新建角色 → 勾选权限 → 保存 → 重载 → 重命名 → 删除', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  // 复用 1022 管理员，避免与主套件共享 1001 的 AUTH-15 登录限流。
+  await loginAdmin(page, '13910000022');
+
+  await page.goto('/admin/roles');
+  await expect(page).toHaveURL(/\/admin\/roles$/);
+  await expect(page.getByRole('heading', { level: 2, name: '角色权限' })).toBeVisible();
+  await expect(page.locator('.permission-group')).toHaveCount(7);
+
+  const code = `E2E_${Date.now()}`;
+  await page.getByRole('button', { name: '新建角色' }).click();
+  const createDialog = page.locator('.el-dialog').filter({ hasText: '新建角色' });
+  await createDialog.getByPlaceholder('例如 COACH').fill(code);
+  await createDialog.getByPlaceholder('例如 教练').fill('E2E教练');
+
+  const created = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/b/roles' &&
+      response.request().method() === 'POST',
+  );
+  await createDialog.getByRole('button', { name: '创建' }).click();
+  expect((await created).ok()).toBe(true);
+  await expect(page.getByText('角色已创建')).toBeVisible();
+
+  const roleItem = page.locator('.role-item').filter({ hasText: code });
+  await expect(roleItem).toBeVisible();
+  await expect(roleItem).toHaveClass(/active/);
+
+  // 新角色默认无权限：保存前必须至少勾选一项。
+  await page.getByRole('button', { name: '保存权限' }).click();
+  await expect(page.getByText('至少选择一个权限')).toBeVisible();
+
+  const matchPermission = page.locator('.permission-item').filter({ hasText: 'match:view:any' });
+  await matchPermission.click();
+  await expect(matchPermission.locator('input')).toBeChecked();
+
+  const permissionsSaved = page.waitForResponse(
+    (response) =>
+      /^\/api\/v1\/b\/roles\/\d+\/permissions$/.test(new URL(response.url()).pathname) &&
+      response.request().method() === 'PUT',
+  );
+  await page.getByRole('button', { name: '保存权限' }).click();
+  const permissionsResponse = await permissionsSaved;
+  expect(permissionsResponse.ok()).toBe(true);
+  expect(permissionsResponse.request().headers()['idempotency-key']).toBeTruthy();
+  expect(
+    (permissionsResponse.request().postDataJSON() as { permissions: string[] }).permissions,
+  ).toEqual(['match:view:any']);
+  await expect(page.getByText('权限已保存')).toBeVisible();
+
+  await page.reload();
+  await expect(page.locator('.role-item').filter({ hasText: code })).toBeVisible();
+  await page.locator('.role-item').filter({ hasText: code }).click();
+  await expect(
+    page.locator('.permission-item').filter({ hasText: 'match:view:any' }).locator('input'),
+  ).toBeChecked();
+
+  await page.getByRole('button', { name: '重命名' }).click();
+  const renameDialog = page.locator('.el-dialog').filter({ hasText: '重命名角色' });
+  await renameDialog.getByPlaceholder('请输入角色名称').fill('E2E教练改');
+  await renameDialog.getByRole('button', { name: '保存' }).click();
+  await expect(page.getByText('角色已重命名')).toBeVisible();
+  await expect(page.locator('.role-item').filter({ hasText: 'E2E教练改' })).toBeVisible();
+
+  await page.getByRole('button', { name: '删除' }).click();
+  const messageBox = page.locator('.el-message-box');
+  await messageBox.getByRole('button', { name: '删除' }).click();
+  await expect(page.getByText('角色已删除')).toBeVisible();
+  await expect(page.locator('.role-item').filter({ hasText: code })).toHaveCount(0);
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B08 只读权限不显示写操作', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await page.route('**/api/v1/b/me', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.permissions = ['role:view:any'];
+    body.data.sections = ['roles'];
+    await route.fulfill({
+      status: response.status(),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  });
+
+  await loginAdmin(page, '13910000022', /\/admin\/roles$/);
+  await expect(page.locator('.role-item').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: '新建角色' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '重命名' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '删除' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '保存权限' })).toHaveCount(0);
+  await expect(page.locator('.el-checkbox.is-disabled').first()).toBeVisible();
 
   expect(errors).toEqual([]);
 });

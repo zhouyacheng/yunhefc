@@ -13,7 +13,7 @@ B1 已完成后端 `AuthService.sections` 移除 dashboard；本批已出票如�
 | 01 | B 端壳层下线 B01 工作台 | resolved | — |
 | 02 | B02 比赛管理 | resolved | 01 |
 | 03 | B07 球员 | resolved | 01 |
-| 04 | B08 角色与权限（角色 CRUD + 权限勾选） | ready-for-agent | — |
+| 04 | B08 角色与权限（角色 CRUD + 权限勾选） | resolved | — |
 | 05 | B08 用户角色分配 | ready-for-agent | 04 |
 | 06 | B09 系统设置 | ready-for-agent | — |
 | 07 | B10 操作日志 | ready-for-agent | — |

@@ -7,3 +7,4 @@ export * from './lineup';
 export * from './match';
 export * from './notification';
 export * from './player';
+export * from './role';

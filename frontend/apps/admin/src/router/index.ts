@@ -28,6 +28,9 @@ function sectionComponent(section: AdminSection) {
   if (section === 'players') {
     return () => import('../pages/PlayersPage.vue');
   }
+  if (section === 'roles') {
+    return () => import('../pages/RolesPage.vue');
+  }
   return () => import('../pages/SectionPage.vue');
 }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { PermissionView } from './index';
 import {
   ATTENDANCE_SOURCE_TEXT,
   ATTENDANCE_STATUS_TEXT,
@@ -9,6 +10,7 @@ import {
   eventEntryOpen,
   eventHalfText,
   eventTypeText,
+  groupPermissions,
   groupingTeamName,
   isInternalMatchType,
   isPage,
@@ -24,6 +26,8 @@ import {
   matchStatusTone,
   matchTypeText,
   notificationTarget,
+  PERMISSION_GROUP_LABELS,
+  permissionGroupLabel,
   phoneError,
   playerApprovable,
   playerConvertible,
@@ -35,6 +39,8 @@ import {
   playerTypeText,
   readLabel,
   REGISTRATION_STATUS,
+  roleCodeError,
+  roleNameError,
 } from './index';
 
 describe('Page helper', () => {
@@ -297,5 +303,93 @@ describe('check-in window', () => {
     expect(checkInWindowState(earlyStart, Date.parse('2026-11-15T12:59:59Z'))).toBe('before');
     expect(checkInWindowState(earlyStart, Date.parse('2026-11-15T13:00:00Z'))).toBe('open');
     expect(checkInWindowState(earlyStart, Date.parse('2026-11-15T15:00:00Z'))).toBe('open');
+  });
+});
+
+describe('role permissions', () => {
+  const CODES = [
+    'attendance:checkin:own',
+    'attendance:mark:any',
+    'attendance:view:any',
+    'audit:view:any',
+    'event:create:own',
+    'event:delete:any',
+    'event:edit:any',
+    'event:edit:own',
+    'grouping:generate:any',
+    'grouping:view:any',
+    'invite:create:match',
+    'invite:manage:any',
+    'lineup:edit:any',
+    'lineup:view:any',
+    'match:create:any',
+    'match:edit:any',
+    'match:status:any',
+    'match:view:any',
+    'player:edit:any',
+    'player:edit:own',
+    'player:view:any',
+    'registration:create:own',
+    'registration:remove:any',
+    'role:manage:any',
+    'role:view:any',
+    'settings:manage:any',
+    'settings:view:any',
+    'user:approve:any',
+  ];
+
+  function permission(code: string, resource = code.split(':')[0] ?? ''): PermissionView {
+    return { id: CODES.indexOf(code) + 1, code, name: code, resource, action: '', scope: '' };
+  }
+
+  it('maps the 28 permission codes into the 7 B08 groups', () => {
+    expect(CODES).toHaveLength(28);
+
+    const groups = groupPermissions(CODES.map((code) => permission(code)));
+
+    expect(groups.map((group) => group.label)).toEqual([...PERMISSION_GROUP_LABELS]);
+    expect(groups.reduce((count, group) => count + group.items.length, 0)).toBe(28);
+    expect(groups.find((group) => group.label === '比赛')?.items).toHaveLength(4);
+    expect(groups.find((group) => group.label === '球员/权限')?.items).toHaveLength(9);
+  });
+
+  it('falls back to the resource for unknown permission codes and keeps it last', () => {
+    const groups = groupPermissions([
+      permission('match:view:any'),
+      permission('custom:do:any'),
+      permission('custom:view:any'),
+    ]);
+
+    expect(permissionGroupLabel('custom:do:any', 'custom')).toBe('custom');
+    expect(permissionGroupLabel('custom:do:any')).toBe('custom');
+    // resource 优先于 code 首段：未知 code 仍按后端 resource 归组。
+    expect(permissionGroupLabel('custom:do:any', 'audit')).toBe('球员/权限');
+    expect(permissionGroupLabel('audit:view:any', 'audit')).toBe('球员/权限');
+    expect(groups.map((group) => group.label)).toEqual(['比赛', 'custom']);
+    expect(groups[1]?.items.map((item) => item.code)).toEqual(['custom:do:any', 'custom:view:any']);
+  });
+
+  it('validates role code and name like ROL-02', () => {
+    expect(roleCodeError('COACH')).toBeNull();
+    expect(roleCodeError(' E2E_123 ')).toBeNull();
+    expect(roleCodeError('')).toBe('请输入角色编码');
+    expect(roleCodeError('A')).toBe('角色编码仅限大写字母、数字和下划线，以字母开头，长度 2–32');
+    expect(roleCodeError('coach')).toBe(
+      '角色编码仅限大写字母、数字和下划线，以字母开头，长度 2–32',
+    );
+    expect(roleCodeError('1COACH')).toBe(
+      '角色编码仅限大写字母、数字和下划线，以字母开头，长度 2–32',
+    );
+    expect(roleCodeError('_COACH')).toBe(
+      '角色编码仅限大写字母、数字和下划线，以字母开头，长度 2–32',
+    );
+    expect(roleCodeError('A'.repeat(33))).toBe(
+      '角色编码仅限大写字母、数字和下划线，以字母开头，长度 2–32',
+    );
+
+    expect(roleNameError('教练')).toBeNull();
+    expect(roleNameError('角'.repeat(64))).toBeNull();
+    expect(roleNameError('  ')).toBe('请输入角色名称');
+    expect(roleNameError('角'.repeat(65))).toBe('角色名称最多 64 个字符');
   });
 });

@@ -240,6 +240,7 @@ async function save(): Promise<void> {
 
 watch(show, (visible) => {
   if (!visible) {
+    avatarUploadSeq += 1;
     revokeLocalPreview();
     return;
   }
@@ -247,7 +248,10 @@ watch(show, (visible) => {
   void loadExtra();
 });
 
-onUnmounted(revokeLocalPreview);
+onUnmounted(() => {
+  avatarUploadSeq += 1;
+  revokeLocalPreview();
+});
 </script>
 
 <template>

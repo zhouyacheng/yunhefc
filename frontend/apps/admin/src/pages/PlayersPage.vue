@@ -501,7 +501,7 @@ async function submitPhone(): Promise<void> {
     return;
   }
   const player = phoneDialog.player;
-  if (!player?.userId) {
+  if (player?.userId == null) {
     return;
   }
   const phone = phoneForm.phone.trim();
@@ -630,7 +630,10 @@ async function submitDisable(): Promise<void> {
 }
 
 onMounted(load);
-onUnmounted(revokeLocalPreview);
+onUnmounted(() => {
+  avatarUploadSeq += 1;
+  revokeLocalPreview();
+});
 </script>
 
 <template>
@@ -884,7 +887,11 @@ onUnmounted(revokeLocalPreview);
           @change="onAvatarChange"
         />
         <div class="avatar-editor__meta">
-          <el-button size="small" :disabled="avatarUploading" @click="pickAvatar">
+          <el-button
+            size="small"
+            :disabled="avatarUploading || editDialog.submitting"
+            @click="pickAvatar"
+          >
             选择头像
           </el-button>
           <p class="muted small">JPG/PNG/WebP，不超过 2MB，自动压缩</p>
@@ -906,7 +913,7 @@ onUnmounted(revokeLocalPreview);
             :precision="0"
             controls-position="right"
           />
-          <span class="muted small">留空表示不修改；正式球员号码不可重复</span>
+          <span class="muted small">无号码球员可留空；已有号码不可清空</span>
         </el-form-item>
         <el-form-item label="地区">
           <el-input v-model="editForm.region" maxlength="64" placeholder="如：上海" />

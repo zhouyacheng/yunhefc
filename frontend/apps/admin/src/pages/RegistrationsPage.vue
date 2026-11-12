@@ -4,7 +4,8 @@ import { ATTENDANCE_MARK_ANY, REGISTRATION_REMOVE_ANY, hasPermission } from '@yu
 import type {
   Attendance,
   AttendanceRow,
-  MatchAdmin,
+  MatchDetail,
+  MatchSummary,
   Page,
   PlayerAdmin,
   RegistrationRow,
@@ -24,7 +25,7 @@ import {
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, ref } from 'vue';
 
-import { api } from '../api/client';
+import { api, publicApi } from '../api/client';
 import { useSessionStore } from '../stores/session';
 
 interface RosterGroup {
@@ -35,9 +36,16 @@ interface RosterGroup {
   empty: string;
 }
 
+/** 公开赛程列表不含容量，选中后从公开详情补齐。 */
+interface RegistrationsMatch extends MatchSummary {
+  capacity?: number;
+  guestCapacity?: number;
+  waitlistCapacity?: number;
+}
+
 const session = useSessionStore();
 
-const matches = ref<MatchAdmin[]>([]);
+const matches = ref<RegistrationsMatch[]>([]);
 const selectedMatchId = ref<number | null>(null);
 const registrations = ref<RegistrationRow[]>([]);
 const attendance = ref<AttendanceRow[]>([]);
@@ -129,18 +137,36 @@ function registrationTagType(status: number): 'success' | 'warning' | 'info' {
   return status === 1 ? 'warning' : 'info';
 }
 
+async function loadMatchCapacity(matchId: number | null): Promise<void> {
+  if (matchId === null) {
+    return;
+  }
+  try {
+    const detail = await publicApi.get<MatchDetail>(`/matches/${matchId}`);
+    const target = matches.value.find((match) => match.id === matchId);
+    if (target) {
+      target.capacity = detail.capacity;
+      target.guestCapacity = detail.guestCapacity;
+      target.waitlistCapacity = detail.waitlistCapacity;
+    }
+  } catch {
+    // 容量只是统计辅助信息；失败时按未知展示。
+  }
+}
+
 async function loadMatches(): Promise<void> {
   loadingMatches.value = true;
   error.value = '';
   try {
-    const result = await api.get<Page<MatchAdmin>>('/matches', {
+    // 比赛选择器读公开赛程：attendance:view:any 的只读用户不一定有 match:view:any。
+    const result = await publicApi.get<Page<MatchSummary>>('/matches', {
       query: { scope: 'all', sort: 'startAt:desc', page: 1, pageSize: 100 },
     });
     matches.value = result.items;
     if (!matches.value.some((match) => match.id === selectedMatchId.value)) {
       selectedMatchId.value = matches.value[0]?.id ?? null;
     }
-    await loadRoster();
+    await Promise.all([loadMatchCapacity(selectedMatchId.value), loadRoster()]);
   } catch (caught) {
     error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
   } finally {
@@ -185,7 +211,7 @@ async function loadRoster(): Promise<void> {
 }
 
 function onMatchChange(): void {
-  void loadRoster();
+  void Promise.all([loadMatchCapacity(selectedMatchId.value), loadRoster()]);
 }
 
 async function mark(row: RegistrationRow, status: number): Promise<void> {
@@ -342,17 +368,19 @@ onMounted(loadMatches);
           <div class="stat-card">
             <span>正式报名</span>
             <b>{{ formalRows.length }}</b>
-            <small>{{ cancelled ? '已作废' : `名额 ${selectedMatch.capacity}` }}</small>
+            <small>{{ cancelled ? '已作废' : `名额 ${selectedMatch.capacity ?? '—'}` }}</small>
           </div>
           <div class="stat-card">
             <span>外挂报名</span>
             <b>{{ guestRows.length }}</b>
-            <small>{{ cancelled ? '已作废' : `名额 ${selectedMatch.guestCapacity}` }}</small>
+            <small>{{ cancelled ? '已作废' : `名额 ${selectedMatch.guestCapacity ?? '—'}` }}</small>
           </div>
           <div class="stat-card">
             <span>候补（正式）</span>
             <b>{{ waitlistRows.length }}</b>
-            <small>{{ cancelled ? '已作废' : `上限 ${selectedMatch.waitlistCapacity}` }}</small>
+            <small>{{
+              cancelled ? '已作废' : `上限 ${selectedMatch.waitlistCapacity ?? '—'}`
+            }}</small>
           </div>
           <div v-if="!cancelled" class="stat-card">
             <span>临时到场</span>

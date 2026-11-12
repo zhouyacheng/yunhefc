@@ -89,6 +89,10 @@ const editDialog = reactive({
   error: '',
   player: null as PlayerAdmin | null,
 });
+/** 弹窗代际：关闭/切换球员后，旧请求的响应不得写回新弹窗。 */
+let editDialogSeq = 0;
+let phoneDialogSeq = 0;
+let disableDialogSeq = 0;
 const editForm = reactive({
   name: '',
   jersey: null as number | null,
@@ -327,6 +331,7 @@ function openEdit(row: PlayerAdmin): void {
   if (!canEdit.value) {
     return;
   }
+  editDialogSeq += 1;
   editDialog.player = row;
   editDialog.error = '';
   editDialog.submitting = false;
@@ -364,6 +369,7 @@ async function submitEdit(): Promise<void> {
     editDialog.error = validationError;
     return;
   }
+  const seq = editDialogSeq;
   editDialog.submitting = true;
   editDialog.error = '';
   try {
@@ -381,16 +387,25 @@ async function submitEdit(): Promise<void> {
       payload.avatarUrl = avatarObjectKey.value;
     }
     await api.patch<PlayerAdmin>(`/players/${player.id}`, payload);
+    if (seq !== editDialogSeq) {
+      void load();
+      return;
+    }
     editDialog.visible = false;
     ElMessage.success('球员已更新');
     await load();
   } catch (caught) {
+    if (seq !== editDialogSeq) {
+      return;
+    }
     editDialog.error =
       isApiError(caught) && caught.code === ERROR_CODES.DUPLICATE_JERSEY
         ? '正式球员号码冲突，请修改号码'
         : describeError(caught, '保存失败，请稍后重试');
   } finally {
-    editDialog.submitting = false;
+    if (seq === editDialogSeq) {
+      editDialog.submitting = false;
+    }
   }
 }
 
@@ -473,6 +488,7 @@ function openPhone(row: PlayerAdmin): void {
   if (!canEdit.value || row.userId == null) {
     return;
   }
+  phoneDialogSeq += 1;
   phoneDialog.player = row;
   phoneForm.phone = '';
   phoneDialog.error = '';
@@ -494,20 +510,30 @@ async function submitPhone(): Promise<void> {
     phoneDialog.error = invalid;
     return;
   }
+  const seq = phoneDialogSeq;
   phoneDialog.submitting = true;
   phoneDialog.error = '';
   try {
     await api.patch(`/users/${player.userId}/phone`, { phone });
+    if (seq !== phoneDialogSeq) {
+      void load();
+      return;
+    }
     phoneDialog.visible = false;
     ElMessage.success('手机号已换绑');
     await load();
   } catch (caught) {
+    if (seq !== phoneDialogSeq) {
+      return;
+    }
     phoneDialog.error =
       isApiError(caught) && caught.code === ERROR_CODES.PHONE_EXISTS
         ? '手机号已注册'
         : describeError(caught, '换绑失败，请稍后重试');
   } finally {
-    phoneDialog.submitting = false;
+    if (seq === phoneDialogSeq) {
+      phoneDialog.submitting = false;
+    }
   }
 }
 
@@ -540,6 +566,7 @@ function openDisable(row: PlayerAdmin): void {
   if (!canEdit.value || !playerDisableable(row)) {
     return;
   }
+  disableDialogSeq += 1;
   disableDialog.player = row;
   disableForm.reason = '';
   disableDialog.error = '';
@@ -564,11 +591,12 @@ async function submitDisable(): Promise<void> {
     disableDialog.error = '注销原因不能超过 200 字';
     return;
   }
+  const seq = disableDialogSeq;
   const confirmed = await confirmAction(
     `确认注销「${player.name}」？注销不可恢复，将自动取消未开赛报名并递补。`,
     '确认注销',
   );
-  if (!confirmed) {
+  if (!confirmed || seq !== disableDialogSeq) {
     return;
   }
   disableDialog.submitting = true;
@@ -579,16 +607,25 @@ async function submitDisable(): Promise<void> {
       { reason },
       { idempotencyKey: newIdempotencyKey() },
     );
+    if (seq !== disableDialogSeq) {
+      void load();
+      return;
+    }
     disableDialog.visible = false;
     ElMessage.success('球员已注销');
     await reloadAfterStatusChange();
   } catch (caught) {
+    if (seq !== disableDialogSeq) {
+      return;
+    }
     disableDialog.error =
       isApiError(caught) && caught.code === ERROR_CODES.LAST_ADMIN_PROTECTED
         ? '不能注销最后一个管理员'
         : describeError(caught, '注销失败，请稍后重试');
   } finally {
-    disableDialog.submitting = false;
+    if (seq === disableDialogSeq) {
+      disableDialog.submitting = false;
+    }
   }
 }
 
@@ -816,6 +853,9 @@ onUnmounted(revokeLocalPreview);
       v-model="editDialog.visible"
       title="编辑球员"
       width="620px"
+      :show-close="!editDialog.submitting"
+      :close-on-click-modal="!editDialog.submitting"
+      :close-on-press-escape="!editDialog.submitting"
       @closed="resetAvatarState(null)"
     >
       <div class="avatar-editor">
@@ -907,7 +947,9 @@ onUnmounted(revokeLocalPreview);
       </el-form>
       <p v-if="editDialog.error" class="dialog-error">{{ editDialog.error }}</p>
       <template #footer>
-        <el-button @click="editDialog.visible = false">取消</el-button>
+        <el-button :disabled="editDialog.submitting" @click="editDialog.visible = false">
+          取消
+        </el-button>
         <el-button
           type="primary"
           :loading="editDialog.submitting"
@@ -919,7 +961,14 @@ onUnmounted(revokeLocalPreview);
       </template>
     </el-dialog>
 
-    <el-dialog v-model="phoneDialog.visible" title="换绑手机号" width="440px">
+    <el-dialog
+      v-model="phoneDialog.visible"
+      title="换绑手机号"
+      width="440px"
+      :show-close="!phoneDialog.submitting"
+      :close-on-click-modal="!phoneDialog.submitting"
+      :close-on-press-escape="!phoneDialog.submitting"
+    >
       <p class="muted small">
         当前账号：{{ phoneDialog.player?.name }}（{{ phoneDialog.player?.phoneMasked ?? '—' }}）
       </p>
@@ -930,14 +979,23 @@ onUnmounted(revokeLocalPreview);
       </el-form>
       <p v-if="phoneDialog.error" class="dialog-error">{{ phoneDialog.error }}</p>
       <template #footer>
-        <el-button @click="phoneDialog.visible = false">取消</el-button>
+        <el-button :disabled="phoneDialog.submitting" @click="phoneDialog.visible = false">
+          取消
+        </el-button>
         <el-button type="primary" :loading="phoneDialog.submitting" @click="submitPhone">
           确认换绑
         </el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="disableDialog.visible" title="注销球员" width="480px">
+    <el-dialog
+      v-model="disableDialog.visible"
+      title="注销球员"
+      width="480px"
+      :show-close="!disableDialog.submitting"
+      :close-on-click-modal="!disableDialog.submitting"
+      :close-on-press-escape="!disableDialog.submitting"
+    >
       <el-alert
         type="warning"
         :closable="false"
@@ -958,7 +1016,9 @@ onUnmounted(revokeLocalPreview);
       </el-form>
       <p v-if="disableDialog.error" class="dialog-error">{{ disableDialog.error }}</p>
       <template #footer>
-        <el-button @click="disableDialog.visible = false">取消</el-button>
+        <el-button :disabled="disableDialog.submitting" @click="disableDialog.visible = false">
+          取消
+        </el-button>
         <el-button type="danger" :loading="disableDialog.submitting" @click="submitDisable">
           确认注销
         </el-button>

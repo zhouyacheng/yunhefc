@@ -55,7 +55,7 @@ Blocked by: 01（B 端壳层，已 resolved）
 ## Result
 
 - 交付：`PlayersPage.vue` 全量 B07（筛选/表头排序/分页、编辑含 FIL-02 头像压缩上传、审核/转正/注销、换绑手机、解绑微信、权限显隐与 40904/40907/40913 文案）；路由挂载 `players`；shared 新增 `player.ts` 与 `avatar.ts`（C 端改为复用 shared，行为不变）；`api-client` 补 `DUPLICATE_JERSEY`/`LAST_ADMIN_PROTECTED`；`PlayerAdmin.userId` 改为可空；`test-data.sql` 为 1003 预置 openid；admin E2E 增加 B07 黄金路径（筛选 → 编辑 → 头像 + 只读权限）。
-- 审查修复：头像上传加代际序号，弹窗关闭/切换球员后迟到的压缩或上传结果不会写回（C06 同步补同类守卫）；号码仅在填写时提交（匹配 PLR-06 可选契约），已有号码不允许静默清空；`PlayerAdmin` 无账号时的 `phoneMasked/status/createdAt` 标为可空；B07 E2E 改用种子会复位的 1021，并覆盖姓名、地区与头像；`USER_STATUS` 与 `PHONE_PATTERN` 收敛到 shared，筛选状态文案由 `PLAYER_STATUS_TEXT` 派生；状态筛选下的审核/转正/注销后回到第 1 页，避免越界分页。头像上传状态机与 C06 仍有 UI 层重复（共享了纯校验/压缩且已对齐竞态守卫），跨 Vant/Element 的 composable 抽取留待后续。
+- 审查修复：头像上传加代际序号，弹窗关闭/切换球员后迟到的压缩或上传结果不会写回（C06 同步补同类守卫）；编辑/换绑/注销弹窗加提交代际令牌，提交中禁用取消、X、ESC 与遮罩，旧响应不会关闭或污染新弹窗；号码仅在填写时提交（匹配 PLR-06 可选契约），已有号码不允许静默清空；`PlayerAdmin` 无账号时的 `phoneMasked/status/createdAt` 标为可空；B07 E2E 改用种子会复位的 1021，并覆盖姓名、地区与头像；`USER_STATUS` 与 `PHONE_PATTERN` 收敛到 shared，筛选状态文案由 `PLAYER_STATUS_TEXT` 派生；状态筛选下的审核/转正/注销后回到第 1 页，避免越界分页。头像上传状态机与 C06 仍有 UI 层重复（共享了纯校验/压缩且已对齐竞态守卫），跨 Vant/Element 的 composable 抽取留待后续。
 - 验证：`pnpm --filter @yunhefc/shared test` 28/28；`pnpm -r test`（shared 28、permissions 9、api-client 21、web 93）；`pnpm -r typecheck`、`pnpm lint`、`pnpm -r build` 通过；重放 `test-data.sql` 后 B07 与 C06 Playwright 单独通过；admin 全量 11/12，B07 因 AUTH-15 每手机号 10 次/分钟限流失败于登录，单独重跑通过；此前全量 Playwright 49/51，另有两条 admin 1002 用例同为限流、单独重跑通过。
 - 偏差：按 `batches.md` §B2 与 02 §6.9 一并交付 FIL-02 上传入口（`mvp-release/issues/10` 的延后前提已被 B1 的 M13 交付满足）；顺带修复 B06 E2E 在分组加载空态过渡中的竞态（等待 loading 消失后再判断是否清除）。
 - 未执行：无后端/DB 表结构/Flyway 改动；按批准重放 `test-data.sql`；未 push。

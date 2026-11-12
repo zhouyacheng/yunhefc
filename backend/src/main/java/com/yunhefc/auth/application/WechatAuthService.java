@@ -17,6 +17,7 @@ import com.yunhefc.auth.infrastructure.AppUserMapper;
 import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.auth.wechat.WechatOAuthClient;
+import com.yunhefc.auth.wechat.WechatOAuthException;
 import com.yunhefc.auth.wechat.WechatProperties;
 import com.yunhefc.auth.wechat.WechatStateStore;
 import com.yunhefc.audit.application.AuditRecorder;
@@ -81,7 +82,7 @@ public class WechatAuthService {
         }
         if (properties.isRequireWechatUa()
                 && (userAgent == null || !userAgent.contains("MicroMessenger"))) {
-            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "仅微信内可授权");
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "请在微信内打开");
         }
         String safeRedirect = validateRedirect(redirect);
         String state = UUID.randomUUID().toString();
@@ -93,6 +94,9 @@ public class WechatAuthService {
 
     public CallbackResponse callback(String code, String state, HttpServletRequest request,
                                      HttpServletResponse response) {
+        if (code == null || code.isBlank()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "微信授权未完成，请重新授权");
+        }
         HttpSession stateSession = request.getSession(false);
         String expectedState = stateSession == null ? null
                 : (String) stateSession.getAttribute(SessionKeys.WECHAT_STATE);
@@ -104,9 +108,9 @@ public class WechatAuthService {
         if (redirect == null) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "微信 state 无效或已使用");
         }
-        WechatOAuthClient.WechatUser wechatUser = oauthClient.exchange(code);
+        WechatOAuthClient.WechatUser wechatUser = exchangeCode(code);
         if (wechatUser.openid() == null || wechatUser.openid().isBlank()) {
-            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "微信授权失败");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "微信授权失败");
         }
 
         HttpSession session = request.getSession(false);
@@ -262,6 +266,17 @@ public class WechatAuthService {
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "球队未初始化");
         }
         return team.getId();
+    }
+
+    private WechatOAuthClient.WechatUser exchangeCode(String code) {
+        try {
+            return oauthClient.exchange(code);
+        } catch (WechatOAuthException ex) {
+            if (ex.reason() == WechatOAuthException.Reason.INVALID_CODE) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED, "微信授权已失效，请重新授权");
+            }
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "微信授权失败");
+        }
     }
 
     private String validateRedirect(String redirect) {

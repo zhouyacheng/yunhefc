@@ -20,6 +20,18 @@ public class WechatProperties {
     private Duration connectTimeout = Duration.ofSeconds(3);
     private Duration readTimeout = Duration.ofSeconds(5);
 
+    public boolean isReal() {
+        return "real".equalsIgnoreCase(mode);
+    }
+
+    public boolean hasCredentials() {
+        return notBlank(appId) && notBlank(appSecret) && notBlank(callbackUrl);
+    }
+
+    private static boolean notBlank(String value) {
+        return value != null && !value.isBlank();
+    }
+
     public boolean isEnabled() {
         return enabled;
     }

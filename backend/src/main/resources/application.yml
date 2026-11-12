@@ -62,6 +62,10 @@ yunhefc:
     mock-enabled: ${SMS_MOCK_ENABLED:false}
     mock-code: ${SMS_MOCK_CODE:123456}
     ttl-seconds: ${SMS_TTL_SECONDS:300}
+    endpoint: ${SMS_ENDPOINT:https://gyytz.market.alicloudapi.com/sms/smsSend}
+    app-code: ${SMS_APPCODE:}
+    template-id: ${SMS_TEMPLATE_ID:}
+    sign-id: ${SMS_SIGN_ID:}
   invite:
     expiry-cron: ${INVITE_EXPIRY_CRON:0 0 3 * * ?}
     zone: ${INVITE_EXPIRY_ZONE:Asia/Shanghai}

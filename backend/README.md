@@ -7,7 +7,7 @@ Spring Boot 3.5.x / Java 21 单部署单元。当前已实现 M01–M03 接口�
 ```bash
 ./mvnw test          # 单元测试（不起容器）
 ./mvnw verify        # 单元 + 集成测试（推荐）
-./mvnw spring-boot:run
+SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run   # dev 显式开启短信/微信 mock
 ```
 
 默认连接本机 MySQL/Redis/Kafka；可通过环境变量覆盖：
@@ -19,7 +19,9 @@ Spring Boot 3.5.x / Java 21 单部署单元。当前已实现 M01–M03 接口�
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
 | `SERVER_PORT` | `8080` |
-| `SMS_MOCK_ENABLED` | `false`；本地开发需显式设为 `true`，否则注册/重置密码/绑定手机返回 50001 |
+| `SMS_MOCK_ENABLED` | `false`；本地开发需显式设为 `true`。prod 下必须为 `false`，为 `true` 则启动失败；未开启 mock 时必须配置短信凭证，否则启动失败 |
+| `SMS_ENDPOINT` | `https://gyytz.market.alicloudapi.com/sms/smsSend` |
+| `SMS_APPCODE` / `SMS_SIGN_ID` / `SMS_TEMPLATE_ID` | 空；非 mock 模式下必须配置，prod 缺失则启动失败 |
 
 ## 测试
 

@@ -8,6 +8,10 @@ public class SmsProperties {
     private boolean mockEnabled;
     private String mockCode = "123456";
     private long ttlSeconds = 300;
+    private String endpoint = "https://gyytz.market.alicloudapi.com/sms/smsSend";
+    private String appCode = "";
+    private String templateId = "";
+    private String signId = "";
 
     public boolean isMockEnabled() {
         return mockEnabled;
@@ -31,5 +35,37 @@ public class SmsProperties {
 
     public void setTtlSeconds(long ttlSeconds) {
         this.ttlSeconds = ttlSeconds;
+    }
+
+    public String getEndpoint() {
+        return endpoint;
+    }
+
+    public void setEndpoint(String endpoint) {
+        this.endpoint = endpoint;
+    }
+
+    public String getAppCode() {
+        return appCode;
+    }
+
+    public void setAppCode(String appCode) {
+        this.appCode = appCode;
+    }
+
+    public String getTemplateId() {
+        return templateId;
+    }
+
+    public void setTemplateId(String templateId) {
+        this.templateId = templateId;
+    }
+
+    public String getSignId() {
+        return signId;
+    }
+
+    public void setSignId(String signId) {
+        this.signId = signId;
     }
 }

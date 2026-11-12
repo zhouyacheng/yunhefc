@@ -161,6 +161,15 @@ class AuthServiceTest {
         verify(loginAttemptService).clear("13900000001");
     }
 
+    @Test
+    void sendSmsRejectsInvalidPhoneBeforeCallingSmsService() {
+        assertThatThrownBy(() -> authService.sendSms("123", "REGISTER"))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_FAILED);
+
+        verify(smsCodeService, never()).send(any(), any());
+    }
+
     private AppUser user(Long id, String phone) {
         AppUser user = new AppUser();
         user.setId(id);

@@ -19,6 +19,7 @@ import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.auth.wechat.WechatOAuthClient;
 import com.yunhefc.auth.wechat.WechatProperties;
 import com.yunhefc.auth.wechat.WechatStateStore;
+import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.AuthSessionService;
@@ -38,11 +39,13 @@ import org.slf4j.LoggerFactory;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
@@ -65,6 +68,8 @@ public class WechatAuthService {
     private final PlayerProfileApplicationService playerProfileService;
     private final SmsCodeService smsCodeService;
     private final LoginAttemptService loginAttemptService;
+    private final AuditRecorder auditRecorder;
+    private final TransactionTemplate transactionTemplate;
     private final AuthSessionService sessionService;
     private final UserViewAssembler userViewAssembler;
     private final AvatarUrlSigner avatarUrlSigner;
@@ -108,7 +113,11 @@ public class WechatAuthService {
         Long currentUserId = session == null ? null : (Long) session.getAttribute(SessionKeys.C_USER_ID);
         if (currentUserId != null) {
             AppUser user = requireUser(currentUserId);
-            bindOpenid(user, wechatUser.openid());
+            // 已登录绑定：openid 写入与审计 Outbox 必须同事务；授权交换已在事务外完成。
+            transactionTemplate.executeWithoutResult(status -> {
+                bindOpenid(user, wechatUser.openid());
+                recordWechatBind(user);
+            });
             return new CallbackResponse(false, redirect, login(user, request, response).csrfToken());
         }
 
@@ -149,6 +158,7 @@ public class WechatAuthService {
             }
             user = createUser(request, openid);
         }
+        recordWechatBind(user);
 
         session.removeAttribute(SessionKeys.WECHAT_OPENID);
         AuthResponse result = login(user, servletRequest, response);
@@ -202,6 +212,16 @@ public class WechatAuthService {
             log.warn("微信绑定唯一键冲突, phone={}", UserViewAssembler.maskPhone(user.getPhone()));
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "该微信已绑定其他账号");
         }
+    }
+
+    private void recordWechatBind(AppUser user) {
+        PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
+        Long teamId = player == null ? teamId() : player.teamId();
+        String actorName = player == null
+                ? UserViewAssembler.maskPhone(user.getPhone())
+                : player.name();
+        auditRecorder.record(teamId, user.getId(), actorName, "WECHAT_BIND", "USER", user.getId(),
+                null, Map.of("openid", "***"));
     }
 
     private AppUser requireUser(Long userId) {

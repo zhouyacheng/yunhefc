@@ -17,6 +17,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuditRecorder {
 
+    public static final String SYSTEM_ACTOR_NAME = "系统";
+
     private final OutboxService outboxService;
     private final ObjectMapper objectMapper;
 
@@ -37,7 +39,9 @@ public class AuditRecorder {
         payload.put("targetId", targetId);
         payload.put("beforeJson", json(before));
         payload.put("afterJson", json(after));
-        payload.put("requestId", RequestContext.requestId());
+        // 定时任务等无 HTTP 上下文的操作不落空字符串，保持 requestId 可选语义。
+        String requestId = RequestContext.requestId();
+        payload.put("requestId", requestId.isEmpty() ? null : requestId);
         payload.put("ip", RequestContext.clientIp());
         outboxService.append(teamId, "AUDIT", targetId, EventTypes.AUDIT_RECORDED, payload);
     }

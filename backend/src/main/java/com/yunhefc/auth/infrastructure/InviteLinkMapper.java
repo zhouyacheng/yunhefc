@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.Instant;
+import java.util.List;
 
 @Mapper
 public interface InviteLinkMapper extends BaseMapper<InviteLink> {
@@ -57,10 +58,17 @@ public interface InviteLinkMapper extends BaseMapper<InviteLink> {
             """)
     int revoke(@Param("id") Long id, @Param("now") Instant now);
 
+    @Select("""
+            SELECT id, team_id
+            FROM invite_link
+            WHERE status = 0 AND expires_at < #{now} AND is_deleted = 0
+            """)
+    List<InviteLink> findOverdue(@Param("now") Instant now);
+
     @Update("""
             UPDATE invite_link
             SET status = 2
-            WHERE status = 0 AND expires_at < #{now} AND is_deleted = 0
+            WHERE id = #{id} AND status = 0 AND is_deleted = 0
             """)
-    int expireOverdue(@Param("now") Instant now);
+    int expire(@Param("id") Long id);
 }

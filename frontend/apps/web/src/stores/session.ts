@@ -6,6 +6,22 @@ import { computed, ref } from 'vue';
 import { api } from '../api/client';
 import { clearSessionHint, markSessionHint } from './session-hint';
 
+export interface RegisterPayload {
+  phone: string;
+  code: string;
+  password: string;
+  name: string;
+  position: number;
+  inviteToken?: string;
+}
+
+/** AUTH-03 注册响应不含 permissions，需由 refresh() 补取。 */
+interface RegisterResponse {
+  user: User;
+  player?: Player | null;
+  csrfToken: string;
+}
+
 export const useSessionStore = defineStore('session', () => {
   const user = ref<User | null>(null);
   const player = ref<Player | null>(null);
@@ -100,6 +116,26 @@ export const useSessionStore = defineStore('session', () => {
     markSessionHint();
   }
 
+  /** AUTH-03：建立待审核/邀请注册会话，再补取 AUTH-10 的权限与未读数。 */
+  async function register(payload: RegisterPayload): Promise<void> {
+    const response = await api.post<RegisterResponse>('/auth/register', payload);
+    sessionVersion += 1;
+    api.setCsrfToken(response.csrfToken);
+    apply({
+      user: response.user,
+      player: response.player ?? null,
+      permissions: [],
+      unreadCount: 0,
+    });
+    markSessionHint();
+    try {
+      await refresh();
+    } catch {
+      // 注册已成功；保持 loaded=false，后续守卫的 ensureLoaded() 会重试补权限。
+      loaded.value = false;
+    }
+  }
+
   async function logout(): Promise<void> {
     try {
       await api.post('/auth/logout');
@@ -121,6 +157,7 @@ export const useSessionStore = defineStore('session', () => {
     refresh,
     refreshUnreadCount,
     login,
+    register,
     logout,
     clearSession,
   };

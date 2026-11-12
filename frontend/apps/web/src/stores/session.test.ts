@@ -81,6 +81,36 @@ describe('session store', () => {
     expect(store.isAuthenticated).toBe(true);
   });
 
+  it('registers with the invite token, then refreshes permissions', async () => {
+    postMock.mockResolvedValueOnce({ user, player, csrfToken: 'csrf-register' });
+    getMock.mockResolvedValueOnce(me);
+
+    const store = useSessionStore();
+    await store.register({
+      phone: '13910000021',
+      code: '123456',
+      password: 'Passw0rd!',
+      name: '测试待审核01',
+      position: 2,
+      inviteToken: 'B3-INVITE-TEAM',
+    });
+
+    expect(api.post).toHaveBeenCalledWith('/auth/register', {
+      phone: '13910000021',
+      code: '123456',
+      password: 'Passw0rd!',
+      name: '测试待审核01',
+      position: 2,
+      inviteToken: 'B3-INVITE-TEAM',
+    });
+    expect(api.setCsrfToken).toHaveBeenCalledWith('csrf-register');
+    expect(api.get).toHaveBeenCalledWith('/me', { redirectOnUnauthorized: false });
+    expect(store.user).toEqual(user);
+    expect(store.player).toEqual(player);
+    expect(store.permissions).toEqual(me.permissions);
+    expect(store.loaded).toBe(true);
+  });
+
   it('clears unreadCount with the rest of the session', async () => {
     getMock.mockResolvedValueOnce(me);
 

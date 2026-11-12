@@ -99,8 +99,11 @@ public class AccountLifecycleApplicationService {
             return playerAdminService.adminView(actor.teamId(), playerId);
         }
         replaceGuestWithPlayer(actor.teamId(), user.getId());
-        Map<String, Object> after = snapshot(converted.get(), userRoleMapper.findRoleCodes(user.getId()));
+        List<String> roles = userRoleMapper.findRoleCodes(user.getId());
+        Map<String, Object> after = snapshot(converted.get(), roles);
         auditRecorder.recordCurrent("PLAYER_CONVERT", "PLAYER", playerId, before, after);
+        outboxService.append(actor.teamId(), "USER", user.getId(), EventTypes.ROLE_CHANGED,
+                Map.of("userId", user.getId(), "roles", roles, "actorUserId", actor.userId()));
         return playerAdminService.adminView(actor.teamId(), playerId);
     }
 

@@ -8,3 +8,4 @@ export * from './match';
 export * from './notification';
 export * from './player';
 export * from './role';
+export * from './settings';

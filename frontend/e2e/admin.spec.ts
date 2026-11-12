@@ -1,6 +1,6 @@
 import { Buffer } from 'node:buffer';
 
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page, type Response } from '@playwright/test';
 
 import { collectConsoleErrors } from './support';
 
@@ -958,6 +958,89 @@ test('B 端：B08 用户角色卡片仅对 role:manage:any 渲染', async ({ pag
   await expect(page.locator('.role-item').first()).toBeVisible();
   await expect(page.locator('.user-roles-panel')).toHaveCount(0);
   expect(userRequests).toEqual([]);
+
+  expect(errors).toEqual([]);
+});
+
+function settingsFormItem(page: Page, label: string): Locator {
+  return page.locator('.settings-form .el-form-item').filter({ hasText: label });
+}
+
+function settingsNumberInput(page: Page, label: string): Locator {
+  return settingsFormItem(page, label).locator('input');
+}
+
+function waitSettingsGet(page: Page): Promise<Response> {
+  return page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/b/settings' &&
+      response.request().method() === 'GET',
+  );
+}
+
+async function fillSettingsNumber(page: Page, label: string, value: number): Promise<void> {
+  const input = settingsNumberInput(page, label);
+  await input.fill(String(value));
+  await input.press('Enter');
+  await input.blur();
+  await expect(input).toHaveValue(String(value));
+}
+
+test('B 端：B09 修改报名上限与分组权重并保存，刷新仍生效', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page);
+
+  const loaded = waitSettingsGet(page);
+  await page.goto('/admin/settings');
+  await expect(page).toHaveURL(/\/admin\/settings$/);
+  await expect(page.getByRole('heading', { level: 2, name: '系统设置' })).toBeVisible();
+  await loaded;
+
+  await fillSettingsNumber(page, '正式球员报名上限', 31);
+  await fillSettingsNumber(page, '分组手动权重', 65);
+  await fillSettingsNumber(page, '分组自动权重', 35);
+
+  const patched = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/b/settings' &&
+      response.request().method() === 'PATCH',
+  );
+  await page.getByRole('button', { name: '保存设置' }).click();
+  expect((await patched).status()).toBe(200);
+  await expect(page.getByText('设置已保存')).toBeVisible();
+
+  const reloaded = waitSettingsGet(page);
+  await page.reload();
+  await reloaded;
+  await expect(settingsNumberInput(page, '正式球员报名上限')).toHaveValue('31');
+  await expect(settingsNumberInput(page, '分组手动权重')).toHaveValue('65');
+  await expect(settingsNumberInput(page, '分组自动权重')).toHaveValue('35');
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B09 权重合计非法时字段级提示且不发 PATCH', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const patches: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/b/settings' && request.method() === 'PATCH') {
+      patches.push(request.url());
+    }
+  });
+  await loginAdmin(page);
+
+  const loaded = waitSettingsGet(page);
+  await page.goto('/admin/settings');
+  await expect(page.getByRole('heading', { level: 2, name: '系统设置' })).toBeVisible();
+  await loaded;
+
+  await fillSettingsNumber(page, '分组手动权重', 60);
+  await fillSettingsNumber(page, '分组自动权重', 30);
+
+  await page.getByRole('button', { name: '保存设置' }).click();
+  const manualError = settingsFormItem(page, '分组手动权重').locator('.el-form-item__error');
+  await expect(manualError).toHaveText('手动与自动权重合计必须为 100');
+  expect(patches).toEqual([]);
 
   expect(errors).toEqual([]);
 });

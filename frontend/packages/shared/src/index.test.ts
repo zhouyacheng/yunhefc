@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PermissionView } from './index';
+import type { PermissionView, SystemSettings } from './index';
 import {
   ATTENDANCE_SOURCE_TEXT,
   ATTENDANCE_STATUS_TEXT,
@@ -41,6 +41,12 @@ import {
   REGISTRATION_STATUS,
   roleCodeError,
   roleNameError,
+  SETTINGS_FIELD_RULES,
+  SETTINGS_GROUPING_KEYS,
+  SETTINGS_KEYS,
+  SETTINGS_REGISTRATION_KEYS,
+  settingsErrors,
+  toSettingsPayload,
 } from './index';
 
 describe('Page helper', () => {
@@ -391,5 +397,150 @@ describe('role permissions', () => {
     expect(roleNameError('角'.repeat(64))).toBeNull();
     expect(roleNameError('  ')).toBe('请输入角色名称');
     expect(roleNameError('角'.repeat(65))).toBe('角色名称最多 64 个字符');
+  });
+});
+
+describe('system settings', () => {
+  const valid: SystemSettings = {
+    maxPlayers: 30,
+    maxGuests: 4,
+    maxWaitlist: 2,
+    groupingManualWeight: 70,
+    groupingAutoWeight: 30,
+    groupingAppearanceWeight: 50,
+    groupingGoalWeight: 25,
+    groupingAssistWeight: 25,
+    groupingMinAppearances: 3,
+  };
+
+  it('splits the 9 keys into 3 registration + 6 grouping fields', () => {
+    expect(SETTINGS_KEYS).toHaveLength(9);
+    expect(SETTINGS_REGISTRATION_KEYS).toHaveLength(3);
+    expect(SETTINGS_GROUPING_KEYS).toHaveLength(6);
+  });
+
+  it('accepts the valid baseline and the inclusive bounds of non-weight fields', () => {
+    expect(settingsErrors(valid)).toEqual({});
+    const keys = ['maxPlayers', 'maxGuests', 'maxWaitlist', 'groupingMinAppearances'] as const;
+    for (const key of keys) {
+      const rule = SETTINGS_FIELD_RULES[key];
+      expect(settingsErrors({ ...valid, [key]: rule.min })[key]).toBeUndefined();
+      expect(settingsErrors({ ...valid, [key]: rule.max })[key]).toBeUndefined();
+      expect(settingsErrors({ ...valid, [key]: rule.min - 1 })[key]).toBe(
+        `${rule.messageLabel}必须在 ${rule.min}-${rule.max} 之间`,
+      );
+      expect(settingsErrors({ ...valid, [key]: rule.max + 1 })[key]).toBe(
+        `${rule.messageLabel}必须在 ${rule.min}-${rule.max} 之间`,
+      );
+    }
+  });
+
+  it('requires manual + auto to equal 100', () => {
+    expect(settingsErrors({ ...valid, groupingManualWeight: 100, groupingAutoWeight: 0 })).toEqual(
+      {},
+    );
+    expect(settingsErrors({ ...valid, groupingManualWeight: 0, groupingAutoWeight: 100 })).toEqual(
+      {},
+    );
+    expect(settingsErrors({ ...valid, groupingManualWeight: 70, groupingAutoWeight: 31 })).toEqual({
+      groupingManualWeight: '手动与自动权重合计必须为 100',
+      groupingAutoWeight: '手动与自动权重合计必须为 100',
+    });
+    expect(settingsErrors({ ...valid, groupingManualWeight: 0, groupingAutoWeight: 0 })).toEqual({
+      groupingManualWeight: '手动与自动权重合计必须为 100',
+      groupingAutoWeight: '手动与自动权重合计必须为 100',
+    });
+    expect(settingsErrors({ ...valid, groupingManualWeight: -1, groupingAutoWeight: 101 })).toEqual(
+      {
+        groupingManualWeight: '手动权重必须在 0-100 之间',
+        groupingAutoWeight: '自动权重必须在 0-100 之间',
+      },
+    );
+  });
+
+  it('requires the three auto weights to be positive in total', () => {
+    expect(
+      settingsErrors({
+        ...valid,
+        groupingAppearanceWeight: 0,
+        groupingGoalWeight: 0,
+        groupingAssistWeight: 1,
+      }),
+    ).toEqual({});
+    expect(
+      settingsErrors({
+        ...valid,
+        groupingAppearanceWeight: 0,
+        groupingGoalWeight: 0,
+        groupingAssistWeight: 0,
+      }),
+    ).toEqual({
+      groupingAppearanceWeight: '出场、进球、助攻权重合计必须大于 0',
+      groupingGoalWeight: '出场、进球、助攻权重合计必须大于 0',
+      groupingAssistWeight: '出场、进球、助攻权重合计必须大于 0',
+    });
+    expect(
+      settingsErrors({
+        ...valid,
+        groupingAppearanceWeight: 101,
+        groupingGoalWeight: 0,
+        groupingAssistWeight: 0,
+      }),
+    ).toEqual({ groupingAppearanceWeight: '出场权重必须在 0-100 之间' });
+    expect(
+      settingsErrors({
+        ...valid,
+        groupingAppearanceWeight: 50,
+        groupingGoalWeight: -1,
+        groupingAssistWeight: 25,
+      }),
+    ).toEqual({ groupingGoalWeight: '进球权重必须在 0-100 之间' });
+
+    // 自动三项各自 0–100 的闭区间边界。
+    expect(
+      settingsErrors({
+        ...valid,
+        groupingAppearanceWeight: 0,
+        groupingGoalWeight: 0,
+        groupingAssistWeight: 100,
+      }),
+    ).toEqual({});
+    expect(
+      settingsErrors({
+        ...valid,
+        groupingAppearanceWeight: 100,
+        groupingGoalWeight: 100,
+        groupingAssistWeight: 100,
+      }),
+    ).toEqual({});
+    expect(settingsErrors({ ...valid, groupingAppearanceWeight: -1 })).toEqual({
+      groupingAppearanceWeight: '出场权重必须在 0-100 之间',
+    });
+    expect(settingsErrors({ ...valid, groupingGoalWeight: 101 })).toEqual({
+      groupingGoalWeight: '进球权重必须在 0-100 之间',
+    });
+    expect(settingsErrors({ ...valid, groupingAssistWeight: -1 })).toEqual({
+      groupingAssistWeight: '助攻权重必须在 0-100 之间',
+    });
+    expect(settingsErrors({ ...valid, groupingAssistWeight: 101 })).toEqual({
+      groupingAssistWeight: '助攻权重必须在 0-100 之间',
+    });
+  });
+
+  it('rejects empty and non-integer values for every field', () => {
+    for (const key of SETTINGS_KEYS) {
+      expect(settingsErrors({ ...valid, [key]: null })).toEqual({ [key]: '必须填写整数' });
+      expect(settingsErrors({ ...valid, [key]: undefined })).toEqual({ [key]: '必须填写整数' });
+      expect(settingsErrors({ ...valid, [key]: valid[key] + 0.5 })).toEqual({
+        [key]: '必须为整数',
+      });
+    }
+    expect(settingsErrors({ ...valid, groupingMinAppearances: Number.NaN })).toEqual({
+      groupingMinAppearances: '必须为整数',
+    });
+  });
+
+  it('turns a validated form into the full SET-02 payload', () => {
+    expect(toSettingsPayload(valid)).toEqual(valid);
   });
 });

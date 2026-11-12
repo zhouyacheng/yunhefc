@@ -31,6 +31,9 @@ function sectionComponent(section: AdminSection) {
   if (section === 'roles') {
     return () => import('../pages/RolesPage.vue');
   }
+  if (section === 'settings') {
+    return () => import('../pages/SettingsPage.vue');
+  }
   return () => import('../pages/SectionPage.vue');
 }
 

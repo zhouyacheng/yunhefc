@@ -47,6 +47,7 @@ public class NotificationApplicationService {
         return PageResponse.of(items, result.getTotal(), query.page(), query.pageSize());
     }
 
+    @Transactional(readOnly = true)
     public UnreadCountView unreadCount() {
         return new UnreadCountView(notificationMapper.countUnread(CurrentUser.principal().userId()));
     }
@@ -57,24 +58,27 @@ public class NotificationApplicationService {
     @Transactional
     public ReadResult markRead(Long notificationId) {
         Long userId = CurrentUser.principal().userId();
-        Notification notification = requireOwned(userId, notificationId);
+        // 行锁保证并发重复已读返回先写入的时间，不回退为 null
+        Notification notification = notificationMapper.findOwnedForUpdate(notificationId, userId);
+        if (notification == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "通知不存在");
+        }
         if (notification.getReadAt() != null) {
             return new ReadResult(notification.getReadAt());
         }
-        Instant now = Instant.now(clock).truncatedTo(ChronoUnit.MILLIS);
+        Instant readAt = now();
         notificationMapper.update(null, new LambdaUpdateWrapper<Notification>()
                 .eq(Notification::getId, notificationId)
                 .eq(Notification::getUserId, userId)
                 .isNull(Notification::getReadAt)
-                .set(Notification::getReadAt, now));
-        // 并发重复已读时以先写入的时间为准
-        return new ReadResult(requireOwned(userId, notificationId).getReadAt());
+                .set(Notification::getReadAt, readAt));
+        return new ReadResult(readAt);
     }
 
     @Transactional
     public ReadAllResult markAllRead() {
         Long userId = CurrentUser.principal().userId();
-        Instant now = Instant.now(clock).truncatedTo(ChronoUnit.MILLIS);
+        Instant now = now();
         int updated = notificationMapper.update(null, new LambdaUpdateWrapper<Notification>()
                 .eq(Notification::getUserId, userId)
                 .isNull(Notification::getReadAt)
@@ -82,14 +86,8 @@ public class NotificationApplicationService {
         return new ReadAllResult(updated);
     }
 
-    private Notification requireOwned(Long userId, Long notificationId) {
-        Notification notification = notificationMapper.selectOne(new LambdaQueryWrapper<Notification>()
-                .eq(Notification::getId, notificationId)
-                .eq(Notification::getUserId, userId));
-        if (notification == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "通知不存在");
-        }
-        return notification;
+    private Instant now() {
+        return Instant.now(clock).truncatedTo(ChronoUnit.MILLIS);
     }
 
     private static NotificationView toView(Notification notification) {

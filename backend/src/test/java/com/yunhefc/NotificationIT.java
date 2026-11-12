@@ -27,6 +27,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -89,6 +90,40 @@ class NotificationIT extends IntegrationTestSupport {
         mockMvc.perform(get("/api/v1/c/notifications").param("unread", "false").cookie(player))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(4));
+    }
+
+    @Test
+    void listSupportsPaginationAndRejectsInvalidPageSize() throws Exception {
+        Long userId = activePlayerUser("13900002009", "分页甲");
+        Instant base = Instant.parse("2026-10-01T10:00:00Z");
+        List<Long> ids = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            ids.add(insertNotification(userId, NotificationType.ROLE_CHANGED, "通知" + i,
+                    "分页内容", "USER", userId, base.plus(i, ChronoUnit.HOURS), null));
+        }
+        Cookie player = cLogin("13900002009", PLAYER_PASSWORD);
+
+        mockMvc.perform(get("/api/v1/c/notifications")
+                        .param("page", "2").param("pageSize", "10").cookie(player))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(12))
+                .andExpect(jsonPath("$.data.page").value(2))
+                .andExpect(jsonPath("$.data.pageSize").value(10))
+                .andExpect(jsonPath("$.data.totalPages").value(2))
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].id").value(ids.get(1)))
+                .andExpect(jsonPath("$.data.items[1].id").value(ids.get(0)));
+
+        mockMvc.perform(get("/api/v1/c/notifications")
+                        .param("pageSize", "20").cookie(player))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(12))
+                .andExpect(jsonPath("$.data.items.length()").value(12));
+
+        mockMvc.perform(get("/api/v1/c/notifications")
+                        .param("pageSize", "15").cookie(player))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
     }
 
     @Test

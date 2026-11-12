@@ -20,6 +20,17 @@ public interface NotificationMapper extends BaseMapper<Notification> {
             """)
     int countUnread(@Param("userId") Long userId);
 
+    /**
+     * 已读操作用当前读加行锁：并发重复已读时读取先提交的 read_at，而不是事务快照。
+     */
+    @Select("""
+            SELECT id, user_id, type, title, body, ref_type, ref_id, read_at, created_at, is_deleted
+            FROM notification
+            WHERE id = #{id} AND user_id = #{userId} AND is_deleted = 0
+            FOR UPDATE
+            """)
+    Notification findOwnedForUpdate(@Param("id") Long id, @Param("userId") Long userId);
+
     @Insert("""
             <script>
             INSERT INTO notification (user_id, type, title, body, ref_type, ref_id)

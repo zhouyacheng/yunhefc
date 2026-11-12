@@ -56,7 +56,8 @@ public final class AuthDtos {
             String typeLabel,
             Integer position,
             String positionLabel,
-            Integer skill) {
+            Integer skill,
+            String avatarUrl) {
     }
 
     public record AuthResult(UserView user, PlayerView player, Set<String> permissions) {

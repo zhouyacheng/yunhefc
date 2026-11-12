@@ -15,6 +15,8 @@ import java.util.List;
 
 class TeamPageIT extends IntegrationTestSupport {
 
+    private static final String ULID = "01J9ZQ8K3M4N5P6Q7R8S9T0VWX";
+
     private final List<Long> createdUserIds = new ArrayList<>();
 
     @AfterEach
@@ -51,6 +53,8 @@ class TeamPageIT extends IntegrationTestSupport {
         insertPlayer(disabledUser, "M02球队注销", 22, 1, 1, 3);
         Long disabledStats = playerIdOf(disabledUser);
         insertStats(disabledStats, season(), 99, 99, 99);
+        String forwardAvatarKey = jdbc.queryForObject(
+                "SELECT avatar_url FROM player WHERE id = ?", String.class, forwardHigh);
 
         mockMvc.perform(get("/api/v1/c/team/players"))
                 .andExpect(status().isOk())
@@ -66,6 +70,7 @@ class TeamPageIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].appearances").value(8))
                 .andExpect(jsonPath("$.data.items[0].secondaryPositions[0]").value(1))
                 .andExpect(jsonPath("$.data.items[0].secondaryPositionLabels[0]").value("DEFENDER"))
+                .andExpect(jsonPath("$.data.items[0].avatarUrl").value("mock://oss/" + forwardAvatarKey))
                 .andExpect(jsonPath("$.data.items[1].name").value("M02球队前锋乙"))
                 .andExpect(jsonPath("$.data.items[2].name").value("M02球队前锋丙"))
                 .andExpect(jsonPath("$.data.items[3].name").value("M02球队中场"))
@@ -91,6 +96,7 @@ class TeamPageIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].avatarUrl").value(nullValue()))
                 .andExpect(jsonPath("$.data.items[0].secondaryPositions.length()").value(0))
                 .andExpect(jsonPath("$.data.items[1].secondaryPositions.length()").value(1))
                 .andExpect(jsonPath("$.data.items[1].secondaryPositions[0]").value(1));
@@ -228,7 +234,8 @@ class TeamPageIT extends IntegrationTestSupport {
                 INSERT INTO player (team_id, user_id, name, jersey, type, position,
                     secondary_positions, region, avatar_url, skill)
                 VALUES (1, ?, ?, ?, ?, ?, ?, '上海', ?, ?)
-                """, userId, name, jersey, type, position, secondary, "https://oss.example/" + name + ".png", skill);
+                """, userId, name, jersey, type, position, secondary,
+                "avatar/" + userId + "/" + ULID + ".png", skill);
         return playerIdOf(userId);
     }
 

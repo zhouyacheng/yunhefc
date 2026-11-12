@@ -6,6 +6,7 @@ import com.yunhefc.contracts.player.PlayerPublicSnapshot;
 import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.team.TeamReadPort;
+import com.yunhefc.infra.storage.AvatarUrlSigner;
 import com.yunhefc.query.dto.TeamPlayerDtos.TeamPlayerView;
 import com.yunhefc.query.dto.TeamPlayerDtos.TeamPlayersView;
 import com.yunhefc.stats.application.RosterStats;
@@ -33,6 +34,7 @@ public class TeamPlayersApplicationService {
 
     private final TeamReadPort teamReadPort;
     private final StatsQueryService statsQueryService;
+    private final AvatarUrlSigner avatarUrlSigner;
 
     @Transactional(readOnly = true)
     public TeamPlayersView list(Integer limit, boolean all) {
@@ -78,7 +80,7 @@ public class TeamPlayersApplicationService {
                 player.secondaryPositions(),
                 player.secondaryPositions().stream().map(code -> Position.of(code).label()).toList(),
                 player.region(),
-                player.avatarUrl(),
+                avatarUrlSigner.sign(player.avatarUrl()),
                 player.skill(),
                 player.type(),
                 PlayerType.of(player.type()).label(),

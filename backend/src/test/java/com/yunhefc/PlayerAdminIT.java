@@ -25,6 +25,8 @@ import java.util.List;
 
 class PlayerAdminIT extends IntegrationTestSupport {
 
+    private static final String ULID = "01J9ZQ8K3M4N5P6Q7R8S9T0VWX";
+
     private final List<Long> createdUserIds = new ArrayList<>();
 
     @Autowired
@@ -48,6 +50,8 @@ class PlayerAdminIT extends IntegrationTestSupport {
 
         Long formalUserId = insertUser("13900000411", 1, playerRole);
         insertPlayer(formalUserId, "M02列表甲", 712, 1, 3, 5, "杭州");
+        String formalAvatarKey = "avatar/" + formalUserId + "/" + ULID + ".jpg";
+        jdbc.update("UPDATE player SET avatar_url = ? WHERE user_id = ?", formalAvatarKey, formalUserId);
         Long pendingUserId = insertUser("13900000412", 0, guestRole);
         insertPlayer(pendingUserId, "M02列表乙", 713, 0, 2, 3, "宁波");
         Long adminPlayerUserId = insertUser("13900000413", 1, adminRole);
@@ -65,6 +69,8 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].roles[0]").value("PLAYER"))
                 .andExpect(jsonPath("$.data.items[0].secondaryPositions[0]").value(1))
                 .andExpect(jsonPath("$.data.items[0].secondaryPositionLabels[1]").value("MIDFIELDER"))
+                .andExpect(jsonPath("$.data.items[0].avatarUrl").value("mock://oss/" + formalAvatarKey))
+                .andExpect(jsonPath("$.data.items[1].avatarUrl").value(nullValue()))
                 .andExpect(jsonPath("$.data.items[0].createdAt").exists());
 
         mockMvc.perform(get("/api/v1/b/players").cookie(admin)
@@ -181,6 +187,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
         Long playerB = insertPlayer(userIdB, "M02编辑乙", 721, 1, 2, 3, null);
         Long guestUserId = insertUser("13900000423", 0, guestRole);
         Long guestPlayer = insertPlayer(guestUserId, "M02编辑丙", 720, 0, 1, 3, null);
+        String avatarKey = "avatar/" + userIdA + "/" + ULID + ".jpg";
 
         mockMvc.perform(patch("/api/v1/b/players/" + playerA)
                         .cookie(admin)
@@ -188,11 +195,12 @@ class PlayerAdminIT extends IntegrationTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"M02编辑甲改","jersey":722,"region":"宁波","position":3,
-                                 "secondaryPositions":[1,2],"skill":5,"avatarUrl":"https://oss.example/a.png",
+                                 "secondaryPositions":[1,2],"skill":5,"avatarUrl":"%s",
                                  "type":0,"userId":999999,"status":2}
-                                """))
+                                """.formatted(avatarKey)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("M02编辑甲改"))
+                .andExpect(jsonPath("$.data.avatarUrl").value("mock://oss/" + avatarKey))
                 .andExpect(jsonPath("$.data.jersey").value(722))
                 .andExpect(jsonPath("$.data.type").value(1))
                 .andExpect(jsonPath("$.data.typeLabel").value("PLAYER"))
@@ -213,10 +221,18 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .isEqualTo(userIdA);
         assertThat(jdbc.queryForObject("SELECT status FROM app_user WHERE id = ?", Integer.class, userIdA))
                 .isEqualTo(1);
+        assertThat(jdbc.queryForObject("SELECT avatar_url FROM player WHERE id = ?", String.class, playerA))
+                .isEqualTo(avatarKey);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM outbox_event WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ? "
                         + "AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'PLAYER_UPDATE'",
                 Integer.class, playerA)).isEqualTo(1);
+        String afterJson = jdbc.queryForObject(
+                "SELECT JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.afterJson')) FROM outbox_event "
+                        + "WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ? "
+                        + "AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'PLAYER_UPDATE'",
+                String.class, playerA);
+        assertThat(afterJson).contains(avatarKey).doesNotContain("mock://");
 
         mockMvc.perform(patch("/api/v1/b/players/" + playerB)
                         .cookie(admin)
@@ -250,6 +266,17 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .isNull();
         assertThat(jdbc.queryForObject("SELECT avatar_url FROM player WHERE id = ?", String.class, playerA))
                 .isNull();
+
+        mockMvc.perform(patch("/api/v1/b/players/" + playerA)
+                        .cookie(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"不应写入\",\"avatarUrl\":\"https://oss.example/a.png\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.avatarUrl").value("头像对象键格式不正确"));
+        assertThat(jdbc.queryForObject("SELECT name FROM player WHERE id = ?", String.class, playerA))
+                .isEqualTo("M02编辑甲改");
 
         mockMvc.perform(patch("/api/v1/b/players/" + guestPlayer)
                         .cookie(admin)

@@ -15,6 +15,8 @@ import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.UserAccountReadPort;
 import com.yunhefc.contracts.security.UserAccountSnapshot;
+import com.yunhefc.infra.storage.AvatarUrlSigner;
+import com.yunhefc.player.domain.AvatarObjectKey;
 import com.yunhefc.player.domain.Player;
 import com.yunhefc.player.domain.SecondaryPositions;
 import com.yunhefc.player.dto.PlayerDtos.PlayerAdminQuery;
@@ -40,6 +42,7 @@ public class PlayerAdminApplicationService {
     private final UserAccountReadPort userAccountReadPort;
     private final AuditRecorder auditRecorder;
     private final ObjectMapper objectMapper;
+    private final AvatarUrlSigner avatarUrlSigner;
 
     @Transactional(readOnly = true)
     public PageResponse<PlayerAdminView> list(PlayerAdminQuery query) {
@@ -99,7 +102,7 @@ public class PlayerAdminApplicationService {
         boolean regionProvided = request.region() != null;
         String region = regionProvided ? normalize(request.region()) : null;
         boolean avatarProvided = request.avatarUrl() != null;
-        String avatarUrl = avatarProvided ? normalize(request.avatarUrl()) : null;
+        String avatarUrl = avatarProvided ? AvatarObjectKey.normalize(request.avatarUrl()) : null;
         Position newPosition = position(request.position());
         int effectivePosition = newPosition == null ? player.getPosition().code() : newPosition.code();
         validateJersey(request.jersey());
@@ -183,7 +186,7 @@ public class PlayerAdminApplicationService {
                 secondary,
                 secondary.stream().map(code -> Position.of(code).label()).toList(),
                 player.getRegion(),
-                player.getAvatarUrl(),
+                avatarUrlSigner.sign(player.getAvatarUrl()),
                 player.getSkill(),
                 player.getType().code(),
                 player.getType().label(),

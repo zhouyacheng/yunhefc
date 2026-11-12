@@ -93,7 +93,8 @@ public class PlayerReadAdapter implements PlayerReadPort {
                 player.getJersey(),
                 player.getType().code(),
                 player.getPosition().code(),
-                player.getSkill());
+                player.getSkill(),
+                player.getAvatarUrl());
     }
 
     private PlayerPublicSnapshot toPublicSnapshot(Player player) {

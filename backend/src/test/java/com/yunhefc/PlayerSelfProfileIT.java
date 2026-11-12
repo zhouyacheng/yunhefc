@@ -3,6 +3,7 @@ package com.yunhefc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,6 +19,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 class PlayerSelfProfileIT extends IntegrationTestSupport {
+
+    private static final String ULID = "01J9ZQ8K3M4N5P6Q7R8S9T0VWX";
 
     private final List<Long> createdUserIds = new ArrayList<>();
 
@@ -36,6 +39,7 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
         Cookie session = registerPending(phone, "自助甲", 2);
         Long userId = jdbc.queryForObject("SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
         Long playerId = jdbc.queryForObject("SELECT id FROM player WHERE user_id = ?", Long.class, userId);
+        String avatarKey = avatarKeyFor(userId);
 
         mockMvc.perform(patch("/api/v1/c/me/player")
                         .cookie(session)
@@ -43,8 +47,8 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"自助乙","region":"宁波","position":3,
-                                 "secondaryPositions":[0,1],"avatarUrl":"https://oss.example/self.png"}
-                                """))
+                                 "secondaryPositions":[0,1],"avatarUrl":"%s"}
+                                """.formatted(avatarKey)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.id").value(playerId))
@@ -57,7 +61,7 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.secondaryPositions[0]").value(0))
                 .andExpect(jsonPath("$.data.secondaryPositionLabels[1]").value("DEFENDER"))
                 .andExpect(jsonPath("$.data.region").value("宁波"))
-                .andExpect(jsonPath("$.data.avatarUrl").value("https://oss.example/self.png"))
+                .andExpect(jsonPath("$.data.avatarUrl").value("mock://oss/" + avatarKey))
                 .andExpect(jsonPath("$.data.skill").value(3));
 
         assertThat(jdbc.queryForObject("SELECT name FROM player WHERE id = ?", String.class, playerId))
@@ -69,13 +73,23 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
         assertThat(jdbc.queryForObject("SELECT secondary_positions FROM player WHERE id = ?", String.class, playerId))
                 .isEqualTo("[0, 1]");
         assertThat(jdbc.queryForObject("SELECT avatar_url FROM player WHERE id = ?", String.class, playerId))
-                .isEqualTo("https://oss.example/self.png");
+                .isEqualTo(avatarKey);
         assertThat(jdbc.queryForObject("SELECT skill FROM player WHERE id = ?", Integer.class, playerId))
                 .isEqualTo(3);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM outbox_event WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ? "
                         + "AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'PLAYER_UPDATE'",
                 Integer.class, playerId)).isEqualTo(1);
+        String afterJson = jdbc.queryForObject(
+                "SELECT JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.afterJson')) FROM outbox_event "
+                        + "WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ? "
+                        + "AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'PLAYER_UPDATE'",
+                String.class, playerId);
+        assertThat(afterJson).contains(avatarKey).doesNotContain("mock://");
+
+        mockMvc.perform(get("/api/v1/c/me").cookie(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.player.avatarUrl").value("mock://oss/" + avatarKey));
     }
 
     @Test
@@ -169,8 +183,8 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
         Cookie session = registerPending(phone, "自助部分", 2);
         Long userId = jdbc.queryForObject("SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
         Long playerId = jdbc.queryForObject("SELECT id FROM player WHERE user_id = ?", Long.class, userId);
-        jdbc.update("UPDATE player SET region = '杭州', avatar_url = 'https://oss.example/before.png' WHERE id = ?",
-                playerId);
+        String avatarKey = avatarKeyFor(userId);
+        jdbc.update("UPDATE player SET region = '杭州', avatar_url = ? WHERE id = ?", avatarKey, playerId);
 
         mockMvc.perform(patch("/api/v1/c/me/player")
                         .cookie(session)
@@ -186,6 +200,48 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
                 .isEqualTo("自助部分");
         assertThat(jdbc.queryForObject("SELECT secondary_positions FROM player WHERE id = ?", String.class, playerId))
                 .isEqualTo("[]");
+
+        jdbc.update("UPDATE player SET avatar_url = ? WHERE id = ?", avatarKey, playerId);
+        mockMvc.perform(patch("/api/v1/c/me/player")
+                        .cookie(session)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"avatarUrl\":\"   \"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.avatarUrl").value(nullValue()));
+        assertThat(jdbc.queryForObject("SELECT avatar_url FROM player WHERE id = ?", String.class, playerId))
+                .isNull();
+    }
+
+    @Test
+    void rejectsNonObjectKeyAvatarWithoutWritingOtherFields() throws Exception {
+        String phone = "13900000508";
+        Cookie session = registerPending(phone, "自助头像", 2);
+        Long userId = jdbc.queryForObject("SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
+        Long playerId = jdbc.queryForObject("SELECT id FROM player WHERE user_id = ?", Long.class, userId);
+
+        expectAvatarValidationFailure(session, "https://oss.example/self.png");
+        expectAvatarValidationFailure(session, "avatar/1/" + ULID.toLowerCase() + ".png");
+        expectAvatarValidationFailure(session, "avatar/1/" + ULID + ".gif");
+        expectAvatarValidationFailure(session, "avatar/1/01J9ZQ8K3M4N5P6Q7R8S9T0VWI.png");
+
+        mockMvc.perform(patch("/api/v1/c/me/player")
+                        .cookie(session)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"不应写入\",\"avatarUrl\":\"https://oss.example/self.png\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.avatarUrl").value("头像对象键格式不正确"));
+
+        assertThat(jdbc.queryForObject("SELECT name FROM player WHERE id = ?", String.class, playerId))
+                .isEqualTo("自助头像");
+        assertThat(jdbc.queryForObject("SELECT avatar_url FROM player WHERE id = ?", String.class, playerId))
+                .isNull();
+
+        mockMvc.perform(get("/api/v1/c/me").cookie(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.player.avatarUrl").value(nullValue()));
     }
 
     @Test
@@ -214,6 +270,10 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(40301));
     }
 
+    private static String avatarKeyFor(Long userId) {
+        return "avatar/" + userId + "/" + ULID + ".png";
+    }
+
     private void expectValidationFailure(Cookie session, String body) throws Exception {
         mockMvc.perform(patch("/api/v1/c/me/player")
                         .cookie(session)
@@ -222,6 +282,17 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
                         .content(body))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    private void expectAvatarValidationFailure(Cookie session, String avatarUrl) throws Exception {
+        mockMvc.perform(patch("/api/v1/c/me/player")
+                        .cookie(session)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"avatarUrl\":\"%s\"}".formatted(avatarUrl)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.avatarUrl").value("头像对象键格式不正确"));
     }
 
     private Cookie registerPending(String phone, String name, int position) throws Exception {

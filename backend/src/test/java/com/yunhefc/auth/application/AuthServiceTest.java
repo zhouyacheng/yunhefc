@@ -22,6 +22,7 @@ import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.notification.NotificationReadPort;
 import com.yunhefc.contracts.player.PlayerReadPort;
+import com.yunhefc.infra.storage.AvatarUrlSigner;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,6 +66,8 @@ class AuthServiceTest {
     private AuditRecorder auditRecorder;
     @Mock
     private UserViewAssembler userViewAssembler;
+    @Mock
+    private AvatarUrlSigner avatarUrlSigner;
     @Mock
     private Clock clock;
 

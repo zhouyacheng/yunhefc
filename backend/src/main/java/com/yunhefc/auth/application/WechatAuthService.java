@@ -27,6 +27,7 @@ import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.SessionKeys;
+import com.yunhefc.infra.storage.AvatarUrlSigner;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -66,6 +67,7 @@ public class WechatAuthService {
     private final LoginAttemptService loginAttemptService;
     private final AuthSessionService sessionService;
     private final UserViewAssembler userViewAssembler;
+    private final AvatarUrlSigner avatarUrlSigner;
     private final Clock clock;
 
     public AuthorizeResponse authorize(String redirect, String userAgent, HttpServletRequest request) {
@@ -230,7 +232,8 @@ public class WechatAuthService {
         }
         return new PlayerView(player.id(), player.name(), player.jersey(), player.type(),
                 PlayerType.of(player.type()).label(), player.position(),
-                Position.of(player.position()).label(), player.skill());
+                Position.of(player.position()).label(), player.skill(),
+                avatarUrlSigner.sign(player.avatarUrl()));
     }
 
     private Long teamId() {

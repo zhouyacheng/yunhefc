@@ -5,7 +5,9 @@ import static com.yunhefc.AvatarFixtures.PNG;
 import static com.yunhefc.AvatarFixtures.WEBP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -212,6 +214,74 @@ class AvatarUploadIT extends IntegrationTestSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001))
                 .andExpect(jsonPath("$.data.details.file").value("图片不能超过 2MB"));
+    }
+
+    @Test
+    void selfUploadThenBindReturnsSignedUrls() throws Exception {
+        Long userId = insertActiveUser("13900000711", roleId("PLAYER"));
+        Long playerId = insertPlayer(userId, "头像绑定甲", 911);
+        Cookie session = cLogin("13900000711", "Passw0rd!");
+
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/c/files/avatar")
+                        .file(new MockMultipartFile("file", "bind.jpg", "image/jpeg", JPEG))
+                        .cookie(session)
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andReturn();
+        String objectKey = JsonPath.read(upload.getResponse().getContentAsString(), "$.data.objectKey");
+        assertThat(objectKey).matches(OBJECT_KEY);
+
+        mockMvc.perform(patch("/api/v1/c/me/player")
+                        .cookie(session)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"avatarUrl\":\"%s\"}".formatted(objectKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.avatarUrl").value("mock://oss/" + objectKey));
+
+        mockMvc.perform(get("/api/v1/c/me").cookie(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.player.avatarUrl").value("mock://oss/" + objectKey));
+
+        assertThat(jdbc.queryForObject("SELECT avatar_url FROM player WHERE id = ?", String.class, playerId))
+                .isEqualTo(objectKey);
+        String afterJson = jdbc.queryForObject(
+                "SELECT JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.afterJson')) FROM outbox_event "
+                        + "WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ? "
+                        + "AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'PLAYER_UPDATE'",
+                String.class, playerId);
+        assertThat(afterJson).contains(objectKey).doesNotContain("mock://");
+    }
+
+    @Test
+    void adminUploadThenBindReturnsSignedUrlInList() throws Exception {
+        Cookie admin = adminLogin("13900000712");
+        Long targetUserId = insertActiveUser("13900000713", roleId("PLAYER"));
+        Long playerId = insertPlayer(targetUserId, "头像绑定乙", 912);
+
+        MvcResult upload = mockMvc.perform(multipart("/api/v1/b/players/" + playerId + "/avatar")
+                        .file(new MockMultipartFile("file", "bind.webp", "image/webp", WEBP))
+                        .cookie(admin)
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andReturn();
+        String objectKey = JsonPath.read(upload.getResponse().getContentAsString(), "$.data.objectKey");
+        assertThat(objectKey).matches(OBJECT_KEY);
+
+        mockMvc.perform(patch("/api/v1/b/players/" + playerId)
+                        .cookie(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"avatarUrl\":\"%s\"}".formatted(objectKey)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.avatarUrl").value("mock://oss/" + objectKey));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("name", "头像绑定乙"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].avatarUrl").value("mock://oss/" + objectKey));
+
+        assertThat(jdbc.queryForObject("SELECT avatar_url FROM player WHERE id = ?", String.class, playerId))
+                .isEqualTo(objectKey);
     }
 
     private Cookie registerPending(String phone, String name, int position) throws Exception {

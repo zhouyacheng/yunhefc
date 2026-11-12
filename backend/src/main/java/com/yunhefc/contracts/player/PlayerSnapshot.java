@@ -11,5 +11,7 @@ public record PlayerSnapshot(
         Integer jersey,
         Integer type,
         Integer position,
-        Integer skill) {
+        Integer skill,
+        // 私有 OSS 原始对象键；读响应由调用方现签 URL。
+        String avatarUrl) {
 }

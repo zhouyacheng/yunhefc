@@ -36,6 +36,7 @@ import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccessPort;
+import com.yunhefc.infra.storage.AvatarUrlSigner;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -80,6 +81,7 @@ public class AuthService implements UserAccessPort {
     private final PasswordEncoder passwordEncoder;
     private final AuditRecorder auditRecorder;
     private final UserViewAssembler userViewAssembler;
+    private final AvatarUrlSigner avatarUrlSigner;
     private final Clock clock;
 
     public int sendSms(String phone, String purpose) {
@@ -346,7 +348,8 @@ public class AuthService implements UserAccessPort {
                 PlayerType.of(player.type()).label(),
                 player.position(),
                 Position.of(player.position()).label(),
-                player.skill());
+                player.skill(),
+                avatarUrlSigner.sign(player.avatarUrl()));
     }
 
     private void validatePhone(String phone) {

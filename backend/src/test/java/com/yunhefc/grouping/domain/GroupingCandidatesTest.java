@@ -62,7 +62,7 @@ class GroupingCandidatesTest {
     }
 
     private static PlayerSnapshot player(Long id, Long userId, PlayerType type) {
-        return new PlayerSnapshot(id, 1L, userId, "球员" + id, id.intValue(), type.code(), 1, 3);
+        return new PlayerSnapshot(id, 1L, userId, "球员" + id, id.intValue(), type.code(), 1, 3, null);
     }
 
     private static Map<Long, UserAccountSnapshot> accounts(Long... userIds) {

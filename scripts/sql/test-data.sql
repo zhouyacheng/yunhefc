@@ -87,6 +87,9 @@ SELECT u.id, @guest_role_id FROM app_user u WHERE u.id BETWEEN 1016 AND 1020;
 
 INSERT IGNORE INTO user_role (user_id, role_id) VALUES (1001, @admin_role_id);
 
+-- B02 Playwright 黄金路径会创建无法通过接口删除的比赛；重放种子时清理，避免影响 C 端精确计数用例。
+DELETE FROM team_match WHERE title LIKE 'E2E比赛%';
+
 -- 四场测试比赛：1001 锁定（用于分组/阵容），1002 已结束（用于事件/考勤/统计），
 -- 1003 开赛时间随脚本滚动（用于 C 端签到黄金路径），1004 进行中（用于 C 端事件黄金路径）
 INSERT IGNORE INTO team_match

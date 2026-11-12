@@ -1,6 +1,58 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { collectConsoleErrors } from './support';
+
+async function loginAdmin(page: Page, phone = '13910000001'): Promise<void> {
+  await page.goto('/admin/login');
+  await page.getByPlaceholder('请输入手机号').fill(phone);
+  await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+  await page.getByRole('button', { name: '登录' }).click();
+  await expect(page).toHaveURL(/\/admin\/matches$/);
+}
+
+const shanghaiInputFormatter = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
+
+/** 表单统一按上海墙钟填写，与页面的 Asia/Shanghai 展示一致。 */
+function shanghaiDateTimeInput(date: Date): string {
+  return shanghaiInputFormatter.format(date);
+}
+
+/** 未来某天上海时间 20:00（UTC 12:00），避免受浏览器时区影响。 */
+function futureInstant(daysAhead: number): Date {
+  const date = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
+  date.setUTCHours(12, 0, 0, 0);
+  return date;
+}
+
+async function fillDialogDateTime(
+  dialog: Locator,
+  label: string,
+  date: Date,
+): Promise<void> {
+  const input = dialog.locator('.el-form-item').filter({ hasText: label }).locator('input').first();
+  await input.click();
+  await input.fill(shanghaiDateTimeInput(date));
+  await input.press('Enter');
+  await input.blur();
+  await expect(input).toHaveValue(shanghaiDateTimeInput(date));
+}
+
+function matchRow(page: Page, title: string): Locator {
+  return page.locator('.el-table__row').filter({ hasText: title });
+}
+
+async function chooseStatus(page: Page, row: Locator, label: string): Promise<void> {
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.locator('.el-dropdown-menu__item:visible').filter({ hasText: label }).first().click();
+}
 
 /** B06 保存可能依次弹出“调整已保存分组”和“保存分组”确认。 */
 async function confirmGroupingDialogs(page: Page): Promise<void> {
@@ -377,4 +429,102 @@ test('B 端：侧栏按 sections 过滤，直访无权限分区显示 403', asyn
   await page.goto('/admin/matches');
   await expect(page).toHaveURL(/\/admin\/forbidden\?section=matches$/);
   await expect(page.getByText('403 无权限访问')).toBeVisible();
+});
+
+test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page);
+
+  const title = `E2E比赛${Date.now()}`;
+  const start = futureInstant(10);
+
+  await page.getByRole('button', { name: '新建比赛' }).click();
+  const createDialog = page.locator('.el-dialog').filter({ hasText: '创建比赛' });
+  await expect(createDialog).toBeVisible();
+  await createDialog.getByPlaceholder('例如 橙队VS兰队').fill(title);
+  await fillDialogDateTime(createDialog, '开始时间', start);
+  await fillDialogDateTime(createDialog, '结束时间', new Date(start.getTime() + 2 * 60 * 60 * 1000));
+  await createDialog.getByRole('button', { name: '创建比赛' }).click();
+
+  const createdRow = matchRow(page, title);
+  await expect(createdRow).toBeVisible();
+  await expect(createdRow.getByText('报名中')).toBeVisible();
+
+  await createdRow.getByRole('button', { name: '编辑' }).click();
+  const editDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByPlaceholder('例如 橙队VS兰队').fill(`${title}-改`);
+  await editDialog.getByPlaceholder('比赛场地').fill('E2E球场');
+  await editDialog.getByRole('button', { name: '保存修改' }).click();
+
+  const editedTitle = `${title}-改`;
+  const editedRow = matchRow(page, editedTitle);
+  await expect(editedRow).toBeVisible();
+  await expect(editedRow.getByText('E2E球场')).toBeVisible();
+
+  await chooseStatus(page, editedRow, '已延期');
+  const postponeDialog = page.locator('.el-dialog').filter({ hasText: '延期比赛' });
+  await expect(postponeDialog).toBeVisible();
+  const postponedStart = futureInstant(11);
+  await fillDialogDateTime(postponeDialog, '开始时间', postponedStart);
+  await fillDialogDateTime(
+    postponeDialog,
+    '结束时间',
+    new Date(postponedStart.getTime() + 2 * 60 * 60 * 1000),
+  );
+  await postponeDialog.getByRole('button', { name: '确认延期' }).click();
+  await expect(matchRow(page, editedTitle).getByText('已延期')).toBeVisible();
+
+  await matchRow(page, editedTitle).getByRole('button', { name: '重新排期' }).click();
+  const rescheduleDialog = page.locator('.el-dialog').filter({ hasText: '重新排期' });
+  await expect(rescheduleDialog).toBeVisible();
+  const rescheduledStart = futureInstant(12);
+  await fillDialogDateTime(rescheduleDialog, '开始时间', rescheduledStart);
+  await fillDialogDateTime(
+    rescheduleDialog,
+    '结束时间',
+    new Date(rescheduledStart.getTime() + 2 * 60 * 60 * 1000),
+  );
+  await rescheduleDialog.getByRole('button', { name: '确认重新排期' }).click();
+  await expect(matchRow(page, editedTitle).getByText('报名中')).toBeVisible();
+
+  await chooseStatus(page, matchRow(page, editedTitle), '已取消');
+  const cancelDialog = page.locator('.el-dialog').filter({ hasText: '取消比赛' });
+  await expect(cancelDialog).toBeVisible();
+  await cancelDialog.getByPlaceholder('取消原因（将记入审计）').fill('E2E 收尾清理');
+  await cancelDialog.getByRole('button', { name: '确认取消' }).click();
+
+  const messageBox = page.locator('.el-message-box');
+  await expect(messageBox).toBeVisible();
+  await messageBox.getByRole('button', { name: '确认取消' }).click();
+  await expect(matchRow(page, editedTitle).getByText('已取消')).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B02 只读权限不显示写操作', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await page.route('**/api/v1/b/me', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.permissions = ['match:view:any'];
+    body.data.sections = ['matches'];
+    await route.fulfill({
+      status: response.status(),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  });
+  await loginAdmin(page);
+
+  await expect(page).toHaveURL(/\/admin\/matches$/);
+  await expect(page.getByText('橙队VS兰队').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: '新建比赛' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '编辑' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '状态' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '重新排期' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: '比赛管理' })).toBeVisible();
+  await expect(page.getByRole('menuitem', { name: '报名/考勤' })).toHaveCount(0);
+
+  expect(errors).toEqual([]);
 });

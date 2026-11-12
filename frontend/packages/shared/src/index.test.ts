@@ -12,6 +12,14 @@ import {
   groupingTeamName,
   isInternalMatchType,
   isPage,
+  matchCancellable,
+  matchCapacityError,
+  matchEditable,
+  matchPostponable,
+  matchReschedulable,
+  matchScheduleError,
+  matchScorePairError,
+  matchSeasonError,
   matchStatusText,
   matchStatusTone,
   matchTypeText,
@@ -96,6 +104,79 @@ describe('event helpers', () => {
     const endAt = '2026-11-15T14:00:00Z';
     expect(eventEditWindowOpen(endAt, Date.parse('2026-11-16T14:00:00Z'))).toBe(true);
     expect(eventEditWindowOpen(endAt, Date.parse('2026-11-16T14:00:01Z'))).toBe(false);
+  });
+});
+
+describe('match management rules', () => {
+  it('requires a 2–4 hour duration', () => {
+    expect(matchScheduleError('2026-12-01T12:00:00Z', '2026-12-01T10:00:00Z')).toBe(
+      '开始/结束时间相差必须为 2–4 小时',
+    );
+    expect(matchScheduleError('2026-12-01T12:00:00Z', '2026-12-01T13:59:59Z')).toBe(
+      '开始/结束时间相差必须为 2–4 小时',
+    );
+    expect(matchScheduleError('2026-12-01T12:00:00Z', '2026-12-01T14:00:00Z')).toBeNull();
+    expect(matchScheduleError('2026-12-01T12:00:00Z', '2026-12-01T16:00:00Z')).toBeNull();
+    expect(matchScheduleError('2026-12-01T12:00:00Z', '2026-12-01T16:00:01Z')).toBe(
+      '开始/结束时间相差必须为 2–4 小时',
+    );
+  });
+
+  it('rejects a start at or before 10:00 Asia/Shanghai', () => {
+    // 02:00Z = 10:00 北京时间；09:59 与 10:00:01 是边界。
+    expect(matchScheduleError('2026-12-01T02:00:00Z', '2026-12-01T04:00:00Z')).toBe(
+      '开赛时间必须晚于当天 10:00',
+    );
+    expect(matchScheduleError('2026-12-01T01:59:00Z', '2026-12-01T03:59:00Z')).toBe(
+      '开赛时间必须晚于当天 10:00',
+    );
+    expect(matchScheduleError('2026-12-01T02:00:01Z', '2026-12-01T04:00:01Z')).toBeNull();
+  });
+
+  it('requires capacity to cover confirmed counts', () => {
+    expect(
+      matchCapacityError({ capacity: 9, guestCapacity: 4, confirmedCount: 10, guestCount: 4 }),
+    ).toBe('正式名额不得低于已确认正式人数');
+    expect(
+      matchCapacityError({ capacity: 10, guestCapacity: 3, confirmedCount: 10, guestCount: 4 }),
+    ).toBe('外挂名额不得低于已确认外挂人数');
+    expect(
+      matchCapacityError({ capacity: 10, guestCapacity: 4, confirmedCount: 10, guestCount: 4 }),
+    ).toBeNull();
+  });
+
+  it('only allows editing before terminal or postponed states', () => {
+    expect([0, 1, 2, 3].every((status) => matchEditable(status))).toBe(true);
+    expect(matchEditable(4)).toBe(false);
+    expect(matchEditable(5)).toBe(false);
+    expect(matchEditable(6)).toBe(false);
+  });
+
+  it('limits postpone and reschedule to their own states', () => {
+    expect([0, 1, 2, 3].every((status) => matchPostponable(status))).toBe(true);
+    expect(matchPostponable(5)).toBe(false);
+    expect(matchPostponable(6)).toBe(false);
+    expect(matchReschedulable(5)).toBe(true);
+    expect(matchReschedulable(0)).toBe(false);
+  });
+
+  it('rejects cancelling terminal matches', () => {
+    expect([0, 1, 2, 3, 5].every((status) => matchCancellable(status))).toBe(true);
+    expect(matchCancellable(4)).toBe(false);
+    expect(matchCancellable(6)).toBe(false);
+    expect(matchCancellable(null)).toBe(false);
+    expect(matchCancellable(undefined)).toBe(false);
+  });
+
+  it('validates a four-digit season and paired scores', () => {
+    expect(matchSeasonError('2026')).toBeNull();
+    expect(matchSeasonError('')).toBeNull();
+    expect(matchSeasonError('26')).toBe('赛季必须为四位年份');
+    expect(matchSeasonError('20266')).toBe('赛季必须为四位年份');
+    expect(matchScorePairError(1, 0)).toBeNull();
+    expect(matchScorePairError(null, null)).toBeNull();
+    expect(matchScorePairError(1, null)).toBe('比分必须成对填写');
+    expect(matchScorePairError(undefined, 0)).toBe('比分必须成对填写');
   });
 });
 

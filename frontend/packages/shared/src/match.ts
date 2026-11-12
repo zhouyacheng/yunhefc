@@ -92,6 +92,28 @@ export interface ScoreResponse {
   score: Score;
 }
 
+/** MAT-04 请求体。 */
+export interface MatchCreate {
+  title: string;
+  type: MatchType;
+  startAt: string;
+  endAt: string;
+  venue: string;
+  homeTeamName: string;
+  awayTeamName: string;
+  format?: string;
+  competition?: string | null;
+  season?: string;
+  round?: number | null;
+  ourSide?: MatchSide;
+  capacity?: number;
+  guestCapacity?: number;
+  waitlistCapacity?: number;
+  includeGuests?: boolean;
+  scoreHome?: number;
+  scoreAway?: number;
+}
+
 /** MAT-05 请求体；赛季/类型/我方主客不可改。 */
 export interface MatchUpdate {
   title?: string;
@@ -366,6 +388,85 @@ export function matchTypeText(code: number | null | undefined): string {
 
 export function matchStatusText(code: number | null | undefined): string {
   return code === null || code === undefined ? '' : (MATCH_STATUS_TEXT[code as MatchStatus] ?? '');
+}
+
+const MIN_MATCH_DURATION_MS = 2 * 60 * 60 * 1000;
+const MAX_MATCH_DURATION_MS = 4 * 60 * 60 * 1000;
+const EARLIEST_START_SECONDS = 10 * 60 * 60;
+
+/** MAT-04/05/07/11：开始/结束相差 2–4 小时，开赛晚于当天 10:00（Asia/Shanghai）。 */
+export function matchScheduleError(
+  startAt: string | null | undefined,
+  endAt: string | null | undefined,
+): string | null {
+  if (!startAt || !endAt) {
+    return '请选择开始与结束时间';
+  }
+  const start = Date.parse(startAt);
+  const end = Date.parse(endAt);
+  if (Number.isNaN(start) || Number.isNaN(end)) {
+    return '时间格式不正确';
+  }
+  const duration = end - start;
+  if (duration < MIN_MATCH_DURATION_MS || duration > MAX_MATCH_DURATION_MS) {
+    return '开始/结束时间相差必须为 2–4 小时';
+  }
+  const local = new Date(start + SHANGHAI_OFFSET_MS);
+  const seconds =
+    local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds();
+  return seconds <= EARLIEST_START_SECONDS ? '开赛时间必须晚于当天 10:00' : null;
+}
+
+export interface MatchCapacitySnapshot {
+  capacity: number;
+  guestCapacity: number;
+  confirmedCount: number;
+  guestCount: number;
+}
+
+/** 正式/外挂名额分别不得低于对应已确认人数。 */
+export function matchCapacityError(input: MatchCapacitySnapshot): string | null {
+  if (input.capacity < input.confirmedCount) {
+    return '正式名额不得低于已确认正式人数';
+  }
+  if (input.guestCapacity < input.guestCount) {
+    return '外挂名额不得低于已确认外挂人数';
+  }
+  return null;
+}
+
+/** 终态与已延期比赛不可编辑；延期后只能走重新排期。 */
+export function matchEditable(status: number | null | undefined): boolean {
+  return status === 0 || status === 1 || status === 2 || status === 3;
+}
+
+export function matchPostponable(status: number | null | undefined): boolean {
+  return matchEditable(status);
+}
+
+export function matchReschedulable(status: number | null | undefined): boolean {
+  return status === MATCH_STATUS_POSTPONED;
+}
+
+/** 终态不可取消；已延期可取消。 */
+export function matchCancellable(status: number | null | undefined): boolean {
+  return matchEditable(status) || status === MATCH_STATUS_POSTPONED;
+}
+
+export function matchSeasonError(season: string | null | undefined): string | null {
+  if (!season) {
+    return null;
+  }
+  return /^\d{4}$/.test(season) ? null : '赛季必须为四位年份';
+}
+
+export function matchScorePairError(
+  scoreHome: number | null | undefined,
+  scoreAway: number | null | undefined,
+): string | null {
+  const hasHome = scoreHome !== null && scoreHome !== undefined;
+  const hasAway = scoreAway !== null && scoreAway !== undefined;
+  return hasHome === hasAway ? null : '比分必须成对填写';
 }
 
 /** 跨端统一的状态语气，由各组件库映射到自己的颜色类型。 */

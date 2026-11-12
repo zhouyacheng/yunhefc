@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { collectConsoleErrors } from './support';
+import { collectConsoleErrors, loginAs } from './support';
 
 test('C 端：登录后看到真实赛程', async ({ page }) => {
   const errors = collectConsoleErrors(page);
@@ -11,7 +11,7 @@ test('C 端：登录后看到真实赛程', async ({ page }) => {
   await page.getByRole('button', { name: '登录' }).click();
 
   await expect(page).toHaveURL(/\/matches$/);
-  await expect(page.locator('.match-card')).toHaveCount(4);
+  await expect(page.locator('.match-card')).toHaveCount(5);
   await expect(page.getByText('已锁定').first()).toBeVisible();
 
   expect(errors).toEqual([]);
@@ -93,5 +93,14 @@ test('C 端：未登录访问受保护页跳登录并带 redirect', async ({ pag
   await page.goto('/account');
 
   await expect(page).toHaveURL(/\/login\?redirect=/);
-  expect(page.url()).toContain('/account');
+  expect(new URL(page.url()).searchParams.get('redirect')).toBe('/profile');
+});
+
+test('C 端：已登录访问 /account 重定向到 /profile', async ({ page }) => {
+  await loginAs(page);
+
+  await page.goto('/account');
+
+  await expect(page).toHaveURL(/\/profile$/);
+  await expect(page.getByRole('heading', { name: '我的' })).toBeVisible();
 });

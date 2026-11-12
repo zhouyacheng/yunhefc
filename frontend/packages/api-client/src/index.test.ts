@@ -297,6 +297,73 @@ describe('write helpers', () => {
   });
 });
 
+describe('multipart', () => {
+  it('passes FormData through without forcing a JSON content type', async () => {
+    const { client, calls } = harness(async () => json(envelope({ objectKey: 'avatar/1/x.jpg' })));
+    client.setCsrfToken('csrf-1');
+    const form = new FormData();
+    form.append('file', new Blob(['x'], { type: 'image/jpeg' }), 'avatar.jpg');
+
+    await client.postForm('/files/avatar', form, { idempotencyKey: 'idem-form' });
+
+    const init = calls[0]?.init;
+    expect(init?.body).toBe(form);
+    expect(init?.credentials).toBe('include');
+    const headers = new Headers(init?.headers);
+    expect(headers.get('Content-Type')).toBeNull();
+    expect(headers.get('Accept')).toBe('application/json');
+    expect(headers.get('X-XSRF-TOKEN')).toBe('csrf-1');
+    expect(headers.get('Idempotency-Key')).toBe('idem-form');
+    expect((init?.body as FormData).get('file')).toBeInstanceOf(Blob);
+  });
+
+  it('retries the same FormData after refreshing a stale token', async () => {
+    const { client, calls } = harness(async (url) => {
+      if (url.endsWith('/auth/csrf')) {
+        return json(envelope({ token: 'csrf-fresh', headerName: 'X-XSRF-TOKEN' }));
+      }
+      const token = new Headers(calls.at(-1)?.init.headers).get('X-XSRF-TOKEN');
+      return token === 'csrf-stale'
+        ? json({ code: 40301, message: '无权限', data: null }, 403)
+        : json(envelope({ ok: true }));
+    });
+    client.setCsrfToken('csrf-stale');
+    const form = new FormData();
+    form.append('file', new Blob(['x']), 'avatar.jpg');
+
+    await expect(client.postForm('/files/avatar', form)).resolves.toEqual({ ok: true });
+
+    expect(calls.map((call) => call.url)).toEqual([
+      '/api/v1/c/files/avatar',
+      '/api/v1/c/auth/csrf',
+      '/api/v1/c/files/avatar',
+    ]);
+    expect(calls[0]?.init.body).toBe(form);
+    expect(calls[2]?.init.body).toBe(form);
+    const retriedHeaders = new Headers(calls[2]?.init.headers);
+    expect(retriedHeaders.get('X-XSRF-TOKEN')).toBe('csrf-fresh');
+    expect(retriedHeaders.get('Content-Type')).toBeNull();
+  });
+
+  it('unwraps error envelopes for multipart requests', async () => {
+    const { client } = harness(async () =>
+      json({ code: 40001, message: '参数校验失败', data: null, requestId: 'req-form' }, 400),
+    );
+    const form = new FormData();
+    form.append('file', new Blob(['x']), 'avatar.jpg');
+
+    const error = await client.postForm('/files/avatar', form).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      status: 400,
+      code: 40001,
+      message: '参数校验失败',
+      requestId: 'req-form',
+    });
+  });
+});
+
 describe('safeRedirectPath', () => {
   it('keeps same-origin paths inside the app base', () => {
     expect(safeRedirectPath('/matches?page=2')).toBe('/matches?page=2');

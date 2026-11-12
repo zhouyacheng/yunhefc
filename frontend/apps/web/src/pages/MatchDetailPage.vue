@@ -51,13 +51,14 @@ import {
 } from '@yunhefc/shared';
 import { Button, Empty, Loading, Popup, Tag } from 'vant';
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
 import { toBrowserPath } from '../router';
 import { useSessionStore } from '../stores/session';
 
 const route = useRoute();
+const router = useRouter();
 const session = useSessionStore();
 const matchId = Number(route.params.id);
 
@@ -304,6 +305,10 @@ async function load(): Promise<void> {
       registration.value = match.value.myRegistration ?? null;
     }
   } catch (caught) {
+    if (isApiError(caught) && caught.code === ERROR_CODES.NOT_FOUND) {
+      await router.replace('/404');
+      return;
+    }
     error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
   } finally {
     loading.value = false;

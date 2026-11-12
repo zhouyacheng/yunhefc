@@ -265,6 +265,178 @@ VALUES
 ON DUPLICATE KEY UPDATE
   appearances = VALUES(appearances), goals = VALUES(goals), assists = VALUES(assists);
 
+-- =========================================================================
+-- BEGIN B3 C-A fixtures（票 01 独占；可重复执行复位通知/报名/邀请状态）
+-- =========================================================================
+
+-- 1) 首页 Hero：1005 队内赛，开赛 +1h、报名截止 +30min；重放复位 1002 的报名与考勤。
+SET @b3_start = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR);
+
+INSERT INTO team_match
+  (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
+   venue, competition, season, round, home_team_name, away_team_name, our_side,
+   status, manual_status, capacity, guest_capacity, waitlist_capacity, include_guests,
+   score_home, score_away, season_match_no, total_match_no, version, created_by)
+VALUES
+  (1005, @team_id, 'B3首页联调赛', 1, '8人制',
+   @b3_start, DATE_ADD(@b3_start, INTERVAL 2 HOUR),
+   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE),
+   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 45 MINUTE),
+   '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 5, '橙队', '兰队', NULL,
+   0, 0, 30, 4, 2, 1,
+   NULL, NULL, 5, 5, 0, 1001)
+ON DUPLICATE KEY UPDATE
+  start_at = VALUES(start_at), end_at = VALUES(end_at),
+  signup_deadline = VALUES(signup_deadline), cancel_lock = VALUES(cancel_lock),
+  season = VALUES(season), status = 0, manual_status = 0,
+  capacity = VALUES(capacity), guest_capacity = VALUES(guest_capacity),
+  waitlist_capacity = VALUES(waitlist_capacity), include_guests = VALUES(include_guests),
+  score_home = NULL, score_away = NULL,
+  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no),
+  version = 0, is_deleted = 0;
+
+DELETE FROM attendance WHERE match_id = 1005 AND player_id = 1002;
+DELETE FROM registration WHERE match_id = 1005 AND player_id = 1002;
+
+-- 1b) 1004 改为已结束：退出 upcoming（保证 1005 成为首页 Hero），赛后 24h 内仍可录入事件。
+UPDATE team_match
+SET status = 4, manual_status = 0,
+    start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),
+    end_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 MINUTE),
+    signup_deadline = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 180 MINUTE),
+    cancel_lock = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 160 MINUTE)
+WHERE id = 1004;
+
+-- 2) 待审核账号 1021：status=0、GUEST、外挂球员；重放复位状态/角色并清理邀请使用。
+INSERT INTO app_user (id, phone, password_hash, openid, status)
+VALUES (1021, '13910000021', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 0)
+ON DUPLICATE KEY UPDATE
+  phone = VALUES(phone), password_hash = VALUES(password_hash), openid = NULL,
+  status = 0, is_deleted = 0;
+
+INSERT INTO player
+  (id, team_id, user_id, name, jersey, type, position, secondary_positions, region,
+   avatar_url, skill)
+VALUES (1021, @team_id, 1021, '测试待审核01', NULL, 0, 2, '[]', '上海', NULL, 3)
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name), jersey = VALUES(jersey), type = 0, position = 2,
+  secondary_positions = '[]', region = '上海', avatar_url = NULL, skill = 3, is_deleted = 0;
+
+DELETE FROM user_role WHERE user_id = 1021 AND role_id <> @guest_role_id;
+INSERT INTO user_role (user_id, role_id, is_deleted)
+VALUES (1021, @guest_role_id, 0)
+ON DUPLICATE KEY UPDATE is_deleted = 0;
+
+DELETE FROM invite_use WHERE user_id = 1021;
+
+-- 3) 球员 1030-1035：补 6 名正式中场，使中场组超过 10 人。
+INSERT IGNORE INTO app_user (id, phone, password_hash, openid, status)
+VALUES
+  (1030, '13910000030', NULL, NULL, 1),
+  (1031, '13910000031', NULL, NULL, 1),
+  (1032, '13910000032', NULL, NULL, 1),
+  (1033, '13910000033', NULL, NULL, 1),
+  (1034, '13910000034', NULL, NULL, 1),
+  (1035, '13910000035', NULL, NULL, 1);
+
+INSERT IGNORE INTO player
+  (id, team_id, user_id, name, jersey, type, position, secondary_positions, region,
+   avatar_url, skill)
+VALUES
+  (1030, @team_id, 1030, '测试中场07', 41, 1, 2, '[]', '上海', NULL, 3),
+  (1031, @team_id, 1031, '测试中场08', 42, 1, 2, '[]', '苏州', NULL, 3),
+  (1032, @team_id, 1032, '测试中场09', 43, 1, 2, '[]', '上海', NULL, 4),
+  (1033, @team_id, 1033, '测试中场10', 44, 1, 2, '[]', '杭州', NULL, 3),
+  (1034, @team_id, 1034, '测试中场11', 45, 1, 2, '[]', '上海', NULL, 3),
+  (1035, @team_id, 1035, '测试中场12', 46, 1, 2, '[]', '南通', NULL, 4);
+
+INSERT IGNORE INTO user_role (user_id, role_id)
+SELECT id, @player_role_id FROM app_user WHERE id BETWEEN 1030 AND 1035;
+
+-- 4) 通知 4001-4012（user 1002）：类型 0/1/7/8/9/10 混合；4001-4007 未读、4008-4012 已读。
+INSERT INTO notification (id, user_id, type, title, body, ref_type, ref_id, read_at, created_at)
+VALUES
+  (4001, 1002, 0, '报名成功',
+   '你已成功报名「B3首页联调赛」，请留意赛前通知。', 'MATCH', 1005, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 12 MINUTE)),
+  (4002, 1002, 1, '候补递补成功',
+   '你已递补为「B3首页联调赛」的正式报名，请留意赛前通知。', 'MATCH', 1005, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 11 MINUTE)),
+  (4003, 1002, 7, '比赛延期',
+   '「M05签到联调赛」已延期，请留意新的开赛时间。', 'MATCH', 1003, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)),
+  (4004, 1002, 8, '比赛取消',
+   '「M06事件联调赛」已取消：场地原因。', 'MATCH', 1004, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 9 MINUTE)),
+  (4005, 1002, 9, '角色变更',
+   '你的角色已更新：PLAYER', 'USER', 1002, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 MINUTE)),
+  (4006, 1002, 10, '账号审核通过',
+   '你的账号已通过审核，现在可以报名参加比赛', 'USER', 1002, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 MINUTE)),
+  (4007, 1002, 0, '报名成功',
+   '你已成功报名「M05签到联调赛」，请留意赛前通知。', 'MATCH', 1003, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MINUTE)),
+  (4008, 1002, 1, '候补递补成功',
+   '你已递补为「M06事件联调赛」的正式报名，请留意赛前通知。', 'MATCH', 1004,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)),
+  (4009, 1002, 7, '比赛延期',
+   '「M06事件联调赛」已延期，请留意新的开赛时间。', 'MATCH', 1004,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 MINUTE)),
+  (4010, 1002, 8, '比赛取消',
+   '「M05签到联调赛」已取消：天气原因。', 'MATCH', 1003,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 MINUTE)),
+  (4011, 1002, 9, '角色变更',
+   '你的角色已更新：PLAYER、GUEST', 'USER', 1002,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE)),
+  (4012, 1002, 10, '账号审核通过',
+   '你的账号已通过审核，现在可以报名参加比赛', 'USER', 1002,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE))
+ON DUPLICATE KEY UPDATE
+  user_id = VALUES(user_id), type = VALUES(type), title = VALUES(title), body = VALUES(body),
+  ref_type = VALUES(ref_type), ref_id = VALUES(ref_id), read_at = VALUES(read_at),
+  created_at = VALUES(created_at), is_deleted = 0;
+
+-- 5) 邀请 5001-5005：有效入队、有效比赛、过期、撤销、用尽；重放先清理使用记录再重建。
+DELETE FROM invite_use
+WHERE invite_id BETWEEN 5001 AND 5005
+   OR invite_id IN (
+     SELECT id FROM invite_link
+     WHERE token_hash IN (
+       SHA2('B3-INVITE-TEAM', 256), SHA2('B3-INVITE-MATCH', 256),
+       SHA2('B3-INVITE-EXPIRED', 256), SHA2('B3-INVITE-REVOKED', 256),
+       SHA2('B3-INVITE-EXHAUSTED', 256)
+     )
+   );
+
+DELETE FROM invite_link
+WHERE id BETWEEN 5001 AND 5005
+   OR token_hash IN (
+     SHA2('B3-INVITE-TEAM', 256), SHA2('B3-INVITE-MATCH', 256),
+     SHA2('B3-INVITE-EXPIRED', 256), SHA2('B3-INVITE-REVOKED', 256),
+     SHA2('B3-INVITE-EXHAUSTED', 256)
+   );
+
+INSERT INTO invite_link
+  (id, team_id, type, token_hash, match_id, inviter_user_id, expires_at, max_uses,
+   used_count, status, revoked_at, created_at)
+VALUES
+  (5001, @team_id, 0, SHA2('B3-INVITE-TEAM', 256), NULL, 1002,
+   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), NULL, 0, 0, NULL, UTC_TIMESTAMP()),
+  (5002, @team_id, 1, SHA2('B3-INVITE-MATCH', 256), 1005, 1002,
+   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), NULL, 0, 0, NULL, UTC_TIMESTAMP()),
+  (5003, @team_id, 0, SHA2('B3-INVITE-EXPIRED', 256), NULL, 1002,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY), NULL, 0, 0, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 DAY)),
+  (5004, @team_id, 0, SHA2('B3-INVITE-REVOKED', 256), NULL, 1002,
+   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), NULL, 0, 1,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)),
+  (5005, @team_id, 0, SHA2('B3-INVITE-EXHAUSTED', 256), NULL, 1002,
+   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), 1, 1, 0, NULL,
+   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY));
+
+-- END B3 C-A fixtures
+
 COMMIT;
 
 -- 说明：

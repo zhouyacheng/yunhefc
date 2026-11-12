@@ -99,6 +99,11 @@ export class ApiClient {
     return this.request<T>('POST', path, { ...options, body });
   }
 
+  /** multipart 上传：不设置 Content-Type，由浏览器生成 boundary。 */
+  postForm<T>(path: string, formData: FormData, options: RequestOptions = {}): Promise<T> {
+    return this.request<T>('POST', path, { ...options, body: formData });
+  }
+
   put<T>(path: string, body?: unknown, options: RequestOptions = {}): Promise<T> {
     return this.request<T>('PUT', path, { ...options, body });
   }
@@ -170,7 +175,11 @@ export class ApiClient {
     }
 
     let body: BodyInit | undefined;
-    if (options.body !== undefined) {
+    if (options.body instanceof FormData) {
+      // boundary 必须由浏览器生成，不能手工指定 Content-Type。
+      headers.delete('Content-Type');
+      body = options.body;
+    } else if (options.body !== undefined) {
       headers.set('Content-Type', 'application/json');
       body = JSON.stringify(options.body);
     }

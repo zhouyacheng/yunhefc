@@ -18,7 +18,7 @@ export default defineConfig({
   projects: [
     {
       name: 'web',
-      testMatch: /web\.spec\.ts/,
+      testMatch: /web.*\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5273' },
     },
     {

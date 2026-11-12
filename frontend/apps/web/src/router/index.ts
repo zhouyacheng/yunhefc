@@ -36,22 +36,39 @@ export const router = createRouter({
       path: '/',
       component: () => import('../components/AppShell.vue'),
       children: [
-        { path: '', redirect: '/matches' },
+        { path: '', name: 'home', component: () => import('../pages/HomePage.vue') },
         { path: 'matches', name: 'matches', component: () => import('../pages/SchedulePage.vue') },
         {
           path: 'matches/:id',
           name: 'match-detail',
           component: () => import('../pages/MatchDetailPage.vue'),
         },
+        { path: 'team', name: 'team', component: () => import('../pages/TeamPage.vue') },
         {
-          path: 'account',
-          name: 'account',
-          component: () => import('../pages/AccountPage.vue'),
+          path: 'profile',
+          name: 'profile',
+          component: () => import('../pages/ProfilePage.vue'),
           meta: { requiresAuth: true },
         },
+        {
+          path: 'invite/:token',
+          name: 'invite',
+          component: () => import('../pages/InvitePage.vue'),
+        },
+        {
+          path: '403',
+          name: 'forbidden',
+          component: () => import('../pages/ForbiddenPage.vue'),
+        },
+        {
+          path: '404',
+          name: 'not-found',
+          component: () => import('../pages/NotFoundPage.vue'),
+        },
+        { path: 'account', redirect: '/profile' },
       ],
     },
-    { path: '/:pathMatch(.*)*', redirect: '/matches' },
+    { path: '/:pathMatch(.*)*', redirect: '/404' },
   ],
 });
 

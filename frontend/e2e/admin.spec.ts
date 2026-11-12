@@ -370,6 +370,10 @@ test('B 端：侧栏按 sections 过滤，直访无权限分区显示 403', asyn
   await expect(page.getByRole('menuitem', { name: '报名/考勤' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: '比赛管理' })).toHaveCount(0);
 
+  // 直访 /admin/ 也应落首个有权限分区，而不是已下线的 dashboard。
+  await page.goto('/admin/');
+  await expect(page).toHaveURL(/\/admin\/registrations$/);
+
   await page.goto('/admin/matches');
   await expect(page).toHaveURL(/\/admin\/forbidden\?section=matches$/);
   await expect(page.getByText('403 无权限访问')).toBeVisible();

@@ -57,7 +57,8 @@ export const router = createRouter({
       path: '/',
       component: AdminShell,
       children: [
-        { path: '', redirect: '/dashboard' },
+        // 根路径由守卫按首个有权限分区跳转，避免无 matches 权限的角色落 403。
+        { path: '', name: 'home', component: { render: () => null } },
         ...ADMIN_SECTIONS.map((section) => ({
           path: section,
           name: section,
@@ -89,6 +90,10 @@ router.beforeEach(async (to) => {
   await session.ensureLoaded().catch(() => undefined);
   if (!session.isAuthenticated) {
     return { name: 'login', query: { redirect: toBrowserPath(to.fullPath) } };
+  }
+
+  if (to.path === '/') {
+    return session.homePath;
   }
 
   const section = to.meta.section;

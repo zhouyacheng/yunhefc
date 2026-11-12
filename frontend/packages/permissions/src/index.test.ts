@@ -55,7 +55,8 @@ describe('hasPermission', () => {
 
 describe('admin sections', () => {
   it('defines every backend section and maps it to 05 §5.1', () => {
-    expect(ADMIN_SECTIONS).toHaveLength(11);
+    expect(ADMIN_SECTIONS).toHaveLength(10);
+    expect(ADMIN_SECTIONS).not.toContain('dashboard');
     expect(Object.keys(ADMIN_SECTION_PERMISSIONS)).toEqual([...ADMIN_SECTIONS]);
     expect(ADMIN_SECTION_PERMISSIONS.matches).toEqual(['match:view:any']);
     expect(ADMIN_SECTION_PERMISSIONS.registrations).toEqual(['attendance:view:any']);
@@ -67,15 +68,9 @@ describe('admin sections', () => {
     expect(ADMIN_SECTION_PERMISSIONS.settings).toEqual(['settings:view:any']);
     expect(ADMIN_SECTION_PERMISSIONS.audit).toEqual(['audit:view:any']);
     expect(ADMIN_SECTION_PERMISSIONS.invites).toEqual(['invite:manage:any']);
-    expect(ADMIN_SECTION_PERMISSIONS.dashboard).toEqual([]);
   });
 
-  it('treats dashboard as available to any backend permission', () => {
-    expect(canAccessSection(['player:edit:own'], 'dashboard')).toBe(false);
-    expect(canAccessSection(['attendance:view:any'], 'dashboard')).toBe(true);
-  });
-
-  it('checks the section permission for non-dashboard sections', () => {
+  it('checks the section permission for every section', () => {
     expect(canAccessSection(['attendance:view:any'], 'registrations')).toBe(true);
     expect(canAccessSection(['attendance:view:any'], 'matches')).toBe(false);
   });

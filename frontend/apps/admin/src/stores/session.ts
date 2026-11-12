@@ -14,9 +14,6 @@ export const useSessionStore = defineStore('admin-session', () => {
   const isAuthenticated = computed(() => user.value !== null);
 
   const homePath = computed(() => {
-    if (sections.value.includes('matches')) {
-      return '/matches';
-    }
     const first = ADMIN_SECTIONS.find((section) => sections.value.includes(section));
     return first ? `/${first}` : '/forbidden';
   });

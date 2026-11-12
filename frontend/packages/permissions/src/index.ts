@@ -78,7 +78,6 @@ const C_ONLY_PERMISSIONS: ReadonlySet<string> = new Set([
 ]);
 
 export const ADMIN_SECTIONS = [
-  'dashboard',
   'matches',
   'registrations',
   'events',
@@ -97,9 +96,8 @@ export function isAdminSection(value: string): value is AdminSection {
   return (ADMIN_SECTIONS as readonly string[]).includes(value);
 }
 
-/** 05 §5.1 B 端分区权限映射；dashboard 表示任一后台权限。 */
+/** 05 §5.1 B 端分区权限映射。 */
 export const ADMIN_SECTION_PERMISSIONS: Record<AdminSection, readonly PermissionCode[]> = {
-  dashboard: [],
   matches: [MATCH_VIEW_ANY],
   registrations: [ATTENDANCE_VIEW_ANY],
   events: [EVENT_EDIT_ANY],
@@ -137,8 +135,5 @@ export function hasBackendPermission(granted: PermissionGrant): boolean {
 }
 
 export function canAccessSection(granted: PermissionGrant, section: AdminSection): boolean {
-  if (section === 'dashboard') {
-    return hasBackendPermission(granted);
-  }
   return hasPermission(granted, ADMIN_SECTION_PERMISSIONS[section]);
 }

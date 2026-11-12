@@ -41,7 +41,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 5. 高风险写接口携带 `Idempotency-Key`：报名/取消、事件、比分、比赛状态、阵容、分组、审核/注销、邀请、设置、角色权限等。
 6. 需要乐观锁的接口携带 `version`：阵容、比赛状态、事件修改；版本不匹配返回 `VERSION_CONFLICT`。
 7. 认证写请求携带会话 Cookie，并通过 `X-XSRF-TOKEN` 提交 CSRF token；token 从登录或 `auth/csrf` 响应体获取，不使用 CSRF Cookie。
-8. 文件上传使用 `multipart/form-data`；服务端校验类型与大小（头像上限 2MB），写入阿里云 OSS，业务表只存 URL。
+8. 文件上传使用 `multipart/form-data`；服务端校验类型与大小（头像上限 2MB），写入阿里云 OSS，业务表只存对象键（不含签名参数）。
 
 ---
 
@@ -123,7 +123,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 
 ## 10 文件、敏感数据与外部依赖
 
-1. 头像上传经后端校验后写 OSS；响应返回业务 `url` 与短期 `signedUrl`，不返回 OSS 密钥。
+1. 头像上传经后端校验后写 OSS；响应返回 `{objectKey,signedUrl}`，不返回 OSS 密钥；业务表只存 `objectKey`，读响应现签短期 URL。
 2. 手机号只返回脱敏值；不返回 openid、passwordHash、邀请 token、会话 ID、CSRF token。
 3. 日志与错误响应不得包含密码、验证码、token、openid、手机号明文。
 4. 外部 HTTP 调用设置连接/读取超时与重试上限；失败返回明确业务错误。

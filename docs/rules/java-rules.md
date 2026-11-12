@@ -68,7 +68,7 @@ com.yunhefc.<domain>/
 ### 3.2 全局包
 
 - `common`：统一响应、异常、分页、时间、权限注解；禁止业务实体与跨域逻辑。
-- `contracts`：领域事件 DTO 与事件类型常量；不依赖业务实现。
+- `contracts`：领域事件 DTO、事件类型常量与跨模块只读 port 接口；不依赖业务实现。
 - `infra`：共享技术网关（`MessagePublisher`、`OssGateway`、`IdempotencyStore`、`CacheStore` 等），不暴露 KafkaTemplate/RedisTemplate。
 - `query`：跨域只读组合查询；只依赖各域 read port，不写业务表。
 - `stats`：统计汇总任务与查询；只读依赖各域 read port，允许 `query` 与 `grouping` 通过只读接口依赖，其他业务域不得依赖。
@@ -78,7 +78,7 @@ com.yunhefc.<domain>/
 - 依赖方向：controller → application → domain；infrastructure 实现 domain/application 定义的接口。
 - controller 不得直接调用 Mapper/Repository，不得包含业务规则。
 - domain 不得依赖 Spring Web、MyBatis、Kafka、Redis、OSS SDK。
-- 跨领域只调用对方 application 服务或消费事件，不直接访问对方 Mapper/表。
+- 跨领域只调用对方 application 服务、contracts 只读 port 或消费事件，不直接访问对方 Mapper/表。
 - 一个本地事务默认只修改一个聚合；三个显式例外：报名生命周期（Match + Registration）、注册建档（User + PlayerProfile）与账号生命周期编排（审核/转正/注销：User + Player + UserRole + Registration）。例外集中在应用服务层，不得扩散。
 - 以上规则由 ArchUnit 在 CI 固化；不得用注释或约定替代。
 
@@ -218,7 +218,7 @@ com.yunhefc.<domain>/
 
 - 单元测试：JUnit 5，覆盖领域规则、状态机、名额/递推、权限窗口。
 - 集成测试：Testcontainers 启动 MySQL/Redis/Kafka；禁止用 H2 替代 MySQL 验证 SQL。
-- 架构测试：ArchUnit 校验 controller 不访问 mapper、领域不跨域访问 infrastructure、common/contracts 不依赖业务域、query/stats 只依赖 read port。
+- 架构测试：ArchUnit 校验 controller 不访问 mapper、领域不跨域访问 infrastructure、common/contracts 不依赖业务域、query/stats 只依赖 read port；`event` 只经 `contracts.grouping` 只读 port 访问分组，不依赖 `grouping` 实现。
 - 测试命名：`<Class>Test`（单元）、`<Class>IT`（集成）；使用固定 Clock 与测试数据构建器。
 - 每个业务错误码至少有一个失败路径测试；唯一约束、版本冲突必须有测试。
 

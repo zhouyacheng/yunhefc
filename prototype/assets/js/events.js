@@ -9,6 +9,10 @@
     return (match.events || []).filter((event) => !event.deletedAt);
   }
 
+  function hasSavedGrouping(match) {
+    return Boolean(match.grouping && match.grouping.savedAt);
+  }
+
   function sanitizeEvent(event) {
     const clean = {
       type: event.type,
@@ -34,7 +38,7 @@
     if (!INTERNAL_TYPES.includes(match.type)) {
       return team === Y.ourLineupSide(match) ? roster : [];
     }
-    if (match.grouping) {
+    if (hasSavedGrouping(match)) {
       const ids = new Set((match.grouping[Y.groupingTeamForSide(team)] || []).map(Number));
       return roster.filter((player) => ids.has(Number(player.id)));
     }
@@ -46,7 +50,7 @@
     const ids = [event.playerId, event.assistId, event.inId, event.outId]
       .map(Number).filter(Boolean);
     if (ids.some((id) => !rosterIds.has(id))) {
-      const grouped = INTERNAL_TYPES.includes(match.type) && match.grouping;
+      const grouped = INTERNAL_TYPES.includes(match.type) && hasSavedGrouping(match);
       return grouped
         ? '主队/客队只能选择各自分组成员'
         : (INTERNAL_TYPES.includes(match.type) ? '只能选择本场确认报名球员' : '只能选择我方球员');
@@ -314,7 +318,7 @@
     let defaultTeam = 'HOME';
     if (existing) defaultTeam = existing.team || 'HOME';
     else if (!admin) {
-      if (internalMatch && match.grouping) {
+      if (internalMatch && hasSavedGrouping(match)) {
         defaultTeam = (match.grouping.B || []).includes(user.id) ? 'AWAY' : 'HOME';
       } else {
         defaultTeam = Y.ourLineupSide(match);

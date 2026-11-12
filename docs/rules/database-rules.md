@@ -85,10 +85,10 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 2. 业务主表包含 `created_at`；可变表包含 `updated_at`；关联表、子表与事件去重表可使用业务时间字段替代（如 `registered_at`、`recorded_at`、`used_at`、`processed_at`）；关键写操作记录 `created_by/updated_by` 等操作人字段。
 3. 事件修改历史写 `event_history`；审计日志不删除，年度导出 OSS 冷备。
 4. 保留策略：
-   - 通知 90 天；
-   - 已发送 Outbox 7 天，FAILED 保留排查；
-   - 过期邀请 30 天；
-   - 幂等键/消费去重按 TTL 清理；
+   - 通知按 `created_at` 满 90 天物理删除；
+   - Outbox SENT 按 `sent_at`、FAILED 按 `created_at` 均满 7 天物理删除，PENDING 不清理；
+   - 失效邀请满 30 天物理删除：`status=2` 且 `expires_at` 过期，或 `status=1` 且 `revoked_at` 早于 `now-30d`；先删 `invite_use` 再删 `invite_link`；
+   - `consumed_event` 按 `processed_at` 满 7 天；`idempotency_key` 按 `expires_at`；
    - 事件历史永久保留。
 5. 账号、球员、比赛、报名、考勤、事件不做物理删除；使用状态、`is_deleted` 或 `deleted_at`。
 

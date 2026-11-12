@@ -9,10 +9,10 @@
   }
 
   const players = [
-    { id: 1, name: '管理员', jersey: 10, position: 'MIDFIELDER', secondary: ['FORWARD'], region: '上海', type: 'PLAYER', status: 'ACTIVE', skill: 4, appearances: 18, goals: 6, assists: 8, color: '#2563eb', admin: true },
+    { id: 1, name: '管理员', jersey: 10, position: 'MIDFIELDER', secondary: ['FORWARD'], region: '上海', type: 'PLAYER', status: 'ACTIVE', skill: 4, appearances: 18, goals: 6, assists: 8, color: '#2563eb', admin: true, wechat: true },
     { id: 2, name: '林外援', jersey: 27, position: 'MIDFIELDER', secondary: ['FORWARD'], region: '苏州', type: 'GUEST', status: 'ACTIVE', skill: 3, appearances: 4, goals: 1, assists: 2, color: '#0f766e' },
-    { id: 3, name: '陈子昂', jersey: 8, position: 'MIDFIELDER', secondary: ['DEFENDER'], region: '上海', type: 'PLAYER', status: 'ACTIVE', skill: 4, appearances: 17, goals: 4, assists: 6, color: '#7c3aed' },
-    { id: 4, name: '王浩', jersey: 1, position: 'GOALKEEPER', secondary: [], region: '上海', type: 'PLAYER', status: 'ACTIVE', skill: 4, appearances: 16, goals: 0, assists: 0, color: '#b45309' },
+    { id: 3, name: '陈子昂', jersey: 8, position: 'MIDFIELDER', secondary: ['DEFENDER'], region: '上海', type: 'PLAYER', status: 'ACTIVE', skill: 4, appearances: 17, goals: 4, assists: 6, color: '#7c3aed', wechat: true },
+    { id: 4, name: '王浩', jersey: 1, position: 'GOALKEEPER', secondary: [], region: '上海', type: 'PLAYER', status: 'ACTIVE', skill: 4, appearances: 16, goals: 0, assists: 0, color: '#b45309', wechat: true },
     { id: 5, name: '李岩', jersey: 4, position: 'DEFENDER', secondary: ['MIDFIELDER'], region: '上海', type: 'PLAYER', status: 'ACTIVE', skill: 4, appearances: 18, goals: 0, assists: 1, color: '#be123c' },
     { id: 6, name: '赵鹏', jersey: 5, position: 'DEFENDER', secondary: [], region: '南通', type: 'PLAYER', status: 'ACTIVE', skill: 3, appearances: 15, goals: 1, assists: 0, color: '#0369a1' },
     { id: 7, name: '孙磊', jersey: 2, position: 'DEFENDER', secondary: ['MIDFIELDER'], region: '上海', type: 'PLAYER', status: 'ACTIVE', skill: 3, appearances: 12, goals: 0, assists: 2, color: '#4d7c0f' },

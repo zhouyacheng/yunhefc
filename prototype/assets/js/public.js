@@ -247,7 +247,6 @@
     function tabs() {
       const items = [
         { key: 'overview', label: '概览' },
-        { key: 'registration', label: '报名' },
         { key: 'events', label: '事件' }
       ];
       if (Y.hasPermission('lineup:view:any')) items.push({ key: 'lineup', label: '阵容' });
@@ -300,7 +299,6 @@
 
     function renderTab(key) {
       if (key === 'overview') return renderOverview();
-      if (key === 'registration') return renderRegistration();
       if (key === 'events') return renderEvents();
       if (key === 'lineup') return renderLineup();
       if (key === 'grouping') return renderGrouping();
@@ -328,7 +326,7 @@
             <div><span>锁定</span><b>${Y.formatDateTime(match.cancelLock)}</b></div>
           </div>
         </section>
-      </div>`;
+      </div>${renderRegistration()}`;
     }
 
     function renderRegistration() {
@@ -940,7 +938,7 @@ render();
         <span data-avatar-preview>${Y.avatar(user, 'xl')}</span>
         <label class="btn btn-ghost btn-sm">上传头像<input type="file" accept="image/*" data-avatar-file hidden></label>
         <button type="button" class="btn btn-ghost btn-sm" data-avatar-remove>移除头像</button>
-        <span class="muted small">支持 JPG/PNG，最大 2MB，自动压缩</span>
+        <span class="muted small">支持 JPG/PNG/WebP，最大 2MB，自动压缩</span>
       </div>
       <label>姓名<input class="input" name="name" value="${esc(user.name)}" required></label>
       <label>地区<input class="input" name="region" value="${esc(user.region || '')}"></label>
@@ -1048,6 +1046,14 @@ render();
               return `<a class="registration-row" href="match.html?id=${match.id}"><div><strong>${esc(match.title)}</strong><p class="muted small">${Y.formatDateTime(match.start)} · ${esc(match.venue)}</p></div><span class="badge ${badge.cls}">${badge.label}</span></a>`;
             }).join('')
             : '<div class="empty-inline">暂无历史报名</div>'}
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>账号与安全</h2></div>
+          <div class="profile-fields">
+            <div><span>微信</span><b>${user.wechat ? '已绑定' : '未绑定'}</b></div>
+            <div><span>修改密码</span><b>短信验证码重置</b></div>
+          </div>
+          <p class="muted small">解绑微信请联系管理员。</p>
         </section>
       </div>
     </div>`;

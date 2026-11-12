@@ -347,7 +347,6 @@
   }
 
   const ADMIN_SECTION_PERMISSIONS = {
-    dashboard: null,
     matches: 'match:view:any',
     registrations: 'attendance:view:any',
     events: 'event:edit:any',

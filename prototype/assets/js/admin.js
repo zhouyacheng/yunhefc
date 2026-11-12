@@ -44,9 +44,9 @@
     let matchPageSize = 10;
     let auditPage = 1;
     let auditPageSize = 10;
+    let auditFilters = { actor: '', action: '', target: '' };
 
     const navItems = [
-      ['dashboard', '▦', '工作台'],
       ['matches', '⚽', '比赛管理'],
       ['registrations', '✅', '报名 / 考勤'],
       ['events', '📋', '事件 / 比分'],
@@ -63,7 +63,7 @@
       return !permission || Y.hasPermission(permission);
     });
     const sections = visibleNav.map(([key]) => key);
-    let section = sections.includes(params.get('section')) ? params.get('section') : 'dashboard';
+    let section = sections.includes(params.get('section')) ? params.get('section') : sections[0];
 
     function matchPicker(selectedId, attr) {
       return `<select class="input input-sm" ${attr}>${Y.matchesByStartDesc()
@@ -102,9 +102,8 @@
     function renderContent() {
       const host = $('#admin-content');
       if (!host) return;
-      if (!sections.includes(section)) section = 'dashboard';
+      if (!sections.includes(section)) section = sections[0];
       try {
-        if (section === 'dashboard') renderDashboard(host);
         if (section === 'matches') renderMatches(host);
         if (section === 'registrations') renderRegistrations(host);
         if (section === 'events') renderEvents(host);
@@ -132,43 +131,6 @@
           render();
         });
       });
-    }
-
-    /* ---------------- Dashboard ---------------- */
-    function renderDashboard(host) {
-      const next = Y.nextMatch();
-      const pending = Y.state.players.filter((player) => player.status === 'PENDING');
-      if (!next) {
-        host.innerHTML = `<div class="admin-section-head"><div><h1>工作台</h1><p class="muted">当前没有待进行比赛。</p></div></div>
-          <div class="card"><div class="empty-inline">暂无待进行比赛，请先创建比赛。</div></div>`;
-        return;
-      }
-      const confirmed = Y.confirmed(next).length;
-      const recent = Y.state.audit.slice(0, 5);
-      host.innerHTML = `<div class="admin-section-head">
-        <div><h1>工作台</h1><p class="muted">先处理报名和阵容，再录比赛结果。</p></div>
-      </div>
-      <div class="stat-cards">
-        <div class="stat-card"><span>下一场比赛</span><b>${Y.formatDate(next.start)}</b><small>${esc(next.title)}</small></div>
-        <div class="stat-card"><span>已确认报名</span><b>${confirmed}</b><small>总名额 ${next.capacity + next.guestCapacity}</small></div>
-        <div class="stat-card"><span>待审核用户</span><b>${pending.length}</b><small>自助注册</small></div>
-        <div class="stat-card"><span>操作记录</span><b>${Y.state.audit.length}</b><small>本次演示累计</small></div>
-      </div>
-      <div class="overview-grid">
-        <section class="card">
-          <div class="card-head"><h2>下一场</h2><a class="link" href="match.html?id=${next.id}">查看 →</a></div>
-          ${Y.renderMatchCard(next)}
-          <div class="quick-actions" style="margin-top:12px">
-            <button class="btn btn-ghost btn-sm" data-go="registrations" data-match-id="${next.id}">报名 / 考勤</button>
-            <button class="btn btn-ghost btn-sm" data-go="lineup" data-match-id="${next.id}">排阵容</button>
-          </div>
-        </section>
-        <section class="card">
-          <div class="card-head"><h2>最近操作</h2><button class="btn btn-ghost btn-sm" data-go="audit">全部</button></div>
-          ${recent.map((item) => `<div class="notice"><div><strong>${esc(item.action)}</strong><p>${esc(item.actor)} · ${esc(item.target)}</p></div><small>${Y.formatRelative(item.at)}</small></div>`).join('') || '<div class="empty-inline">暂无记录</div>'}
-        </section>
-      </div>`;
-      bindGo(host);
     }
 
     /* ---------------- Matches ---------------- */
@@ -1355,7 +1317,7 @@
         const canEdit = Y.hasPermission('player:edit:any');
         const canApprove = Y.hasPermission('user:approve:any');
         $('[data-players-table]', host).innerHTML = `<table class="data-table">
-          <thead><tr><th>号码</th><th>头像</th><th>姓名</th><th>地区</th><th>类型</th><th>管理员</th><th>状态</th><th>位置</th><th>星级</th><th>操作</th></tr></thead>
+          <thead><tr><th>号码</th><th>头像</th><th>姓名</th><th>地区</th><th>类型</th><th>管理员</th><th>状态</th><th>位置</th><th>星级</th><th>微信</th><th>操作</th></tr></thead>
           <tbody>${paged.items.map((player) => `<tr>
             <td>#${player.jersey}</td>
             <td>${Y.avatar(player, 'sm')}</td>
@@ -1366,13 +1328,15 @@
             <td><span class="badge ${player.status === 'ACTIVE' ? 'badge-open' : player.status === 'PENDING' ? 'badge-postponed' : 'badge-cancelled'}">${player.status === 'ACTIVE' ? '正常' : player.status === 'PENDING' ? '待审核' : '已注销'}</span></td>
             <td>${Y.positionLabel(player.position)}</td>
             <td>${Y.stars(player.skill)}</td>
+            <td>${player.wechat ? '已绑定' : '未绑定'}</td>
             <td><div class="table-actions">
               ${canEdit ? `<button class="btn btn-ghost btn-sm" data-player-action="edit" data-player-id="${player.id}">编辑</button>` : ''}
+              ${canEdit && player.wechat ? `<button class="btn btn-ghost btn-sm" data-player-action="wechat-unbind" data-player-id="${player.id}">解绑微信</button>` : ''}
               ${canApprove && player.status === 'PENDING' ? `<button class="btn btn-primary btn-sm" data-player-action="approve" data-player-id="${player.id}">通过</button>` : ''}
               ${canEdit && player.type === 'GUEST' && player.status === 'ACTIVE' ? `<button class="btn btn-ghost btn-sm" data-player-action="convert" data-player-id="${player.id}">转正</button>` : ''}
               ${canEdit && player.status === 'ACTIVE' ? `<button class="btn btn-ghost btn-sm" data-player-action="disable" data-player-id="${player.id}">注销</button>` : ''}
             </div></td>
-          </tr>`).join('') || '<tr><td colspan="10" class="muted">没有符合条件的球员</td></tr>'}</tbody>
+          </tr>`).join('') || '<tr><td colspan="11" class="muted">没有符合条件的球员</td></tr>'}</tbody>
         </table>${Y.paginationHtml(paged.page, paged.totalPages, paged.total, playerPageSize)}`;
         $$('[data-players-table] [data-page]', host).forEach((button) => {
           button.addEventListener('click', () => {
@@ -1426,7 +1390,11 @@
               Y.notify(player.id, '账号已注销', '你的账号已被注销，不能继续登录或报名。');
               if (Number(Y.currentUser().id) === Number(player.id)) Y.setUser(0);
             }
-            const labels = { approve: '审核通过', convert: '外挂转正', disable: '注销球员' };
+            if (action === 'wechat-unbind') {
+              if (!window.confirm('确认解绑该球员的微信？解绑后需重新授权才能绑定。')) return;
+              player.wechat = false;
+            }
+            const labels = { approve: '审核通过', convert: '外挂转正', disable: '注销球员', 'wechat-unbind': '解绑微信' };
             Y.save();
             Y.addAudit(Y.currentUser().name, labels[action] || action, player.name + (action === 'disable' ? ` / ${player.disableReason}` : ''));
             Y.toast('已更新');
@@ -1462,7 +1430,7 @@
           <span data-avatar-preview>${Y.avatar(player, 'xl')}</span>
           <label class="btn btn-ghost btn-sm">上传头像<input type="file" accept="image/*" data-avatar-file hidden></label>
           <button type="button" class="btn btn-ghost btn-sm" data-avatar-remove>移除头像</button>
-          <span class="muted small">支持 JPG/PNG，最大 2MB，自动压缩</span>
+          <span class="muted small">支持 JPG/PNG/WebP，最大 2MB，自动压缩</span>
         </div>
         <label>姓名<input class="input" name="name" value="${esc(player.name)}" required></label>
         <label>号码<input class="input" type="number" name="jersey" min="0" value="${player.jersey}" required></label>
@@ -1822,7 +1790,7 @@
           <label>进球权重<input class="input" type="number" min="0" step="1" data-setting="groupingGoalWeight" value="${settings.groupingGoalWeight ?? 25}"></label>
           <label>助攻权重<input class="input" type="number" min="0" step="1" data-setting="groupingAssistWeight" value="${settings.groupingAssistWeight ?? 25}"></label>
         </div>
-        <p class="muted small" style="margin-top:10px">候补上限按全场合计；修改只影响新建比赛，已创建比赛保持原参数。分组权重按比例生效，默认 70/30；自动分默认出场 50/进球 25/助攻 25；少于最少出场时优先手动分。</p>
+        <p class="muted small" style="margin-top:10px">候补上限按全场合计；修改只影响新建比赛，已创建比赛保持原参数。分组权重按比例生效，默认 70/30；自动分默认出场 50/进球 25/助攻 25；少于最少出场时优先手动分。已保存分组展示当前配置权重，分数不回算。</p>
         ${Y.hasPermission('settings:manage:any') ? '<button class="btn btn-primary btn-sm" data-action="save-settings" style="margin-top:12px">保存设置</button>' : '<p class="muted small" style="margin-top:12px">只读：没有管理系统设置的权限。</p>'}
       </section>`;
       const saveSettings = $('[data-action="save-settings"]', host);
@@ -1832,14 +1800,23 @@
         $$('[data-setting]', host).forEach((input) => {
           next[input.dataset.setting] = Number(input.value);
         });
-        if (next.maxPlayers < 1 || next.maxGuests < 0 || next.maxWaitlist < 0) {
-          Y.toast('参数不合法');
+        if (Object.values(next).some((value) => !Number.isInteger(value))) {
+          Y.toast('参数必须为整数');
           return;
         }
-        if (next.groupingManualWeight < 0 || next.groupingAutoWeight < 0 ||
-          next.groupingManualWeight + next.groupingAutoWeight <= 0 ||
-          !Number.isInteger(next.groupingMinAppearances) || next.groupingMinAppearances < 0 ||
-          next.groupingAppearanceWeight < 0 || next.groupingGoalWeight < 0 || next.groupingAssistWeight < 0 ||
+        if (next.maxPlayers < 1 || next.maxPlayers > 99 ||
+          next.maxGuests < 0 || next.maxGuests > 99 ||
+          next.maxWaitlist < 0 || next.maxWaitlist > 99) {
+          Y.toast('报名参数不合法');
+          return;
+        }
+        if (next.groupingManualWeight < 0 || next.groupingManualWeight > 100 ||
+          next.groupingAutoWeight < 0 || next.groupingAutoWeight > 100 ||
+          next.groupingManualWeight + next.groupingAutoWeight !== 100 ||
+          next.groupingMinAppearances < 0 || next.groupingMinAppearances > 99 ||
+          next.groupingAppearanceWeight < 0 || next.groupingAppearanceWeight > 100 ||
+          next.groupingGoalWeight < 0 || next.groupingGoalWeight > 100 ||
+          next.groupingAssistWeight < 0 || next.groupingAssistWeight > 100 ||
           next.groupingAppearanceWeight + next.groupingGoalWeight + next.groupingAssistWeight <= 0) {
           Y.toast('分组参数不合法');
           return;
@@ -1854,13 +1831,25 @@
 
     /* ---------------- Audit ---------------- */
     function renderAudit(host) {
-      const sorted = Y.state.audit.slice().sort((a, b) => new Date(b.at) - new Date(a.at));
+      const term = (value) => value.trim().toLowerCase();
+      const filtered = Y.state.audit.filter((item) =>
+        (!auditFilters.actor || String(item.actor || '').toLowerCase().includes(term(auditFilters.actor)))
+        && (!auditFilters.action || String(item.action || '').toLowerCase().includes(term(auditFilters.action)))
+        && (!auditFilters.target || String(item.target || '').toLowerCase().includes(term(auditFilters.target))));
+      const sorted = filtered.slice().sort((a, b) => new Date(b.at) - new Date(a.at));
       const paged = Y.paginate(sorted, auditPage, auditPageSize);
       auditPage = paged.page;
       host.innerHTML = `<div class="admin-section-head">
         <div><h1>操作日志</h1><p class="muted">关键操作留痕，按时间倒序。</p></div>
         <span class="badge badge-soon">演示数据</span>
       </div>
+      <form class="schedule-filters" data-audit-filter-form>
+        <label class="filter-field"><span>操作人</span><input class="input input-sm" data-audit-filter="actor" placeholder="姓名或用户ID" value="${esc(auditFilters.actor)}"></label>
+        <label class="filter-field"><span>动作</span><input class="input input-sm" data-audit-filter="action" placeholder="如 变更比赛状态" value="${esc(auditFilters.action)}"></label>
+        <label class="filter-field grow"><span>对象</span><input class="input input-sm" data-audit-filter="target" placeholder="对象名称或ID" value="${esc(auditFilters.target)}"></label>
+        <button class="btn btn-primary btn-sm" type="submit">搜索</button>
+        <button class="btn btn-ghost btn-sm" type="button" data-audit-reset>重置</button>
+      </form>
       <div class="audit-list">${paged.items.map((item) => `<div class="audit-row">
         <span class="actor">${esc(item.actor)}</span>
         <span class="action">${esc(item.action)}</span>
@@ -1869,6 +1858,19 @@
         ${item.before || item.after ? `<details class="audit-detail"><summary>变更详情</summary><pre>${esc(JSON.stringify({ before: item.before, after: item.after }, null, 2))}</pre></details>` : ''}
       </div>`).join('') || '<div class="empty-inline">暂无日志</div>'}</div>
       ${Y.paginationHtml(paged.page, paged.totalPages, paged.total, auditPageSize)}`;
+      $('[data-audit-filter-form]', host).addEventListener('submit', (event) => {
+        event.preventDefault();
+        $$('[data-audit-filter]', host).forEach((control) => {
+          auditFilters[control.dataset.auditFilter] = control.value;
+        });
+        auditPage = 1;
+        render();
+      });
+      $('[data-audit-reset]', host).addEventListener('click', () => {
+        auditFilters = { actor: '', action: '', target: '' };
+        auditPage = 1;
+        render();
+      });
       $$('[data-page]', host).forEach((button) => {
         button.addEventListener('click', () => {
           auditPage = Number(button.dataset.page);

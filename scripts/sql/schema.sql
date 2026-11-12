@@ -56,7 +56,7 @@ CREATE TABLE player (
   position            TINYINT UNSIGNED NOT NULL COMMENT '0-门将;1-后卫;2-中场;3-前锋',
   secondary_positions JSON            NULL COMMENT '副位置数组(JSON)',
   region              VARCHAR(64)     NULL COMMENT '地区',
-  avatar_url          VARCHAR(512)    NULL COMMENT '头像URL',
+  avatar_url          VARCHAR(512)    NULL COMMENT '头像对象键',
   skill               TINYINT UNSIGNED NOT NULL DEFAULT 3 COMMENT '星级1-5',
   created_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
   updated_at          DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',

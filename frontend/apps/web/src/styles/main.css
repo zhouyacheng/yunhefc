@@ -819,3 +819,126 @@ a {
   border: 1px solid var(--yh-line);
   border-radius: 999px;
 }
+
+.home-hero {
+  margin-bottom: 16px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 80% 0%, rgba(22, 163, 74, 0.25), transparent 45%),
+    linear-gradient(120deg, #0b1220 0%, #111c33 60%, #0f2a24 100%);
+  border-radius: 20px;
+}
+
+.home-hero__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.home-hero__eyebrow {
+  color: var(--yh-gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.home-hero__card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  color: var(--yh-ink);
+  background: var(--yh-surface);
+  border-radius: 16px;
+}
+
+.home-hero__meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.home-hero__title {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: -0.01em;
+}
+
+.home-hero__teams {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  font-size: 17px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.home-hero__teams strong {
+  color: var(--yh-green);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+}
+
+.home-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--yh-muted);
+  font-size: 13px;
+}
+
+.hero-queue {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.hero-queue__item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 6px;
+  color: var(--yh-muted);
+  font-size: 12px;
+  background: #f7f9fc;
+  border-radius: 10px;
+}
+
+.hero-queue__item b {
+  color: var(--yh-ink);
+  font-size: 15px;
+}
+
+.home-hero__card .ghost-link {
+  align-self: center;
+}
+
+.home-section {
+  margin-bottom: 16px;
+}
+
+.home-section .card-head,
+.home-firepower .card-head {
+  margin-bottom: 10px;
+}
+
+.home-firepower {
+  margin-top: 16px;
+}
+
+.home-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.home-empty .van-empty {
+  padding: 8px 0;
+}

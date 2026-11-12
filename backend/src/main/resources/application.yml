@@ -47,6 +47,11 @@ spring:
     redis:
       namespace: ${SESSION_NAMESPACE:yunhefc:session}
       save-mode: always
+  servlet:
+    multipart:
+      # 后端以 2MiB 为准；请求上限为 multipart 开销留余量。
+      max-file-size: 2097152B
+      max-request-size: 3MB
 
 yunhefc:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:5173}
@@ -75,6 +80,12 @@ yunhefc:
   outbox:
     enabled: ${OUTBOX_ENABLED:true}
     relay-interval-ms: ${OUTBOX_RELAY_INTERVAL_MS:60000}
+  oss:
+    mode: ${OSS_MODE:mock}
+    endpoint: ${OSS_ENDPOINT:}
+    bucket: ${OSS_BUCKET:}
+    access-key-id: ${OSS_ACCESS_KEY_ID:}
+    access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
   wechat:
     enabled: ${WECHAT_ENABLED:false}
     mode: ${WECHAT_MODE:mock}

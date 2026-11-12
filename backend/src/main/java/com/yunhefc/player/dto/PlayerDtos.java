@@ -60,6 +60,11 @@ public final class PlayerDtos {
             @Min(0) @Max(65535) Integer jersey) {
     }
 
+    public record AvatarUploadView(
+            String objectKey,
+            String signedUrl) {
+    }
+
     public record PlayerDisableRequest(
             @NotBlank @Size(max = 200) String reason) {
     }

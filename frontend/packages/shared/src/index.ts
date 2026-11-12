@@ -1,4 +1,5 @@
 export * from './api';
+export * from './audit';
 export * from './auth';
 export * from './avatar';
 export * from './base-path';

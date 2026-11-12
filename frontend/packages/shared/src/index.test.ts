@@ -4,6 +4,11 @@ import type { PermissionView, SystemSettings } from './index';
 import {
   ATTENDANCE_SOURCE_TEXT,
   ATTENDANCE_STATUS_TEXT,
+  AUDIT_ACTION_TEXT,
+  AUDIT_TARGET_TYPE_TEXT,
+  auditActionText,
+  auditTargetTypeText,
+  isEmptySnapshot,
   checkInWindowState,
   emptyPage,
   eventEditWindowOpen,
@@ -542,5 +547,29 @@ describe('system settings', () => {
 
   it('turns a validated form into the full SET-02 payload', () => {
     expect(toSettingsPayload(valid)).toEqual(valid);
+  });
+});
+
+describe('audit labels', () => {
+  it('maps all 38 actions and 11 target types', () => {
+    expect(Object.keys(AUDIT_ACTION_TEXT)).toHaveLength(38);
+    expect(Object.keys(AUDIT_TARGET_TYPE_TEXT)).toHaveLength(11);
+    expect(auditActionText('SETTINGS_UPDATE')).toBe('修改系统设置');
+    expect(auditActionText('grouping.generate')).toBe('生成分组');
+    expect(auditTargetTypeText('team_match')).toBe('队内赛');
+    expect(auditTargetTypeText('SETTINGS')).toBe('系统设置');
+  });
+
+  it('falls back to the raw code for unknown values', () => {
+    expect(auditActionText('E2E_UNKNOWN_ACTION')).toBe('E2E_UNKNOWN_ACTION');
+    expect(auditTargetTypeText('UNKNOWN_TARGET')).toBe('UNKNOWN_TARGET');
+  });
+
+  it('treats null and empty objects as empty snapshots', () => {
+    expect(isEmptySnapshot(null)).toBe(true);
+    expect(isEmptySnapshot(undefined)).toBe(true);
+    expect(isEmptySnapshot({})).toBe(true);
+    expect(isEmptySnapshot({ phone: '139****0001' })).toBe(false);
+    expect(isEmptySnapshot(0)).toBe(false);
   });
 });

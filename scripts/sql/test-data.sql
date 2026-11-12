@@ -28,7 +28,7 @@ SET @admin_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code 
 
 -- 账号：1001-1015 正式，1016-1020 外挂
 -- 1001（ADMIN）、1002（PLAYER）、1022（ADMIN）与 1023（PLAYER）写入测试密码 Passw0rd!，供 dev profile + Playwright 冒烟登录；其余账号保留 NULL。
--- 1022 为 B07 专用管理员，1023 为 B 端只读用例专用球员，分摊 AUTH-15 每手机号 10 次/分钟限流。
+-- 1022 为 B07/B08/B09/B10 共用管理员，1023 为 B 端只读用例专用球员，分摊 AUTH-15 每手机号 10 次/分钟限流。
 INSERT INTO app_user (id, phone, password_hash, openid, status)
 VALUES
   (1001, '13910000001', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1),
@@ -449,6 +449,27 @@ VALUES
    DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY));
 
 -- END B3 C-A fixtures
+
+-- ==== B10 操作日志 fixtures ====
+-- BEGIN B10 audit fixtures
+-- 6001 的 before/after 故意包含手机号原文，用于验证响应层脱敏；6003 使用未知动作/对象类型验证原值回退。
+DELETE FROM audit_log WHERE id BETWEEN 6001 AND 6003;
+
+INSERT INTO audit_log
+  (id, team_id, actor_user_id, actor_name, action, target_type, target_id,
+   before_json, after_json, request_id, ip, created_at)
+VALUES
+  (6001, @team_id, 1001, 'E2E审计员', 'SETTINGS_UPDATE', 'SETTINGS', @team_id,
+   JSON_OBJECT('maxPlayers', 30, 'phone', '13900000001'),
+   JSON_OBJECT('maxPlayers', 31, 'phone', '13900000001'),
+   'e2e-audit-settings', '203.0.113.24', UTC_TIMESTAMP(3) - INTERVAL 3 MINUTE),
+  (6002, @team_id, 1002, '测试球员', 'MATCH_CREATE', 'MATCH', 1001,
+   NULL, JSON_OBJECT('title', '橙队VS兰队'), 'e2e-audit-match', '203.0.113.25',
+   UTC_TIMESTAMP(3) - INTERVAL 2 MINUTE),
+  (6003, @team_id, NULL, NULL, 'E2E_UNKNOWN_ACTION', 'UNKNOWN_TARGET', NULL,
+   NULL, NULL, 'e2e-audit-unknown', '203.0.113.26',
+   UTC_TIMESTAMP(3) - INTERVAL 1 MINUTE);
+-- END B10 audit fixtures
 
 COMMIT;
 

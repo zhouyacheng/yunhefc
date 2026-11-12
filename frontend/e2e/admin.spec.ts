@@ -988,7 +988,8 @@ async function fillSettingsNumber(page: Page, label: string, value: number): Pro
 
 test('B 端：B09 修改报名上限与分组权重并保存，刷新仍生效', async ({ page }) => {
   const errors = collectConsoleErrors(page);
-  await loginAdmin(page);
+  // 1022 为管理端专用管理员，避开 1001 在整套用例中的 AUTH-15 限流。
+  await loginAdmin(page, '13910000022');
 
   const loaded = waitSettingsGet(page);
   await page.goto('/admin/settings');
@@ -1027,7 +1028,7 @@ test('B 端：B09 权重合计非法时字段级提示且不发 PATCH', async ({
       patches.push(request.url());
     }
   });
-  await loginAdmin(page);
+  await loginAdmin(page, '13910000022');
 
   const loaded = waitSettingsGet(page);
   await page.goto('/admin/settings');
@@ -1041,6 +1042,73 @@ test('B 端：B09 权重合计非法时字段级提示且不发 PATCH', async ({
   const manualError = settingsFormItem(page, '分组手动权重').locator('.el-form-item__error');
   await expect(manualError).toHaveText('手动与自动权重合计必须为 100');
   expect(patches).toEqual([]);
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B10 操作日志筛选、展开与脱敏快照', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page, '13910000022');
+
+  await page.goto('/admin/audit');
+  await expect(page).toHaveURL(/\/admin\/audit$/);
+  await expect(page.getByRole('heading', { level: 2, name: '操作日志' })).toBeVisible();
+
+  // 未知动作与对象类型按原值展示（B10 fixtures 6003）；用 allow-create 直接筛出，
+  // 避免 fixture 因分页或运行期日志累积而漂出第 1 页。
+  const actionSelect = page.locator('.audit-filters .el-select').first();
+  await actionSelect.click();
+  await page.keyboard.type('E2E_UNKNOWN_ACTION');
+  await page.keyboard.press('Enter');
+  await page.keyboard.press('Escape');
+
+  const unknownLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === '/api/v1/b/audit-logs' &&
+      url.searchParams.get('action') === 'E2E_UNKNOWN_ACTION'
+    );
+  });
+  await page.getByRole('button', { name: '搜索' }).click();
+  await unknownLoaded;
+  await expect(
+    page.locator('.el-table__row').filter({ hasText: 'E2E_UNKNOWN_ACTION' }),
+  ).toBeVisible();
+  await expect(page.locator('.el-table__row').filter({ hasText: 'UNKNOWN_TARGET' })).toBeVisible();
+
+  const resetLoaded = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === '/api/v1/b/audit-logs' && !url.searchParams.has('action');
+  });
+  await page.getByRole('button', { name: '重置' }).click();
+  await resetLoaded;
+
+  // 用仅存在于 fixture 的操作人 + 动作锁定 6001，避免被运行期 SETTINGS_UPDATE 干扰。
+  await page.getByPlaceholder('姓名或用户 ID').fill('E2E审计员');
+  await actionSelect.click();
+  await page.locator('.el-select-dropdown__item').filter({ hasText: '修改系统设置' }).click();
+
+  const filtered = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === '/api/v1/b/audit-logs' &&
+      url.searchParams.get('action') === 'SETTINGS_UPDATE' &&
+      url.searchParams.get('actor') === 'E2E审计员'
+    );
+  });
+  await page.getByRole('button', { name: '搜索' }).click();
+  await filtered;
+
+  const row = page.locator('.el-table__row').filter({ hasText: '修改系统设置' });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText('E2E审计员');
+
+  await row.locator('.el-table__expand-icon').click();
+  await expect(page.getByText('变更前')).toBeVisible();
+  await expect(page.getByText('变更后')).toBeVisible();
+  // 后端脱敏：快照中只出现掩码手机号，原文不得泄露。
+  await expect(page.getByText('139****0001').first()).toBeVisible();
+  await expect(page.getByText('13900000001')).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

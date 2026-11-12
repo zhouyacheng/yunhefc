@@ -1,3 +1,6 @@
+/** 手机号规则；AUTH-11 与 C 端注册/登录共用。 */
+export const PHONE_PATTERN = /^1\d{10}$/;
+
 export interface User {
   id: number;
   name: string;
@@ -104,13 +107,14 @@ export interface PlayerPublic {
 }
 
 export interface PlayerAdmin extends PlayerPublic {
-  userId: number;
-  phoneMasked: string;
-  status: number;
-  statusLabel?: string;
+  /** 无账号的球员，账号派生字段同时为 null（见 05 §4 PlayerAdmin）。 */
+  userId: number | null;
+  phoneMasked: string | null;
+  status: number | null;
+  statusLabel?: string | null;
   admin: boolean;
   roles: string[];
-  createdAt: string;
+  createdAt: string | null;
   wechatBound: boolean;
 }
 

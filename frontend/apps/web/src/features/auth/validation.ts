@@ -1,6 +1,7 @@
 import { ERROR_CODES } from '@yunhefc/api-client';
+import { PHONE_PATTERN } from '@yunhefc/shared';
 
-export const PHONE_PATTERN = /^1\d{10}$/;
+export { PHONE_PATTERN };
 export const SMS_CODE_PATTERN = /^\d{6}$/;
 export const PASSWORD_MIN_LENGTH = 8;
 export const PASSWORD_MAX_LENGTH = 64;

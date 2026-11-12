@@ -24,6 +24,15 @@ import {
   matchStatusTone,
   matchTypeText,
   notificationTarget,
+  phoneError,
+  playerApprovable,
+  playerConvertible,
+  playerDisableable,
+  playerProfileError,
+  playerSort,
+  playerStatusText,
+  playerStatusTone,
+  playerTypeText,
   readLabel,
   REGISTRATION_STATUS,
 } from './index';
@@ -199,6 +208,75 @@ describe('notification target', () => {
     expect(notificationTarget({ refType: null, refId: 1005 })).toEqual({ kind: 'none' });
     expect(notificationTarget({ refType: 'MATCH', refId: 0 })).toEqual({ kind: 'none' });
     expect(notificationTarget({ refType: 'MATCH', refId: -1 })).toEqual({ kind: 'none' });
+  });
+});
+
+describe('player management rules', () => {
+  const profile = {
+    name: '测试球员',
+    jersey: 21,
+    region: '上海',
+    position: 1,
+    secondaryPositions: [2],
+    skill: 4,
+  };
+
+  it('maps player type and account status to display text', () => {
+    expect(playerTypeText(0)).toBe('外挂');
+    expect(playerTypeText(1)).toBe('正式');
+    expect(playerStatusText(0)).toBe('待审核');
+    expect(playerStatusText(1)).toBe('正常');
+    expect(playerStatusText(2)).toBe('已注销');
+    expect(playerStatusText(undefined)).toBe('—');
+    expect(playerStatusTone(1)).toBe('success');
+    expect(playerStatusTone(0)).toBe('warning');
+    expect(playerStatusTone(2)).toBe('danger');
+  });
+
+  it('maps table sort events to the PLR-05 whitelist', () => {
+    expect(playerSort('jersey', 'ascending')).toBe('jersey:asc');
+    expect(playerSort('skill', 'descending')).toBe('skill:desc');
+    expect(playerSort('region', 'ascending')).toBe('region:asc');
+    expect(playerSort('name', 'ascending')).toBe('jersey:asc');
+    expect(playerSort('jersey', null)).toBe('jersey:asc');
+    expect(playerSort(undefined, 'descending')).toBe('jersey:asc');
+  });
+
+  it('validates the PLR-06 profile form', () => {
+    expect(playerProfileError(profile)).toBeNull();
+    expect(playerProfileError({ ...profile, name: '  ' })).toBe('请输入姓名');
+    expect(playerProfileError({ ...profile, name: '球'.repeat(33) })).toBe('姓名最多 32 个字符');
+    expect(playerProfileError({ ...profile, jersey: null })).toBeNull();
+    expect(playerProfileError({ ...profile, jersey: 65536 })).toBe('号码必须为 0–65535 的整数');
+    expect(playerProfileError({ ...profile, region: '沪'.repeat(65) })).toBe('地区最多 64 个字符');
+    expect(playerProfileError({ ...profile, position: 4 })).toBe('请选择主位置');
+    expect(playerProfileError({ ...profile, secondaryPositions: [1, 2, 3, 0] })).toBe(
+      '副位置最多 3 个',
+    );
+    expect(playerProfileError({ ...profile, secondaryPositions: [4] })).toBe('副位置必须为 0–3');
+    expect(playerProfileError({ ...profile, secondaryPositions: [2, 2] })).toBe('副位置不能重复');
+    expect(playerProfileError({ ...profile, secondaryPositions: [1] })).toBe(
+      '副位置不能包含主位置',
+    );
+    expect(playerProfileError({ ...profile, skill: 0 })).toBe('星级必须为 1–5');
+    expect(playerProfileError({ ...profile, skill: 6 })).toBe('星级必须为 1–5');
+  });
+
+  it('limits lifecycle actions to their source states', () => {
+    expect(playerApprovable({ status: 0 })).toBe(true);
+    expect(playerApprovable({ status: 1 })).toBe(false);
+    expect(playerConvertible({ status: 1, type: 0 })).toBe(true);
+    expect(playerConvertible({ status: 1, type: 1 })).toBe(false);
+    expect(playerConvertible({ status: 0, type: 0 })).toBe(false);
+    expect(playerDisableable({ status: 1 })).toBe(true);
+    expect(playerDisableable({ status: 2 })).toBe(false);
+  });
+
+  it('validates AUTH-11 phone format', () => {
+    expect(phoneError('13910000001')).toBeNull();
+    expect(phoneError(' 13910000001 ')).toBeNull();
+    expect(phoneError('23910000001')).toBe('手机号格式不正确');
+    expect(phoneError('1391000000')).toBe('手机号格式不正确');
   });
 });
 

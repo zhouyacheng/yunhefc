@@ -1,6 +1,14 @@
+import { Buffer } from 'node:buffer';
+
 import { expect, test, type Locator, type Page } from '@playwright/test';
 
 import { collectConsoleErrors } from './support';
+
+/** 可被浏览器解码并重新压缩的 2×2 PNG。 */
+const VALID_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAAqADAAQAAAABAAAAAgAAAADtGLyqAAAAFElEQVQIHWP4z8DAAMIM////ZwAAHu8E/CH5t8cAAAAASUVORK5CYII=',
+  'base64',
+);
 
 async function loginAdmin(page: Page, phone = '13910000001'): Promise<void> {
   await page.goto('/admin/login');
@@ -32,11 +40,7 @@ function futureInstant(daysAhead: number): Date {
   return date;
 }
 
-async function fillDialogDateTime(
-  dialog: Locator,
-  label: string,
-  date: Date,
-): Promise<void> {
+async function fillDialogDateTime(dialog: Locator, label: string, date: Date): Promise<void> {
   const input = dialog.locator('.el-form-item').filter({ hasText: label }).locator('input').first();
   await input.click();
   await input.fill(shanghaiDateTimeInput(date));
@@ -172,6 +176,9 @@ test('B 端：B06 调整 → 保存 → 清除 → 重新生成', async ({ page 
     .filter({ hasText: '橙队VS兰队' })
     .filter({ hasText: '已锁定' })
     .click();
+
+  // 等分组与名单请求落定，避免在空态过渡中误判「尚未生成分组」。
+  await expect(page.locator('.el-loading-mask')).toHaveCount(0);
 
   // 从空分组开始，保证后续断言不依赖上一轮遗留状态。
   if ((await page.getByRole('button', { name: '清除分组' }).count()) > 0) {
@@ -443,7 +450,11 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await expect(createDialog).toBeVisible();
   await createDialog.getByPlaceholder('例如 橙队VS兰队').fill(title);
   await fillDialogDateTime(createDialog, '开始时间', start);
-  await fillDialogDateTime(createDialog, '结束时间', new Date(start.getTime() + 2 * 60 * 60 * 1000));
+  await fillDialogDateTime(
+    createDialog,
+    '结束时间',
+    new Date(start.getTime() + 2 * 60 * 60 * 1000),
+  );
   await createDialog.getByRole('button', { name: '创建比赛' }).click();
 
   const createdRow = matchRow(page, title);
@@ -525,6 +536,109 @@ test('B 端：B02 只读权限不显示写操作', async ({ page }) => {
   await expect(page.getByRole('button', { name: '重新排期' })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: '比赛管理' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: '报名/考勤' })).toHaveCount(0);
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page);
+
+  await page.goto('/admin/players');
+  await expect(page).toHaveURL(/\/admin\/players$/);
+  await expect(page.getByRole('heading', { level: 2, name: '球员' })).toBeVisible();
+
+  // 姓名 + 类型筛选生效并回到第 1 页。
+  await page.getByPlaceholder('搜索球员姓名').fill('测试外挂01');
+  await page.getByRole('button', { name: '搜索' }).click();
+  const guestRow = page.locator('.el-table__row').filter({ hasText: '测试外挂01' });
+  await expect(guestRow).toBeVisible();
+  await expect(page.locator('.el-table__row')).toHaveCount(1);
+  await expect(guestRow).toContainText('外挂');
+
+  await page.getByRole('button', { name: '重置' }).click();
+
+  // 1003 由种子预置 openid，微信列与解绑入口应可见。
+  await page.getByPlaceholder('搜索球员姓名').fill('测试后卫02');
+  await page.getByRole('button', { name: '搜索' }).click();
+  const wechatRow = page.locator('.el-table__row').filter({ hasText: '测试后卫02' });
+  await expect(wechatRow).toContainText('已绑定');
+  await expect(wechatRow.getByRole('button', { name: '解绑微信' })).toBeVisible();
+
+  // 1021 无号码，种子区块会复位 region/avatar，保证 E2E 可重复。
+  await page.getByPlaceholder('搜索球员姓名').fill('测试待审核01');
+  await page.getByRole('button', { name: '搜索' }).click();
+  const row = page.locator('.el-table__row').filter({ hasText: '测试待审核01' });
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: '编辑' }).click();
+  const dialog = page.locator('.el-dialog').filter({ hasText: '编辑球员' });
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByPlaceholder('请输入姓名').fill('测试待审核01改');
+  await dialog.getByPlaceholder('如：上海').fill('E2E上海');
+
+  // 本地校验失败路径不需要真实 OSS。
+  await dialog.locator('input[type=file]').setInputFiles({
+    name: 'avatar.gif',
+    mimeType: 'image/gif',
+    buffer: Buffer.from('GIF89a'),
+  });
+  await expect(dialog.getByText('仅支持 JPG/PNG/WebP')).toBeVisible();
+
+  const upload = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/b/players/1021/avatar' &&
+      response.request().method() === 'POST',
+  );
+  await dialog.locator('input[type=file]').setInputFiles({
+    name: 'avatar.png',
+    mimeType: 'image/png',
+    buffer: VALID_PNG,
+  });
+  expect((await upload).ok()).toBe(true);
+  await expect(dialog.locator('img[alt="头像预览"]')).toBeVisible();
+
+  const patched = page.waitForRequest(
+    (request) =>
+      new URL(request.url()).pathname === '/api/v1/b/players/1021' && request.method() === 'PATCH',
+  );
+  await dialog.getByRole('button', { name: '保存修改' }).click();
+  const body = (await patched).postDataJSON() as Record<string, unknown>;
+  expect(body.name).toBe('测试待审核01改');
+  expect(body.region).toBe('E2E上海');
+  // 1021 无号码；未填写时不提交 jersey，后端保留 NULL。
+  expect(body.jersey).toBeUndefined();
+  expect(String(body.avatarUrl)).toMatch(/^avatar\/1021\/[0-9A-HJKMNP-TV-Z]{26}\.jpg$/);
+  await expect(page.getByText('球员已更新')).toBeVisible();
+
+  await page.getByPlaceholder('搜索球员姓名').fill('测试待审核01改');
+  await page.getByRole('button', { name: '搜索' }).click();
+  const editedRow = page.locator('.el-table__row').filter({ hasText: '测试待审核01改' });
+  await expect(editedRow).toBeVisible();
+  await expect(editedRow).toContainText('E2E上海');
+
+  // 同一会话重载 /b/me 验证只读权限，避免额外登录触发 AUTH-15 限流。
+  await page.route('**/api/v1/b/me', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.permissions = ['player:view:any'];
+    body.data.sections = ['players'];
+    await route.fulfill({
+      status: response.status(),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  });
+  await page.reload();
+  await expect(page).toHaveURL(/\/admin\/players$/);
+  await expect(page.getByRole('menuitem', { name: '球员' })).toBeVisible();
+  await expect(page.locator('.el-table__row').first()).toBeVisible();
+  await expect(page.getByRole('button', { name: '编辑' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '换绑' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '解绑微信' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '通过' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '转正' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '注销' })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

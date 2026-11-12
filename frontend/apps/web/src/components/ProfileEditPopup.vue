@@ -63,6 +63,8 @@ const avatarObjectKey = ref<string | null>(null);
 const avatarPreview = ref('');
 const previewBroken = ref(false);
 let localPreviewUrl: string | null = null;
+/** 关闭/重开弹窗后，迟到的压缩或上传结果不得写回当前表单。 */
+let avatarUploadSeq = 0;
 
 function revokeLocalPreview(): void {
   if (localPreviewUrl) {
@@ -72,6 +74,7 @@ function revokeLocalPreview(): void {
 }
 
 function resetState(): void {
+  avatarUploadSeq += 1;
   form.name = props.player.name;
   form.region = props.player.region ?? '';
   form.position = props.player.position;
@@ -160,9 +163,13 @@ async function onFileChange(event: Event): Promise<void> {
     return;
   }
 
+  const uploadSeq = ++avatarUploadSeq;
   uploading.value = true;
   try {
     const compressed = await compressAvatar(file);
+    if (uploadSeq !== avatarUploadSeq) {
+      return;
+    }
     revokeLocalPreview();
     localPreviewUrl = URL.createObjectURL(compressed);
     avatarPreview.value = localPreviewUrl;
@@ -171,13 +178,21 @@ async function onFileChange(event: Event): Promise<void> {
     const body = new FormData();
     body.append('file', compressed);
     const uploaded = await api.postForm<AvatarUploadView>('/files/avatar', body);
+    if (uploadSeq !== avatarUploadSeq) {
+      return;
+    }
     avatarObjectKey.value = uploaded.objectKey;
     avatarPreview.value = uploaded.signedUrl;
     previewBroken.value = false;
   } catch {
+    if (uploadSeq !== avatarUploadSeq) {
+      return;
+    }
     uploadError.value = AVATAR_UPLOAD_ERROR;
   } finally {
-    uploading.value = false;
+    if (uploadSeq === avatarUploadSeq) {
+      uploading.value = false;
+    }
   }
 }
 

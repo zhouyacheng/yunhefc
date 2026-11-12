@@ -87,6 +87,9 @@ SELECT u.id, @guest_role_id FROM app_user u WHERE u.id BETWEEN 1016 AND 1020;
 
 INSERT IGNORE INTO user_role (user_id, role_id) VALUES (1001, @admin_role_id);
 
+-- B07 微信列：1003 预置已绑定状态；重放保持幂等，供球员页展示与解绑入口联调。
+UPDATE app_user SET openid = 'seed-openid-b07-1003' WHERE id = 1003;
+
 -- B02 Playwright 黄金路径会创建无法通过接口删除的比赛；重放种子时清理，避免影响 C 端精确计数用例。
 DELETE FROM team_match WHERE title LIKE 'E2E比赛%';
 

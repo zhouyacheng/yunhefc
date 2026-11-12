@@ -25,6 +25,9 @@ function sectionComponent(section: AdminSection) {
   if (section === 'grouping') {
     return () => import('../pages/GroupingPage.vue');
   }
+  if (section === 'players') {
+    return () => import('../pages/PlayersPage.vue');
+  }
   return () => import('../pages/SectionPage.vue');
 }
 

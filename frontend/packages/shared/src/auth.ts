@@ -6,6 +6,7 @@ export interface User {
   statusLabel: string;
   roles: string[];
   createdAt: string;
+  wechatBound: boolean;
 }
 
 export interface Player {
@@ -110,6 +111,7 @@ export interface PlayerAdmin extends PlayerPublic {
   admin: boolean;
   roles: string[];
   createdAt: string;
+  wechatBound: boolean;
 }
 
 export interface PlayerStats {

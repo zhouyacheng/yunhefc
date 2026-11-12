@@ -228,10 +228,12 @@ public class InviteService {
     }
 
     public PageResponse<InviteView> list(Integer type, Integer status, long page, long pageSize) {
+        Integer typeCode = type == null ? null : parseType(type).code();
+        Integer statusCode = status == null ? null : parseStatus(status).code();
         Page<InviteLink> result = inviteLinkMapper.selectPage(new Page<>(page, pageSize),
                 new LambdaQueryWrapper<InviteLink>()
-                        .eq(type != null, InviteLink::getType, type)
-                        .eq(status != null, InviteLink::getStatus, status)
+                        .eq(typeCode != null, InviteLink::getType, typeCode)
+                        .eq(statusCode != null, InviteLink::getStatus, statusCode)
                         .orderByDesc(InviteLink::getId));
         List<InviteLink> records = result.getRecords();
         Team team = records.isEmpty() ? null : teamMapper.selectById(records.get(0).getTeamId());
@@ -372,6 +374,14 @@ public class InviteService {
             return InviteType.of(code);
         } catch (IllegalArgumentException ex) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "邀请类型不合法");
+        }
+    }
+
+    private InviteStatus parseStatus(int code) {
+        try {
+            return InviteStatus.of(code);
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "邀请状态不合法");
         }
     }
 

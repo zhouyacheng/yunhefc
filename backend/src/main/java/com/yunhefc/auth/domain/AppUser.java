@@ -28,4 +28,8 @@ public class AppUser {
     private Instant updatedAt;
     @TableLogic
     private Integer isDeleted;
+
+    public boolean isWechatBound() {
+        return openid != null && !openid.isBlank();
+    }
 }

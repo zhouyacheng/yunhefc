@@ -75,6 +75,6 @@ class GroupingCandidatesTest {
 
     private static UserAccountSnapshot account(Long userId, int status) {
         return new UserAccountSnapshot(userId, "139****0000", status, "ACTIVE",
-                false, Set.of(), Instant.EPOCH);
+                false, Set.of(), Instant.EPOCH, false);
     }
 }

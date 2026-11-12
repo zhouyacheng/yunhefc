@@ -3,6 +3,7 @@ package com.yunhefc;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -101,6 +102,49 @@ class RoleManagementIT extends IntegrationTestSupport {
                 "SELECT COUNT(*) FROM role_permission rp JOIN permission p ON p.id = rp.permission_id "
                         + "WHERE rp.role_id = ? AND rp.is_deleted = 0 AND p.code = 'role:manage:any'",
                 Integer.class, adminRoleId)).isEqualTo(1);
+    }
+
+    @Test
+    void userListValidatesStatusAndSearchesNameOrPhone() throws Exception {
+        Cookie admin = adminLogin("13900000071");
+        Long playerRoleId = jdbc.queryForObject(
+                "SELECT id FROM app_role WHERE code = 'PLAYER' AND team_id = 1", Long.class);
+        Long nameUserId = insertUserWithRole("13900000072", 1, playerRoleId);
+        jdbc.update("""
+                INSERT INTO player (team_id, user_id, name, type, position, skill)
+                VALUES (1, ?, '关键字甲', 1, 1, 3)
+                """, nameUserId);
+        Long phoneUserId = insertUserWithRole("13900000083", 1, playerRoleId);
+
+        mockMvc.perform(get("/api/v1/b/users").cookie(admin).param("keyword", "  关键字甲  "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(nameUserId))
+                .andExpect(jsonPath("$.data.items[0].wechatBound").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/b/users").cookie(admin).param("keyword", "0083"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(phoneUserId));
+
+        mockMvc.perform(get("/api/v1/b/users").cookie(admin).param("keyword", "   "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(3));
+
+        mockMvc.perform(get("/api/v1/b/users").cookie(admin).param("keyword", "%"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+        mockMvc.perform(get("/api/v1/b/users").cookie(admin).param("keyword", "_"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+
+        mockMvc.perform(get("/api/v1/b/users").cookie(admin).param("keyword", "a".repeat(65)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+
+        mockMvc.perform(get("/api/v1/b/users").cookie(admin).param("status", "3"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
     }
 
     @Test

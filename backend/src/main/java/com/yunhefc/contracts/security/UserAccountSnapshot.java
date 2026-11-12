@@ -13,5 +13,6 @@ public record UserAccountSnapshot(
         String statusLabel,
         boolean admin,
         Set<String> roles,
-        Instant createdAt) {
+        Instant createdAt,
+        boolean wechatBound) {
 }

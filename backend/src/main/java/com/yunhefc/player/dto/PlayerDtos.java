@@ -53,7 +53,8 @@ public final class PlayerDtos {
             String statusLabel,
             boolean admin,
             Set<String> roles,
-            Instant createdAt) {
+            Instant createdAt,
+            boolean wechatBound) {
     }
 
     public record PlayerConvertRequest(

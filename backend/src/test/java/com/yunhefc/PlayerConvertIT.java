@@ -47,6 +47,7 @@ class PlayerConvertIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.typeLabel").value("PLAYER"))
                 .andExpect(jsonPath("$.data.status").value(1))
                 .andExpect(jsonPath("$.data.statusLabel").value("ACTIVE"))
+                .andExpect(jsonPath("$.data.wechatBound").value(false))
                 .andExpect(jsonPath("$.data.roles[0]").value("PLAYER"));
 
         assertThat(jdbc.queryForObject("SELECT type FROM player WHERE id = ?", Integer.class, playerId))

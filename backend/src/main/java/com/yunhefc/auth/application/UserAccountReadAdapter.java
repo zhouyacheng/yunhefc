@@ -88,6 +88,7 @@ public class UserAccountReadAdapter implements UserAccountReadPort {
                 user.getStatus().label(),
                 admin,
                 roles,
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.isWechatBound());
     }
 }

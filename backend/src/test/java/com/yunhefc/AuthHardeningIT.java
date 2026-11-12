@@ -54,7 +54,7 @@ class AuthHardeningIT extends IntegrationTestSupport {
 
         mockMvc.perform(get("/api/v1/b/me").cookie(cookie(login, "YHFC_B")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.sections[?(@ == 'dashboard')]").exists());
+                .andExpect(jsonPath("$.data.sections[?(@ == 'dashboard')]").doesNotExist());
     }
 
     @Test
@@ -267,6 +267,8 @@ class AuthHardeningIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0104"))
                 .andExpect(jsonPath("$.data.user.name").value("脱敏测试"))
                 .andExpect(jsonPath("$.data.user.createdAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.user.wechatBound").value(false))
+                .andExpect(jsonPath("$.data.user.openid").doesNotExist())
                 .andExpect(jsonPath("$.data.user.phone").doesNotExist())
                 .andReturn();
         Cookie cookie = cookie(registered, "YHFC_C");
@@ -276,6 +278,8 @@ class AuthHardeningIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0104"))
                 .andExpect(jsonPath("$.data.user.name").value("脱敏测试"))
                 .andExpect(jsonPath("$.data.user.createdAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.user.wechatBound").value(false))
+                .andExpect(jsonPath("$.data.user.openid").doesNotExist())
                 .andExpect(jsonPath("$.data.user.phone").doesNotExist());
 
         insertActiveUser("13900000105", "Admin123!");
@@ -295,6 +299,8 @@ class AuthHardeningIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0105"))
                 .andExpect(jsonPath("$.data.user.name").value("139****0105"))
                 .andExpect(jsonPath("$.data.user.createdAt").isNotEmpty())
+                .andExpect(jsonPath("$.data.user.wechatBound").value(false))
+                .andExpect(jsonPath("$.data.user.openid").doesNotExist())
                 .andExpect(jsonPath("$.data.user.phone").doesNotExist());
     }
 

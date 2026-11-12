@@ -34,7 +34,8 @@ public class UserViewAssembler {
                 user.getStatus().code(),
                 user.getStatus().label(),
                 new LinkedHashSet<>(userRoleMapper.findRoleCodes(user.getId())),
-                user.getCreatedAt());
+                user.getCreatedAt(),
+                user.isWechatBound());
     }
 
     public UserSummary toSummary(AppUser user) {

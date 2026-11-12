@@ -26,6 +26,7 @@ import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.security.BackendPermissions;
+import com.yunhefc.common.util.LikePattern;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -208,9 +209,19 @@ public class AuthService implements UserAccessPort {
                 "PASSWORD_RESET", "USER", user.getId(), null, null);
     }
 
-    public PageResponse<UserSummary> listUsers(Integer status, long page, long pageSize) {
+    public PageResponse<UserSummary> listUsers(Integer status, String keyword, long page, long pageSize) {
+        Integer statusCode = validStatus(status);
+        String search = normalizeKeyword(keyword);
+        Set<Long> nameUserIds = search == null ? Set.of()
+                : new LinkedHashSet<>(playerReadPort.findUserIdsByNameContaining(search));
         LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
-                .eq(status != null, AppUser::getStatus, status)
+                .eq(statusCode != null, AppUser::getStatus, statusCode)
+                .and(search != null, query -> {
+                    query.like(AppUser::getPhone, LikePattern.escape(search));
+                    if (!nameUserIds.isEmpty()) {
+                        query.or().in(AppUser::getId, nameUserIds);
+                    }
+                })
                 .orderByAsc(AppUser::getId);
         Page<AppUser> result = userMapper.selectPage(new Page<>(page, pageSize), wrapper);
         Map<Long, UserSummary> summaries = userViewAssembler.toSummaries(result.getRecords());
@@ -286,9 +297,6 @@ public class AuthService implements UserAccessPort {
 
     public List<String> sections(Set<String> permissions) {
         List<String> sections = new ArrayList<>();
-        if (!permissions.isEmpty()) {
-            sections.add("dashboard");
-        }
         addSection(sections, permissions, "matches", "match:view:any");
         addSection(sections, permissions, "registrations", "attendance:view:any");
         addSection(sections, permissions, "events", "event:edit:any");
@@ -350,6 +358,31 @@ public class AuthService implements UserAccessPort {
                 Position.of(player.position()).label(),
                 player.skill(),
                 avatarUrlSigner.sign(player.avatarUrl()));
+    }
+
+    private Integer validStatus(Integer status) {
+        if (status == null) {
+            return null;
+        }
+        try {
+            return UserStatus.of(status).code();
+        } catch (IllegalArgumentException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "账号状态不合法");
+        }
+    }
+
+    private String normalizeKeyword(String keyword) {
+        if (keyword == null) {
+            return null;
+        }
+        String value = keyword.strip();
+        if (value.isEmpty()) {
+            return null;
+        }
+        if (value.length() > 64) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "关键字长度不能超过 64");
+        }
+        return value;
     }
 
     private void validatePhone(String phone) {

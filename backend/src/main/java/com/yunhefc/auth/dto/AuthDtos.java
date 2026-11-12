@@ -45,7 +45,8 @@ public final class AuthDtos {
             Integer status,
             String statusLabel,
             Set<String> roles,
-            Instant createdAt) {
+            Instant createdAt,
+            boolean wechatBound) {
     }
 
     public record PlayerView(

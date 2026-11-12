@@ -79,7 +79,8 @@ class PlayerDisableIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.id").value(playerId))
                 .andExpect(jsonPath("$.data.userId").value(userId))
                 .andExpect(jsonPath("$.data.status").value(2))
-                .andExpect(jsonPath("$.data.statusLabel").value("DISABLED"));
+                .andExpect(jsonPath("$.data.statusLabel").value("DISABLED"))
+                .andExpect(jsonPath("$.data.wechatBound").value(false));
 
         assertThat(userStatus(userId)).isEqualTo(UserStatus.DISABLED.code());
         assertRegistration(lockedMatch, playerId, RegistrationStatus.CANCELLED.code(), adminId);

@@ -196,7 +196,8 @@ public class PlayerAdminApplicationService {
                 account == null ? null : account.statusLabel(),
                 account != null && account.admin(),
                 account == null ? Set.of() : account.roles(),
-                account == null ? null : account.createdAt());
+                account == null ? null : account.createdAt(),
+                account != null && account.wechatBound());
     }
 
     private Map<String, Object> snapshot(Player player) {

@@ -89,11 +89,12 @@ public class RoleController {
     @GetMapping("/users")
     @PreAuthorize("hasAuthority('role:manage:any')")
     public ApiResponse<PageResponse<UserSummary>> users(
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Integer status,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         PageQuery query = PageQuery.of(page, pageSize);
-        return ApiResponse.ok(authService.listUsers(status, query.page(), query.pageSize()));
+        return ApiResponse.ok(authService.listUsers(status, keyword, query.page(), query.pageSize()));
     }
 
     @PatchMapping("/users/{id}/phone")

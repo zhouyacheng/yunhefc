@@ -71,6 +71,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].secondaryPositionLabels[1]").value("MIDFIELDER"))
                 .andExpect(jsonPath("$.data.items[0].avatarUrl").value("mock://oss/" + formalAvatarKey))
                 .andExpect(jsonPath("$.data.items[1].avatarUrl").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[0].wechatBound").value(false))
                 .andExpect(jsonPath("$.data.items[0].createdAt").exists());
 
         mockMvc.perform(get("/api/v1/b/players").cookie(admin)
@@ -155,6 +156,22 @@ class PlayerAdminIT extends IntegrationTestSupport {
     }
 
     @Test
+    void playerWithoutAccountReportsWechatUnbound() throws Exception {
+        Cookie admin = adminLogin("13900000461");
+        // 档案存在但账号行缺失：无 0 物理外键，接口按 userId 查不到账号即视为无账号
+        jdbc.update("""
+                INSERT INTO player (team_id, user_id, name, jersey, type, position, skill)
+                VALUES (1, 999999, 'M02无账号', 780, 0, 1, 3)
+                """);
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("name", "M02无账号"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].userId").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[0].wechatBound").value(false));
+    }
+
+    @Test
     void adminFilterAlsoMatchesCustomRoleWithRoleManagePermission() throws Exception {
         Cookie admin = adminLogin("13900000403");
         Long roleManagerRole = insertRole("M02_ROLE_MANAGER", "role:manage:any");
@@ -212,6 +229,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.status").value(1))
                 .andExpect(jsonPath("$.data.statusLabel").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.admin").value(false))
+                .andExpect(jsonPath("$.data.wechatBound").value(false))
                 .andExpect(jsonPath("$.data.roles[0]").value("PLAYER"))
                 .andExpect(jsonPath("$.data.userId").value(userIdA));
 

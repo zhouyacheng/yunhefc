@@ -189,6 +189,21 @@ class InviteLifecycleIT extends IntegrationTestSupport {
     }
 
     @Test
+    void inviteListRejectsInvalidTypeOrStatus() throws Exception {
+        Cookie admin = adminLogin("13900000261");
+
+        mockMvc.perform(get("/api/v1/b/invites").cookie(admin).param("type", "2"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/b/invites").cookie(admin).param("type", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/b/invites").cookie(admin).param("status", "3"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
     void inviteViewExposesMatchIdAndInviterSummaryWithoutInviteUrl() throws Exception {
         Cookie admin = adminLogin("13900000806");
         Long matchId = insertMatch(103);

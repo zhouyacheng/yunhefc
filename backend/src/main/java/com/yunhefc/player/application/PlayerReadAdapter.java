@@ -6,6 +6,7 @@ import com.yunhefc.contracts.player.PlayerPublicSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.player.PlayerType;
+import com.yunhefc.common.util.LikePattern;
 import com.yunhefc.contracts.security.UserAccountReadPort;
 import com.yunhefc.player.domain.Player;
 import com.yunhefc.player.domain.SecondaryPositions;
@@ -60,6 +61,17 @@ public class PlayerReadAdapter implements PlayerReadPort {
                         .in(Player::getUserId, userIds))
                 .stream()
                 .map(PlayerReadAdapter::toSnapshot)
+                .toList();
+    }
+
+    @Override
+    public List<Long> findUserIdsByNameContaining(String keyword) {
+        return playerMapper.selectList(new LambdaQueryWrapper<Player>()
+                        .select(Player::getUserId)
+                        .like(Player::getName, LikePattern.escape(keyword)))
+                .stream()
+                .map(Player::getUserId)
+                .distinct()
                 .toList();
     }
 

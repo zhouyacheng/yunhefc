@@ -2,6 +2,7 @@ package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -60,6 +61,8 @@ class WechatAuthIT extends IntegrationTestSupport {
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.user.status").value(0))
+                .andExpect(jsonPath("$.data.user.wechatBound").value(true))
+                .andExpect(jsonPath("$.data.user.openid").doesNotExist())
                 .andExpect(jsonPath("$.data.player.type").value(0))
                 .andExpect(jsonPath("$.data.permissions").doesNotExist())
                 .andReturn();
@@ -82,6 +85,59 @@ class WechatAuthIT extends IntegrationTestSupport {
         mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
                         .param("redirect", "https://evil.example"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void wechatBoundReflectsBindingAndAdminUnbindInBothResponses() throws Exception {
+        Cookie admin = adminLogin("13900000981");
+        String phone = "13900000982";
+        jdbc.update("INSERT INTO app_user (phone, password_hash, openid, status) VALUES (?, ?, ?, 1)",
+                phone, passwordEncoder.encode("Passw0rd!"), "mock-openid-bound");
+        Long userId = jdbc.queryForObject("SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
+        jdbc.update("""
+                INSERT INTO player (team_id, user_id, name, type, position, skill)
+                VALUES (1, ?, '微信绑定状态', 1, 1, 3)
+                """, userId);
+        Long roleId = jdbc.queryForObject(
+                "SELECT id FROM app_role WHERE team_id = 1 AND code = 'PLAYER'", Long.class);
+        jdbc.update("INSERT INTO user_role (user_id, role_id) VALUES (?, ?)", userId, roleId);
+
+        MvcResult login = mockMvc.perform(post("/api/v1/c/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","password":"Passw0rd!"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.wechatBound").value(true))
+                .andExpect(jsonPath("$.data.user.openid").doesNotExist())
+                .andReturn();
+        Cookie session = cookie(login, "YHFC_C");
+
+        mockMvc.perform(get("/api/v1/c/me").cookie(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.wechatBound").value(true))
+                .andExpect(jsonPath("$.data.user.openid").doesNotExist());
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("name", "微信绑定状态"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].userId").value(userId))
+                .andExpect(jsonPath("$.data.items[0].wechatBound").value(true))
+                .andExpect(jsonPath("$.data.items[0].openid").doesNotExist());
+
+        mockMvc.perform(delete("/api/v1/b/users/" + userId + "/wechat-binding")
+                        .cookie(admin)
+                        .with(csrf()))
+                .andExpect(status().isOk());
+
+        assertThat(jdbc.queryForObject(
+                "SELECT openid FROM app_user WHERE id = ?", String.class, userId)).isNull();
+        mockMvc.perform(get("/api/v1/c/me").cookie(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.wechatBound").value(false));
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("name", "微信绑定状态"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].wechatBound").value(false));
     }
 
     @Test
@@ -121,5 +177,23 @@ class WechatAuthIT extends IntegrationTestSupport {
                                 {"phone":"%s","password":"Passw0rd!"}
                                 """.formatted(phone)))
                 .andExpect(status().isOk());
+    }
+
+    private Cookie adminLogin(String phone) throws Exception {
+        jdbc.update("INSERT INTO app_user (phone, password_hash, status) VALUES (?, ?, 1)",
+                phone, passwordEncoder.encode("Admin123!"));
+        Long userId = jdbc.queryForObject("SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
+        Long roleId = jdbc.queryForObject(
+                "SELECT id FROM app_role WHERE team_id = 1 AND code = 'ADMIN'", Long.class);
+        jdbc.update("INSERT INTO user_role (user_id, role_id) VALUES (?, ?)", userId, roleId);
+        MvcResult result = mockMvc.perform(post("/api/v1/b/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","password":"Admin123!"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk())
+                .andReturn();
+        return cookie(result, "YHFC_B");
     }
 }

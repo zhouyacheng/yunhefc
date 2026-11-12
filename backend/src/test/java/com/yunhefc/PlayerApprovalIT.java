@@ -68,6 +68,7 @@ class PlayerApprovalIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.statusLabel").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.type").value(0))
                 .andExpect(jsonPath("$.data.typeLabel").value("GUEST"))
+                .andExpect(jsonPath("$.data.wechatBound").value(false))
                 .andExpect(jsonPath("$.data.roles[0]").value("GUEST"));
 
         assertThat(jdbc.queryForObject("SELECT status FROM app_user WHERE id = ?", Integer.class, userId))

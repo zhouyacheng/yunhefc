@@ -56,7 +56,7 @@ test('C 端壳层：/account 未登录跳登录、登录后重定向 /profile', 
   await loginAs(page);
   await page.goto('/account');
   await expect(page).toHaveURL(/\/profile$/);
-  await expect(page.getByRole('heading', { name: '我的' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '我的', exact: true })).toBeVisible();
 });
 
 test('C 端壳层：登录后「我的」显示未读角标', async ({ page }) => {

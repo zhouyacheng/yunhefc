@@ -102,5 +102,5 @@ test('C 端：已登录访问 /account 重定向到 /profile', async ({ page }) 
   await page.goto('/account');
 
   await expect(page).toHaveURL(/\/profile$/);
-  await expect(page.getByRole('heading', { name: '我的' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '我的', exact: true })).toBeVisible();
 });

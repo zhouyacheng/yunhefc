@@ -15,6 +15,7 @@ import {
   matchStatusText,
   matchStatusTone,
   matchTypeText,
+  notificationTarget,
   readLabel,
   REGISTRATION_STATUS,
 } from './index';
@@ -95,6 +96,28 @@ describe('event helpers', () => {
     const endAt = '2026-11-15T14:00:00Z';
     expect(eventEditWindowOpen(endAt, Date.parse('2026-11-16T14:00:00Z'))).toBe(true);
     expect(eventEditWindowOpen(endAt, Date.parse('2026-11-16T14:00:01Z'))).toBe(false);
+  });
+});
+
+describe('notification target', () => {
+  it('routes MATCH notifications with a refId to the match detail', () => {
+    expect(notificationTarget({ refType: 'MATCH', refId: 1005 })).toEqual({
+      kind: 'match',
+      id: 1005,
+    });
+  });
+
+  it('treats USER and unknown ref types as read-only', () => {
+    expect(notificationTarget({ refType: 'USER', refId: 1002 })).toEqual({ kind: 'none' });
+    expect(notificationTarget({ refType: 'OTHER', refId: 1002 })).toEqual({ kind: 'none' });
+  });
+
+  it('treats missing or invalid refs as read-only', () => {
+    expect(notificationTarget({ refType: 'MATCH', refId: null })).toEqual({ kind: 'none' });
+    expect(notificationTarget({ refType: 'MATCH', refId: undefined })).toEqual({ kind: 'none' });
+    expect(notificationTarget({ refType: null, refId: 1005 })).toEqual({ kind: 'none' });
+    expect(notificationTarget({ refType: 'MATCH', refId: 0 })).toEqual({ kind: 'none' });
+    expect(notificationTarget({ refType: 'MATCH', refId: -1 })).toEqual({ kind: 'none' });
   });
 });
 

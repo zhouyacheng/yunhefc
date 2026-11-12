@@ -28,3 +28,19 @@ export interface NotificationReadResult {
 export interface NotificationReadAllResult {
   updated: number;
 }
+
+export type NotificationTarget = { kind: 'match'; id: number } | { kind: 'none' };
+
+/**
+ * 通知点击落点：MATCH 且有有效 refId 进入比赛详情；
+ * USER、未知 refType 或缺 refId 只标记已读（02 §5.6）。
+ */
+export function notificationTarget(
+  notification: Pick<Notification, 'refType' | 'refId'>,
+): NotificationTarget {
+  const { refType, refId } = notification;
+  if (refType === 'MATCH' && typeof refId === 'number' && Number.isInteger(refId) && refId > 0) {
+    return { kind: 'match', id: refId };
+  }
+  return { kind: 'none' };
+}

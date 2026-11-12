@@ -30,8 +30,8 @@ public interface IdempotencyKeyMapper extends BaseMapper<IdempotencyKey> {
     int deleteExpired(@Param("userId") Long userId, @Param("endpoint") String endpoint,
                       @Param("idemKey") String idemKey, @Param("now") Instant now);
 
-    @Delete("DELETE FROM idempotency_key WHERE expires_at <= #{now}")
-    int deleteExpiredBefore(@Param("now") Instant now);
+    @Delete("DELETE FROM idempotency_key WHERE expires_at <= #{now} LIMIT #{limit}")
+    int deleteExpiredBefore(@Param("now") Instant now, @Param("limit") int limit);
 
     @Delete("DELETE FROM idempotency_key WHERE id = #{id}")
     int deletePhysical(@Param("id") Long id);

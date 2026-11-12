@@ -1,39 +1,42 @@
 package com.yunhefc.infra.maintenance;
 
-import com.yunhefc.common.idempotency.IdempotencyKeyMapper;
-import com.yunhefc.infra.outbox.ConsumedEventMapper;
-import com.yunhefc.infra.outbox.OutboxEventMapper;
+import com.yunhefc.common.retention.RetentionTask;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
-import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 
 /**
- * 按 04 §10 的保留策略清理运行期数据：过期幂等键、消费去重、已发送 Outbox 保留 7 天。
+ * 按 04 §2.3 的保留策略编排各模块清理任务；单类失败不阻断其余任务。
  */
 @Service
 @RequiredArgsConstructor
 public class DataRetentionService {
 
+    private static final int BATCH_SIZE = 1000;
     private static final Logger log = LoggerFactory.getLogger(DataRetentionService.class);
-    private static final Duration PROCESSED_RETENTION = Duration.ofDays(7);
-    private static final Duration SENT_OUTBOX_RETENTION = Duration.ofDays(7);
 
-    private final IdempotencyKeyMapper idempotencyKeyMapper;
-    private final ConsumedEventMapper consumedEventMapper;
-    private final OutboxEventMapper outboxEventMapper;
+    private final List<RetentionTask> tasks;
     private final Clock clock;
 
     public void cleanup() {
         Instant now = Instant.now(clock);
-        int idempotency = idempotencyKeyMapper.deleteExpiredBefore(now);
-        int consumed = consumedEventMapper.deleteProcessedBefore(now.minus(PROCESSED_RETENTION));
-        int outbox = outboxEventMapper.deleteSentBefore(now.minus(SENT_OUTBOX_RETENTION));
-        log.debug("data retention cleanup done, idempotency={}, consumed={}, outbox={}",
-                idempotency, consumed, outbox);
+        for (RetentionTask task : tasks) {
+            int deleted = 0;
+            try {
+                int batch;
+                do {
+                    batch = task.deleteBatch(now, BATCH_SIZE);
+                    deleted += batch;
+                } while (batch >= BATCH_SIZE);
+                log.info("retention cleanup done, task={}, deleted={}", task.name(), deleted);
+            } catch (Exception e) {
+                log.error("retention cleanup failed, task={}, deleted={}", task.name(), deleted, e);
+            }
+        }
     }
 }

@@ -58,8 +58,14 @@ public interface OutboxEventMapper extends BaseMapper<OutboxEvent> {
             """)
     int markSent(@Param("id") Long id);
 
-    @Delete("DELETE FROM outbox_event WHERE status = 1 AND sent_at < #{before}")
-    int deleteSentBefore(@Param("before") Instant before);
+    @Delete("DELETE FROM outbox_event WHERE status = 1 AND sent_at < #{before} LIMIT #{limit}")
+    int deleteSentBefore(@Param("before") Instant before, @Param("limit") int limit);
+
+    @Select("SELECT COUNT(*) FROM outbox_event WHERE status = 2 AND created_at < #{before}")
+    int countFailedBefore(@Param("before") Instant before);
+
+    @Delete("DELETE FROM outbox_event WHERE status = 2 AND created_at < #{before} LIMIT #{limit}")
+    int deleteFailedBefore(@Param("before") Instant before, @Param("limit") int limit);
 
     @Update("""
             UPDATE outbox_event

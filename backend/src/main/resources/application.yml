@@ -65,6 +65,11 @@ yunhefc:
   invite:
     expiry-cron: ${INVITE_EXPIRY_CRON:0 0 3 * * ?}
     zone: ${INVITE_EXPIRY_ZONE:Asia/Shanghai}
+  retention:
+    notification-days: ${RETENTION_NOTIFICATION_DAYS:90}
+    invite-days: ${RETENTION_INVITE_DAYS:30}
+    outbox-days: ${RETENTION_OUTBOX_DAYS:7}
+    consumed-event-days: ${RETENTION_CONSUMED_EVENT_DAYS:7}
   session:
     c-ttl: 7d
     b-ttl: 2h

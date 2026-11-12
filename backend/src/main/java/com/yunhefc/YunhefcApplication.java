@@ -5,6 +5,7 @@ import com.yunhefc.common.config.AppProperties;
 import com.yunhefc.common.config.CorsProperties;
 import com.yunhefc.common.config.MessagingProperties;
 import com.yunhefc.common.config.OutboxProperties;
+import com.yunhefc.common.config.RetentionProperties;
 import com.yunhefc.common.config.SessionProperties;
 import com.yunhefc.common.config.SmsProperties;
 import org.springframework.boot.SpringApplication;
@@ -17,6 +18,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
         CorsProperties.class,
         MessagingProperties.class,
         OutboxProperties.class,
+        RetentionProperties.class,
         SessionProperties.class,
         SmsProperties.class,
         InviteProperties.class

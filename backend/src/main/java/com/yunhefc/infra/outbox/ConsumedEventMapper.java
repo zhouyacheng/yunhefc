@@ -19,6 +19,6 @@ public interface ConsumedEventMapper {
                   @Param("topic") String topic, @Param("partition") int partition,
                   @Param("offset") long offset);
 
-    @Delete("DELETE FROM consumed_event WHERE processed_at < #{before}")
-    int deleteProcessedBefore(@Param("before") Instant before);
+    @Delete("DELETE FROM consumed_event WHERE processed_at < #{before} LIMIT #{limit}")
+    int deleteProcessedBefore(@Param("before") Instant before, @Param("limit") int limit);
 }

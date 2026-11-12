@@ -2,6 +2,7 @@ package com.yunhefc.auth.infrastructure;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.yunhefc.auth.domain.InviteLink;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -71,4 +72,24 @@ public interface InviteLinkMapper extends BaseMapper<InviteLink> {
             WHERE id = #{id} AND status = 0 AND is_deleted = 0
             """)
     int expire(@Param("id") Long id);
+
+    /**
+     * 保留任务用：失效满保留期的邀请 ID；自定义 SQL 物理删除，不走 @TableLogic。
+     */
+    @Select("""
+            SELECT id FROM invite_link
+            WHERE (status = 2 AND expires_at < #{cutoff})
+               OR (status = 1 AND revoked_at < #{cutoff})
+            ORDER BY id
+            LIMIT #{limit}
+            """)
+    List<Long> findPurgeableIds(@Param("cutoff") Instant cutoff, @Param("limit") int limit);
+
+    @Delete("""
+            <script>
+            DELETE FROM invite_link WHERE id IN
+            <foreach collection="ids" item="id" open="(" separator="," close=")">#{id}</foreach>
+            </script>
+            """)
+    int deleteByIds(@Param("ids") List<Long> ids);
 }

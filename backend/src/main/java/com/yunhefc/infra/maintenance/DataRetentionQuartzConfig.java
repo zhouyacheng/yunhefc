@@ -8,6 +8,8 @@ import org.quartz.TriggerBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.TimeZone;
+
 @Configuration
 public class DataRetentionQuartzConfig {
 
@@ -25,6 +27,7 @@ public class DataRetentionQuartzConfig {
                 .forJob(dataRetentionJobDetail)
                 .withIdentity("dataRetentionTrigger", "yunhefc")
                 .withSchedule(CronScheduleBuilder.cronSchedule("0 30 3 * * ?")
+                        .inTimeZone(TimeZone.getTimeZone("Asia/Shanghai"))
                         .withMisfireHandlingInstructionDoNothing())
                 .build();
     }

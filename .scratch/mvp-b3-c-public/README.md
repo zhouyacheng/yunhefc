@@ -382,6 +382,6 @@ B3 不触碰后端，`mvn verify` 不是本批门禁；若票 02 需要补 `06` 
 | 03 | 03-c02-schedule-filters.md | — | ready-for-agent |
 | 04 | 04-c04-team.md | — | ready-for-agent |
 | 05 | 05-c05-auth-pages.md | — | ready-for-agent |
-| 06 | 06-c06-profile.md | — | ready-for-agent |
+| 06 | 06-c06-profile.md | `de7eaf4` | resolved |
 | 07 | 07-c07-invite-landing.md | — | ready-for-agent |
 | 08 | 08-review-leftovers.md | `050898d` | resolved |

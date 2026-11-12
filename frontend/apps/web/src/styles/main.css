@@ -110,10 +110,64 @@ a {
   font-size: 13px;
 }
 
-.filters {
+.schedule-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+  padding: 12px;
   margin-bottom: 12px;
-  border-radius: 12px;
-  overflow: hidden;
+  background: var(--yh-surface);
+  border: 1px solid var(--yh-line);
+  border-radius: 14px;
+}
+
+.schedule-filter {
+  display: flex;
+  flex: 1 1 120px;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--yh-muted);
+  font-size: 12px;
+}
+
+.schedule-filter select,
+.schedule-filter input {
+  width: 100%;
+  padding: 8px 9px;
+  color: var(--yh-ink);
+  font: inherit;
+  font-size: 14px;
+  background: #ffffff;
+  border: 1px solid var(--yh-line);
+  border-radius: 9px;
+}
+
+.schedule-filter select:disabled,
+.schedule-filter input:disabled {
+  color: var(--yh-muted);
+  background: #f1f5f9;
+}
+
+.schedule-filter-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.schedule-filters__trigger {
+  margin-bottom: 12px;
+}
+
+.schedule-filters__drawer {
+  max-height: 82vh;
+  padding: 16px 16px 24px;
+  overflow-y: auto;
+}
+
+.schedule-filters__drawer .schedule-filters {
+  padding: 0;
+  margin-bottom: 0;
+  border: 0;
 }
 
 .state {

@@ -1,6 +1,6 @@
 # B3 C-A 公开页 — 实施规格
 
-Status: ready-for-agent
+Status: resolved
 Type: spec
 
 事实源：`.scratch/mvp-release/batches.md` §1 note 2、§2 B3、§5、§6；`.scratch/mvp-release/issues/11-grilling-c-end-pages.md`、`07-grilling-notification.md`、`09-grilling-list-contract.md`、`21-grilling-wechat-binding.md`；`docs/design/02.页面结构与交互设计.md` §2.1/§2.3/§2.4、§5.1–§5.9、PQ-01/PQ-05/PQ-08；`docs/design/05.API接口设计.md` §2.2–§2.8、§3.1–§3.5、§3.10、§3.14、§3.15；`docs/design/06.设计方案评审结果.md` §43、§46、§51、§52、§55；`.scratch/mvp-b1-backend/README.md` 交付表；`frontend/` 与 `scripts/sql/test-data.sql` 现状。
@@ -367,21 +367,21 @@ B3 不触碰后端，`mvn verify` 不是本批门禁；若票 02 需要补 `06` 
 
 - 8 票全部 resolved；每票在 `## Result` 记录提交与验证。
 - 02 §5.1–§5.9 页面交付；加载/失败/空态/无权限齐备。
-- 8 个 Playwright 文件全绿且无 console error；访客不产生 `/c/me` 请求或 401。
+- web 项目 Playwright 全绿且无 console error；访客不产生 `/c/me` 请求或 401。
 - `pnpm -r build/typecheck/test` 全绿；无后端/schema/Flyway/DDL 改动。
 - B3 种子重复执行后，通知已读、报名、邀请使用状态可复位。
 
 ### 交付结果
 
-批次进行中；每票完成后回填：
+已完成（2026-11-12）；8 票全部 resolved：
 
 | 票 | 文件 | 提交 | 状态 |
 |---|---|---|---|
 | 01 | 01-web-shell-tabs-errors.md | `9929a23` | resolved |
 | 02 | 02-c01-home.md | `0c3969b` | resolved |
-| 03 | 03-c02-schedule-filters.md | — | ready-for-agent |
-| 04 | 04-c04-team.md | — | ready-for-agent |
-| 05 | 05-c05-auth-pages.md | — | ready-for-agent |
+| 03 | 03-c02-schedule-filters.md | `03c770e` | resolved |
+| 04 | 04-c04-team.md | `a0caa14` | resolved |
+| 05 | 05-c05-auth-pages.md | `afaa22c` | resolved |
 | 06 | 06-c06-profile.md | `de7eaf4` | resolved |
-| 07 | 07-c07-invite-landing.md | — | ready-for-agent |
+| 07 | 07-c07-invite-landing.md | `fc8b38f` | resolved |
 | 08 | 08-review-leftovers.md | `050898d` | resolved |

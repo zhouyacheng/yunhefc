@@ -365,7 +365,8 @@ test('B 端：侧栏按 sections 过滤，直访无权限分区显示 403', asyn
   await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
   await page.getByRole('button', { name: '登录' }).click();
 
-  await expect(page).toHaveURL(/\/admin\/dashboard$/);
+  // 本期不设工作台：登录后落首个有权限分区；1002 仅有报名/考勤、阵容、分组。
+  await expect(page).toHaveURL(/\/admin\/registrations$/);
   await expect(page.getByRole('menuitem', { name: '报名/考勤' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: '比赛管理' })).toHaveCount(0);
 

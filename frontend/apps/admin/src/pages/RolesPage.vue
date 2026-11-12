@@ -1,8 +1,19 @@
 <script setup lang="ts">
+import type { QueryParams } from '@yunhefc/api-client';
 import { ERROR_CODES, isApiError, isObjectForbidden, newIdempotencyKey } from '@yunhefc/api-client';
 import { ROLE_MANAGE_ANY, hasPermission } from '@yunhefc/permissions';
-import type { PermissionView, Role } from '@yunhefc/shared';
-import { ADMIN_ROLE_CODE, groupPermissions, roleCodeError, roleNameError } from '@yunhefc/shared';
+import type { Page, PermissionView, Role, UserSummary } from '@yunhefc/shared';
+import {
+  ADMIN_ROLE_CODE,
+  PLAYER_STATUS_TEXT,
+  PLAYER_TYPE,
+  groupPermissions,
+  playerStatusText,
+  playerStatusTone,
+  playerTypeText,
+  roleCodeError,
+  roleNameError,
+} from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -12,6 +23,20 @@ import { useSessionStore } from '../stores/session';
 interface ItemsResponse<T> {
   items: T[];
 }
+
+/** ROL-07 响应：`roles` 为角色 code。 */
+interface UserRolesResult {
+  userId: number;
+  roles: string[];
+}
+
+const GUEST_ROLE_CODE = 'GUEST';
+const PLAYER_ROLE_CODE = 'PLAYER';
+const SWITCH_TYPE_HINT = '外挂转正请到 B07 球员页操作';
+const USER_STATUS_OPTIONS = Object.entries(PLAYER_STATUS_TEXT).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 const session = useSessionStore();
 const canManage = computed(() => hasPermission(session.permissions, ROLE_MANAGE_ANY));
@@ -24,6 +49,23 @@ const loading = ref(false);
 const error = ref('');
 const saving = ref(false);
 let requestSeq = 0;
+
+const userRows = ref<UserSummary[]>([]);
+const userTotal = ref(0);
+const userPage = ref(1);
+const userPageSize = ref(10);
+const keyword = ref('');
+const statusFilter = ref<string | undefined>(undefined);
+const usersLoading = ref(false);
+const usersError = ref('');
+const selectedUserId = ref<number | null>(null);
+const checkedRoleIds = ref<number[]>([]);
+const savingUserRoles = ref(false);
+let userRequestSeq = 0;
+
+const selectedUser = computed(
+  () => userRows.value.find((user) => user.id === selectedUserId.value) ?? null,
+);
 
 const selectedRole = computed(
   () => roles.value.find((role) => role.id === selectedRoleId.value) ?? null,
@@ -264,7 +306,190 @@ async function deleteRole(): Promise<void> {
   }
 }
 
-onMounted(load);
+// ---------------------------------------------------------------- user roles
+
+function roleNames(codes: readonly string[]): string {
+  const names = codes.map((code) => roles.value.find((role) => role.code === code)?.name ?? code);
+  return names.length ? names.join(' / ') : '—';
+}
+
+function roleIdsFor(codes: readonly string[]): number[] {
+  return roles.value.filter((role) => codes.includes(role.code)).map((role) => role.id);
+}
+
+async function loadUsers(): Promise<void> {
+  if (!canManage.value) {
+    return;
+  }
+  const seq = ++userRequestSeq;
+  usersLoading.value = true;
+  usersError.value = '';
+  try {
+    const query: QueryParams = { page: userPage.value, pageSize: userPageSize.value };
+    const trimmed = keyword.value.trim();
+    if (trimmed) {
+      query.keyword = trimmed;
+    }
+    if (statusFilter.value !== undefined && statusFilter.value !== '') {
+      query.status = Number(statusFilter.value);
+    }
+    const result = await api.get<Page<UserSummary>>('/users', { query });
+    if (seq !== userRequestSeq) {
+      return;
+    }
+    userRows.value = result.items;
+    userTotal.value = result.total;
+    if (
+      selectedUserId.value !== null &&
+      !result.items.some((user) => user.id === selectedUserId.value)
+    ) {
+      selectedUserId.value = null;
+    }
+  } catch (caught) {
+    if (seq !== userRequestSeq) {
+      return;
+    }
+    usersError.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
+  } finally {
+    if (seq === userRequestSeq) {
+      usersLoading.value = false;
+    }
+  }
+}
+
+function searchUsers(): void {
+  userPage.value = 1;
+  void loadUsers();
+}
+
+function onUserPageChange(): void {
+  void loadUsers();
+}
+
+function onUserPageSizeChange(): void {
+  userPage.value = 1;
+  void loadUsers();
+}
+
+function selectUser(user: UserSummary): void {
+  selectedUserId.value = user.id;
+  checkedRoleIds.value = roleIdsFor(user.roles);
+}
+
+/**
+ * 类型一致守卫：外挂只能保留 GUEST + 自定义角色，正式只能保留 PLAYER + 自定义/ADMIN；
+ * 勾到另一类型的角色视为尝试转正/转外挂，引导去 B07。
+ */
+function roleTypeSwitchError(user: UserSummary | null, code: string | undefined): string | null {
+  if (!user || !code || user.type == null) {
+    return null;
+  }
+  if (user.type === PLAYER_TYPE.GUEST && (code === PLAYER_ROLE_CODE || code === ADMIN_ROLE_CODE)) {
+    return SWITCH_TYPE_HINT;
+  }
+  if (user.type === PLAYER_TYPE.PLAYER && code === GUEST_ROLE_CODE) {
+    return SWITCH_TYPE_HINT;
+  }
+  return null;
+}
+
+function onRoleToggle(values: Array<string | number | boolean>): void {
+  const next = values.map((value) => Number(value));
+  const added = next.find((id) => !checkedRoleIds.value.includes(id));
+  checkedRoleIds.value = next;
+  if (added === undefined) {
+    return;
+  }
+  const code = roles.value.find((role) => role.id === added)?.code;
+  const message = roleTypeSwitchError(selectedUser.value, code);
+  if (message) {
+    checkedRoleIds.value = next.filter((id) => id !== added);
+    ElMessage.warning(message);
+  }
+}
+
+function validateUserRoles(): string | null {
+  const user = selectedUser.value;
+  if (!user) {
+    return '请选择用户';
+  }
+  if (checkedRoleIds.value.length === 0) {
+    return '至少选择一个角色';
+  }
+  const codes = checkedRoleIds.value
+    .map((id) => roles.value.find((role) => role.id === id)?.code)
+    .filter((code): code is string => Boolean(code));
+  for (const code of codes) {
+    const message = roleTypeSwitchError(user, code);
+    if (message) {
+      return message;
+    }
+  }
+  if (codes.includes(GUEST_ROLE_CODE) && codes.includes(PLAYER_ROLE_CODE)) {
+    return '外挂与正式球员角色互斥';
+  }
+  if (codes.includes(ADMIN_ROLE_CODE) && !codes.includes(PLAYER_ROLE_CODE)) {
+    return '管理员必须叠加正式球员角色';
+  }
+  return null;
+}
+
+function reportUserRoleError(caught: unknown): void {
+  if (isApiError(caught) && caught.code === ERROR_CODES.LAST_ADMIN_PROTECTED) {
+    ElMessage.error('不能移除最后一个管理员');
+    return;
+  }
+  if (isObjectForbidden(caught)) {
+    ElMessage.error('无权限执行此操作');
+    return;
+  }
+  if (isApiError(caught) && caught.code === ERROR_CODES.NOT_FOUND) {
+    ElMessage.warning('用户不存在，已刷新列表');
+    void loadUsers();
+    return;
+  }
+  ElMessage.error(isApiError(caught) ? caught.message : '操作失败，请稍后重试');
+}
+
+async function saveUserRoles(): Promise<void> {
+  const user = selectedUser.value;
+  if (!canManage.value || !user || savingUserRoles.value) {
+    return;
+  }
+  const message = validateUserRoles();
+  if (message) {
+    ElMessage.warning(message);
+    return;
+  }
+  savingUserRoles.value = true;
+  try {
+    const result = await api.put<UserRolesResult>(
+      `/users/${user.id}/roles`,
+      { roles: [...checkedRoleIds.value] },
+      { idempotencyKey: newIdempotencyKey() },
+    );
+    const row = userRows.value.find((item) => item.id === user.id);
+    if (row) {
+      row.roles = [...result.roles];
+    }
+    // 保存期间可能已切换到其他用户：只更新仍处于选中状态的编辑器。
+    if (selectedUserId.value === user.id) {
+      checkedRoleIds.value = roleIdsFor(result.roles);
+    }
+    ElMessage.success('用户角色已保存');
+  } catch (caught) {
+    reportUserRoleError(caught);
+  } finally {
+    savingUserRoles.value = false;
+  }
+}
+
+onMounted(() => {
+  void load();
+  if (canManage.value) {
+    void loadUsers();
+  }
+});
 </script>
 
 <template>
@@ -360,6 +585,109 @@ onMounted(load);
         <el-empty v-else description="请选择角色" />
       </section>
     </div>
+
+    <section v-if="canManage" class="user-roles-panel">
+      <div class="user-roles-head">
+        <h3>用户角色分配</h3>
+        <p class="muted">至少一个角色；外挂与正式球员互斥；管理员必须叠加正式球员。</p>
+      </div>
+
+      <el-alert
+        v-if="usersError"
+        class="page-error"
+        type="error"
+        :title="usersError"
+        :closable="false"
+        show-icon
+      >
+        <el-button size="small" @click="loadUsers">重试</el-button>
+      </el-alert>
+
+      <el-form class="user-filters" :inline="true" @submit.prevent="searchUsers">
+        <el-form-item label="关键词">
+          <el-input
+            v-model="keyword"
+            class="filter-input"
+            maxlength="64"
+            placeholder="搜索姓名或手机号"
+            clearable
+          />
+        </el-form-item>
+        <el-form-item label="状态">
+          <el-select v-model="statusFilter" class="filter-select" placeholder="全部" clearable>
+            <el-option
+              v-for="option in USER_STATUS_OPTIONS"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" :loading="usersLoading" @click="searchUsers">搜索</el-button>
+        </el-form-item>
+      </el-form>
+
+      <el-table v-loading="usersLoading" :data="userRows" empty-text="没有符合条件的用户" stripe>
+        <el-table-column prop="name" label="姓名" min-width="120" />
+        <el-table-column prop="phoneMasked" label="手机号" width="130" />
+        <el-table-column label="状态" width="100">
+          <template #default="{ row }">
+            <el-tag :type="playerStatusTone(row.status)" effect="light">
+              {{ playerStatusText(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="当前角色" min-width="150" class-name="user-roles-cell">
+          <template #default="{ row }">{{ roleNames(row.roles) }}</template>
+        </el-table-column>
+        <el-table-column label="球员类型" width="100">
+          <template #default="{ row }">{{ playerTypeText(row.type) }}</template>
+        </el-table-column>
+        <el-table-column label="操作" width="110">
+          <template #default="{ row }">
+            <el-button
+              link
+              type="primary"
+              size="small"
+              :disabled="!roles.length"
+              @click="selectUser(row)"
+            >
+              分配角色
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+
+      <div class="table-footer">
+        <el-pagination
+          v-model:current-page="userPage"
+          v-model:page-size="userPageSize"
+          background
+          layout="total, sizes, prev, pager, next"
+          :total="userTotal"
+          :page-sizes="[10, 20, 50, 100]"
+          @current-change="onUserPageChange"
+          @size-change="onUserPageSizeChange"
+        />
+      </div>
+
+      <div v-if="selectedUser" class="user-role-editor">
+        <div class="user-role-editor-head">
+          <h4>为「{{ selectedUser.name }}」分配角色</h4>
+          <el-button type="primary" size="small" :loading="savingUserRoles" @click="saveUserRoles">
+            保存用户角色
+          </el-button>
+        </div>
+        <el-checkbox-group :model-value="checkedRoleIds" @change="onRoleToggle">
+          <el-checkbox v-for="role in roles" :key="role.id" :value="role.id" class="user-role-item">
+            {{ role.name }}
+            <code>{{ role.code }}</code>
+          </el-checkbox>
+        </el-checkbox-group>
+      </div>
+      <p v-else class="muted user-role-empty">请选择用户</p>
+    </section>
 
     <el-dialog
       v-model="createDialog.visible"
@@ -576,6 +904,78 @@ onMounted(load);
 .dialog-error {
   margin: 0;
   color: var(--el-color-danger);
+  font-size: 13px;
+}
+
+.user-roles-panel {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--yh-surface);
+  border: 1px solid var(--yh-line);
+  border-radius: 10px;
+}
+
+.user-roles-head h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.user-roles-head p {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+
+.user-filters {
+  margin-bottom: 4px;
+}
+
+.filter-input {
+  width: 220px;
+}
+
+.filter-select {
+  width: 140px;
+}
+
+.table-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.user-role-editor {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid var(--yh-line);
+  border-radius: 8px;
+}
+
+.user-role-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.user-role-editor-head h4 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.user-role-editor :deep(.el-checkbox) {
+  margin-right: 16px;
+  margin-bottom: 8px;
+}
+
+.user-role-item code {
+  margin-left: 4px;
+  color: var(--yh-muted);
+  font-size: 11px;
+}
+
+.user-role-empty {
+  margin: 16px 0 0;
   font-size: 13px;
 }
 </style>

@@ -746,3 +746,218 @@ test('B 端：B08 只读权限不显示写操作', async ({ page }) => {
 
   expect(errors).toEqual([]);
 });
+
+async function searchAdminUsers(page: Page, keyword: string): Promise<void> {
+  // 等 AUTH-13 返回后再读行数据，避免读到上一次搜索的残留结果。
+  const loaded = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/b/users' &&
+      response.request().method() === 'GET' &&
+      new URL(response.url()).searchParams.get('keyword') === keyword,
+  );
+  await page.getByPlaceholder('搜索姓名或手机号').fill(keyword);
+  await page.getByRole('button', { name: '搜索' }).click();
+  await loaded;
+}
+
+function adminUserRow(page: Page, name: string): Locator {
+  return page.locator('.el-table__row').filter({ hasText: name });
+}
+
+function userRoleCheckbox(page: Page, label: string): Locator {
+  return page.locator('.user-role-editor .el-checkbox').filter({ hasText: label });
+}
+
+function userRolesCell(row: Locator): Locator {
+  return row.locator('.user-roles-cell');
+}
+
+function waitUserRolesSave(page: Page, userId: number) {
+  return page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === `/api/v1/b/users/${userId}/roles` &&
+      response.request().method() === 'PUT',
+  );
+}
+
+/** 1001 在套件中登录次数接近 AUTH-15 上限；被限流时按服务端 retryAfterSeconds 等待后重试。 */
+async function loginAdminRetrying(page: Page, phone: string): Promise<void> {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/v1/b/auth/login' &&
+        response.request().method() === 'POST',
+    );
+    await page.goto('/admin/login');
+    await page.getByPlaceholder('请输入手机号').fill(phone);
+    await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
+    await page.getByRole('button', { name: '登录' }).click();
+    const response = await responsePromise;
+    if (response.status() !== 429 || attempt === 1) {
+      await expect(page).toHaveURL(/\/admin\/matches$/);
+      return;
+    }
+    const body = (await response.json().catch(() => null)) as {
+      data?: { retryAfterSeconds?: number };
+    } | null;
+    const retryAfter = Math.max(1, body?.data?.retryAfterSeconds ?? 60);
+    await page.waitForTimeout((retryAfter + 1) * 1000);
+  }
+}
+
+test('B 端：B08 用户角色分配 → 分配 ADMIN → 撤回', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page, '13910000022');
+
+  await page.goto('/admin/roles');
+  await expect(page.locator('.user-roles-panel')).toBeVisible();
+
+  await searchAdminUsers(page, '13910000002');
+  const row = adminUserRow(page, '测试后卫01');
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: '分配角色' }).click();
+  await expect(page.locator('.user-role-editor')).toBeVisible();
+
+  try {
+    // 上次失败可能残留 ADMIN：先复原，保证用例可重复。
+    if (await userRoleCheckbox(page, '管理员').locator('input').isChecked()) {
+      await userRoleCheckbox(page, '管理员').click();
+      const normalized = waitUserRolesSave(page, 1002);
+      await page.getByRole('button', { name: '保存用户角色' }).click();
+      expect((await normalized).ok()).toBe(true);
+    }
+    await expect(userRoleCheckbox(page, '正式球员').locator('input')).toBeChecked();
+    await expect(userRoleCheckbox(page, '外挂球员').locator('input')).not.toBeChecked();
+
+    await userRoleCheckbox(page, '管理员').click();
+    const saved = waitUserRolesSave(page, 1002);
+    await page.getByRole('button', { name: '保存用户角色' }).click();
+    const response = await saved;
+    expect(response.ok()).toBe(true);
+    expect(response.request().headers()['idempotency-key']).toBeTruthy();
+    expect((response.request().postDataJSON() as { roles: number[] }).roles).toHaveLength(2);
+    await expect(page.getByText('用户角色已保存')).toBeVisible();
+    await expect(userRolesCell(row)).toContainText('管理员');
+    await expect(userRolesCell(row)).toContainText('正式球员');
+  } finally {
+    // 撤回 ADMIN 复原，避免断言失败后把 1002 留在管理员状态。
+    await searchAdminUsers(page, '13910000002');
+    const current = adminUserRow(page, '测试后卫01');
+    await expect(current).toBeVisible();
+    if ((await userRolesCell(current).innerText()).includes('管理员')) {
+      await current.getByRole('button', { name: '分配角色' }).click();
+      await userRoleCheckbox(page, '管理员').click();
+      const restored = waitUserRolesSave(page, 1002);
+      await page.getByRole('button', { name: '保存用户角色' }).click();
+      expect((await restored).ok()).toBe(true);
+    }
+  }
+
+  const finalRow = adminUserRow(page, '测试后卫01');
+  await expect(userRolesCell(finalRow)).not.toContainText('管理员');
+  await expect(userRolesCell(finalRow)).toContainText('正式球员');
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B08 用户角色 —— 不能移除最后一个管理员', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = collectConsoleErrors(page);
+  // 1001 是票面主角；先降级 1022，使 1001 成为唯一管理员。
+  await loginAdminRetrying(page, '13910000001');
+
+  await page.goto('/admin/roles');
+  await expect(page.locator('.user-roles-panel')).toBeVisible();
+
+  try {
+    await searchAdminUsers(page, '13910000022');
+    const secondary = adminUserRow(page, '测试管理员02');
+    await expect(secondary).toBeVisible();
+    await secondary.getByRole('button', { name: '分配角色' }).click();
+    if (await userRoleCheckbox(page, '管理员').locator('input').isChecked()) {
+      await userRoleCheckbox(page, '管理员').click();
+      const demoted = waitUserRolesSave(page, 1022);
+      await page.getByRole('button', { name: '保存用户角色' }).click();
+      expect((await demoted).ok()).toBe(true);
+      await expect(userRolesCell(secondary)).not.toContainText('管理员');
+    }
+
+    // 以 AUTH-13 的新结果确认服务端已降级，再尝试移除 1001 的 ADMIN。
+    await searchAdminUsers(page, '13910000022');
+    await expect(userRolesCell(adminUserRow(page, '测试管理员02'))).not.toContainText('管理员');
+
+    await searchAdminUsers(page, '13910000001');
+    const primary = adminUserRow(page, '测试门将01');
+    await expect(primary).toBeVisible();
+    await primary.getByRole('button', { name: '分配角色' }).click();
+    await expect(userRoleCheckbox(page, '管理员').locator('input')).toBeChecked();
+    await userRoleCheckbox(page, '管理员').click();
+    const rejected = waitUserRolesSave(page, 1001);
+    await page.getByRole('button', { name: '保存用户角色' }).click();
+    expect((await rejected).status()).toBe(409);
+    await expect(page.getByText('不能移除最后一个管理员')).toBeVisible();
+    await expect(userRolesCell(primary)).toContainText('管理员');
+  } finally {
+    // 无论断言成败都恢复 1022 的 ADMIN，避免污染 B07/B08 其他用例。
+    await searchAdminUsers(page, '13910000022');
+    const secondary = adminUserRow(page, '测试管理员02');
+    await expect(secondary).toBeVisible();
+    if (!(await userRolesCell(secondary).innerText()).includes('管理员')) {
+      await secondary.getByRole('button', { name: '分配角色' }).click();
+      await userRoleCheckbox(page, '管理员').click();
+      const restored = waitUserRolesSave(page, 1022);
+      await page.getByRole('button', { name: '保存用户角色' }).click();
+      expect((await restored).ok()).toBe(true);
+    }
+  }
+
+  // 409 是预期的业务拒绝，浏览器会记录一条资源加载错误，其余 console error 仍需为零。
+  expect(errors.filter((message) => !message.includes('status of 409'))).toEqual([]);
+});
+
+test('B 端：B08 用户角色 —— 外挂转正需到 B07', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page, '13910000022');
+
+  await page.goto('/admin/roles');
+  await searchAdminUsers(page, '13910000016');
+  const row = adminUserRow(page, '测试外挂01');
+  await expect(row).toBeVisible();
+  await row.getByRole('button', { name: '分配角色' }).click();
+  await expect(userRoleCheckbox(page, '外挂球员').locator('input')).toBeChecked();
+
+  await userRoleCheckbox(page, '正式球员').click();
+  await expect(page.getByText('外挂转正请到 B07 球员页操作')).toBeVisible();
+  await expect(userRoleCheckbox(page, '正式球员').locator('input')).not.toBeChecked();
+  await expect(userRoleCheckbox(page, '外挂球员').locator('input')).toBeChecked();
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B08 用户角色卡片仅对 role:manage:any 渲染', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const userRequests: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/b/users') {
+      userRequests.push(request.url());
+    }
+  });
+  await page.route('**/api/v1/b/me', async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    body.data.permissions = ['role:view:any'];
+    body.data.sections = ['roles'];
+    await route.fulfill({
+      status: response.status(),
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  });
+
+  await loginAdmin(page, '13910000022', /\/admin\/roles$/);
+  await expect(page.locator('.role-item').first()).toBeVisible();
+  await expect(page.locator('.user-roles-panel')).toHaveCount(0);
+  expect(userRequests).toEqual([]);
+
+  expect(errors).toEqual([]);
+});

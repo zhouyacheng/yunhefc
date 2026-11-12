@@ -16,6 +16,7 @@ import {
   matchStatusTone,
   matchTypeText,
   readLabel,
+  REGISTRATION_STATUS,
 } from './index';
 
 describe('Page helper', () => {
@@ -56,6 +57,15 @@ describe('enum helpers', () => {
     expect(isInternalMatchType(undefined)).toBe(false);
     expect(groupingTeamName({ homeTeamName: '橙队', awayTeamName: '兰队' }, 'A')).toBe('橙队');
     expect(groupingTeamName({ homeTeamName: '橙队', awayTeamName: '兰队' }, 'B')).toBe('兰队');
+  });
+
+  it('exposes registration status codes matching 04 §2.4', () => {
+    expect(REGISTRATION_STATUS).toEqual({
+      CONFIRMED: 0,
+      WAITLISTED: 1,
+      CANCELLED: 2,
+      REMOVED: 3,
+    });
   });
 
   it('maps attendance codes to display text', () => {

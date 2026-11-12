@@ -45,7 +45,6 @@ import {
   isInternalMatchType,
   isOpponentLineupSide,
   matchStatusText,
-  matchStatusTone,
   matchTypeText,
   positionText,
 } from '@yunhefc/shared';
@@ -54,6 +53,7 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
+import { matchTagType, scoreText } from '../features/matches/presentation';
 import { toBrowserPath } from '../router';
 import { useSessionStore } from '../stores/session';
 
@@ -238,20 +238,9 @@ const playerOptions = computed(() => {
   return rosterPlayers.value;
 });
 
-function statusTagType(): 'primary' | 'success' | 'warning' | 'danger' {
-  const tone = matchStatusTone(match.value?.status);
-  return tone === 'neutral' ? 'primary' : tone;
-}
-
-function scoreText(): string {
-  const derived = displayedScore.value;
-  if (derived) {
-    return `${derived.scoreHome} : ${derived.scoreAway}`;
-  }
-  if (!match.value || match.value.scoreHome === null || match.value.scoreHome === undefined) {
-    return 'VS';
-  }
-  return `${match.value.scoreHome} : ${match.value.scoreAway ?? 0}`;
+function displayedScoreText(): string {
+  const source = displayedScore.value ?? match.value;
+  return source ? scoreText(source) : 'VS';
 }
 
 function teamName(team: EventTeam): string {
@@ -645,12 +634,12 @@ onMounted(load);
       <header class="card match-hero">
         <div class="match-hero__top">
           <span class="small muted">{{ matchTypeText(match.type) }}</span>
-          <Tag :type="statusTagType()" plain>{{ matchStatusText(match.status) }}</Tag>
+          <Tag :type="matchTagType(match.status)" plain>{{ matchStatusText(match.status) }}</Tag>
           <span class="muted small">第 {{ match.seasonMatchNo }} 场</span>
         </div>
         <div class="match-hero__teams">
           <span>{{ match.homeTeamName }}</span>
-          <strong>{{ scoreText() }}</strong>
+          <strong>{{ displayedScoreText() }}</strong>
           <span>{{ match.awayTeamName }}</span>
         </div>
         <div class="match-hero__meta muted small">

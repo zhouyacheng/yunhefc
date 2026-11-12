@@ -1,8 +1,9 @@
 import type { Registration } from '@yunhefc/shared';
+import { REGISTRATION_STATUS } from '@yunhefc/shared';
 import { describe, expect, it } from 'vitest';
 
 import { USER_STATUS } from '../auth/user-status';
-import { homeCta, type HomeCtaInput } from './cta';
+import { homeCta, type HomeCtaInput, type HomeCtaQueue } from './cta';
 
 const DEADLINE = '2026-11-12T10:30:00Z';
 
@@ -14,11 +15,14 @@ function registration(status: number): Registration {
     status,
     registeredAt: '2026-11-12T09:00:00Z',
     cancelledAt: null,
-    active: status === 0 || status === 1,
+    active: status === REGISTRATION_STATUS.CONFIRMED || status === REGISTRATION_STATUS.WAITLISTED,
   };
 }
 
-function input(overrides: Partial<HomeCtaInput> = {}): HomeCtaInput {
+function input(
+  overrides: Partial<HomeCtaInput> = {},
+  queue: Partial<HomeCtaQueue> = {},
+): HomeCtaInput {
   return {
     authenticated: true,
     userStatus: USER_STATUS.ACTIVE,
@@ -26,12 +30,15 @@ function input(overrides: Partial<HomeCtaInput> = {}): HomeCtaInput {
     matchStatus: 0,
     now: Date.parse('2026-11-12T10:00:00Z'),
     signupDeadline: DEADLINE,
-    capacity: 30,
-    guestCapacity: 4,
-    waitlistCapacity: 2,
-    confirmedCount: 0,
-    guestCount: 0,
-    waitlistCount: 0,
+    queue: {
+      capacity: 30,
+      guestCapacity: 4,
+      waitlistCapacity: 2,
+      confirmedCount: 0,
+      guestCount: 0,
+      waitlistCount: 0,
+      ...queue,
+    },
     myRegistration: null,
     ...overrides,
   };
@@ -75,7 +82,7 @@ describe('homeCta', () => {
   });
 
   it('signs up a formal player while capacity remains', () => {
-    expect(homeCta(input({ confirmedCount: 29 }))).toEqual({
+    expect(homeCta(input({}, { confirmedCount: 29 }))).toEqual({
       label: '报名',
       action: 'register',
       disabled: false,
@@ -84,7 +91,7 @@ describe('homeCta', () => {
   });
 
   it('offers the waitlist when the formal pool is full', () => {
-    expect(homeCta(input({ confirmedCount: 30, waitlistCount: 1 }))).toEqual({
+    expect(homeCta(input({}, { confirmedCount: 30, waitlistCount: 1 }))).toEqual({
       label: '加入候补',
       action: 'register',
       disabled: false,
@@ -93,7 +100,7 @@ describe('homeCta', () => {
   });
 
   it('blocks when both the formal pool and waitlist are full', () => {
-    expect(homeCta(input({ confirmedCount: 30, waitlistCount: 2 }))).toEqual({
+    expect(homeCta(input({}, { confirmedCount: 30, waitlistCount: 2 }))).toEqual({
       label: '名额与候补已满',
       action: 'none',
       disabled: true,
@@ -102,7 +109,7 @@ describe('homeCta', () => {
   });
 
   it('blocks guests when the guest pool is full', () => {
-    expect(homeCta(input({ playerType: 0, guestCount: 4, confirmedCount: 30 }))).toEqual({
+    expect(homeCta(input({ playerType: 0 }, { guestCount: 4, confirmedCount: 30 }))).toEqual({
       label: '外挂名额已满',
       action: 'none',
       disabled: true,
@@ -111,7 +118,7 @@ describe('homeCta', () => {
   });
 
   it('signs up a guest while the guest pool remains', () => {
-    expect(homeCta(input({ playerType: 0, guestCount: 3 }))).toEqual({
+    expect(homeCta(input({ playerType: 0 }, { guestCount: 3 }))).toEqual({
       label: '报名',
       action: 'register',
       disabled: false,

@@ -429,6 +429,13 @@ export function positionText(code: number | null | undefined): string {
   return code === null || code === undefined ? '—' : (POSITION_TEXT[code] ?? '—');
 }
 
+export const REGISTRATION_STATUS = {
+  CONFIRMED: 0,
+  WAITLISTED: 1,
+  CANCELLED: 2,
+  REMOVED: 3,
+} as const;
+
 export const REGISTRATION_STATUS_TEXT: Readonly<Record<number, string>> = {
   0: '已确认',
   1: '候补中',

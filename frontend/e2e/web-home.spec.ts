@@ -15,6 +15,12 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'B3首页联调赛' })).toBeVisible();
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
+  await expect(page.locator('.home-section .match-card')).toHaveCount(3);
+  await expect(page.locator('.home-section .match-card-link').first()).toHaveAttribute(
+    'href',
+    '/matches/1005',
+  );
+  await expect(page.locator('.van-tabbar-item--active')).toContainText('首页');
 
   await page.getByRole('button', { name: '登录后报名' }).click();
   await expect(page).toHaveURL(/\/login\?redirect=/);
@@ -28,12 +34,33 @@ test('C01 首页：登录球员报名后 CTA 与队列更新', async ({ page }) 
   const errors = collectConsoleErrors(page);
   await loginAs(page);
 
+  await expect(page.locator('.van-tabbar-item--active')).toContainText('赛程');
+
   await page.locator('.van-tabbar-item').filter({ hasText: '首页' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('heading', { name: 'B3首页联调赛' })).toBeVisible();
+  await expect(page.locator('.van-tabbar-item--active')).toContainText('首页');
 
   const formalQueue = page.locator('.hero-queue__item').first();
   await expect(formalQueue).toContainText('0 / 30');
+
+  // 报名成功后的静默刷新失败一次，验证「重试刷新」入口。
+  let failRefresh = true;
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/matches' && url.searchParams.get('scope') === 'upcoming',
+    async (route) => {
+      if (failRefresh) {
+        failRefresh = false;
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ code: 50001, message: '刷新失败', data: null }),
+        });
+        return;
+      }
+      await route.continue();
+    },
+  );
 
   const responsePromise = page.waitForResponse(
     (response) =>
@@ -43,9 +70,13 @@ test('C01 首页：登录球员报名后 CTA 与队列更新', async ({ page }) 
   await page.getByRole('button', { name: '报名', exact: true }).click();
   expect((await responsePromise).ok()).toBe(true);
 
+  await expect(page.getByText('刷新失败')).toBeVisible();
+  await page.getByRole('button', { name: '重试刷新' }).click();
+
   await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
   await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
   await expect(formalQueue).toContainText('1 / 30');
+  await expect(page.getByRole('button', { name: '重试刷新' })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

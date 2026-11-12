@@ -1,8 +1,19 @@
-import type { Registration } from '@yunhefc/shared';
+import type { MatchDetail, Registration } from '@yunhefc/shared';
+import { REGISTRATION_STATUS } from '@yunhefc/shared';
 
-import { USER_STATUS } from '../auth/user-status';
+import { isPending } from '../auth/user-status';
 
 export type HomeCtaAction = 'login' | 'register' | 'view-detail' | 'none';
+
+export type HomeCtaQueue = Pick<
+  MatchDetail,
+  | 'capacity'
+  | 'guestCapacity'
+  | 'waitlistCapacity'
+  | 'confirmedCount'
+  | 'guestCount'
+  | 'waitlistCount'
+>;
 
 export interface HomeCtaInput {
   authenticated: boolean;
@@ -14,12 +25,7 @@ export interface HomeCtaInput {
   /** epoch 毫秒，由调用方传入以保持纯函数。 */
   now: number;
   signupDeadline: string;
-  capacity: number;
-  guestCapacity: number;
-  waitlistCapacity: number;
-  confirmedCount: number;
-  guestCount: number;
-  waitlistCount: number;
+  queue: HomeCtaQueue;
   myRegistration?: Registration | null;
 }
 
@@ -50,17 +56,17 @@ export function homeCta(input: HomeCtaInput): HomeCtaResult {
     return { label: '登录后报名', action: 'login', disabled: false, reason: '' };
   }
 
-  if (input.userStatus === USER_STATUS.PENDING) {
+  if (input.userStatus !== null && isPending(input.userStatus)) {
     return disabled('账号待审核，通过后可报名');
   }
 
   const status = input.myRegistration?.status;
-  if (status === 0 || status === 1) {
+  if (status === REGISTRATION_STATUS.CONFIRMED || status === REGISTRATION_STATUS.WAITLISTED) {
     return {
       label: '查看详情',
       action: 'view-detail',
       disabled: false,
-      reason: status === 0 ? '已报名' : '候补中',
+      reason: status === REGISTRATION_STATUS.CONFIRMED ? '已报名' : '候补中',
     };
   }
 
@@ -72,9 +78,10 @@ export function homeCta(input: HomeCtaInput): HomeCtaResult {
     return disabled('报名已截止');
   }
 
+  const { queue } = input;
   if (input.playerType === 1) {
-    if (input.confirmedCount >= input.capacity) {
-      if (input.waitlistCount < input.waitlistCapacity) {
+    if (queue.confirmedCount >= queue.capacity) {
+      if (queue.waitlistCount < queue.waitlistCapacity) {
         return {
           label: '加入候补',
           action: 'register',
@@ -87,7 +94,7 @@ export function homeCta(input: HomeCtaInput): HomeCtaResult {
     return { label: '报名', action: 'register', disabled: false, reason: '' };
   }
 
-  if (input.guestCount >= input.guestCapacity) {
+  if (queue.guestCount >= queue.guestCapacity) {
     return disabled('外挂名额已满');
   }
   return { label: '报名', action: 'register', disabled: false, reason: '' };

@@ -7,12 +7,23 @@ import { useNotificationPolling } from '../composables/useNotificationPolling';
 import { useSessionStore } from '../stores/session';
 import { hasSessionHint } from '../stores/session-hint';
 
-const TAB_PATHS = {
-  home: '/',
-  matches: '/matches',
-  team: '/team',
-  profile: '/profile',
-} as const;
+type TabName = 'home' | 'matches' | 'team' | 'profile';
+
+interface TabEntry {
+  name: TabName;
+  path: string;
+  icon: string;
+  label: string;
+  exact?: boolean;
+  badge?: boolean;
+}
+
+const TABS: readonly TabEntry[] = [
+  { name: 'home', path: '/', icon: 'home-o', label: '首页', exact: true },
+  { name: 'matches', path: '/matches', icon: 'calendar-o', label: '赛程' },
+  { name: 'team', path: '/team', icon: 'friends-o', label: '球队' },
+  { name: 'profile', path: '/profile', icon: 'user-o', label: '我的', badge: true },
+];
 
 const session = useSessionStore();
 const route = useRoute();
@@ -29,27 +40,17 @@ const unreadBadge = computed<string | number | undefined>(() => {
 });
 
 // Vant route 模式按 $route.matched 判断激活，首页子路由 '' 的父记录 '/' 会匹配所有页面；
-// 改用受控模式按 path 前缀精确匹配。
-const activeTab = computed<string>(() => {
-  if (route.path === '/') {
-    return 'home';
-  }
-  if (route.path.startsWith('/matches')) {
-    return 'matches';
-  }
-  if (route.path.startsWith('/team')) {
-    return 'team';
-  }
-  if (route.path.startsWith('/profile')) {
-    return 'profile';
-  }
-  return '';
-});
+// 改用受控模式：首页精确匹配，其余按 path 前缀。
+const activeTab = computed<string>(
+  () =>
+    TABS.find((tab) => (tab.exact ? route.path === tab.path : route.path.startsWith(tab.path)))
+      ?.name ?? '',
+);
 
 function onTabChange(name: string | number): void {
-  const path = TAB_PATHS[name as keyof typeof TAB_PATHS];
-  if (path && path !== route.path) {
-    void router.replace(path);
+  const tab = TABS.find((item) => item.name === name);
+  if (tab && tab.path !== route.path) {
+    void router.replace(tab.path);
   }
 }
 
@@ -76,10 +77,15 @@ onMounted(() => {
     </main>
 
     <Tabbar :model-value="activeTab" fixed placeholder @change="onTabChange">
-      <TabbarItem name="home" icon="home-o">首页</TabbarItem>
-      <TabbarItem name="matches" icon="calendar-o">赛程</TabbarItem>
-      <TabbarItem name="team" icon="friends-o">球队</TabbarItem>
-      <TabbarItem name="profile" icon="user-o" :badge="unreadBadge">我的</TabbarItem>
+      <TabbarItem
+        v-for="tab in TABS"
+        :key="tab.name"
+        :name="tab.name"
+        :icon="tab.icon"
+        :badge="tab.badge ? unreadBadge : undefined"
+      >
+        {{ tab.label }}
+      </TabbarItem>
     </Tabbar>
   </div>
 </template>

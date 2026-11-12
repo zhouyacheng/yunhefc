@@ -1,19 +1,15 @@
 <script setup lang="ts">
 import { isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import type { MatchDetail, MatchSummary, Page, Registration } from '@yunhefc/shared';
-import {
-  formatDate,
-  formatDateTime,
-  matchStatusText,
-  matchStatusTone,
-  matchTypeText,
-} from '@yunhefc/shared';
+import { formatDateTime, matchStatusText, matchTypeText } from '@yunhefc/shared';
 import { Button, Empty, Loading, Tag } from 'vant';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 import { api } from '../api/client';
+import MatchCard from '../components/MatchCard.vue';
 import { homeCta, type HomeCtaResult } from '../features/home/cta';
+import { matchTagType } from '../features/matches/presentation';
 import { useSessionStore } from '../stores/session';
 
 const session = useSessionStore();
@@ -25,9 +21,11 @@ const loading = ref(true);
 const error = ref('');
 const actionError = ref('');
 const actionMessage = ref('');
+const refreshFailed = ref(false);
 const registering = ref(false);
 const now = ref(Date.now());
 let requestSeq = 0;
+let deadlineTimer: ReturnType<typeof setInterval> | null = null;
 
 const cta = computed<HomeCtaResult | null>(() => {
   const detail = hero.value;
@@ -41,26 +39,17 @@ const cta = computed<HomeCtaResult | null>(() => {
     matchStatus: detail.status,
     now: now.value,
     signupDeadline: detail.signupDeadline,
-    capacity: detail.capacity,
-    guestCapacity: detail.guestCapacity,
-    waitlistCapacity: detail.waitlistCapacity,
-    confirmedCount: detail.confirmedCount,
-    guestCount: detail.guestCount,
-    waitlistCount: detail.waitlistCount,
+    queue: detail,
     myRegistration: detail.myRegistration ?? null,
   });
 });
 
-function scoreText(match: MatchSummary): string {
-  if (match.scoreHome === null || match.scoreHome === undefined) {
-    return 'VS';
+/** 仅清除静默刷新失败留下的错误，避免吞掉报名业务错误。 */
+function clearRefreshError(): void {
+  if (refreshFailed.value) {
+    refreshFailed.value = false;
+    actionError.value = '';
   }
-  return `${match.scoreHome} : ${match.scoreAway ?? 0}`;
-}
-
-function statusTagType(match: MatchSummary): 'primary' | 'success' | 'warning' | 'danger' {
-  const tone = matchStatusTone(match.status);
-  return tone === 'neutral' ? 'primary' : tone;
 }
 
 /** silent=true 用于报名后的静默刷新，不打断当前 Hero。 */
@@ -83,6 +72,7 @@ async function load(silent = false): Promise<void> {
     const [first] = page.items;
     if (!first) {
       hero.value = null;
+      clearRefreshError();
       return;
     }
 
@@ -91,6 +81,7 @@ async function load(silent = false): Promise<void> {
       return;
     }
     hero.value = detail;
+    clearRefreshError();
   } catch (caught) {
     if (seq !== requestSeq) {
       return;
@@ -98,6 +89,7 @@ async function load(silent = false): Promise<void> {
     const message = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
     if (silent) {
       actionError.value = message;
+      refreshFailed.value = true;
     } else {
       error.value = message;
       matches.value = [];
@@ -119,6 +111,7 @@ async function register(): Promise<void> {
   registering.value = true;
   actionError.value = '';
   actionMessage.value = '';
+  refreshFailed.value = false;
   try {
     const result = await api.post<{ registration: Registration }>(
       `/matches/${detail.id}/registrations`,
@@ -151,6 +144,15 @@ function onCtaClick(): void {
 
 onMounted(() => {
   void load();
+  deadlineTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 30_000);
+});
+
+onUnmounted(() => {
+  if (deadlineTimer !== null) {
+    clearInterval(deadlineTimer);
+  }
 });
 </script>
 
@@ -172,7 +174,7 @@ onMounted(() => {
       <section v-if="hero && cta" class="home-hero">
         <div class="home-hero__head">
           <span class="home-hero__eyebrow">下一场</span>
-          <Tag :type="statusTagType(hero)">{{ matchStatusText(hero.status) }}</Tag>
+          <Tag :type="matchTagType(hero.status)">{{ matchStatusText(hero.status) }}</Tag>
         </div>
 
         <article class="home-hero__card">
@@ -221,7 +223,12 @@ onMounted(() => {
 
           <p v-if="cta.reason" class="hint">{{ cta.reason }}</p>
           <p v-if="actionMessage" class="hint">{{ actionMessage }}</p>
-          <p v-if="actionError" class="action-error">{{ actionError }}</p>
+          <p v-if="actionError" class="action-error">
+            {{ actionError }}
+            <Button v-if="refreshFailed" size="mini" type="primary" plain @click="load(true)">
+              重试刷新
+            </Button>
+          </p>
 
           <RouterLink class="ghost-link" :to="`/matches/${hero.id}`">查看比赛详情 →</RouterLink>
         </article>
@@ -248,30 +255,7 @@ onMounted(() => {
             class="match-card-link"
             :to="`/matches/${match.id}`"
           >
-            <article class="match-card">
-              <div class="match-card__top">
-                <span class="match-card__date">{{ formatDate(match.startAt) }}</span>
-                <Tag :type="statusTagType(match)" plain>{{ matchStatusText(match.status) }}</Tag>
-                <span class="muted small">第 {{ match.seasonMatchNo }} 场</span>
-              </div>
-
-              <div class="match-card__teams">
-                <span>{{ match.homeTeamName }}</span>
-                <strong>{{ scoreText(match) }}</strong>
-                <span>{{ match.awayTeamName }}</span>
-              </div>
-
-              <div class="match-card__meta muted small">
-                <span>{{ matchTypeText(match.type) }}</span>
-                <span>{{ formatDateTime(match.startAt) }}</span>
-                <span>{{ match.venue }}</span>
-              </div>
-
-              <div class="match-card__queue small">
-                正式 {{ match.confirmedCount }} · 外挂 {{ match.guestCount }} · 候补
-                {{ match.waitlistCount }}
-              </div>
-            </article>
+            <MatchCard :match="match" />
           </RouterLink>
         </div>
       </section>

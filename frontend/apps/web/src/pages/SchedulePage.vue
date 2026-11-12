@@ -2,18 +2,12 @@
 import type { QueryParams } from '@yunhefc/api-client';
 import { isApiError } from '@yunhefc/api-client';
 import type { MatchSummary, Page } from '@yunhefc/shared';
-import {
-  MATCH_STATUS_TEXT,
-  formatDate,
-  formatDateTime,
-  matchStatusText,
-  matchStatusTone,
-  matchTypeText,
-} from '@yunhefc/shared';
-import { Button, DropdownItem, DropdownMenu, Empty, Loading, Pagination, Tag } from 'vant';
+import { MATCH_STATUS_TEXT } from '@yunhefc/shared';
+import { Button, DropdownItem, DropdownMenu, Empty, Loading, Pagination } from 'vant';
 import { onMounted, ref } from 'vue';
 
 import { api } from '../api/client';
+import MatchCard from '../components/MatchCard.vue';
 
 const statusOptions = [
   { text: '全部状态', value: 'all' },
@@ -31,18 +25,6 @@ const statusValue = ref<string | number>('all');
 const loading = ref(false);
 const error = ref('');
 let requestSeq = 0;
-
-function scoreText(match: MatchSummary): string {
-  if (match.scoreHome === null || match.scoreHome === undefined) {
-    return 'VS';
-  }
-  return `${match.scoreHome} : ${match.scoreAway ?? 0}`;
-}
-
-function statusTagType(match: MatchSummary): 'primary' | 'success' | 'warning' | 'danger' {
-  const tone = matchStatusTone(match.status);
-  return tone === 'neutral' ? 'primary' : tone;
-}
 
 async function load(): Promise<void> {
   const seq = ++requestSeq;
@@ -116,30 +98,7 @@ onMounted(load);
         class="match-card-link"
         :to="`/matches/${match.id}`"
       >
-        <article class="match-card">
-          <div class="match-card__top">
-            <span class="match-card__date">{{ formatDate(match.startAt) }}</span>
-            <Tag :type="statusTagType(match)" plain>{{ matchStatusText(match.status) }}</Tag>
-            <span class="muted small">第 {{ match.seasonMatchNo }} 场</span>
-          </div>
-
-          <div class="match-card__teams">
-            <span>{{ match.homeTeamName }}</span>
-            <strong>{{ scoreText(match) }}</strong>
-            <span>{{ match.awayTeamName }}</span>
-          </div>
-
-          <div class="match-card__meta muted small">
-            <span>{{ matchTypeText(match.type) }}</span>
-            <span>{{ formatDateTime(match.startAt) }}</span>
-            <span>{{ match.venue }}</span>
-          </div>
-
-          <div class="match-card__queue small">
-            正式 {{ match.confirmedCount }} · 外挂 {{ match.guestCount }} · 候补
-            {{ match.waitlistCount }}
-          </div>
-        </article>
+        <MatchCard :match="match" />
       </RouterLink>
     </div>
 

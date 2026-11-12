@@ -69,7 +69,7 @@ Blocked by: 01 — 四 Tab 壳层、错误页与公共基座
 
 ## Result
 
-- 交付：登录/注册/找回密码三模式与 `mode` query；AUTH-02 短信码（按手机号+用途 60 秒倒计时、dev mock 码提示）、AUTH-03 注册、AUTH-06 重置；INV-01 邀请上下文（含 404/失效降级，`team/inviter` 可空）与请求代次保护；`session.register()`（保存 CSRF、写入会话、`refresh()` 补权限/未读数，刷新失败保留 `loaded=false` 供守卫重试）；`features/auth/validation.ts` 字段校验、邀请透传与错误码文案映射；Vitest 与 Playwright 用例。注册成功提示按 `user.status` 判定（待审核/已入队），延迟跳转前校验路由与模式，避免离开后强制跳回。
+- 交付：`afaa22c`（登录/注册/找回密码三模式与 `mode` query；AUTH-02 短信码（按手机号+用途 60 秒倒计时、dev mock 码提示）、AUTH-03 注册、AUTH-06 重置；INV-01 邀请上下文（含 404/失效降级，`team/inviter` 可空）与请求代次保护；`session.register()`（保存 CSRF、写入会话、`refresh()` 补权限/未读数，刷新失败保留 `loaded=false` 供守卫重试）；`features/auth/validation.ts` 字段校验、邀请透传与错误码文案映射；Vitest 与 Playwright 用例。注册成功提示按 `user.status` 判定（待审核/已入队），延迟跳转前校验路由与模式，避免离开后强制跳回）。
 - 验证：`pnpm --filter @yunhefc/web test` 75 项、`typecheck`、`eslint`、改动文件 Prettier 通过；`api-client` test/typecheck 通过；Playwright `--project=web e2e/web-auth.spec.ts` 6 条全绿（2026-11-12），注册/重置/邀请上下文/登录用例均无 console error；同批复跑 `web.spec.ts`、`web-shell.spec.ts`，登录相关用例通过。
 - 说明：`ERROR_CODES` 补充 40907/40910 常量；新增 `stores/session.test.ts` 注册透传用例。全量 `--project=web` 中 `web.spec.ts` 的签到与录事件 2 条因本地种子窗口/并发会话改动未通过，均发生在登录成功后的比赛详情页，与本票无关。验证期间有并行会话同时运行 Playwright 清理 `test-results/`，个别失败为环境干扰，单文件已复跑确认。
 - 未执行：后端、schema、Flyway、Quartz DDL 改动；微信入口（C08/B4）；票 06 的待审核横幅断言（仅断言 `/profile` 可访问）；未重放 `test-data.sql`。

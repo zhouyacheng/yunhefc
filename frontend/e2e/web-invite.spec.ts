@@ -33,8 +33,9 @@ test('C07：访客看到入队邀请并带邀请上下文去登录/注册', asyn
 test('C07：球员接受比赛邀请后进入比赛详情', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 
-  // 1002 在本套件内的登录次数接近每手机号 10 次/分钟限流，改用同为正式球员的 1001。
-  await loginAs(page, '13910000001', 'Passw0rd!');
+  // 1002/1001 在共享套件内登录次数接近每手机号 10 次/分钟限流；
+  // 改用 1021（待审核）验证比赛邀请对 PENDING 同样放行，且不改变账号状态。
+  await loginAs(page, '13910000021', 'Passw0rd!');
   await page.goto('/invite/B3-INVITE-MATCH');
 
   const card = page.getByTestId('invite-match');

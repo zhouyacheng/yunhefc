@@ -71,6 +71,6 @@ Blocked by: 01 — 四 Tab 壳层、错误页与公共基座（软依赖 05）
 ## Result
 
 - 交付：`fc8b38f`（`InvitePage` 替换 stub：加载/失败重试、失效、已是成员、入队、比赛五态；INV-01 状态推导、INV-02 接受、访客登录/注册透传 `redirect` 与 `inviteToken`、40401→`/404`、40910→失效、40303 文案；比赛邀请额外读取公开 `GET /c/matches/{id}` 展示名额与截止/满员提示；`features/invite/types.ts`、`invite-state.ts` 与 15 项 Vitest；`web-invite.spec.ts` 4 条 + 排序最后的 `web.z-invite-accept.spec.ts` 1 条）。
-- 验证：`pnpm -r test`（web 10 文件 93 项，invite 15 项）、`pnpm -r typecheck`、`pnpm lint`、`pnpm -r build` 通过；重放 `test-data.sql` 后 Playwright `--project=web` 39/39 全绿（2026-11-12，33.7s），其中 C07 5 条覆盖访客登录/注册 query、1021 转正、1001 接受比赛邀请进入 1005、404、过期/撤销/用尽失效文案；除 404 用例按既有惯例不断言 console error 外均无 console error。
-- 偏差：INV-01 嵌套 `match` 实际不含 `capacity/confirmedCount/signupDeadline`，故比赛邀请额外请求公开比赛详情；请求失败时名额显示 `—`，不影响接受。1021 转正用例拆到文件名排序最后的 `web.z-invite-accept.spec.ts`，避免共享种子下影响 `web-profile` 的待审核断言与 `web-team` 的名单人数；比赛邀请用例改用同为正式球员的 1001，避免 1002 在本套件内触发每手机号 10 次/分钟登录限流。
+- 验证：`pnpm -r test`（web 10 文件 93 项，invite 15 项）、`pnpm -r typecheck`、`pnpm lint`、`pnpm -r build` 通过；重放 `test-data.sql` 后 Playwright `--project=web` 39/39 全绿（2026-11-12，31.9s），其中 C07 5 条覆盖访客登录/注册 query、1021 接受比赛邀请进入 1005、1021 转正、404、过期/撤销/用尽失效文案；除 404 用例按既有惯例不断言 console error 外均无 console error。
+- 偏差：INV-01 嵌套 `match` 实际不含 `capacity/confirmedCount/signupDeadline`，故比赛邀请额外请求公开比赛详情；请求失败时名额显示 `—`，不影响接受。1021 转正用例拆到文件名排序最后的 `web.z-invite-accept.spec.ts`，避免共享种子下影响 `web-profile` 的待审核断言与 `web-team` 的名单人数；比赛邀请用例改用 1021（待审核）验证比赛邀请对 PENDING 同样放行且不改变账号状态，避开 1002/1001 在共享套件内触发每手机号 10 次/分钟登录限流。
 - 未执行：后端、DB、`schema.sql`/Flyway、共享类型与登录页改动；未新增接口、权限码或错误码。

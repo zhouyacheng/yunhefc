@@ -275,7 +275,7 @@ async function onAvatarChange(event: Event): Promise<void> {
   const file = input.files?.[0];
   input.value = '';
   const player = editDialog.player;
-  if (!file || !player) {
+  if (!file || !player || player.userId == null) {
     return;
   }
   avatarFileError.value = '';
@@ -661,12 +661,19 @@ onUnmounted(() => {
         <el-input
           v-model="filters.name"
           class="filter-input"
+          maxlength="32"
           placeholder="搜索球员姓名"
           clearable
         />
       </el-form-item>
       <el-form-item label="地区">
-        <el-input v-model="filters.region" class="filter-input" placeholder="搜索地区" clearable />
+        <el-input
+          v-model="filters.region"
+          class="filter-input"
+          maxlength="64"
+          placeholder="搜索地区"
+          clearable
+        />
       </el-form-item>
       <el-form-item label="类型">
         <el-select v-model="filters.type" class="filter-select" placeholder="全部" clearable>
@@ -861,7 +868,7 @@ onUnmounted(() => {
       :close-on-press-escape="!editDialog.submitting"
       @closed="resetAvatarState(null)"
     >
-      <div class="avatar-editor">
+      <div v-if="editDialog.player?.userId != null" class="avatar-editor">
         <button
           type="button"
           class="avatar-picker"
@@ -900,6 +907,7 @@ onUnmounted(() => {
           <p v-if="avatarUploadError" class="dialog-error">{{ avatarUploadError }}</p>
         </div>
       </div>
+      <p v-else class="muted small">无账号球员不可上传头像。</p>
 
       <el-form label-width="88px">
         <el-form-item label="姓名">

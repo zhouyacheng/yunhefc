@@ -1,8 +1,8 @@
--- 云河FC 测试数据（20 名球员及关联数据）
+-- 云河FC 测试数据（测试球员及关联数据）
 -- 适用：MySQL 8.4，先执行 schema.sql；测试库使用，不要在生产执行。
 -- 枚举字段使用 04 §2.4 的数字编码；角色 code 仍为字符串 GUEST/PLAYER/ADMIN。
 -- 假设：球队为“云河FC”，创建/审核人为测试账号 1001；球员 1001-1015 为正式，1016-1020 为外挂。
--- 说明：仅为 1001（ADMIN）/1002（PLAYER）写入测试密码 Passw0rd!，其余账号 password_hash 为空。
+-- 说明：仅为 1001（ADMIN）/1002（PLAYER）/1022（ADMIN）/1023（PLAYER）写入测试密码 Passw0rd!，其余账号 password_hash 为空。
 
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
@@ -27,7 +27,8 @@ SET @player_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code
 SET @admin_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code = 'ADMIN' LIMIT 1);
 
 -- 账号：1001-1015 正式，1016-1020 外挂
--- 1001（ADMIN）与 1002（PLAYER）写入测试密码 Passw0rd!，供 dev profile + Playwright 冒烟登录；其余账号保留 NULL。
+-- 1001（ADMIN）、1002（PLAYER）、1022（ADMIN）与 1023（PLAYER）写入测试密码 Passw0rd!，供 dev profile + Playwright 冒烟登录；其余账号保留 NULL。
+-- 1022 为 B07 专用管理员，1023 为 B 端只读用例专用球员，分摊 AUTH-15 每手机号 10 次/分钟限流。
 INSERT INTO app_user (id, phone, password_hash, openid, status)
 VALUES
   (1001, '13910000001', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1),
@@ -49,9 +50,11 @@ VALUES
   (1017, '13910000017', NULL, NULL, 1),
   (1018, '13910000018', NULL, NULL, 1),
   (1019, '13910000019', NULL, NULL, 1),
-  (1020, '13910000020', NULL, NULL, 1)
+  (1020, '13910000020', NULL, NULL, 1),
+  (1022, '13910000022', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1),
+  (1023, '13910000023', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1)
 ON DUPLICATE KEY UPDATE
-  password_hash = IF(id IN (1001, 1002), VALUES(password_hash), password_hash);
+  password_hash = IF(id IN (1001, 1002, 1022, 1023), VALUES(password_hash), password_hash);
 
 -- 球员档案：正式球员号码 21-35 唯一，外挂 36-40 不参与正式唯一约束
 INSERT IGNORE INTO player
@@ -76,7 +79,9 @@ VALUES
   (1017, @team_id, 1017, '测试外挂02', 37, 0, 2, '[]', '苏州', NULL, 3),
   (1018, @team_id, 1018, '测试外挂03', 38, 0, 1, '[]', '上海', NULL, 2),
   (1019, @team_id, 1019, '测试外挂04', 39, 0, 0, '[]', '上海', NULL, 3),
-  (1020, @team_id, 1020, '测试外挂05', 40, 0, 2, '[]', '南通', NULL, 2);
+  (1020, @team_id, 1020, '测试外挂05', 40, 0, 2, '[]', '南通', NULL, 2),
+  (1022, @team_id, 1022, '测试管理员02', 47, 1, 0, '[]', '上海', NULL, 4),
+  (1023, @team_id, 1023, '测试只读球员', 48, 1, 1, '[]', '上海', NULL, 3);
 
 -- 用户角色：正式 -> PLAYER，外挂 -> GUEST；1001 叠加 ADMIN，用于后台审核/管理联调
 INSERT IGNORE INTO user_role (user_id, role_id)
@@ -86,6 +91,8 @@ INSERT IGNORE INTO user_role (user_id, role_id)
 SELECT u.id, @guest_role_id FROM app_user u WHERE u.id BETWEEN 1016 AND 1020;
 
 INSERT IGNORE INTO user_role (user_id, role_id) VALUES (1001, @admin_role_id);
+INSERT IGNORE INTO user_role (user_id, role_id)
+VALUES (1022, @player_role_id), (1022, @admin_role_id), (1023, @player_role_id);
 
 -- B07 微信列：1003 预置已绑定状态；重放保持幂等，供球员页展示与解绑入口联调。
 UPDATE app_user SET openid = 'seed-openid-b07-1003' WHERE id = 1003;

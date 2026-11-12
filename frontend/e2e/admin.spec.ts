@@ -316,9 +316,9 @@ test('B 端：B05 选阵型并排满 8 人首发后保存，C03 只读查看', a
   await expect(page.getByText('阵容已保存')).toBeVisible();
   await expect(page.locator('.lineup-version')).toContainText('v');
 
-  // C 端正式球员只读查看同一场比赛的阵容。
+  // C 端正式球员只读查看同一场比赛的阵容（1023 为 B 端套件专用，避开 1002 限流）。
   await page.goto('http://localhost:5273/login');
-  await page.getByPlaceholder('请输入手机号').fill('13910000002');
+  await page.getByPlaceholder('请输入手机号').fill('13910000023');
   await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
   await page.getByRole('button', { name: '登录' }).click();
   await expect(page).toHaveURL(/\/matches$/);
@@ -336,7 +336,7 @@ test('B 端：只读球员可查看分组但不能生成', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 
   await page.goto('/admin/login');
-  await page.getByPlaceholder('请输入手机号').fill('13910000002');
+  await page.getByPlaceholder('请输入手机号').fill('13910000023');
   await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
   await page.getByRole('button', { name: '登录' }).click();
   await expect(page.locator('.admin-sidebar')).toBeVisible();
@@ -420,11 +420,11 @@ test('B 端：B04 录入/编辑事件并保存比分', async ({ page }) => {
 
 test('B 端：侧栏按 sections 过滤，直访无权限分区显示 403', async ({ page }) => {
   await page.goto('/admin/login');
-  await page.getByPlaceholder('请输入手机号').fill('13910000002');
+  await page.getByPlaceholder('请输入手机号').fill('13910000023');
   await page.getByPlaceholder('请输入密码').fill('Passw0rd!');
   await page.getByRole('button', { name: '登录' }).click();
 
-  // 本期不设工作台：登录后落首个有权限分区；1002 仅有报名/考勤、阵容、分组。
+  // 本期不设工作台：登录后落首个有权限分区；1023 仅有报名/考勤、阵容、分组。
   await expect(page).toHaveURL(/\/admin\/registrations$/);
   await expect(page.getByRole('menuitem', { name: '报名/考勤' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: '比赛管理' })).toHaveCount(0);
@@ -542,7 +542,8 @@ test('B 端：B02 只读权限不显示写操作', async ({ page }) => {
 
 test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
   const errors = collectConsoleErrors(page);
-  await loginAdmin(page);
+  // 1022 为 B07 专用管理员，避免与主套件共享 1001 的 AUTH-15 登录限流。
+  await loginAdmin(page, '13910000022');
 
   await page.goto('/admin/players');
   await expect(page).toHaveURL(/\/admin\/players$/);

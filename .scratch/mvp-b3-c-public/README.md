@@ -376,7 +376,7 @@ B3 不触碰后端，`mvn verify` 不是本批门禁；若票 02 需要补 `06` 
 | 票 | 文件 | 提交 | 状态 |
 |---|---|---|---|
 | 01 | 01-web-shell-tabs-errors.md | `9929a23` | resolved |
-| 02 | 02-c01-home.md | — | ready-for-agent |
+| 02 | 02-c01-home.md | `0c3969b` | resolved |
 | 03 | 03-c02-schedule-filters.md | — | ready-for-agent |
 | 04 | 04-c04-team.md | — | ready-for-agent |
 | 05 | 05-c05-auth-pages.md | — | ready-for-agent |

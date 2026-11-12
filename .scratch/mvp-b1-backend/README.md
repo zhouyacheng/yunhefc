@@ -252,7 +252,7 @@ M01–M08 已让球队完成建赛、报名、考勤、事件比分、统计、�
 
 ### 8. 真实短信与微信（06）
 
-- 新增 `SmsSender` 端口与 `MarketplaceSmsSender`（阿里云云市场 HTTP + APPCODE）；配置键 `SMS_APPCODE`、`SMS_SIGN_NAME`、`SMS_TEMPLATE_ID`（只从环境变量读取，不进 GitHub Secrets）。
+- 新增 `SmsSender` 端口与 `MarketplaceSmsSender`（阿里云云市场 HTTP + APPCODE）；配置键 `SMS_ENDPOINT`、`SMS_APPCODE`、`SMS_SIGN_ID`、`SMS_TEMPLATE_ID`（只从环境变量读取，不进 GitHub Secrets）。协议按参考实现 gyytz：query 参数 `mobile/templateId/smsSignId/param`，响应 `code=0` 成功；票面 `SMS_SIGN_NAME` 以实际产品的 `SMS_SIGN_ID` 落地。
 - 一个签名 + 一个含 `${code}` 的通用模板，REGISTER/RESET/BIND 共用；用途只影响 Redis key 与业务校验。
 - `SmsCodeService.send` 改为：生成 6 位数字码 → 调 `SmsSender` → 成功后才写 Redis（TTL 300 秒）；失败不落码、不自动重试。mock 开启时跳过真实发送并写 `mockCode`。
 - 校验语义不变：6 位、TTL 300 秒、5 次失败作废；Redis key 与 attempts 结构保持现状，避免现有测试与调用方变化。
@@ -371,7 +371,7 @@ M01–M08 已让球队完成建赛、报名、考勤、事件比分、统计、�
 | 03 | `ead23d6` | 已交付 |
 | 04 | `54f5396` | 已交付 |
 | 05 | `a504529` | 已交付 |
-| 06 | — | — |
+| 06 | `e895752` | 已交付 |
 | 07 | `de1c59b` | 已交付 |
 | 08 | `5cb399a` | 已交付 |
 | 09 | `61842e8` | 已交付 |

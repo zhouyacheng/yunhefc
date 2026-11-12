@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -80,6 +81,14 @@ public class AuditLogApplicationService {
         Page<AuditLog> result = auditLogMapper.selectPage(new Page<>(page.page(), page.pageSize()), wrapper);
         List<AuditLogView> items = result.getRecords().stream().map(this::toView).toList();
         return PageResponse.of(items, result.getTotal(), page.page(), page.pageSize());
+    }
+
+    /**
+     * 年度冷备按 id 升序读取区间内全部原文行，不应用 is_deleted 过滤。
+     */
+    @Transactional(readOnly = true)
+    public List<AuditLog> exportRows(Instant from, Instant to) {
+        return auditLogMapper.selectForExport(from, to);
     }
 
     private AuditLogView toView(AuditLog log) {

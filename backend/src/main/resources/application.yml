@@ -55,6 +55,9 @@ spring:
 
 yunhefc:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:5173}
+  audit:
+    export:
+      enabled: ${AUDIT_EXPORT_ENABLED:false}
   sms:
     mock-enabled: ${SMS_MOCK_ENABLED:false}
     mock-code: ${SMS_MOCK_CODE:123456}

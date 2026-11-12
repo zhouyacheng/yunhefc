@@ -42,6 +42,10 @@ public class InMemoryOssGateway implements OssGateway {
         return object == null ? null : object.contentType();
     }
 
+    public void deleteObject(String objectKey) {
+        objects.remove(objectKey);
+    }
+
     public void shutdown() {
         // 内存实现无外部资源。
     }

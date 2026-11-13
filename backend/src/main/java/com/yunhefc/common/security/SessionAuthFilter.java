@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -26,26 +27,31 @@ public class SessionAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        HttpSession session = request.getSession(false);
-        if (session != null) {
-            String key = request.getRequestURI().startsWith("/api/v1/b/")
-                    ? SessionKeys.B_USER_ID
-                    : SessionKeys.C_USER_ID;
-            Object value = session.getAttribute(key);
-            if (value instanceof Long userId) {
-                userAccessPort.load(userId).ifPresentOrElse(
-                        principal -> authenticate(principal, request),
-                        () -> {
-                            // 账号已注销或不存在：清除会话中可能残留的 SecurityContext 并立即失效
-                            SecurityContextHolder.clearContext();
-                            session.invalidate();
-                        });
+        try {
+            HttpSession session = request.getSession(false);
+            if (session != null) {
+                String key = request.getRequestURI().startsWith("/api/v1/b/")
+                        ? SessionKeys.B_USER_ID
+                        : SessionKeys.C_USER_ID;
+                Object value = session.getAttribute(key);
+                if (value instanceof Long userId) {
+                    userAccessPort.load(userId).ifPresentOrElse(
+                            principal -> authenticate(principal, request),
+                            () -> {
+                                // 账号已注销或不存在：清除会话中可能残留的 SecurityContext 并立即失效
+                                SecurityContextHolder.clearContext();
+                                session.invalidate();
+                            });
+                }
             }
+            chain.doFilter(request, response);
+        } finally {
+            MDC.remove("userId");
         }
-        chain.doFilter(request, response);
     }
 
     private void authenticate(AuthPrincipal principal, HttpServletRequest request) {
+        MDC.put("userId", String.valueOf(principal.userId()));
         var authorities = principal.permissions().stream()
                 .map(SimpleGrantedAuthority::new)
                 .toList();

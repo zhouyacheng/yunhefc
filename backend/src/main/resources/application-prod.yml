@@ -1,0 +1,69 @@
+# 生产环境：RDS 私网 + Redis 密码 + 关闭 Flyway；不安全配置由 ProdStartupValidator 启动失败。
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD:}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 5000
+      # 低于 RDS wait_timeout，避免连接被服务端先行回收。
+      max-lifetime: 1800000
+  flyway:
+    enabled: false
+  data:
+    redis:
+      host: ${REDIS_HOST:redis}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:kafka:9092}
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
+
+server:
+  forward-headers-strategy: framework
+  shutdown: graceful
+  error:
+    include-message: never
+    include-binding-errors: never
+    include-stacktrace: never
+    include-exception: false
+    whitelabel:
+      enabled: false
+
+yunhefc:
+  session:
+    cookie-secure: ${SESSION_COOKIE_SECURE:false}
+    cookie-domain: ${SESSION_COOKIE_DOMAIN:}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        readiness:
+          include: readinessState,db,redis
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+logging:
+  level:
+    root: INFO
+  structured:
+    json:
+      context:
+        # 把 MDC 中的 requestId/userId 写入 ECS JSON。
+        include: true

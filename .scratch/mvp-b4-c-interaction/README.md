@@ -1,6 +1,6 @@
 # B4 C-B 互动与微信 — 实施规格
 
-Status: ready-for-agent
+Status: resolved（2026-11-13）
 Type: spec
 
 事实源：`.scratch/mvp-release/batches.md` §B4/§1/§4/§6；决策票 `.scratch/mvp-release/issues/11-grilling-c-end-pages.md`、`14-grilling-sms-wechat.md`、`20-grilling-b02-depth.md`、`21-grilling-wechat-binding.md`；`docs/design/02.页面结构与交互设计.md` §2.1/§5.3/§5.5/§5.6/§5.8、§7.1–§7.3；`docs/design/05.API接口设计.md` REG-01/02/04/05、ATT-01/02/03、INV-03、MAT-12/13、AUTH-07/08/09；`.scratch/mvp-b3-c-public/README.md` 交付结果；`frontend/apps/web` 现状。

@@ -1,7 +1,7 @@
 # 02 — 微信授权回调与绑定
 
 Type: implementation
-Status: ready-for-agent
+Status: resolved
 Blocked by: 无（建议排在 01 后；真机验收依赖外部公众号配置）
 
 **What to build:** 微信内用户从登录页发起静默授权，回调页完成登录或绑定手机后回到站内；老用户直接登录，已登录用户绑定当前账号；失败时有站内提示页可重试或改用手机号登录；C06 展示绑定状态并可主动绑定。后端补 AUTH-08 HTML 导航 302 与 dev/test mock 授权页，JSON 契约不变。

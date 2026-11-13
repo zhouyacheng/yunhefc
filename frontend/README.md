@@ -25,9 +25,12 @@ Vite dev 把 `/api` 代理到 `http://localhost:8080`，并去掉转发请求的
 cd backend
 DB_URL='jdbc:mysql://localhost:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8' \
 REDIS_PORT=6379 \
+AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS=1000 \
 SPRING_PROFILES_ACTIVE=dev \
 ./mvnw spring-boot:run
 ```
+
+`AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS=1000` 是跑 E2E 所需的：套件按同一账号多次登录，默认 10 次/分钟会触发 429。
 
 测试数据（含两场比赛，账号 1001/1002 的密码为 `Passw0rd!`）。在仓库根目录执行：
 

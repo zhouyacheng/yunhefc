@@ -17,6 +17,7 @@ SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run   # dev 显式开启短信/微
 | `DB_URL` | `jdbc:mysql://localhost:3306/yunhefc?...` |
 | `DB_USERNAME` / `DB_PASSWORD` | `yunhefc` / `yunhefc` |
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` |
+| `AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS` / `AUTH_LOGIN_RATE_LIMIT_WINDOW` | `10` / `1m`；登录限流（按手机号 + IP） |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
 | `SERVER_PORT` | `8080` |
 | `SMS_MOCK_ENABLED` | `false`；本地开发需显式设为 `true`。prod 下必须为 `false`，为 `true` 则启动失败；未开启 mock 时必须配置短信凭证，否则启动失败 |

@@ -11,6 +11,7 @@ import com.yunhefc.auth.dto.AuthDtos.ResetPasswordRequest;
 import com.yunhefc.auth.dto.AuthDtos.SessionResponse;
 import com.yunhefc.auth.dto.AuthDtos.SmsCodeRequest;
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.config.LoginRateLimitProperties;
 import com.yunhefc.common.ratelimit.RedisRateLimiter;
 import com.yunhefc.common.security.AuthSessionService;
 import com.yunhefc.common.security.CurrentUser;
@@ -38,6 +39,7 @@ public class AuthController {
     private final AuthService authService;
     private final AuthSessionService authSessionService;
     private final RedisRateLimiter rateLimiter;
+    private final LoginRateLimitProperties loginRateLimit;
 
     @GetMapping("/auth/csrf")
     public ApiResponse<Map<String, String>> csrf(CsrfToken token) {
@@ -65,7 +67,7 @@ public class AuthController {
                                            HttpServletRequest servletRequest,
                                            HttpServletResponse response) {
         rateLimiter.check("login:" + Hashing.sha256(request.phone()) + ":" + servletRequest.getRemoteAddr(),
-                10, Duration.ofMinutes(1));
+                loginRateLimit.maxAttempts(), loginRateLimit.window());
         AuthResult result = authService.login(request, false);
         return ApiResponse.ok(authResponse(result, SessionKeys.C_USER_ID, servletRequest, response));
     }

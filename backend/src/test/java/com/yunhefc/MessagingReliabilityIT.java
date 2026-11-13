@@ -267,7 +267,7 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andReturn();
         String url = JsonPath.read(result.getResponse().getContentAsString(), "$.data.inviteUrl");
-        return url.substring(url.indexOf("token=") + 6);
+        return url.substring(url.lastIndexOf('/') + 1);
     }
 
     private Long createRole(Cookie admin, String code) throws Exception {

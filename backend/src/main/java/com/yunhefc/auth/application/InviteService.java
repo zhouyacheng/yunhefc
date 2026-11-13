@@ -296,7 +296,7 @@ public class InviteService {
     }
 
     private String inviteUrl(String rawToken) {
-        return publicBaseUrl + "/invite.html?token=" + rawToken;
+        return publicBaseUrl + "/invite/" + rawToken;
     }
 
     private InviteLink findByToken(String rawToken) {

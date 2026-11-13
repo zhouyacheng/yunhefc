@@ -27,7 +27,8 @@ class InviteFlowIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andReturn();
         String url = JsonPath.read(invite.getResponse().getContentAsString(), "$.data.inviteUrl");
-        String token = url.substring(url.indexOf("token=") + 6);
+        assertThat(url).matches("^.*/invite/[0-9a-f]{32}$");
+        String token = url.substring(url.lastIndexOf('/') + 1);
 
         Cookie player = register("13900000062");
         mockMvc.perform(post("/api/v1/c/invites/" + token + "/accept").cookie(player).with(csrf()))

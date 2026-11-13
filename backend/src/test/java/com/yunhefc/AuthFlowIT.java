@@ -152,7 +152,7 @@ class AuthFlowIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.inviteUrl").isNotEmpty())
                 .andReturn();
         String inviteUrl = JsonPath.read(invite.getResponse().getContentAsString(), "$.data.inviteUrl");
-        String token = inviteUrl.substring(inviteUrl.indexOf("token=") + 6);
+        String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
 
         String invitedPhone = "13900000002";
         sendSms(invitedPhone, "REGISTER");

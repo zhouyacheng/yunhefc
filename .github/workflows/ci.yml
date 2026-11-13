@@ -149,6 +149,8 @@ jobs:
           WECHAT_MODE: mock
           KAFKA_LISTENER_ENABLED: "false"
           OUTBOX_ENABLED: "false"
+          # 套件按账号多次登录；避免默认 10 次/分钟限流造成 429 抖动。
+          AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: "1000"
         run: |
           set -euo pipefail
           jar="$(ls target/*.jar)"

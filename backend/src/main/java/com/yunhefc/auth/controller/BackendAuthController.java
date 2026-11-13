@@ -6,6 +6,7 @@ import com.yunhefc.auth.dto.AuthDtos.BLoginResponse;
 import com.yunhefc.auth.dto.AuthDtos.BMeView;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.config.LoginRateLimitProperties;
 import com.yunhefc.common.ratelimit.RedisRateLimiter;
 import com.yunhefc.common.security.AuthSessionService;
 import com.yunhefc.common.security.CurrentUser;
@@ -24,7 +25,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Duration;
 import java.util.Map;
 
 @RestController
@@ -35,6 +35,7 @@ public class BackendAuthController {
     private final AuthService authService;
     private final AuthSessionService authSessionService;
     private final RedisRateLimiter rateLimiter;
+    private final LoginRateLimitProperties loginRateLimit;
 
     @GetMapping("/auth/csrf")
     public ApiResponse<Map<String, String>> csrf(CsrfToken token) {
@@ -46,7 +47,7 @@ public class BackendAuthController {
                                              HttpServletRequest servletRequest,
                                              HttpServletResponse response) {
         rateLimiter.check("login:" + Hashing.sha256(request.phone()) + ":" + servletRequest.getRemoteAddr(),
-                10, Duration.ofMinutes(1));
+                loginRateLimit.maxAttempts(), loginRateLimit.window());
         AuthResult result = authService.login(request, true);
         String csrfToken = authSessionService.establish(
                 servletRequest, response, SessionKeys.B_USER_ID, result.user().id());

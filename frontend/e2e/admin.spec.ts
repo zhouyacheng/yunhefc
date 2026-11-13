@@ -376,7 +376,7 @@ test('B 端：B04 录入/编辑事件并保存比分', async ({ page }) => {
   // 1004 场进行中，1002 已确认报名；重跑脚本会软删除上一轮事件。
   await page.locator('.match-picker').click();
   await page.locator('.el-select-dropdown__item').filter({ hasText: 'M06事件联调赛' }).click();
-  await expect(page.getByText('事件推导')).toBeVisible();
+  await expect(page.locator('.score-meta').getByText('事件推导', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: '录入事件' }).click();
   const dialog = page.locator('.el-dialog');

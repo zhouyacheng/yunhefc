@@ -7,6 +7,7 @@ Status: resolved（2026-11-14）
 ## 票序
 
 - `01-blocker-fixes.md` — 全部阻断项，无依赖。
+- `02-ci-e2e-java.md` — e2e job 的 JDK 版本，无依赖。
 
 ## 约束
 

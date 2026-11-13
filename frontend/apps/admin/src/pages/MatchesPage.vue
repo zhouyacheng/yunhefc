@@ -11,21 +11,26 @@ import {
   MATCH_CREATE_ANY,
   MATCH_EDIT_ANY,
   MATCH_STATUS_ANY,
+  SETTINGS_VIEW_ANY,
   hasPermission,
 } from '@yunhefc/permissions';
 import type {
+  CapacityDefaults,
   MatchAdmin,
   MatchCreate,
   MatchSide,
   MatchType,
   MatchUpdate,
   Page,
+  SystemSettings,
 } from '@yunhefc/shared';
 import {
+  DEFAULT_CAPACITY_DEFAULTS,
   MATCH_STATUS_CANCELLED,
   MATCH_STATUS_POSTPONED,
   MATCH_STATUS_TEXT,
   MATCH_TYPE_TEXT,
+  capacityDefaults,
   formatDateTime,
   matchCancellable,
   matchCapacityError,
@@ -80,6 +85,7 @@ const session = useSessionStore();
 const canCreate = computed(() => hasPermission(session.permissions, MATCH_CREATE_ANY));
 const canEdit = computed(() => hasPermission(session.permissions, MATCH_EDIT_ANY));
 const canStatus = computed(() => hasPermission(session.permissions, MATCH_STATUS_ANY));
+const canViewSettings = computed(() => hasPermission(session.permissions, SETTINGS_VIEW_ANY));
 
 const statusOptions = Object.entries(MATCH_STATUS_TEXT).map(([value, text]) => ({
   value: String(value),
@@ -179,9 +185,9 @@ function defaultMatchForm(): MatchFormState {
     homeTeamName: '橙队',
     awayTeamName: '兰队',
     ourSide: 0,
-    capacity: 30,
-    guestCapacity: 4,
-    waitlistCapacity: 2,
+    capacity: DEFAULT_CAPACITY_DEFAULTS.capacity,
+    guestCapacity: DEFAULT_CAPACITY_DEFAULTS.guestCapacity,
+    waitlistCapacity: DEFAULT_CAPACITY_DEFAULTS.waitlistCapacity,
     includeGuests: true,
     scoreHome: 0,
     scoreAway: 0,
@@ -305,11 +311,24 @@ function onSizeChange(): void {
 
 // ---------------------------------------------------------------- dialogs
 
-function openCreate(): void {
+async function loadCapacityDefaults(): Promise<CapacityDefaults> {
+  if (!canViewSettings.value) {
+    return capacityDefaults();
+  }
+  try {
+    const result = await api.get<{ settings: SystemSettings }>('/settings');
+    return capacityDefaults(result.settings);
+  } catch {
+    return capacityDefaults();
+  }
+}
+
+async function openCreate(): Promise<void> {
   if (!canCreate.value) {
     return;
   }
-  resetMatchForm();
+  const defaults = await loadCapacityDefaults();
+  resetMatchForm({ ...defaultMatchForm(), ...defaults });
   matchDialog.mode = 'create';
   matchDialog.match = null;
   matchDialog.error = '';

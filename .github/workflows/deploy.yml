@@ -120,9 +120,8 @@ jobs:
           set -euo pipefail
           install -d "/opt/yunhefc/releases/$1"
           REMOTE
-          rsync -az -e ssh \
-            deploy/docker-compose.yml deploy/docker-compose.prod.yml \
-            "yunhefc-deploy:/opt/yunhefc/releases/$SHA7/"
+          rsync -az --exclude '.env' -e ssh \
+            deploy/ "yunhefc-deploy:/opt/yunhefc/releases/$SHA7/"
           ssh yunhefc-deploy sh -s -- "$SHA7" <<'REMOTE'
           set -euo pipefail
           printf 'IMAGE_TAG=sha-%s\n' "$1" > "/opt/yunhefc/releases/$1/release.env"

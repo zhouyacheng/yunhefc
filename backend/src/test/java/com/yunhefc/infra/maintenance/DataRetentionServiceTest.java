@@ -35,18 +35,21 @@ class DataRetentionServiceTest {
     }
 
     @Test
-    void logsDeletedCountAtInfo() {
+    void logsDeletedCountAtDebug() {
         StubTask notification = new StubTask("notification", 1000, 500);
         ListAppender<ILoggingEvent> appender = attachAppender();
+        Level previous = LOGGER.getLevel();
+        LOGGER.setLevel(Level.DEBUG);
 
         try {
             new DataRetentionService(List.of(notification), CLOCK).cleanup();
         } finally {
+            LOGGER.setLevel(previous);
             LOGGER.detachAppender(appender);
         }
 
         assertThat(appender.list).anySatisfy(event -> {
-            assertThat(event.getLevel()).isEqualTo(Level.INFO);
+            assertThat(event.getLevel()).isEqualTo(Level.DEBUG);
             assertThat(event.getFormattedMessage())
                     .contains("task=notification", "deleted=1500");
         });

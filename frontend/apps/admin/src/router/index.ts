@@ -37,6 +37,9 @@ function sectionComponent(section: AdminSection) {
   if (section === 'audit') {
     return () => import('../pages/AuditLogPage.vue');
   }
+  if (section === 'invites') {
+    return () => import('../pages/InvitesPage.vue');
+  }
   return () => import('../pages/SectionPage.vue');
 }
 

@@ -1112,3 +1112,93 @@ test('B 端：B10 操作日志筛选、展开与脱敏快照', async ({ page }) 
 
   expect(errors).toEqual([]);
 });
+
+test('B 端：B11 创建入队邀请、复制链接并撤销', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = collectConsoleErrors(page);
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
+  // 1022 为管理端专用管理员；B11 位于套件末尾，已接近 AUTH-15 限流，按服务端提示重试。
+  await loginAdminRetrying(page, '13910000022');
+
+  await page.goto('/admin/invites');
+  await expect(page).toHaveURL(/\/admin\/invites$/);
+  await expect(page.getByRole('heading', { level: 2, name: '邀请管理' })).toBeVisible();
+
+  await page.getByRole('button', { name: '新建邀请' }).click();
+  const dialog = page.locator('.el-dialog').filter({ hasText: '新建邀请' });
+  await expect(dialog).toBeVisible();
+  // 默认入队邀请、7 天、不限次数，直接提交即可。
+  await expect(dialog.getByRole('radio', { name: '入队邀请' })).toBeChecked();
+
+  const created = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/b/invites' &&
+      response.request().method() === 'POST',
+  );
+  const refreshed = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/b/invites' &&
+      response.request().method() === 'GET',
+  );
+  await dialog.getByRole('button', { name: '创建邀请' }).click();
+  const response = await created;
+  expect(response.ok()).toBe(true);
+  expect(response.request().headers()['idempotency-key']).toBeTruthy();
+  // 等创建后的列表刷新落定，避免后续断言落在旧行上。
+  expect((await refreshed).ok()).toBe(true);
+
+  const resultDialog = page.locator('.el-dialog').filter({ hasText: '邀请已创建' });
+  await expect(resultDialog).toBeVisible();
+  const urlInput = resultDialog.locator('input');
+  const inviteUrl = await urlInput.inputValue();
+  expect(inviteUrl).toMatch(/\/invite\/[0-9a-f]{32}$/);
+
+  await resultDialog.getByRole('button', { name: '复制链接' }).click();
+  await expect(resultDialog.getByRole('button', { name: '已复制' })).toBeVisible();
+  const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+  expect(clipboard).toBe(inviteUrl);
+
+  await resultDialog.getByRole('button', { name: '关闭', exact: true }).click();
+  await expect(resultDialog).toBeHidden();
+
+  // 列表按 id 倒序，新创建的邀请在第一行；列表行不提供复制。
+  const firstRow = page.locator('.el-table__row').first();
+  await expect(firstRow).toContainText('入队邀请');
+  await expect(firstRow.locator('.el-tag')).toHaveText('有效');
+  await expect(firstRow.getByRole('button', { name: '复制' })).toHaveCount(0);
+
+  await firstRow.getByRole('button', { name: '撤销' }).click();
+  const box = page.locator('.el-message-box');
+  await expect(box).toBeVisible();
+  await box.getByRole('button', { name: '撤销' }).click();
+  await expect(page.getByText('邀请已撤销')).toBeVisible();
+  await expect(firstRow.locator('.el-tag')).toHaveText('已撤销');
+  await expect(firstRow.getByRole('button', { name: '撤销' })).toBeDisabled();
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B11 比赛邀请未选比赛时阻止提交', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = collectConsoleErrors(page);
+  const posts: string[] = [];
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/b/invites' && request.method() === 'POST') {
+      posts.push(request.url());
+    }
+  });
+  await loginAdminRetrying(page, '13910000022');
+
+  await page.goto('/admin/invites');
+  await page.getByRole('button', { name: '新建邀请' }).click();
+  const dialog = page.locator('.el-dialog').filter({ hasText: '新建邀请' });
+  // Element Plus 的 radio input 不可见，点 label 才能触发。
+  await dialog.locator('.el-radio').filter({ hasText: '比赛邀请' }).click();
+  await expect(dialog.getByText('关联比赛')).toBeVisible();
+
+  await dialog.getByRole('button', { name: '创建邀请' }).click();
+  await expect(dialog.locator('.dialog-error')).toHaveText('请选择比赛');
+  expect(posts).toEqual([]);
+
+  expect(errors).toEqual([]);
+});

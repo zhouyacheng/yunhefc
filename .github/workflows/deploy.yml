@@ -1,0 +1,155 @@
+name: deploy
+
+# 手动发布：只接受属于 origin/main 的 7 位 sha，经 Environment 审批后 SSH 执行 release.sh。
+# 失败不自动回滚；回滚按 RUNBOOK §2 手动执行。
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "要发布的 main commit（7 位小写十六进制）"
+        required: true
+        type: string
+      note:
+        description: "发布备注（可选）"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # 人工批准入口：在仓库 Settings → Environments 配置 required reviewers 与 main-only。
+    environment: production
+    env:
+      SHA7: ${{ inputs.sha }}
+      NOTE: ${{ inputs.note }}
+      IMAGE_TAG: sha-${{ inputs.sha }}
+      ACR_REGISTRY: ${{ vars.ACR_REGISTRY }}
+      ACR_NAMESPACE: ${{ vars.ACR_NAMESPACE }}
+      ECS_HOST: ${{ vars.ECS_HOST }}
+      ECS_USER: ${{ vars.ECS_USER || 'deploy' }}
+      ECS_PORT: ${{ vars.ECS_PORT || '22' }}
+    steps:
+      - name: Validate inputs and variables
+        run: |
+          set -euo pipefail
+          echo "STAGE=validate" >> "$GITHUB_ENV"
+          [[ "$SHA7" =~ ^[0-9a-f]{7}$ ]] \
+            || { echo "::error::sha 必须为 7 位小写十六进制"; exit 1; }
+          for name in ACR_REGISTRY ACR_NAMESPACE ECS_HOST; do
+            [[ -n "${!name}" ]] \
+              || { echo "::error::仓库变量 $name 未配置"; exit 1; }
+          done
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Verify commit belongs to origin/main
+        run: |
+          set -euo pipefail
+          echo "STAGE=verify-commit" >> "$GITHUB_ENV"
+          git fetch --prune origin main
+          full="$(git rev-parse --verify --quiet "${SHA7}^{commit}")" \
+            || { echo "::error::commit $SHA7 不存在"; exit 1; }
+          git merge-base --is-ancestor "$full" origin/main \
+            || { echo "::error::commit $SHA7 不属于 origin/main"; exit 1; }
+          echo "COMMIT_SHA=$full" >> "$GITHUB_ENV"
+          git checkout --detach "$full"
+
+      - name: Verify both images exist in ACR
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          set -euo pipefail
+          echo "STAGE=verify-images" >> "$GITHUB_ENV"
+          [[ -n "$ACR_USERNAME" && -n "$ACR_PASSWORD" ]] \
+            || { echo "::error::缺少 ACR_USERNAME/ACR_PASSWORD"; exit 1; }
+          printf '%s' "$ACR_PASSWORD" \
+            | docker login "$ACR_REGISTRY" --username "$ACR_USERNAME" --password-stdin
+          for name in yunhefc-backend yunhefc-nginx; do
+            image="$ACR_REGISTRY/$ACR_NAMESPACE/$name:$IMAGE_TAG"
+            docker manifest inspect "$image" >/dev/null \
+              || { echo "::error::镜像不存在: $image"; exit 1; }
+            echo "镜像可用: $image"
+          done
+
+      # 固定主机指纹（不用 ssh-keyscan），非 root deploy 用户。
+      - name: Configure SSH
+        env:
+          ECS_SSH_KEY: ${{ secrets.ECS_SSH_KEY }}
+          ECS_KNOWN_HOSTS: ${{ secrets.ECS_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          echo "STAGE=ssh" >> "$GITHUB_ENV"
+          [[ -n "$ECS_SSH_KEY" && -n "$ECS_KNOWN_HOSTS" ]] \
+            || { echo "::error::缺少 ECS_SSH_KEY/ECS_KNOWN_HOSTS"; exit 1; }
+          install -m 700 -d "$HOME/.ssh"
+          printf '%s\n' "$ECS_SSH_KEY" > "$HOME/.ssh/id_deploy"
+          chmod 600 "$HOME/.ssh/id_deploy"
+          printf '%s\n' "$ECS_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+          cat > "$HOME/.ssh/config" <<EOF
+          Host yunhefc-deploy
+            HostName $ECS_HOST
+            User $ECS_USER
+            Port $ECS_PORT
+            IdentityFile $HOME/.ssh/id_deploy
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+            UserKnownHostsFile $HOME/.ssh/known_hosts
+          EOF
+          chmod 600 "$HOME/.ssh/config"
+
+      - name: Sync release snapshot
+        run: |
+          set -euo pipefail
+          echo "STAGE=sync" >> "$GITHUB_ENV"
+          ssh yunhefc-deploy sh -s -- "$SHA7" <<'REMOTE'
+          set -euo pipefail
+          install -d "/opt/yunhefc/releases/$1"
+          REMOTE
+          rsync -az -e ssh \
+            deploy/docker-compose.yml deploy/docker-compose.prod.yml \
+            "yunhefc-deploy:/opt/yunhefc/releases/$SHA7/"
+          ssh yunhefc-deploy sh -s -- "$SHA7" <<'REMOTE'
+          set -euo pipefail
+          printf 'IMAGE_TAG=sha-%s\n' "$1" > "/opt/yunhefc/releases/$1/release.env"
+          chmod 600 "/opt/yunhefc/releases/$1/release.env"
+          REMOTE
+
+      - name: Run release.sh
+        run: |
+          set -euo pipefail
+          echo "STAGE=release" >> "$GITHUB_ENV"
+          ssh yunhefc-deploy /opt/yunhefc/bin/release.sh --sha "$SHA7"
+
+      # 钉钉/企业微信群机器人通用格式；webhook 失败不影响 job 结果。
+      - name: Notify webhook
+        if: always()
+        env:
+          DEPLOY_WEBHOOK_URL: ${{ secrets.DEPLOY_WEBHOOK_URL }}
+          RESULT: ${{ job.status }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -u
+          if [[ -z "${DEPLOY_WEBHOOK_URL:-}" ]]; then
+            echo "未配置 DEPLOY_WEBHOOK_URL，跳过通知"
+            exit 0
+          fi
+          content="云河FC deploy ${RESULT:-unknown} | stage=${STAGE:-unknown} | tag=${IMAGE_TAG:-unknown} | actor=${ACTOR:-unknown} | note=${NOTE:-无} | ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          payload="$(jq -cn --arg c "$content" '{msgtype:"text",text:{content:$c}}')"
+          curl -fsS --max-time 10 -H 'Content-Type: application/json' \
+            -d "$payload" "$DEPLOY_WEBHOOK_URL" \
+            || echo "webhook 通知失败（不影响 job 结果）"

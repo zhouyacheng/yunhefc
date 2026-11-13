@@ -1,0 +1,260 @@
+name: ci
+
+# PR 三项必需检查；main 额外跑真实后端 E2E 并产出 sha-<7> 双镜像。
+# 无 tag 发布、无路径过滤：必需检查不能因路径过滤被静默跳过。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# PR 同分支新推送取消旧运行；main 不取消，避免镜像/E2E 半途中断。
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  NODE_VERSION: "24"
+  PNPM_VERSION: "12.16.1"
+
+jobs:
+  prototype:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Syntax check
+        run: |
+          set -euo pipefail
+          for f in prototype/assets/js/*.js; do
+            node --check "$f"
+          done
+
+  backend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Verify (unit + integration)
+        working-directory: backend
+        run: ./mvnw -B -ntp verify
+      # main 上产出唯一的 boot jar，供 e2e 与 images 复用，避免重复构建。
+      - name: Upload boot jar
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+          if-no-files-found: error
+          retention-days: 7
+
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Build
+        run: pnpm build
+      - name: Test
+        run: pnpm test
+
+  e2e:
+    # 仅在 main：真实后端 + MySQL 8.4 + Redis 6.2.24，非 PR 必需检查。
+    if: github.event_name == 'push'
+    needs: backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: yunhefc
+          MYSQL_USER: yunhefc
+          MYSQL_PASSWORD: yunhefc
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+      redis:
+        image: redis:6.2.24
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - name: Install frontend deps
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Start backend (dev profile)
+        working-directory: backend
+        env:
+          SPRING_PROFILES_ACTIVE: dev
+          DB_URL: jdbc:mysql://127.0.0.1:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8
+          DB_USERNAME: yunhefc
+          DB_PASSWORD: yunhefc
+          REDIS_HOST: 127.0.0.1
+          REDIS_PORT: "6379"
+          SMS_MOCK_ENABLED: "true"
+          OSS_MODE: mock
+          WECHAT_MODE: mock
+          KAFKA_LISTENER_ENABLED: "false"
+          OUTBOX_ENABLED: "false"
+        run: |
+          set -euo pipefail
+          jar="$(ls target/*.jar)"
+          nohup java -jar "$jar" > "$RUNNER_TEMP/backend.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/backend.pid"
+      - name: Wait for backend health
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 180))
+          while ((SECONDS < deadline)); do
+            if curl -fsS --max-time 3 http://127.0.0.1:8080/actuator/health \
+                | grep -q '"status":"UP"'; then
+              echo "backend ready after ${SECONDS}s"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::backend 在 180s 内未就绪"
+          cat "$RUNNER_TEMP/backend.log"
+          exit 1
+      # Flyway 已在后端启动时建表；种子可重复执行，重跑会复位 1021 等用例状态。
+      - name: Seed test data
+        run: |
+          set -euo pipefail
+          docker run --rm -i --network host -e MYSQL_PWD=yunhefc \
+            mysql:8.4 mysql -h 127.0.0.1 -P 3306 -u yunhefc yunhefc \
+            < scripts/sql/test-data.sql
+      - name: Run Playwright E2E
+        working-directory: frontend
+        env:
+          CI: "1"
+        run: pnpm test:e2e
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            frontend/test-results
+            frontend/playwright-report
+          if-no-files-found: ignore
+          retention-days: 7
+
+  images:
+    # main 合并后产出不可变双镜像：同一 sha-<7>，linux/amd64，禁止 latest。
+    if: github.event_name == 'push'
+    needs: [backend, frontend, e2e]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-jar
+          path: backend/target
+      - name: Resolve image tag
+        run: echo "IMAGE_TAG=sha-${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+      - name: Validate registry variables
+        env:
+          ACR_REGISTRY: ${{ vars.ACR_REGISTRY }}
+          ACR_NAMESPACE: ${{ vars.ACR_NAMESPACE }}
+          PUBLIC_DOMAIN: ${{ vars.PUBLIC_DOMAIN }}
+        run: |
+          set -euo pipefail
+          for name in ACR_REGISTRY ACR_NAMESPACE PUBLIC_DOMAIN; do
+            [[ -n "${!name}" ]] || { echo "::error::仓库变量 $name 未配置"; exit 1; }
+          done
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/backend.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ vars.ACR_REGISTRY }}/${{ vars.ACR_NAMESPACE }}/yunhefc-backend:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - name: Build and push nginx image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/web.Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ vars.ACR_REGISTRY }}/${{ vars.ACR_NAMESPACE }}/yunhefc-nginx:${{ env.IMAGE_TAG }}
+          build-args: |
+            ADMIN_BASE_URL=/
+            VITE_WEB_URL=https://www.${{ vars.PUBLIC_DOMAIN }}
+            VITE_ADMIN_URL=https://admin.${{ vars.PUBLIC_DOMAIN }}
+          cache-from: type=gha,scope=nginx
+          cache-to: type=gha,mode=max,scope=nginx
+      # 两仓库都推送成功才算该 tag 完整。
+      - name: Verify manifests
+        env:
+          ACR_REGISTRY: ${{ vars.ACR_REGISTRY }}
+          ACR_NAMESPACE: ${{ vars.ACR_NAMESPACE }}
+        run: |
+          set -euo pipefail
+          for name in yunhefc-backend yunhefc-nginx; do
+            image="$ACR_REGISTRY/$ACR_NAMESPACE/$name:$IMAGE_TAG"
+            docker manifest inspect "$image" >/dev/null
+            echo "manifest 可用: $image"
+          done

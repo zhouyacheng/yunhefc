@@ -10,7 +10,10 @@ export default defineConfig({
   workers: 1,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 1 : 0,
-  reporter: [['list']],
+  // CI 额外产出 HTML 报告，供失败时上传；本地保持轻量 list。
+  reporter: process.env.CI
+    ? [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]
+    : [['list']],
   use: {
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

@@ -1,7 +1,7 @@
 # 云河FC 部署与运维 Runbook
 
 适用：单 ECS（2C2G）+ 阿里云 RDS MySQL 8.4 + Compose（backend / Kafka / Redis / Nginx）。
-事实源：`docs/design/03.整体架构设计.md` §6.4、§7；`.scratch/mvp-release/issues/12`、`13`、`16`、`17`。
+事实源：设计文档 03（`docs/design/03.整体架构设计.md`）§6.4、§7；`.scratch/mvp-release/issues/12`、`13`、`16`、`17`。
 
 > 生产密钥只放 ECS `/opt/yunhefc/.env`（600），同一份内容在密码管理器离线保管；不入库、不进 GitHub Secrets。
 
@@ -330,7 +330,64 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 
 ## 5. 已知未自动化项
 
-- `deploy.yml`、镜像构建与分支保护归 CI/CD 票；本 runbook 只描述 ECS 侧操作。
+- 分支保护、Environment 审批人、仓库变量与 Secrets 需在 GitHub 设置中配置（见 §6.5）；workflow 本身见 `.github/workflows/`。
 - 迁移文件不随 release 目录下发，发布前需从目标 commit 复制（见 §1.3）。
 - 证书续期、RDS 备份新鲜度检查、审计补导、FAILED Outbox 处置均为人工执行。
 - 不做恢复演练、不做依赖漏洞扫描、无 CSP、无全站基础限流（残余风险见 `docs/design/06.设计方案评审结果.md` §50）。
+
+---
+
+## 6. CI/CD 流水线
+
+事实源：`.github/workflows/ci.yml`、`.github/workflows/deploy.yml`、`.scratch/mvp-release/issues/13-grilling-ci-cd.md`。
+分支保护、Environment 审批、仓库变量与 Secrets 是 GitHub 侧设置，无法入库，属于上线外部前置（§6.5）。
+
+### 6.1 PR 门禁与 main 流水线
+
+| 事件 | job | 超时 | 内容 |
+|---|---|---|---|
+| `pull_request` | `prototype` | 5 min | 8 个原型 JS 逐个 `node --check` |
+| `pull_request` | `backend` | 20 min | temurin 21 + Maven 缓存，`./mvnw -B -ntp verify`（含 `*IT`，Testcontainers 需要 runner 的 Docker） |
+| `pull_request` | `frontend` | 15 min | pnpm 12.16.1 / Node 24：`install --frozen-lockfile` → `typecheck` → `build` → `test` |
+| `push` main | `e2e` | 20 min | 依赖 `backend`；MySQL 8.4 + Redis 6.2.24 service + 真实后端 |
+| `push` main | `images` | 20 min | 依赖 `backend`/`frontend`/`e2e`；推送 ACR 双镜像 |
+
+- 无 tag 发布、无路径过滤；PR 的三项检查均为必需检查，失败即阻断合并（分支保护见 §6.3）。
+- PR 并发组 `ci-<ref>` 取消旧运行；main 不取消，避免镜像/E2E 半途中断。
+- `e2e`：下载 main 的 boot jar，以 `dev` profile 启动并轮询 `/actuator/health` ≤180s；注入 `SMS_MOCK_ENABLED=true`、`OSS_MODE=mock`、`WECHAT_MODE=mock`、`KAFKA_LISTENER_ENABLED=false`、`OUTBOX_ENABLED=false`；Flyway 建表后重放 `scripts/sql/test-data.sql`（可重复执行），再跑 Playwright Chromium。失败上传 `frontend/test-results` 与 `frontend/playwright-report`，保留 7 天。
+- `images`：`linux/amd64`，tag 固定为该 commit 的 `sha-<7>`（`github.sha` 前 7 位），双仓库 `yunhefc-backend`、`yunhefc-nginx`；两个 manifest 都校验存在；禁止 `latest`。构建期变量：`ADMIN_BASE_URL=/`、`VITE_WEB_URL=https://www.<PUBLIC_DOMAIN>`、`VITE_ADMIN_URL=https://admin.<PUBLIC_DOMAIN>`。
+
+### 6.2 手动发布
+
+1. 发布前按 §1.3 用迁移账号执行 `flyway migrate`，并完成 §2 的发布前检查；workflow 不执行 SQL、不补迁移。
+2. 合并到 main 后等待 `ci` 的 `e2e` 与 `images` 成功，记下该 commit 的 7 位 sha。
+3. `Actions → deploy → Run workflow`：填 `sha`（7 位小写十六进制）与可选 `note`。
+4. workflow 依次：校验 sha 格式与仓库变量 → 校验 commit 属于 `origin/main` → `docker manifest inspect` 校验双镜像 → 固定主机指纹 SSH → 把目标 commit 的 compose 快照与 `release.env`（`IMAGE_TAG=sha-<7>`）写入 `/opt/yunhefc/releases/<sha7>/` → 执行 `release.sh --sha <sha7>`。
+5. `production` Environment 的审批在 job 启动前生效；未批准不会触碰 ECS。
+6. 结束（无论成败）向 `DEPLOY_WEBHOOK_URL` 发送 result、stage、tag、actor、note 与 run URL；webhook 失败不影响 job 结果。
+7. 发布失败不自动回滚；回滚按 §2 手动执行 `release.sh --rollback`（或 `--rollback <sha7>`）。
+
+### 6.3 分支保护与 Environment（GitHub 设置）
+
+- `main`：只允许通过 PR 合并，禁止直推与强推；必需检查 `prototype`、`backend`、`frontend`。`e2e`/`images` 只在 main 运行，不设为 PR 必需检查。
+- Environment `production`：required reviewers ≥1，deployment branches 限制为 `main`。手动触发可选任意 ref，workflow 文件本身可能来自该 ref，因此这条限制必须配置，不能只依赖 job 内的 sha 校验。
+- 仓库 Actions 保持可运行；workflow 只申请 `permissions: contents: read`。
+
+### 6.4 仓库变量与 Secrets
+
+| 名称 | 类型 | 用途 |
+|---|---|---|
+| `ACR_REGISTRY` / `ACR_NAMESPACE` / `PUBLIC_DOMAIN` | Variables | 镜像地址与前端构建期域名 |
+| `ACR_USERNAME` / `ACR_PASSWORD` | Secrets | CI 推送镜像与发布前 manifest 校验（写权限账号） |
+| `ECS_HOST` / `ECS_USER` / `ECS_PORT` | Variables | 部署目标；`ECS_USER` 默认 `deploy`，`ECS_PORT` 默认 22 |
+| `ECS_SSH_KEY` / `ECS_KNOWN_HOSTS` | Secrets | SSH 私钥与固定主机指纹（不使用 `ssh-keyscan`） |
+| `DEPLOY_WEBHOOK_URL` | Secret | 发布结果通知（钉钉/企业微信群机器人通用格式）；未配置时跳过 |
+
+- 生产业务密钥只放 ECS `/opt/yunhefc/.env`（600），不进 GitHub Secrets；ECS 侧 ACR 只读凭证在 `/opt/yunhefc/env/acr.env`（600）。
+- `PUBLIC_DOMAIN` 填裸域名（如 `example.com`），用于生成 `https://www.<domain>` 与 `https://admin.<domain>`；改域名必须重新构建 nginx 镜像。
+
+### 6.5 外部前置（不在仓库内）
+
+- ACR 两个仓库、写权限与只读账号；ECS `deploy` 用户、SSH key 与 known_hosts；webhook 地址。
+- 分支保护、Environment 审批人需在 GitHub 仓库设置中配置；仓库变量/Secrets 见 §6.4。
+- 缺少 `ACR_*`/`ECS_*` 时 PR 三项检查仍可运行；main 的 `images` 会失败，`deploy` 会在校验阶段直接拒绝。

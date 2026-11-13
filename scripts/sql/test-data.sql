@@ -2,7 +2,7 @@
 -- 适用：MySQL 8.4，先执行 schema.sql；测试库使用，不要在生产执行。
 -- 枚举字段使用 04 §2.4 的数字编码；角色 code 仍为字符串 GUEST/PLAYER/ADMIN。
 -- 假设：球队为“云河FC”，创建/审核人为测试账号 1001；球员 1001-1015 为正式，1016-1020 为外挂。
--- 说明：仅为 1001（ADMIN）/1002（PLAYER）/1022（ADMIN）/1023（PLAYER）写入测试密码 Passw0rd!，其余账号 password_hash 为空。
+-- 说明：仅为 1001（ADMIN）/1002（PLAYER）/1016（GUEST）/1022（ADMIN）/1023（PLAYER）写入测试密码 Passw0rd!，其余账号 password_hash 为空。
 
 SET NAMES utf8mb4;
 SET time_zone = '+00:00';
@@ -27,7 +27,7 @@ SET @player_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code
 SET @admin_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code = 'ADMIN' LIMIT 1);
 
 -- 账号：1001-1015 正式，1016-1020 外挂
--- 1001（ADMIN）、1002（PLAYER）、1022（ADMIN）与 1023（PLAYER）写入测试密码 Passw0rd!，供 dev profile + Playwright 冒烟登录；其余账号保留 NULL。
+-- 1001（ADMIN）、1002（PLAYER）、1022（ADMIN）与 1023（PLAYER）写入测试密码 Passw0rd!，供 dev profile + Playwright 冒烟登录；1016 的密码由 B4 区块追加；其余账号保留 NULL。
 -- 1022 为 B07/B08/B09/B10 共用管理员，1023 为 B 端只读用例专用球员，分摊 AUTH-15 每手机号 10 次/分钟限流。
 INSERT INTO app_user (id, phone, password_hash, openid, status)
 VALUES
@@ -449,6 +449,46 @@ VALUES
    DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY));
 
 -- END B3 C-A fixtures
+
+-- =========================================================================
+-- BEGIN B4 C-B fixtures（票 01 独占；可重复执行复位 C03 报名/状态）
+-- =========================================================================
+
+-- 1) 外挂账号 1016 增加测试密码，用于 C03 外挂可见性用例。
+UPDATE app_user
+SET password_hash = '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC',
+    status = 1, is_deleted = 0
+WHERE id = 1016;
+
+-- 重放前把外挂球员复位为 GUEST 类型，避免上一轮转正/角色用例留下残渣。
+UPDATE player
+SET type = 0, is_deleted = 0
+WHERE id BETWEEN 1016 AND 1020;
+
+DELETE FROM user_role WHERE user_id = 1016 AND role_id <> @guest_role_id;
+INSERT INTO user_role (user_id, role_id, is_deleted)
+VALUES (1016, @guest_role_id, 0)
+ON DUPLICATE KEY UPDATE is_deleted = 0;
+
+-- 2) 1005 报名→取消黄金路径：1023 报名后取消时真实递补 1011（最早正式候补）。
+DELETE FROM attendance WHERE match_id = 1005 AND player_id IN (1011, 1016, 1023);
+DELETE FROM registration WHERE match_id = 1005 AND player_id IN (1011, 1016, 1023);
+INSERT INTO registration (match_id, player_id, type, status, registered_at)
+VALUES (1005, 1011, 1, 1, '2026-11-13 09:00:00');
+
+-- 3) 1002 名单分段与 B03 返回递补：复位状态/报名；
+--    1011 保持最早候补，管理员移除 1002 的正式报名后递补到正式段。
+UPDATE team_match
+SET status = 4, manual_status = 0, version = 0
+WHERE id = 1002;
+
+DELETE FROM registration WHERE match_id = 1002 AND player_id IN (1002, 1011);
+INSERT INTO registration (match_id, player_id, type, status, registered_at)
+VALUES
+  (1002, 1002, 1, 0, '2026-10-25 09:00:00'),
+  (1002, 1011, 1, 1, '2026-10-26 09:00:00');
+
+-- END B4 C-B fixtures
 
 -- ==== B10 操作日志 fixtures ====
 -- BEGIN B10 audit fixtures

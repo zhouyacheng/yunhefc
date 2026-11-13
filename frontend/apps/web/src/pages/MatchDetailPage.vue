@@ -1,16 +1,26 @@
 <script setup lang="ts">
 import { ERROR_CODES, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
+import type { QueryParams } from '@yunhefc/api-client';
 import {
+  ATTENDANCE_VIEW_ANY,
   EVENT_CREATE_OWN,
   EVENT_EDIT_ANY,
   EVENT_EDIT_OWN,
   GROUPING_GENERATE_ANY,
   GROUPING_VIEW_ANY,
+  INVITE_CREATE_MATCH,
+  INVITE_MANAGE_ANY,
   LINEUP_VIEW_ANY,
+  MATCH_EDIT_ANY,
+  MATCH_STATUS_ANY,
+  REGISTRATION_CREATE_OWN,
+  REGISTRATION_REMOVE_ANY,
   hasPermission,
 } from '@yunhefc/permissions';
 import type {
   Attendance,
+  AttendanceRow,
+  CancellationResult,
   DerivedScore,
   EventCreate,
   EventHalf,
@@ -21,10 +31,14 @@ import type {
   GroupedPlayer,
   GroupingTeam,
   GroupingView,
+  InviteCreated,
   LineupSide,
   LineupView,
+  MatchAdmin,
   MatchDetail,
   MatchEvent,
+  MatchStatus,
+  MatchStatusUpdate,
   MyMatchRegistration,
   Page,
   Registration,
@@ -34,6 +48,9 @@ import {
   ATTENDANCE_SOURCE_TEXT,
   ATTENDANCE_STATUS_TEXT,
   EVENT_TYPE_TEXT,
+  MATCH_STATUS_CANCELLED,
+  MATCH_STATUS_POSTPONED,
+  REGISTRATION_STATUS,
   REGISTRATION_STATUS_TEXT,
   checkInWindowState,
   eventEditWindowOpen,
@@ -49,13 +66,38 @@ import {
   positionText,
 } from '@yunhefc/shared';
 import { Button, Empty, Loading, Popup, Tag } from 'vant';
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
+import { isPending } from '../features/auth/user-status';
+import InviteDialog from '../features/match-detail/InviteDialog.vue';
+import { type MatchInvitePayload } from '../features/match-detail/invite';
+import { cancelState, promotionText, signupState } from '../features/match-detail/registration';
+import RosterList from '../features/match-detail/RosterList.vue';
+import {
+  buildRoster,
+  emptyRoster,
+  rosterDiff,
+  rosterSnapshot,
+  type RosterSections,
+  type RosterSnapshot,
+} from '../features/match-detail/roster';
+import {
+  isWechatBrowser,
+  shareMode,
+  stableMatchUrl,
+  WECHAT_SHARE_HINT,
+} from '../features/match-detail/share';
+import { statusOptions } from '../features/match-detail/status-options';
+import StatusChangeDialog, {
+  type StatusDialogMode,
+  type StatusDialogPayload,
+} from '../features/match-detail/StatusChangeDialog.vue';
 import { matchTagType, scoreText } from '../features/matches/presentation';
 import { toBrowserPath } from '../router';
 import { useSessionStore } from '../stores/session';
+import { hasSessionHint } from '../stores/session-hint';
 
 const route = useRoute();
 const router = useRouter();
@@ -72,6 +114,38 @@ const loading = ref(true);
 const error = ref('');
 const checkInLoading = ref(false);
 const actionError = ref('');
+const actionMessage = ref('');
+const refreshError = ref('');
+const now = ref(Date.now());
+let requestSeq = 0;
+let nowTimer: ReturnType<typeof setInterval> | null = null;
+
+const overviewRoster = ref<RosterSections>(emptyRoster());
+const overviewRosterLoading = ref(false);
+const overviewRosterError = ref('');
+const overviewAttendanceError = ref('');
+const rosterDiffText = ref('');
+
+const signingUp = ref(false);
+const cancelling = ref(false);
+
+const shareMessage = ref('');
+const shareError = ref('');
+const sharing = ref(false);
+
+const inviteOpen = ref(false);
+const inviteSubmitting = ref(false);
+const inviteResult = ref<InviteCreated | null>(null);
+const inviteError = ref('');
+
+const statusBusy = ref(false);
+const statusActionError = ref('');
+const statusDialogOpen = ref(false);
+const statusDialogMode = ref<StatusDialogMode>('postpone');
+const statusInitialStart = ref('');
+const statusInitialEnd = ref('');
+const statusSubmitting = ref(false);
+const statusError = ref('');
 
 const events = ref<MatchEvent[]>([]);
 const eventsLoading = ref(false);
@@ -106,12 +180,97 @@ const form = reactive({
   penalty: false,
 });
 
-const isCancelled = computed(() => match.value?.status === 6);
-const isPostponed = computed(() => match.value?.status === 5);
+const pending = computed(() => isPending(session.user?.status ?? -1));
+const isCancelled = computed(() => match.value?.status === MATCH_STATUS_CANCELLED);
+const isPostponed = computed(() => match.value?.status === MATCH_STATUS_POSTPONED);
 const checkInClosed = computed(() => isCancelled.value || isPostponed.value);
 const windowState = computed(() =>
-  match.value ? checkInWindowState(match.value.startAt) : 'after',
+  match.value ? checkInWindowState(match.value.startAt, now.value) : 'after',
 );
+const canViewFullRoster = computed(
+  () =>
+    session.isAuthenticated &&
+    !pending.value &&
+    hasPermission(session.permissions, ATTENDANCE_VIEW_ANY),
+);
+const canManageRegistrations = computed(() =>
+  hasPermission(session.permissions, REGISTRATION_REMOVE_ANY),
+);
+const canChangeStatus = computed(
+  () => session.isAuthenticated && hasPermission(session.permissions, MATCH_STATUS_ANY),
+);
+const removalAllowed = computed(() => {
+  const status = match.value?.status;
+  return status === 0 || status === 1 || status === 2 || status === 3 || status === 5;
+});
+const hasActiveRegistration = computed(
+  () =>
+    registration.value?.status === REGISTRATION_STATUS.CONFIRMED ||
+    registration.value?.status === REGISTRATION_STATUS.WAITLISTED,
+);
+const canInvite = computed(() => {
+  if (!match.value || !session.isAuthenticated || pending.value || checkInClosed.value) {
+    return false;
+  }
+  if (!hasPermission(session.permissions, INVITE_CREATE_MATCH)) {
+    return false;
+  }
+  if (hasPermission(session.permissions, INVITE_MANAGE_ANY)) {
+    return true;
+  }
+  return (
+    session.player?.type === 1 &&
+    registration.value?.type === 1 &&
+    registration.value.status === REGISTRATION_STATUS.CONFIRMED
+  );
+});
+const signup = computed(() => {
+  const current = match.value;
+  if (!current) {
+    return null;
+  }
+  return signupState({
+    authenticated: session.isAuthenticated,
+    pending: pending.value,
+    playerType: session.player?.type ?? null,
+    matchStatus: current.status,
+    now: now.value,
+    signupDeadline: current.signupDeadline,
+    queue: current,
+    myRegistration: registration.value,
+    canSignup: hasPermission(session.permissions, REGISTRATION_CREATE_OWN),
+  });
+});
+const cancel = computed(() => {
+  const current = match.value;
+  if (!current) {
+    return null;
+  }
+  return cancelState({
+    authenticated: session.isAuthenticated,
+    pending: pending.value,
+    matchStatus: current.status,
+    cancelLock: current.cancelLock,
+    myRegistration: registration.value,
+    now: now.value,
+  });
+});
+const statusOptionList = computed(() =>
+  match.value
+    ? statusOptions({
+        currentStatus: match.value.status,
+        canEditAny: hasPermission(session.permissions, MATCH_EDIT_ANY),
+      })
+    : [],
+);
+const myRegistrationStatusText = computed(() => {
+  if (!registration.value) {
+    return '';
+  }
+  return isCancelled.value
+    ? '已作废'
+    : (REGISTRATION_STATUS_TEXT[registration.value.status] ?? registration.value.statusLabel ?? '');
+});
 const confirmed = computed(() => registration.value?.status === 0);
 const canCheckIn = computed(
   () => confirmed.value && !checkInClosed.value && windowState.value === 'open',
@@ -210,11 +369,12 @@ const showAdminLink = computed(() => session.isAuthenticated && isEventAdmin.val
 const adminBase =
   import.meta.env.VITE_ADMIN_URL ??
   (import.meta.env.DEV ? 'http://localhost:5274/admin/' : '/admin/');
-const adminEventsUrl = computed(
-  () => `${adminBase.endsWith('/') ? adminBase : `${adminBase}/`}events?match=${matchId}`,
-);
-const adminGroupingUrl = computed(
-  () => `${adminBase.endsWith('/') ? adminBase : `${adminBase}/`}grouping?match=${matchId}`,
+const adminPrefix = adminBase.endsWith('/') ? adminBase : `${adminBase}/`;
+const adminEventsUrl = computed(() => `${adminPrefix}events?match=${matchId}`);
+const adminGroupingUrl = computed(() => `${adminPrefix}grouping?match=${matchId}`);
+const adminRegistrationsUrl = computed(() => `${adminPrefix}registrations?match=${matchId}`);
+const rosterAdminUrl = computed(() =>
+  canManageRegistrations.value && removalAllowed.value ? adminRegistrationsUrl.value : null,
 );
 const goalCount = computed(() => events.value.filter((event) => event.type === 0).length);
 const cardCount = computed(
@@ -280,28 +440,177 @@ function canEditEvent(event: MatchEvent): boolean {
   );
 }
 
-async function load(): Promise<void> {
-  loading.value = true;
-  error.value = '';
+async function load(silent = false): Promise<void> {
+  const seq = ++requestSeq;
+  if (!silent) {
+    loading.value = true;
+    error.value = '';
+    actionError.value = '';
+    actionMessage.value = '';
+    refreshError.value = '';
+    rosterDiffText.value = '';
+  }
+  now.value = Date.now();
   try {
-    match.value = await api.get<MatchDetail>(`/matches/${matchId}`);
-    await session.ensureLoaded().catch(() => undefined);
-    if (session.isAuthenticated) {
+    if (!Number.isFinite(matchId) || matchId <= 0) {
+      await router.replace('/404');
+      return;
+    }
+    if (!session.loaded && hasSessionHint()) {
+      await session.ensureLoaded().catch(() => undefined);
+    }
+    const detail = await api.get<MatchDetail>(`/matches/${matchId}`);
+    if (seq !== requestSeq) {
+      return;
+    }
+    match.value = detail;
+    if (session.isAuthenticated && !pending.value) {
       const mine = await api.get<MyMatchRegistration>(`/matches/${matchId}/registrations/me`);
+      if (seq !== requestSeq) {
+        return;
+      }
       registration.value = mine.registration ?? null;
       attendance.value = mine.attendance ?? null;
     } else {
-      registration.value = match.value.myRegistration ?? null;
+      registration.value = detail.myRegistration ?? null;
+      attendance.value = null;
+    }
+    error.value = '';
+    refreshError.value = '';
+    loading.value = false;
+    void loadOverviewRoster(seq);
+    if (!silent) {
+      void loadEvents();
     }
   } catch (caught) {
+    if (seq !== requestSeq) {
+      return;
+    }
     if (isApiError(caught) && caught.code === ERROR_CODES.NOT_FOUND) {
       await router.replace('/404');
       return;
     }
-    error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
+    const message = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
+    if (silent && match.value) {
+      refreshError.value = message;
+    } else {
+      error.value = message;
+      match.value = null;
+    }
   } finally {
-    loading.value = false;
-    void loadEvents();
+    if (seq === requestSeq) {
+      loading.value = false;
+    }
+  }
+}
+
+async function fetchAllPages<T>(path: string, query: QueryParams): Promise<T[]> {
+  const first = await api.get<Page<T>>(path, {
+    query: { ...query, page: 1, pageSize: 100 },
+  });
+  const items = [...first.items];
+  for (let page = 2; page <= first.totalPages; page += 1) {
+    const next = await api.get<Page<T>>(path, {
+      query: { ...query, page, pageSize: 100 },
+    });
+    items.push(...next.items);
+  }
+  return items;
+}
+
+function ownRosterPlayer() {
+  const player = session.player;
+  if (!player) {
+    return null;
+  }
+  return {
+    id: player.id,
+    name: player.name,
+    jersey: player.jersey,
+    position: player.position,
+    positionLabel: player.positionLabel,
+  };
+}
+
+/** 外挂无 attendance:view:any：只用 REG-04 构造本人单行名单。 */
+function guestOwnRoster(): RosterSections {
+  const mine = registration.value;
+  const player = ownRosterPlayer();
+  if (!mine || !player) {
+    return emptyRoster();
+  }
+  const row: RegistrationRow = {
+    id: mine.id,
+    player,
+    type: mine.type,
+    typeLabel: mine.typeLabel,
+    status: mine.status,
+    statusLabel: mine.statusLabel,
+    registeredAt: mine.registeredAt,
+    cancelledAt: mine.cancelledAt,
+  };
+  const attendanceRows: AttendanceRow[] = attendance.value
+    ? [
+        {
+          id: attendance.value.id,
+          player,
+          status: attendance.value.status,
+          statusLabel: attendance.value.statusLabel,
+          source: attendance.value.source,
+          sourceLabel: attendance.value.sourceLabel,
+          recordedAt: attendance.value.recordedAt,
+        },
+      ]
+    : [];
+  return buildRoster(
+    mine.status === REGISTRATION_STATUS.CONFIRMED ? [row] : [],
+    mine.status === REGISTRATION_STATUS.WAITLISTED ? [row] : [],
+    attendanceRows,
+  );
+}
+
+async function loadOverviewRoster(seq: number): Promise<void> {
+  overviewRosterLoading.value = true;
+  overviewRosterError.value = '';
+  overviewAttendanceError.value = '';
+  try {
+    if (!session.isAuthenticated || pending.value || isCancelled.value) {
+      overviewRoster.value = emptyRoster();
+      return;
+    }
+    if (!canViewFullRoster.value) {
+      overviewRoster.value = guestOwnRoster();
+      return;
+    }
+    const attendancePromise = fetchAllPages<AttendanceRow>(
+      `/matches/${matchId}/attendance`,
+      {},
+    ).catch((caught: unknown) => {
+      overviewAttendanceError.value = isApiError(caught)
+        ? caught.message
+        : '考勤加载失败，名单未显示考勤';
+      return [] as AttendanceRow[];
+    });
+    const [confirmed, waitlist, attendanceRows] = await Promise.all([
+      fetchAllPages<RegistrationRow>(`/matches/${matchId}/registrations`, { status: 0 }),
+      fetchAllPages<RegistrationRow>(`/matches/${matchId}/registrations`, { status: 1 }),
+      attendancePromise,
+    ]);
+    if (seq !== requestSeq) {
+      return;
+    }
+    overviewRoster.value = buildRoster(confirmed, waitlist, attendanceRows);
+    compareRosterReturnNotice();
+  } catch (caught) {
+    if (seq !== requestSeq) {
+      return;
+    }
+    overviewRoster.value = emptyRoster();
+    overviewRosterError.value = isApiError(caught) ? caught.message : '名单加载失败，请稍后重试';
+  } finally {
+    if (seq === requestSeq) {
+      overviewRosterLoading.value = false;
+    }
   }
 }
 
@@ -359,6 +668,7 @@ async function checkIn(): Promise<void> {
   }
   checkInLoading.value = true;
   actionError.value = '';
+  actionMessage.value = '';
   try {
     const result = await api.post<{ attendance: Attendance }>(
       `/matches/${matchId}/check-in`,
@@ -366,10 +676,365 @@ async function checkIn(): Promise<void> {
       { idempotencyKey: newIdempotencyKey() },
     );
     attendance.value = result.attendance;
+    actionMessage.value = '签到成功';
+    await load(true);
   } catch (caught) {
     actionError.value = isApiError(caught) ? caught.message : '签到失败，请稍后重试';
   } finally {
     checkInLoading.value = false;
+  }
+}
+
+/** 05 §2.3 的报名域 40902/40903；api-client 的 ERROR_CODES 暂未收录。 */
+const REGISTRATION_DUPLICATE = 40902;
+const REGISTRATION_FULL = 40903;
+
+function shouldRefreshAfterConflict(caught: unknown): boolean {
+  return (
+    isApiError(caught) &&
+    [
+      ERROR_CODES.VERSION_CONFLICT,
+      REGISTRATION_DUPLICATE,
+      REGISTRATION_FULL,
+      ERROR_CODES.MATCH_STATE_CONFLICT,
+    ].includes(caught.code)
+  );
+}
+
+async function signupNow(): Promise<void> {
+  const state = signup.value;
+  if (!match.value || signingUp.value || !state || state.action !== 'signup' || state.disabled) {
+    return;
+  }
+  signingUp.value = true;
+  actionError.value = '';
+  actionMessage.value = '';
+  try {
+    const result = await api.post<{ registration: Registration }>(
+      `/matches/${matchId}/registrations`,
+      undefined,
+      { idempotencyKey: newIdempotencyKey() },
+    );
+    actionMessage.value =
+      result.registration.status === REGISTRATION_STATUS.WAITLISTED ? '已加入候补' : '报名成功';
+    await load(true);
+  } catch (caught) {
+    actionError.value = isApiError(caught) ? caught.message : '报名失败，请稍后重试';
+    if (shouldRefreshAfterConflict(caught)) {
+      await load(true);
+    }
+  } finally {
+    signingUp.value = false;
+  }
+}
+
+async function cancelNow(): Promise<void> {
+  const state = cancel.value;
+  if (!match.value || cancelling.value || !state || !state.visible || state.disabled) {
+    return;
+  }
+  const cancelledStatus = registration.value?.status ?? null;
+  const fallbackName = overviewRoster.value.formalWaitlist[0]?.row.player.name ?? null;
+  cancelling.value = true;
+  actionError.value = '';
+  actionMessage.value = '';
+  try {
+    const result = await api.delete<CancellationResult>(
+      `/matches/${matchId}/registrations/me`,
+      undefined,
+      { idempotencyKey: newIdempotencyKey() },
+    );
+    await load(true);
+    let promotedName = result.promotedPlayerId ? rosterPlayerName(result.promotedPlayerId) : null;
+    if (result.promotedPlayerId && !promotedName) {
+      await loadOverviewRoster(requestSeq);
+      promotedName = rosterPlayerName(result.promotedPlayerId);
+    }
+    actionMessage.value = promotionText(result, promotedName ?? fallbackName, cancelledStatus);
+  } catch (caught) {
+    actionError.value = isApiError(caught) ? caught.message : '取消报名失败，请稍后重试';
+    if (shouldRefreshAfterConflict(caught)) {
+      await load(true);
+    }
+  } finally {
+    cancelling.value = false;
+  }
+}
+
+function rosterPlayerName(playerId: number): string | null {
+  const entries = [
+    ...overviewRoster.value.formalConfirmed,
+    ...overviewRoster.value.formalWaitlist,
+    ...overviewRoster.value.guestConfirmed,
+  ];
+  return entries.find((entry) => entry.row.player.id === playerId)?.row.player.name ?? null;
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // 回退到 execCommand。
+  }
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+async function shareMatch(): Promise<void> {
+  if (!match.value || sharing.value) {
+    return;
+  }
+  sharing.value = true;
+  shareMessage.value = '';
+  shareError.value = '';
+  const url = stableMatchUrl(matchId, window.location.origin, import.meta.env.BASE_URL);
+  try {
+    const mode = shareMode({
+      isWechat: isWechatBrowser(navigator.userAgent),
+      canNativeShare: typeof navigator.share === 'function',
+    });
+    if (mode === 'wechat') {
+      shareMessage.value = WECHAT_SHARE_HINT;
+      return;
+    }
+    if (mode === 'native') {
+      try {
+        await navigator.share({ title: match.value.title, url });
+        shareMessage.value = '已调起系统分享';
+        return;
+      } catch (caught) {
+        if ((caught as { name?: string }).name === 'AbortError') {
+          return;
+        }
+      }
+    }
+    const copied = await copyText(url);
+    shareMessage.value = copied ? '链接已复制' : '复制失败，请手动复制';
+    shareError.value = copied ? '' : url;
+  } finally {
+    sharing.value = false;
+  }
+}
+
+function openInvite(): void {
+  inviteResult.value = null;
+  inviteError.value = '';
+  inviteOpen.value = true;
+}
+
+function closeInvite(value: boolean): void {
+  // 创建请求在途时关闭会丢失只返回一次的 inviteUrl。
+  if (inviteSubmitting.value) {
+    return;
+  }
+  inviteOpen.value = value;
+  if (!value) {
+    inviteResult.value = null;
+    inviteError.value = '';
+  }
+}
+
+async function submitInvite(payload: MatchInvitePayload): Promise<void> {
+  if (inviteSubmitting.value) {
+    return;
+  }
+  inviteSubmitting.value = true;
+  inviteError.value = '';
+  try {
+    inviteResult.value = await api.post<InviteCreated>(`/matches/${matchId}/invites`, payload, {
+      idempotencyKey: newIdempotencyKey(),
+    });
+  } catch (caught) {
+    inviteError.value = isApiError(caught) ? caught.message : '创建邀请失败，请稍后重试';
+  } finally {
+    inviteSubmitting.value = false;
+  }
+}
+
+async function copyInvite(url: string): Promise<void> {
+  const copied = await copyText(url);
+  inviteError.value = copied ? '' : '复制失败，请手动选中链接复制';
+}
+
+function openStatusDialog(mode: StatusDialogMode): void {
+  statusDialogMode.value = mode;
+  statusInitialStart.value = match.value?.startAt ?? '';
+  statusInitialEnd.value = match.value?.endAt ?? '';
+  statusError.value = '';
+  statusDialogOpen.value = true;
+}
+
+async function changeStatus(target: number): Promise<void> {
+  if (!match.value || statusBusy.value) {
+    return;
+  }
+  statusBusy.value = true;
+  statusActionError.value = '';
+  try {
+    const body: MatchStatusUpdate = {
+      status: target as MatchStatus,
+      version: match.value.version,
+      manualStatus: true,
+    };
+    await api.post<MatchAdmin>(`/matches/${matchId}/status`, body, {
+      idempotencyKey: newIdempotencyKey(),
+    });
+    await load(true);
+  } catch (caught) {
+    statusActionError.value = isApiError(caught) ? caught.message : '状态修改失败，请稍后重试';
+    if (shouldRefreshAfterConflict(caught)) {
+      await load(true);
+    }
+  } finally {
+    statusBusy.value = false;
+  }
+}
+
+async function onStatusSelect(event: Event): Promise<void> {
+  const select = event.target as HTMLSelectElement;
+  const target = Number(select.value);
+  select.value = '';
+  if (!match.value || !Number.isInteger(target)) {
+    return;
+  }
+  if (target === match.value.status) {
+    return;
+  }
+  if (target === MATCH_STATUS_POSTPONED) {
+    openStatusDialog('postpone');
+    return;
+  }
+  if (target === MATCH_STATUS_CANCELLED) {
+    openStatusDialog('cancel');
+    return;
+  }
+  await changeStatus(target);
+}
+
+async function submitStatusDialog(payload: StatusDialogPayload): Promise<void> {
+  if (!match.value || statusSubmitting.value) {
+    return;
+  }
+  statusSubmitting.value = true;
+  statusError.value = '';
+  const body: MatchStatusUpdate =
+    'reason' in payload
+      ? {
+          status: MATCH_STATUS_CANCELLED,
+          version: match.value.version,
+          manualStatus: true,
+          reason: payload.reason,
+        }
+      : {
+          status: MATCH_STATUS_POSTPONED,
+          version: match.value.version,
+          manualStatus: true,
+          startAt: payload.startAt,
+          endAt: payload.endAt,
+        };
+  try {
+    await api.post<MatchAdmin>(`/matches/${matchId}/status`, body, {
+      idempotencyKey: newIdempotencyKey(),
+    });
+    statusDialogOpen.value = false;
+    await load(true);
+  } catch (caught) {
+    statusError.value = isApiError(caught) ? caught.message : '状态修改失败，请稍后重试';
+    if (shouldRefreshAfterConflict(caught)) {
+      await load(true);
+    }
+  } finally {
+    statusSubmitting.value = false;
+  }
+}
+
+const ROSTER_SNAPSHOT_PREFIX = 'yunhefc.c.rosterSnapshot.';
+const ROSTER_SNAPSHOT_TTL_MS = 15 * 60 * 1000;
+
+function rosterSnapshotKey(): string {
+  // 快照按用户隔离，避免退出/切换账号后把全队名单泄露给其它身份。
+  return `${ROSTER_SNAPSHOT_PREFIX}${matchId}.${session.user?.id ?? 0}`;
+}
+
+function saveRosterSnapshot(): void {
+  if (!canViewFullRoster.value || !overviewRoster.value.total) {
+    return;
+  }
+  try {
+    sessionStorage.setItem(
+      rosterSnapshotKey(),
+      JSON.stringify({
+        savedAt: Date.now(),
+        entries: rosterSnapshot(overviewRoster.value),
+      }),
+    );
+  } catch {
+    // 存储不可用时仅失去返回提示，不影响名单浏览。
+  }
+}
+
+function hasRosterSnapshot(): boolean {
+  try {
+    return sessionStorage.getItem(rosterSnapshotKey()) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function compareRosterReturnNotice(): void {
+  if (!canViewFullRoster.value) {
+    return;
+  }
+  let raw: string | null;
+  try {
+    raw = sessionStorage.getItem(rosterSnapshotKey());
+  } catch {
+    return;
+  }
+  if (!raw) {
+    return;
+  }
+  try {
+    sessionStorage.removeItem(rosterSnapshotKey());
+  } catch {
+    // 忽略清理失败。
+  }
+  try {
+    const saved = JSON.parse(raw) as { savedAt?: number; entries?: RosterSnapshot };
+    if (!saved.entries || !saved.savedAt || Date.now() - saved.savedAt > ROSTER_SNAPSHOT_TTL_MS) {
+      return;
+    }
+    const diff = rosterDiff(saved.entries, overviewRoster.value);
+    // 第二次返回但名单无变化时清空上一次的提示。
+    rosterDiffText.value = diff.changed ? diff.text : '';
+  } catch {
+    // 快照损坏时忽略。
+  }
+}
+
+function onPageShow(event: PageTransitionEvent): void {
+  if (event.persisted) {
+    void load(true);
+  }
+}
+
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible' && hasRosterSnapshot()) {
+    void load(true);
   }
 }
 
@@ -618,7 +1283,23 @@ function openLineupTab(): void {
   }
 }
 
-onMounted(load);
+onMounted(() => {
+  void load();
+  window.addEventListener('pageshow', onPageShow);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  nowTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 60_000);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('pageshow', onPageShow);
+  document.removeEventListener('visibilitychange', onVisibilityChange);
+  if (nowTimer) {
+    clearInterval(nowTimer);
+    nowTimer = null;
+  }
+});
 </script>
 
 <template>
@@ -627,7 +1308,7 @@ onMounted(load);
 
     <div v-else-if="error" class="state">
       <p class="muted">{{ error }}</p>
-      <Button size="small" type="primary" @click="load">重试</Button>
+      <Button size="small" type="primary" @click="load()">重试</Button>
     </div>
 
     <template v-else-if="match">
@@ -646,8 +1327,74 @@ onMounted(load);
           <span>{{ formatDateTime(match.startAt) }}</span>
           <span>{{ match.venue }}</span>
         </div>
-        <p v-if="isCancelled" class="notice notice--danger">比赛已取消，签到不开放</p>
-        <p v-else-if="isPostponed" class="notice">比赛已延期，签到不开放</p>
+
+        <div v-if="isCancelled" class="voided-banner">
+          <p class="notice notice--danger" data-testid="cancelled-banner">
+            比赛已取消，报名作废，不占名额、不计考勤
+          </p>
+          <p class="muted small" data-testid="cancelled-history">
+            历史报名：正式 {{ match.confirmedCount }} · 外挂 {{ match.guestCount }} · 候补
+            {{ match.waitlistCount }}
+          </p>
+        </div>
+        <p v-else-if="isPostponed" class="notice" data-testid="postponed-banner">
+          比赛已延期，等待管理员重新排期；报名记录保留。
+        </p>
+
+        <div class="match-hero__actions">
+          <Button
+            size="small"
+            type="primary"
+            plain
+            data-testid="share-button"
+            :loading="sharing"
+            @click="shareMatch"
+          >
+            分享比赛
+          </Button>
+          <Button
+            v-if="canInvite"
+            size="small"
+            type="primary"
+            plain
+            data-testid="invite-button"
+            @click="openInvite"
+          >
+            邀请队友
+          </Button>
+          <select
+            v-if="canChangeStatus"
+            class="status-select"
+            data-testid="status-select"
+            aria-label="修改比赛状态"
+            :disabled="statusBusy"
+            @change="onStatusSelect"
+          >
+            <option value="">修改状态</option>
+            <option
+              v-for="option in statusOptionList"
+              :key="option.status"
+              :value="option.status"
+              :disabled="option.disabled"
+              :title="option.reason"
+            >
+              {{ option.label }}
+            </option>
+          </select>
+        </div>
+
+        <p v-if="shareMessage" class="hint" data-testid="share-message">{{ shareMessage }}</p>
+        <input
+          v-if="shareError"
+          class="share-manual"
+          data-testid="share-manual"
+          :value="shareError"
+          readonly
+          aria-label="分享链接"
+        />
+        <p v-if="statusActionError" class="action-error" data-testid="status-action-error">
+          {{ statusActionError }}
+        </p>
       </header>
 
       <nav class="detail-tabs" aria-label="比赛详情分区">
@@ -687,51 +1434,188 @@ onMounted(load);
         </button>
       </nav>
 
-      <section v-if="activeTab === 'overview'" class="card registration-card">
-        <div class="card-head">
-          <h2>我的报名</h2>
-          <Tag v-if="registration" size="medium" type="primary" plain>
-            {{ REGISTRATION_STATUS_TEXT[registration.status] }}
-          </Tag>
-        </div>
-
-        <template v-if="!session.isAuthenticated">
-          <p class="muted">登录后可报名与签到</p>
-          <RouterLink :to="loginTarget">
-            <Button type="primary" block>去登录</Button>
-          </RouterLink>
-        </template>
-
-        <Empty v-else-if="!registration" description="你尚未报名本场比赛" />
-
-        <template v-else>
-          <div v-if="attendance" class="attendance-status">
-            <p>
-              考勤状态：<strong>{{ ATTENDANCE_STATUS_TEXT[attendance.status] }}</strong>
-            </p>
-            <p class="muted small">
-              来源：{{ ATTENDANCE_SOURCE_TEXT[attendance.source] }} ·
-              {{ formatDateTime(attendance.recordedAt) }}
-            </p>
+      <template v-if="activeTab === 'overview'">
+        <section class="card registration-card" data-testid="registration-card">
+          <div class="card-head">
+            <h2>我的报名</h2>
+            <Tag
+              v-if="registration || isCancelled"
+              size="medium"
+              type="primary"
+              plain
+              data-testid="registration-status"
+            >
+              {{ myRegistrationStatusText || '已作废' }}
+            </Tag>
           </div>
 
-          <template v-else-if="!checkInClosed">
+          <template v-if="isCancelled">
+            <p class="muted">比赛已取消，报名记录仅保留、已作废，不占名额。</p>
+            <div class="hero-queue">
+              <div class="hero-queue__item">
+                <span>历史报名</span>
+                <b>{{ match.confirmedCount + match.guestCount }}</b>
+              </div>
+              <div class="hero-queue__item">
+                <span>历史候补</span>
+                <b>{{ match.waitlistCount }}</b>
+              </div>
+            </div>
+          </template>
+
+          <template v-else-if="!session.isAuthenticated">
+            <p class="muted">登录后可报名与签到</p>
+            <RouterLink :to="loginTarget">
+              <Button type="primary" block>去登录</Button>
+            </RouterLink>
+          </template>
+
+          <template v-else-if="pending">
+            <p class="notice" data-testid="pending-banner">
+              账号待审核：可以浏览比赛，暂不能报名或签到。
+            </p>
+            <p v-if="registration" class="muted small">
+              当前报名状态：{{ myRegistrationStatusText }}
+            </p>
+          </template>
+
+          <template v-else>
+            <div class="hero-queue queue-progress">
+              <div class="hero-queue__item" data-testid="queue-formal">
+                <span>正式</span>
+                <b>{{ match.confirmedCount }} / {{ match.capacity }}</b>
+              </div>
+              <div class="hero-queue__item" data-testid="queue-guest">
+                <span>外挂</span>
+                <b>{{ match.guestCount }} / {{ match.guestCapacity }}</b>
+              </div>
+              <div class="hero-queue__item" data-testid="queue-waitlist">
+                <span>候补</span>
+                <b>{{ match.waitlistCount }} / {{ match.waitlistCapacity }}</b>
+              </div>
+            </div>
+
+            <template v-if="!hasActiveRegistration && signup">
+              <template v-if="signup.visible">
+                <Button
+                  v-if="signup.action === 'login'"
+                  type="primary"
+                  block
+                  @click="router.push(loginTarget)"
+                >
+                  {{ signup.label }}
+                </Button>
+                <Button
+                  v-else
+                  type="primary"
+                  block
+                  data-testid="signup-button"
+                  :disabled="signup.disabled"
+                  :loading="signingUp"
+                  @click="signupNow"
+                >
+                  {{ signup.label }}
+                </Button>
+                <p v-if="signup.reason" class="hint">{{ signup.reason }}</p>
+              </template>
+              <p v-else-if="signup.reason" class="hint">{{ signup.reason }}</p>
+            </template>
+
+            <template v-else-if="hasActiveRegistration && cancel">
+              <div v-if="attendance" class="attendance-status">
+                <p>
+                  考勤状态：<strong>{{ ATTENDANCE_STATUS_TEXT[attendance.status] }}</strong>
+                </p>
+                <p class="muted small">
+                  来源：{{ ATTENDANCE_SOURCE_TEXT[attendance.source] }} ·
+                  {{ formatDateTime(attendance.recordedAt) }}
+                </p>
+              </div>
+
+              <template v-else-if="!checkInClosed">
+                <Button
+                  v-if="confirmed"
+                  type="primary"
+                  block
+                  data-testid="check-in-button"
+                  :disabled="!canCheckIn"
+                  :loading="checkInLoading"
+                  @click="checkIn"
+                >
+                  签到
+                </Button>
+                <p v-if="checkInHint" class="hint">{{ checkInHint }}</p>
+              </template>
+
+              <Button
+                type="primary"
+                plain
+                block
+                data-testid="cancel-registration"
+                :disabled="cancel.disabled"
+                :loading="cancelling"
+                @click="cancelNow"
+              >
+                {{ cancel.label }}
+              </Button>
+              <p v-if="cancel.reason" class="hint">{{ cancel.reason }}</p>
+            </template>
+          </template>
+
+          <p v-if="actionMessage" class="hint" data-testid="action-message">
+            {{ actionMessage }}
+          </p>
+          <p v-if="actionError" class="action-error" data-testid="action-error">
+            {{ actionError }}
+          </p>
+          <p v-if="refreshError" class="action-error">
+            {{ refreshError }}
             <Button
-              v-if="confirmed"
+              size="mini"
               type="primary"
-              block
-              :disabled="!canCheckIn"
-              :loading="checkInLoading"
-              @click="checkIn"
+              plain
+              data-testid="refresh-retry"
+              @click="load(true)"
             >
-              签到
+              重试刷新
             </Button>
-            <p v-if="checkInHint" class="hint">{{ checkInHint }}</p>
+          </p>
+        </section>
+
+        <p v-if="rosterDiffText" class="notice roster-diff" data-testid="roster-diff">
+          {{ rosterDiffText }}
+        </p>
+
+        <template v-if="!isCancelled">
+          <RosterList
+            v-if="canViewFullRoster"
+            :sections="overviewRoster"
+            :loading="overviewRosterLoading"
+            :error="overviewRosterError"
+            :attendance-error="overviewAttendanceError"
+            :admin-url="rosterAdminUrl"
+            @retry="loadOverviewRoster(requestSeq)"
+            @admin-click="saveRosterSnapshot"
+          />
+          <section v-else-if="!session.isAuthenticated" class="card roster-hint">
+            <p class="muted">登录后查看名单与考勤</p>
+          </section>
+          <section v-else-if="pending" class="card roster-hint">
+            <p class="muted">账号待审核，暂不可查看全队名单。</p>
+          </section>
+          <template v-else>
+            <p class="hint roster-hint">外挂仅显示本人报名。</p>
+            <RosterList
+              :sections="overviewRoster"
+              :loading="overviewRosterLoading"
+              :error="overviewRosterError"
+              :attendance-error="overviewAttendanceError"
+              :admin-url="null"
+              @retry="loadOverviewRoster(requestSeq)"
+            />
           </template>
         </template>
-
-        <p v-if="actionError" class="action-error">{{ actionError }}</p>
-      </section>
+      </template>
 
       <template v-else-if="activeTab === 'events'">
         <section class="card events-summary">
@@ -1095,5 +1979,73 @@ onMounted(load);
         </Button>
       </div>
     </Popup>
+
+    <InviteDialog
+      :show="inviteOpen"
+      :submitting="inviteSubmitting"
+      :result="inviteResult"
+      :error="inviteError"
+      @update:show="closeInvite"
+      @submit="submitInvite"
+      @copy="copyInvite"
+    />
+
+    <StatusChangeDialog
+      :show="statusDialogOpen"
+      :mode="statusDialogMode"
+      :initial-start-at="statusInitialStart"
+      :initial-end-at="statusInitialEnd"
+      :submitting="statusSubmitting"
+      :error="statusError"
+      @update:show="statusDialogOpen = $event"
+      @submit="submitStatusDialog"
+    />
   </section>
 </template>
+
+<style scoped>
+.match-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-select {
+  flex: 1;
+  min-width: 130px;
+  padding: 7px 10px;
+  color: var(--yh-ink);
+  font: inherit;
+  font-size: 13px;
+  background: #ffffff;
+  border: 1px solid var(--yh-line);
+  border-radius: 10px;
+}
+
+.share-manual {
+  width: 100%;
+  padding: 8px 10px;
+  color: var(--yh-ink);
+  font: inherit;
+  font-size: 13px;
+  background: #f8fafc;
+  border: 1px solid var(--yh-line);
+  border-radius: 10px;
+  word-break: break-all;
+}
+
+.voided-banner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.roster-diff {
+  margin: 12px 0 0;
+}
+
+.roster-hint {
+  margin-top: 12px;
+}
+</style>

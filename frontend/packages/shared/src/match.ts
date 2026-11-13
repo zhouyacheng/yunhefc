@@ -412,8 +412,7 @@ export function matchScheduleError(
     return '开始/结束时间相差必须为 2–4 小时';
   }
   const local = new Date(start + SHANGHAI_OFFSET_MS);
-  const seconds =
-    local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds();
+  const seconds = local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds();
   return seconds <= EARLIEST_START_SECONDS ? '开赛时间必须晚于当天 10:00' : null;
 }
 
@@ -555,6 +554,21 @@ export const ATTENDANCE_SOURCE_TEXT: Readonly<Record<number, string>> = {
   1: '管理员',
   2: '系统',
 };
+
+/** MAT-12 请求体：延期需 startAt/endAt，取消需 reason。 */
+export interface MatchStatusUpdate {
+  status: MatchStatus;
+  version: number;
+  manualStatus?: boolean;
+  reason?: string;
+  startAt?: string;
+  endAt?: string;
+}
+
+/** REG-02 响应：取消 CONFIRMED 时返回真实递补结果。 */
+export interface CancellationResult extends PromotionResult {
+  cancelled: boolean;
+}
 
 export type CheckInWindowState = 'open' | 'before' | 'after';
 

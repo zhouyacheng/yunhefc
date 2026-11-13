@@ -1,0 +1,14 @@
+.git
+.github
+.claude
+.scratch
+docs
+prototype
+node_modules
+**/node_modules
+backend/target/*
+!backend/target/*.jar
+frontend/**/dist
+frontend/test-results
+frontend/playwright-report
+**/*.log

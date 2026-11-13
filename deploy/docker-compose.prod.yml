@@ -1,0 +1,30 @@
+# 生产覆盖层：资源上限、运行时环境文件、JVM 参数与证书挂载。
+# 与 docker-compose.yml 一起使用；release.sh 会传入两份快照。
+services:
+  backend:
+    env_file:
+      - ${YUNHEFC_ENV_FILE:-/opt/yunhefc/.env}
+    mem_limit: 832m
+    # 给 Spring graceful shutdown（30s）留出余量；Docker 默认 10s 会提前 SIGKILL。
+    stop_grace_period: 40s
+    environment:
+      JAVA_TOOL_OPTIONS: >-
+        -Xms256m -Xmx448m
+        -XX:MaxMetaspaceSize=128m
+        -XX:MaxDirectMemorySize=48m
+        -XX:ReservedCodeCacheSize=64m
+        -XX:ActiveProcessorCount=2
+        -Xss512k
+
+  kafka:
+    mem_limit: 512m
+
+  redis:
+    env_file:
+      - ${YUNHEFC_ENV_FILE:-/opt/yunhefc/.env}
+    mem_limit: 192m
+
+  nginx:
+    mem_limit: 48m
+    volumes:
+      - ${YUNHEFC_CERTS_DIR:-/opt/yunhefc/certs}:/etc/nginx/certs:ro

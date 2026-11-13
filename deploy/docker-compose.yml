@@ -1,0 +1,149 @@
+# 生产服务编排：MySQL 使用阿里云 RDS，不在 Compose 内。
+# 与 docker-compose.prod.yml 一起使用，镜像 tag 由 release.sh 通过环境变量注入。
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  backend:
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY 未设置}/yunhefc-backend:${IMAGE_TAG:?IMAGE_TAG 未设置}
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      LOGGING_FILE_PATH: /app/logs
+    volumes:
+      - backend-logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    healthcheck:
+      # readiness 覆盖 DB 与 Redis；启动期给 JVM/Flyway 留足时间。
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health/readiness | grep -q '\"status\":\"UP\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 180s
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - app
+
+  kafka:
+    image: apache/kafka:3.7.2
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_RETENTION_HOURS: 168
+      # 按分区计；4 个 topic 总数据上限约 1GB。
+      KAFKA_LOG_RETENTION_BYTES: 268435456
+      KAFKA_LOG_SEGMENT_BYTES: 134217728
+      KAFKA_MIN_INSYNC_REPLICAS: 1
+      KAFKA_LOG_CLEANER_ENABLE: "false"
+      KAFKA_HEAP_OPTS: -Xms256m -Xmx256m
+      CLUSTER_ID: MkU3OEVBNTcwNTJENDM2Qk
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 6
+      start_period: 60s
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - app
+
+  # 一次性预创建 topic；禁止 broker 自动建 topic。
+  kafka-init:
+    image: apache/kafka:3.7.2
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -e
+        for topic in \
+          yunhefc.notification.events \
+          yunhefc.notification.events.DLT \
+          yunhefc.audit.events \
+          yunhefc.audit.events.DLT; do
+          /opt/kafka/bin/kafka-topics.sh \
+            --bootstrap-server kafka:9092 \
+            --create --if-not-exists \
+            --topic "$$topic" \
+            --partitions 1 --replication-factor 1
+        done
+    depends_on:
+      kafka:
+        condition: service_healthy
+    logging: *default-logging
+    restart: "no"
+    networks:
+      - app
+
+  redis:
+    image: redis:6.2.24
+    command:
+      - sh
+      - -c
+      - >-
+        exec redis-server
+        --requirepass "$${REDIS_PASSWORD}"
+        --maxmemory 128mb
+        --maxmemory-policy noeviction
+        --appendonly yes
+        --appendfsync everysec
+        --save 900 1
+        --save 300 10
+        --dir /data
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$${REDIS_PASSWORD}\" redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - app
+
+  nginx:
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY 未设置}/yunhefc-nginx:${IMAGE_TAG:?IMAGE_TAG 未设置}
+    environment:
+      DOMAIN: ${DOMAIN:?DOMAIN 未设置}
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      backend:
+        condition: service_started
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - app
+
+volumes:
+  backend-logs:
+  kafka-data:
+  redis-data:
+
+networks:
+  app:
+    driver: bridge

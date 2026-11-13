@@ -390,4 +390,5 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 
 - ACR 两个仓库、写权限与只读账号；ECS `deploy` 用户、SSH key 与 known_hosts；webhook 地址。
 - 分支保护、Environment 审批人需在 GitHub 仓库设置中配置；仓库变量/Secrets 见 §6.4。
+- 首次配置镜像流水线前置：在仓库根目录运行 `./scripts/setup-ci-external.sh`（交互式；公开值写到 `~/.config/yunhefc/ci-external.env`，密钥经 `gh` 写入 GitHub）。它只覆盖 `ACR_*`、`PUBLIC_DOMAIN`、分支保护与 `production` Environment。
 - 缺少 `ACR_*`/`ECS_*` 时 PR 三项检查仍可运行；main 的 `images` 会失败，`deploy` 会在校验阶段直接拒绝。

@@ -1,6 +1,6 @@
 # B1 后端与契约补齐 — 实施规格
 
-Status: ready-for-agent
+Status: resolved（2026-11-13）
 Type: spec
 
 事实源：需求 v1.15；`docs/design/01.功能模块梳理.md`–`06.设计方案评审结果.md`；`docs/rules/*`；`.scratch/mvp-release/batches.md`；已关闭决策票 `.scratch/mvp-release/issues/06`、`07`、`08`、`09`、`10`、`14`、`15`、`17`、`21`；现状盘点 `.scratch/mvp-release/research/01`–`04`。
@@ -381,3 +381,7 @@ M01–M08 已让球队完成建赛、报名、考勤、事件比分、统计、�
 - 后端门：05 的 92 个接口全部实现；`mvn verify` 全绿（含 ArchUnit）；空库 Flyway 幂等；无 schema/Flyway/Quartz DDL 改动。
 - 行为门：本规格 User Stories 全部可演示；dev/test mock 可启动；prod fail-fast 生效。
 - 文档：契约以 05 §2.7/§3.10–3.15/§4 为准；实施记录写 06；同步 `CLAUDE.md` 的代码状态。
+
+### 复核偏差记录（2026-11-14）
+
+- `scripts/sql/schema.sql` 仅将 `player.avatar_url` 字段注释由「头像URL」改为「头像对象键」，无列、类型、索引、约束或 Flyway 变更；完成门「无 schema 改动」按无 DDL 变更理解。

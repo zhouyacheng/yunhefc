@@ -18,6 +18,10 @@ public final class MaskUtils {
 
     private static final Set<String> SECRET_KEYS = Set.of("openid", "passwordhash", "tokenhash", "token");
     private static final Pattern IPV6_LITERAL = Pattern.compile("^[0-9A-Fa-f:.]+$");
+    private static final Pattern TEXT_PHONE = Pattern.compile("(?<!\\d)1[3-9]\\d{9}(?!\\d)");
+    private static final Pattern TEXT_ID_CARD = Pattern.compile("(?<!\\d)\\d{17}[\\dXx](?!\\d)");
+    private static final Pattern TEXT_EMAIL =
+            Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
     private static final String REDACTED = "***";
 
     private MaskUtils() {
@@ -55,6 +59,22 @@ public final class MaskUtils {
             return REDACTED;
         }
         return phone.substring(0, 3) + "****" + phone.substring(phone.length() - 4);
+    }
+
+    /**
+     * 日志文本二次脱敏：无字段名可依赖，只处理可识别的手机号、身份证号与邮箱。
+     */
+    public static String maskText(String text) {
+        if (text == null || text.isEmpty()) {
+            return text;
+        }
+        String masked = TEXT_PHONE.matcher(text).replaceAll(match -> maskPhone(match.group()));
+        masked = TEXT_ID_CARD.matcher(masked).replaceAll(match ->
+                match.group().substring(0, 6) + "********" + match.group().substring(14));
+        return TEXT_EMAIL.matcher(masked).replaceAll(match -> {
+            String value = match.group();
+            return "***@" + value.substring(value.indexOf('@') + 1);
+        });
     }
 
     public static String maskIp(String ip) {

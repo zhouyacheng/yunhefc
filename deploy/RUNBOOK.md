@@ -108,8 +108,7 @@ docker run --rm --network host \
 ```bash
 sha7=<7位commit>
 install -d /opt/yunhefc/releases/$sha7
-rsync -a deploy/docker-compose.yml deploy/docker-compose.prod.yml \
-  /opt/yunhefc/releases/$sha7/
+rsync -a --exclude '.env' deploy/ /opt/yunhefc/releases/$sha7/
 printf 'IMAGE_TAG=sha-%s\n' "$sha7" > /opt/yunhefc/releases/$sha7/release.env
 ```
 
@@ -301,6 +300,21 @@ COMMIT;
 ```
 
 审计日志永久在线保留，不手工删除；每年导出到 OSS。
+
+### 3.7 微信登录失败
+
+先确认 `.env`：
+
+- `WECHAT_ENABLED=true` 时，`WECHAT_MODE=real` 且 AppID/Secret/回调地址齐全；prod 缺任一项应用会启动失败。
+- `WECHAT_ALLOWED_REDIRECT_PREFIXES` 只能填站内路径前缀（默认 `/`）。填完整域名（如 `https://www.example.com/`）会让所有 `redirect` 校验失败，表现为点击微信登录直接返回 `40001「redirect 不在白名单」`。
+- `WECHAT_CALLBACK_URL` 必须是 `https://www.<domain>/api/v1/c/auth/wechat/callback`，且该域名已在公众号「网页授权域名」登记、`MP_verify_*.txt` 可访问。
+
+| 症状 | 排查 |
+|---|---|
+| 非微信内打开返回 `42201` | 正常保护；确认只在微信内使用 |
+| 回调后回到站内失败页 `error=40001` | code 已用过或 state 过期/不匹配；重新发起授权；日志查 `wechat callback`，只记 errcode |
+| `error=50001` | 微信 token 接口失败或 AppID/Secret 错误；检查公众号配置与出口网络 |
+| 回调地址打开是 JSON | `WECHAT_CALLBACK_URL` 配置错误，或请求未带 `Accept: text/html`；恢复为上述固定地址 |
 
 ---
 

@@ -18,19 +18,6 @@ class MaskUtilsTest {
     }
 
     @Test
-    void masksSensitiveValuesInFreeText() {
-        assertThat(MaskUtils.maskText("user login, phone=13812345678"))
-                .isEqualTo("user login, phone=138****5678");
-        assertThat(MaskUtils.maskText("mail to zhangsan@example.com"))
-                .isEqualTo("mail to ***@example.com");
-        assertThat(MaskUtils.maskText("id=110101199001011234"))
-                .isEqualTo("id=110101********1234");
-        assertThat(MaskUtils.maskText("nothing sensitive here"))
-                .isEqualTo("nothing sensitive here");
-        assertThat(MaskUtils.maskText(null)).isNull();
-    }
-
-    @Test
     void masksIpv4LastSegment() {
         assertThat(MaskUtils.maskIp("192.168.1.25")).isEqualTo("192.168.1.*");
         assertThat(MaskUtils.maskIp("10.0.0.1")).isEqualTo("10.0.0.*");

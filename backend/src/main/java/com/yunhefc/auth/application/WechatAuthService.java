@@ -25,7 +25,6 @@ import com.yunhefc.common.api.RequestContext;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.AuthSessionService;
-import com.yunhefc.common.util.MaskUtils;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.player.PlayerType;
@@ -230,7 +229,7 @@ public class WechatAuthService {
             userMapper.insert(user);
         } catch (DuplicateKeyException ex) {
             // 唯一键异常文本含原始手机号/openid，只记录脱敏手机号
-            log.warn("微信绑定记录唯一键冲突, phone={}", MaskUtils.maskPhone(request.phone()));
+            log.warn("微信绑定记录唯一键冲突, phone={}", UserViewAssembler.maskPhone(request.phone()));
             String cause = ex.getMostSpecificCause().getMessage();
             if (cause != null && cause.contains("uk_user_phone")) {
                 throw new BusinessException(ErrorCode.PHONE_EXISTS);
@@ -263,7 +262,7 @@ public class WechatAuthService {
         try {
             userMapper.updateOpenid(user.getId(), openid);
         } catch (DuplicateKeyException ex) {
-            log.warn("微信绑定唯一键冲突, phone={}", MaskUtils.maskPhone(user.getPhone()));
+            log.warn("微信绑定唯一键冲突, phone={}", UserViewAssembler.maskPhone(user.getPhone()));
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "该微信已绑定其他账号");
         }
     }

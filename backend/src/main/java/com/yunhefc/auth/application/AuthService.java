@@ -27,7 +27,6 @@ import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.security.BackendPermissions;
 import com.yunhefc.common.util.LikePattern;
-import com.yunhefc.common.util.MaskUtils;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -119,7 +118,7 @@ public class AuthService implements UserAccessPort {
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException ex) {
-            log.warn("注册手机号唯一键冲突, phone={}", MaskUtils.maskPhone(request.phone()));
+            log.warn("注册手机号唯一键冲突, phone={}", UserViewAssembler.maskPhone(request.phone()));
             throw new BusinessException(ErrorCode.PHONE_EXISTS);
         }
 
@@ -214,7 +213,7 @@ public class AuthService implements UserAccessPort {
         Integer statusCode = validStatus(status);
         String search = normalizeKeyword(keyword);
         Set<Long> nameUserIds = search == null ? Set.of()
-                : new LinkedHashSet<>(playerReadPort.findUserIdsByNameContaining(teamId(), search));
+                : new LinkedHashSet<>(playerReadPort.findUserIdsByNameContaining(search));
         LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
                 .eq(statusCode != null, AppUser::getStatus, statusCode)
                 .and(search != null, query -> {
@@ -250,7 +249,7 @@ public class AuthService implements UserAccessPort {
         try {
             userMapper.updatePhone(userId, phone);
         } catch (DuplicateKeyException ex) {
-            log.warn("换绑手机号唯一键冲突, phone={}", MaskUtils.maskPhone(phone));
+            log.warn("换绑手机号唯一键冲突, phone={}", UserViewAssembler.maskPhone(phone));
             throw new BusinessException(ErrorCode.PHONE_EXISTS);
         }
         loginAttemptService.clear(phone);

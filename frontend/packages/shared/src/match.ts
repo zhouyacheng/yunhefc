@@ -570,32 +570,6 @@ export interface CancellationResult extends PromotionResult {
   cancelled: boolean;
 }
 
-/** 新建比赛表单的报名名额默认值；与 SET-01 缺失键的回退口径一致。 */
-export interface CapacityDefaults {
-  capacity: number;
-  guestCapacity: number;
-  waitlistCapacity: number;
-}
-
-export const DEFAULT_CAPACITY_DEFAULTS: CapacityDefaults = {
-  capacity: 30,
-  guestCapacity: 4,
-  waitlistCapacity: 2,
-};
-
-export function capacityDefaults(
-  settings?: { maxPlayers: number; maxGuests: number; maxWaitlist: number } | null,
-): CapacityDefaults {
-  if (!settings) {
-    return { ...DEFAULT_CAPACITY_DEFAULTS };
-  }
-  return {
-    capacity: settings.maxPlayers,
-    guestCapacity: settings.maxGuests,
-    waitlistCapacity: settings.maxWaitlist,
-  };
-}
-
 export type CheckInWindowState = 'open' | 'before' | 'after';
 
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;

@@ -18,9 +18,9 @@ public interface PlayerReadPort {
     List<PlayerSnapshot> findByUserIds(Collection<Long> userIds);
 
     /**
-     * 在指定球队内按姓名模糊匹配读取用户 ID；关键词按字面量匹配。
+     * 按姓名模糊匹配读取用户 ID；关键词按字面量匹配。
      */
-    List<Long> findUserIdsByNameContaining(Long teamId, String keyword);
+    List<Long> findUserIdsByNameContaining(String keyword);
 
     /**
      * 球队页公开名单：正式球员且账号 ACTIVE。

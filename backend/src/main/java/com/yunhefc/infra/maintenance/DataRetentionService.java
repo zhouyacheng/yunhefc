@@ -33,7 +33,7 @@ public class DataRetentionService {
                     batch = task.deleteBatch(now, BATCH_SIZE);
                     deleted += batch;
                 } while (batch >= BATCH_SIZE);
-                log.debug("retention cleanup done, task={}, deleted={}", task.name(), deleted);
+                log.info("retention cleanup done, task={}, deleted={}", task.name(), deleted);
             } catch (Exception e) {
                 log.error("retention cleanup failed, task={}, deleted={}", task.name(), deleted, e);
             }

@@ -61,6 +61,11 @@ export function isApiError(error: unknown): error is ApiError {
   return error instanceof ApiError;
 }
 
+/** 业务错误展示后端 message；网络中断等未知异常使用页面兜底文案。 */
+export function describeError(caught: unknown, fallback: string): string {
+  return isApiError(caught) ? caught.message : fallback;
+}
+
 export function isUnauthorized(error: unknown): boolean {
   return isApiError(error) && error.code === ERROR_CODES.UNAUTHENTICATED;
 }

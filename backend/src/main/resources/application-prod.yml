@@ -33,6 +33,8 @@ server:
       enabled: false
 
 yunhefc:
+  # 生产必填：C 端站点根地址，用于拼接邀请链接。
+  public-base-url: ${PUBLIC_BASE_URL:}
   session:
     cookie-secure: ${SESSION_COOKIE_SECURE:false}
     cookie-domain: ${SESSION_COOKIE_DOMAIN:}

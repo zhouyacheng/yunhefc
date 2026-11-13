@@ -103,6 +103,15 @@ fi
 DOMAIN_VALUE="$(env_value "$ENV_FILE" DOMAIN)"
 [[ -n "$DOMAIN_VALUE" ]] || die "$ENV_FILE 未配置 DOMAIN"
 
+# prod 启动会校验 PUBLIC_BASE_URL 必须等于 CORS 的 www 源；这里提前拦截，避免切版后才 crash-loop。
+PUBLIC_BASE_URL_VALUE="$(env_value "$ENV_FILE" PUBLIC_BASE_URL)"
+[[ "$PUBLIC_BASE_URL_VALUE" =~ ^https://www\.[A-Za-z0-9.-]+$ ]] \
+    || die "$ENV_FILE 的 PUBLIC_BASE_URL 必须为 https://www.<domain>（不带路径与末尾斜杠）"
+CORS_WWW="$(printf '%s' "$(env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS)" \
+    | tr ',' '\n' | sed -n 's#^\(https://www\.[A-Za-z0-9.-]*\)$#\1#p' | head -n 1)"
+[[ -n "$CORS_WWW" && "$PUBLIC_BASE_URL_VALUE" == "$CORS_WWW" ]] \
+    || die "$ENV_FILE 的 PUBLIC_BASE_URL 必须与 CORS_ALLOWED_ORIGINS 中的 www 源完全一致"
+
 release_dir=""
 if [[ "$MODE" == "rollback" ]]; then
     if [[ -n "$SHA" ]]; then

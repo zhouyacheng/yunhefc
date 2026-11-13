@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ERROR_CODES, isApiError } from '@yunhefc/api-client';
 import type { MatchDetail } from '@yunhefc/shared';
-import { formatDateTime } from '@yunhefc/shared';
+import { formatDateTime, inviteTypeText } from '@yunhefc/shared';
 import { Button, Loading, Tag } from 'vant';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -11,7 +11,6 @@ import {
   type InviteLandingState,
   inviteInvalidText,
   inviteLandingState,
-  inviteTypeText,
   matchInviteHint,
   remainingUsesText,
 } from '../features/invite/invite-state';

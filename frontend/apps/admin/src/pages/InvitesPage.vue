@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { ERROR_CODES, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
+import { ERROR_CODES, describeError, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import { INVITE_MANAGE_ANY, hasPermission } from '@yunhefc/permissions';
 import type { Invite, InviteCreated, InviteType, MatchSummary, Page } from '@yunhefc/shared';
 import {
   formatDateTime,
   inviteMatchTitle,
   inviteQuotaText,
-  inviteStatusText,
-  inviteStatusTone,
+  inviteStatusMeta,
   inviteTypeText,
   matchStatusText,
 } from '@yunhefc/shared';
@@ -64,7 +63,6 @@ let createSubmitPayload: CreateInvitePayload | null = null;
 const matchOptions = ref<MatchSummary[]>([]);
 const matchesLoading = ref(false);
 const matchesError = ref('');
-let matchesLoaded = false;
 
 const createdDialog = reactive({
   visible: false,
@@ -92,7 +90,7 @@ async function load(): Promise<void> {
     if (seq !== requestSeq) {
       return;
     }
-    error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
+    error.value = describeError(caught, '加载失败，请稍后重试');
   } finally {
     if (seq === requestSeq) {
       loading.value = false;
@@ -125,8 +123,9 @@ function openCreate(): void {
   createSubmitPayload = null;
 }
 
-async function loadMatches(force = false): Promise<void> {
-  if (matchesLoading.value || (matchesLoaded && !force)) {
+/** 每次切换到比赛邀请都重新拉取，避免沿用上一次打开弹窗时的过期状态。 */
+async function loadMatches(): Promise<void> {
+  if (matchesLoading.value) {
     return;
   }
   matchesLoading.value = true;
@@ -136,9 +135,15 @@ async function loadMatches(force = false): Promise<void> {
       query: { scope: 'upcoming', pageSize: 100, sort: 'startAt:asc' },
     });
     matchOptions.value = result.items.filter((match) => INVITABLE_MATCH_STATUSES.has(match.status));
-    matchesLoaded = true;
+    // 刷新后已选比赛可能已开赛/取消，不能沿用旧值提交。
+    if (
+      createDialog.matchId !== null &&
+      !matchOptions.value.some((match) => match.id === createDialog.matchId)
+    ) {
+      createDialog.matchId = null;
+    }
   } catch (caught) {
-    matchesError.value = isApiError(caught) ? caught.message : '比赛列表加载失败';
+    matchesError.value = describeError(caught, '比赛列表加载失败');
   } finally {
     matchesLoading.value = false;
   }
@@ -149,6 +154,16 @@ watch(
   (type) => {
     if (type === 1) {
       void loadMatches();
+    }
+  },
+);
+
+// 用户修正字段后不再显示上一次提交的错误。
+watch(
+  () => [createDialog.type, createDialog.matchId, createDialog.expiresInDays, createDialog.maxUses],
+  () => {
+    if (!createDialog.retryable) {
+      createDialog.error = '';
     }
   },
 );
@@ -200,6 +215,8 @@ async function submitCreate(): Promise<void> {
     createdDialog.copied = false;
     createdDialog.copyFailed = false;
     createdDialog.visible = true;
+    // 新邀请按 id 倒序排在第一页；停留在后续页时看不到新增行。
+    page.value = 1;
     void load();
   } catch (caught) {
     if (isUncertainCreateFailure(caught)) {
@@ -210,7 +227,7 @@ async function submitCreate(): Promise<void> {
       createDialog.retryable = false;
       createSubmitKey = null;
       createSubmitPayload = null;
-      createDialog.error = isApiError(caught) ? caught.message : '创建失败，请稍后重试';
+      createDialog.error = describeError(caught, '创建失败，请稍后重试');
     }
   } finally {
     createDialog.submitting = false;
@@ -290,7 +307,7 @@ async function revokeInvite(invite: Invite): Promise<void> {
       void load();
       return;
     }
-    ElMessage.error(isApiError(caught) ? caught.message : '撤销失败，请稍后重试');
+    ElMessage.error(describeError(caught, '撤销失败，请稍后重试'));
   }
 }
 
@@ -373,8 +390,8 @@ onUnmounted(() => {
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="inviteStatusTone(row, now)" effect="light">
-              {{ inviteStatusText(row, now) }}
+            <el-tag :type="inviteStatusMeta(row, now).tone" effect="light">
+              {{ inviteStatusMeta(row, now).text }}
             </el-tag>
           </template>
         </el-table-column>
@@ -441,7 +458,7 @@ onUnmounted(() => {
           </el-select>
           <p v-if="matchesError" class="dialog-error">
             {{ matchesError }}
-            <el-button link type="primary" size="small" @click="loadMatches(true)">重试</el-button>
+            <el-button link type="primary" size="small" @click="loadMatches">重试</el-button>
           </p>
         </el-form-item>
         <el-form-item label="有效期">
@@ -468,7 +485,7 @@ onUnmounted(() => {
           <span class="form-suffix">留空为不限</span>
         </el-form-item>
       </el-form>
-      <p v-if="createDialog.error" class="dialog-error">{{ createDialog.error }}</p>
+      <p v-if="createDialog.error" class="dialog-error create-error">{{ createDialog.error }}</p>
       <template #footer>
         <el-button :disabled="createDialog.submitting" @click="cancelCreate">取消</el-button>
         <el-button type="primary" :loading="createDialog.submitting" @click="submitCreate">

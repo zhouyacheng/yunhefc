@@ -66,14 +66,28 @@ export interface TeamRef {
 export type InviteType = 0 | 1;
 export type InviteStatus = 0 | 1 | 2;
 
+/** INV-04 的 match 摘要子集；比赛被删除时后端返回 null。 */
+export interface InviteMatchSummary {
+  id: number;
+  title: string;
+  startAt: string;
+  endAt: string;
+  venue: string;
+  status: number;
+  homeTeamName?: string | null;
+  awayTeamName?: string | null;
+}
+
 export interface Invite {
   id: number;
   type: InviteType;
   typeLabel?: string;
-  team: TeamRef;
+  /** 历史数据或球队缺失时后端可返回 null。 */
+  team: TeamRef | null;
   matchId?: number | null;
-  match?: unknown;
-  inviter: User;
+  match?: InviteMatchSummary | null;
+  /** 邀请人账号已删除时后端可返回 null。 */
+  inviter: UserSummary | null;
   expiresAt: string;
   maxUses?: number | null;
   usedCount: number;

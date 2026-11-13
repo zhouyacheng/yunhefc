@@ -49,6 +49,7 @@ class ProdProfileContextTest {
                         "yunhefc.session.cookie-secure=" + cookieSecure,
                         "yunhefc.session.cookie-domain=" + cookieDomain,
                         "yunhefc.cors.allowed-origins=" + corsOrigins,
+                        "yunhefc.public-base-url=https://www.example.com",
                         "spring.datasource.password=" + dbPassword,
                         "spring.data.redis.password=" + redisPassword);
     }

@@ -198,7 +198,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://<domain>/   # 301
 ### 3.2 `.env` 丢失或损坏
 
 1. 从密码管理器取回离线副本，写回 `/opt/yunhefc/.env`，`chmod 600`。
-2. 确认 `SESSION_COOKIE_SECURE=true`、`SESSION_COOKIE_DOMAIN=` 为空、CORS 恰为两个 https 域名。
+2. 确认 `SESSION_COOKIE_SECURE=true`、`SESSION_COOKIE_DOMAIN=` 为空、CORS 恰为两个 https 域名、`PUBLIC_BASE_URL` 为 C 端 https 根地址。
 3. 重新创建 backend/nginx 让环境变量生效：
 
 ```bash

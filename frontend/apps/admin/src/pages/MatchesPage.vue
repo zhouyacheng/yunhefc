@@ -2,6 +2,7 @@
 import type { QueryParams } from '@yunhefc/api-client';
 import {
   ERROR_CODES,
+  describeError,
   isApiError,
   isVersionConflict,
   newIdempotencyKey,
@@ -222,10 +223,6 @@ function fromPickerDate(value: Date | null): Date | null {
   );
 }
 
-function describeError(caught: unknown, fallback: string): string {
-  return isApiError(caught) ? caught.message : fallback;
-}
-
 async function load(): Promise<void> {
   const seq = ++requestSeq;
   loading.value = true;
@@ -250,7 +247,7 @@ async function load(): Promise<void> {
     if (seq !== requestSeq) {
       return;
     }
-    error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
+    error.value = describeError(caught, '加载失败，请稍后重试');
   } finally {
     if (seq === requestSeq) {
       loading.value = false;
@@ -284,7 +281,7 @@ async function reportWriteError(
     await load();
     return;
   }
-  const message = isApiError(caught) ? caught.message : '操作失败，请稍后重试';
+  const message = describeError(caught, '操作失败，请稍后重试');
   if (inlineError) {
     inlineError(message);
   } else {

@@ -11,6 +11,7 @@ export type {
 export {
   ApiError,
   ERROR_CODES,
+  describeError,
   isApiError,
   isObjectForbidden,
   isSectionForbidden,

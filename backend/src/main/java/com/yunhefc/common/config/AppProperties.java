@@ -5,7 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "yunhefc")
 public class AppProperties {
 
-    private String publicBaseUrl = "http://localhost:5173";
+    private String publicBaseUrl;
 
     public String getPublicBaseUrl() {
         return publicBaseUrl;

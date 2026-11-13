@@ -16,6 +16,8 @@ public class ProdStartupValidator {
     private static final String CORS_RULE =
             "生产环境 CORS_ALLOWED_ORIGINS 必须恰好是同一域名的 https://www.<domain> 与 https://admin.<domain>"
                     + "（拒绝 localhost 与通配符）";
+    private static final String PUBLIC_BASE_URL_RULE =
+            "生产环境 PUBLIC_BASE_URL 必须与 CORS 的 https://www.<domain> 完全一致（不带路径与末尾斜杠）";
 
     private final Environment environment;
     private final SessionProperties sessionProperties;
@@ -31,6 +33,7 @@ public class ProdStartupValidator {
     public void validate() {
         validateSessionCookie();
         validateCors();
+        validatePublicBaseUrl();
         validateDbPassword();
         validateRedisPassword();
     }
@@ -91,6 +94,23 @@ public class ProdStartupValidator {
             throw new IllegalStateException(CORS_RULE);
         }
         return host.toLowerCase(Locale.ROOT);
+    }
+
+    /** 邀请链接必须落在 C 端 www 源；同时拒绝首尾空白，避免校验值与实际拼接值不一致。 */
+    private void validatePublicBaseUrl() {
+        String value = environment.getProperty("yunhefc.public-base-url");
+        if (!StringUtils.hasText(value) || !value.equals(value.trim()) || !value.equals(wwwOrigin())) {
+            throw new IllegalStateException(PUBLIC_BASE_URL_RULE);
+        }
+    }
+
+    private String wwwOrigin() {
+        return corsProperties.allowedOrigins().stream()
+                .filter(StringUtils::hasText)
+                .map(String::trim)
+                .filter(origin -> httpsHost(origin).startsWith("www."))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException(PUBLIC_BASE_URL_RULE));
     }
 
     private void validateDbPassword() {

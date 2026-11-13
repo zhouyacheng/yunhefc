@@ -1,17 +1,5 @@
 import type { Invite } from './auth';
 
-/** 后端 InviteView.match 只返回比赛摘要子集；auth.ts 保持 unknown，这里统一收窄。 */
-export interface InviteMatchRef {
-  id: number;
-  title: string;
-  startAt: string;
-  endAt: string;
-  venue: string;
-  status: number;
-  homeTeamName?: string;
-  awayTeamName?: string;
-}
-
 /** INV-05 响应；token 只返回一次。 */
 export interface InviteCreated {
   inviteUrl: string;
@@ -19,6 +7,11 @@ export interface InviteCreated {
 }
 
 export type InviteStatusTone = 'success' | 'info' | 'warning';
+
+export interface InviteStatusMeta {
+  text: string;
+  tone: InviteStatusTone;
+}
 
 type InviteDisplayStatus = 'active' | 'revoked' | 'expired' | 'exhausted';
 
@@ -44,29 +37,19 @@ function displayStatus(
   return invite.exhausted ? 'exhausted' : 'active';
 }
 
-export function inviteStatusText(
-  invite: Pick<Invite, 'status' | 'expiresAt' | 'exhausted'>,
-  now: number = Date.now(),
-): string {
-  const status = displayStatus(invite, now);
-  if (status === 'revoked') {
-    return '已撤销';
-  }
-  if (status === 'expired') {
-    return '已过期';
-  }
-  return status === 'exhausted' ? '已用尽' : '有效';
-}
+const STATUS_META: Record<InviteDisplayStatus, InviteStatusMeta> = {
+  active: { text: '有效', tone: 'success' },
+  revoked: { text: '已撤销', tone: 'info' },
+  expired: { text: '已过期', tone: 'warning' },
+  exhausted: { text: '已用尽', tone: 'warning' },
+};
 
-export function inviteStatusTone(
+/** 状态文本与标签配色来自同一次判定，避免两处调用出现不一致。 */
+export function inviteStatusMeta(
   invite: Pick<Invite, 'status' | 'expiresAt' | 'exhausted'>,
   now: number = Date.now(),
-): InviteStatusTone {
-  const status = displayStatus(invite, now);
-  if (status === 'active') {
-    return 'success';
-  }
-  return status === 'revoked' ? 'info' : 'warning';
+): InviteStatusMeta {
+  return STATUS_META[displayStatus(invite, now)];
 }
 
 /** maxUses 为 null 表示不限次数，不能显示成「/ 0」。 */
@@ -75,6 +58,5 @@ export function inviteQuotaText(invite: Pick<Invite, 'usedCount' | 'maxUses'>): 
 }
 
 export function inviteMatchTitle(invite: Pick<Invite, 'match'>): string {
-  const match = invite.match as InviteMatchRef | null | undefined;
-  return match && typeof match.title === 'string' && match.title ? match.title : '—';
+  return invite.match?.title || '—';
 }

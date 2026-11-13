@@ -29,10 +29,6 @@ export function inviteLandingState(input: InviteStateInput): InviteLandingState 
   return member ? 'member' : 'team';
 }
 
-export function inviteTypeText(type: number): string {
-  return type === INVITE_TYPE.MATCH ? '比赛邀请' : '入队邀请';
-}
-
 /** 后端 statusLabel 为英文枚举，失效原因统一按 code 输出中文。 */
 export function inviteInvalidText(invite: InviteLandingView | null): string {
   if (invite?.status === INVITE_STATUS.EXPIRED) {

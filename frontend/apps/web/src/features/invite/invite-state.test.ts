@@ -4,7 +4,6 @@ import {
   type InviteLandingState,
   inviteInvalidText,
   inviteLandingState,
-  inviteTypeText,
   matchInviteHint,
   remainingUsesText,
 } from './invite-state';
@@ -63,11 +62,6 @@ describe('invite landing state', () => {
 });
 
 describe('invite copy', () => {
-  it('maps invite types to Chinese labels', () => {
-    expect(inviteTypeText(0)).toBe('入队邀请');
-    expect(inviteTypeText(1)).toBe('比赛邀请');
-  });
-
   it('explains each invalid reason', () => {
     expect(inviteInvalidText(view({ status: 2 }))).toBe('该邀请已过期');
     expect(inviteInvalidText(view({ status: 1 }))).toBe('该邀请已被撤销');

@@ -54,7 +54,7 @@ spring:
       max-request-size: 3MB
 
 yunhefc:
-  public-base-url: ${PUBLIC_BASE_URL:http://localhost:5173}
+  public-base-url: ${PUBLIC_BASE_URL:http://localhost:5273}
   auth:
     login-rate-limit:
       max-attempts: ${AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS:10}
@@ -85,7 +85,7 @@ yunhefc:
     cookie-secure: ${SESSION_COOKIE_SECURE:false}
     same-site: Lax
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:5174}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5273,http://localhost:5274}
   kafka:
     audit-topic: ${KAFKA_AUDIT_TOPIC:yunhefc.audit.events}
     notification-topic: ${KAFKA_NOTIFICATION_TOPIC:yunhefc.notification.events}

@@ -112,11 +112,62 @@ class ProdStartupValidatorTest {
                 .hasMessageContaining("REDIS_PASSWORD");
     }
 
+    @Test
+    void rejectsMissingPublicBaseUrl() {
+        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+                "strong-password", "redis-password", "").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PUBLIC_BASE_URL");
+    }
+
+    @Test
+    void rejectsLocalhostPublicBaseUrl() {
+        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+                "strong-password", "redis-password", "http://localhost:5273").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PUBLIC_BASE_URL");
+    }
+
+    @Test
+    void rejectsPublicBaseUrlWithPathOrTrailingSlash() {
+        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+                "strong-password", "redis-password", "https://www.example.com/").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PUBLIC_BASE_URL");
+        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+                "strong-password", "redis-password", "https://www.example.com/app").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PUBLIC_BASE_URL");
+    }
+
+    @Test
+    void rejectsPublicBaseUrlThatIsNotTheWwwOrigin() {
+        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+                "strong-password", "redis-password", "https://admin.example.com").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PUBLIC_BASE_URL");
+    }
+
+    @Test
+    void rejectsPaddedPublicBaseUrl() {
+        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+                "strong-password", "redis-password", "https://www.example.com ").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PUBLIC_BASE_URL");
+    }
+
     private ProdStartupValidator validator(SessionProperties session, CorsProperties cors,
                                            String dbPassword, String redisPassword) {
+        return validator(session, cors, dbPassword, redisPassword, "https://www.example.com");
+    }
+
+    private ProdStartupValidator validator(SessionProperties session, CorsProperties cors,
+                                           String dbPassword, String redisPassword,
+                                           String publicBaseUrl) {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("spring.datasource.password", dbPassword)
-                .withProperty("spring.data.redis.password", redisPassword);
+                .withProperty("spring.data.redis.password", redisPassword)
+                .withProperty("yunhefc.public-base-url", publicBaseUrl);
         return new ProdStartupValidator(environment, session, cors);
     }
 

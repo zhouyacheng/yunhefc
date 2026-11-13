@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { QueryParams } from '@yunhefc/api-client';
-import { ERROR_CODES, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
+import { ERROR_CODES, describeError, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import { PLAYER_EDIT_ANY, USER_APPROVE_ANY, hasPermission } from '@yunhefc/permissions';
 import type { Page, PlayerAdmin } from '@yunhefc/shared';
 import {
@@ -148,10 +148,6 @@ function markAvatarFailed(id: number): void {
   failedAvatars.add(id);
 }
 
-function describeError(caught: unknown, fallback: string): string {
-  return isApiError(caught) ? caught.message : fallback;
-}
-
 async function load(): Promise<void> {
   const seq = ++requestSeq;
   loading.value = true;
@@ -194,7 +190,7 @@ async function load(): Promise<void> {
     if (seq !== requestSeq) {
       return;
     }
-    error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
+    error.value = describeError(caught, '加载失败，请稍后重试');
   } finally {
     if (seq === requestSeq) {
       loading.value = false;

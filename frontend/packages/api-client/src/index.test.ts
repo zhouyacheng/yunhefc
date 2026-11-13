@@ -4,6 +4,7 @@ import {
   ApiError,
   ERROR_CODES,
   createApiClient,
+  describeError,
   isApiError,
   isObjectForbidden,
   isSectionForbidden,
@@ -91,6 +92,17 @@ describe('envelope', () => {
 
     expect(calls).toHaveLength(1);
     expect(error).toMatchObject({ code: 50001, requestId: 'req-header' });
+  });
+});
+
+describe('describeError', () => {
+  it('prefers the backend message for ApiError', () => {
+    const error = new ApiError({ status: 400, code: 40001, message: '有效期必须为 1–30 天' });
+    expect(describeError(error, '创建失败')).toBe('有效期必须为 1–30 天');
+  });
+
+  it('uses the fallback for unknown failures', () => {
+    expect(describeError(new Error('network down'), '创建失败')).toBe('创建失败');
   });
 });
 

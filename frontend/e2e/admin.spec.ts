@@ -780,8 +780,12 @@ function waitUserRolesSave(page: Page, userId: number) {
   );
 }
 
-/** 1001 在套件中登录次数接近 AUTH-15 上限；被限流时按服务端 retryAfterSeconds 等待后重试。 */
-async function loginAdminRetrying(page: Page, phone: string): Promise<void> {
+/**
+ * 1001 在套件中登录次数接近 AUTH-15 上限；被限流时按服务端 retryAfterSeconds 等待后重试。
+ * 返回是否发生过 429，供用例只忽略这条预期内的资源错误。
+ */
+async function loginAdminRetrying(page: Page, phone: string): Promise<boolean> {
+  let rateLimited = false;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const responsePromise = page.waitForResponse(
       (response) =>
@@ -795,14 +799,16 @@ async function loginAdminRetrying(page: Page, phone: string): Promise<void> {
     const response = await responsePromise;
     if (response.status() !== 429 || attempt === 1) {
       await expect(page).toHaveURL(/\/admin\/matches$/);
-      return;
+      return rateLimited;
     }
+    rateLimited = true;
     const body = (await response.json().catch(() => null)) as {
       data?: { retryAfterSeconds?: number };
     } | null;
     const retryAfter = Math.max(1, body?.data?.retryAfterSeconds ?? 60);
     await page.waitForTimeout((retryAfter + 1) * 1000);
   }
+  return rateLimited;
 }
 
 test('B 端：B08 用户角色分配 → 分配 ADMIN → 撤回', async ({ page }) => {
@@ -1118,11 +1124,19 @@ test('B 端：B11 创建入队邀请、复制链接并撤销', async ({ page }) 
   const errors = collectConsoleErrors(page);
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
   // 1022 为管理端专用管理员；B11 位于套件末尾，已接近 AUTH-15 限流，按服务端提示重试。
-  await loginAdminRetrying(page, '13910000022');
+  const rateLimited = await loginAdminRetrying(page, '13910000022');
 
+  // 先记录创建前的列表总数，后面用它识别创建后的新列表响应。
+  const initialList = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/b/invites' &&
+      response.request().method() === 'GET',
+  );
   await page.goto('/admin/invites');
   await expect(page).toHaveURL(/\/admin\/invites$/);
   await expect(page.getByRole('heading', { level: 2, name: '邀请管理' })).toBeVisible();
+  const beforeTotal = ((await (await initialList).json()) as { data: { total: number } }).data
+    .total;
 
   await page.getByRole('button', { name: '新建邀请' }).click();
   const dialog = page.locator('.el-dialog').filter({ hasText: '新建邀请' });
@@ -1135,16 +1149,23 @@ test('B 端：B11 创建入队邀请、复制链接并撤销', async ({ page }) 
       new URL(response.url()).pathname === '/api/v1/b/invites' &&
       response.request().method() === 'POST',
   );
-  const refreshed = page.waitForResponse(
-    (response) =>
-      new URL(response.url()).pathname === '/api/v1/b/invites' &&
-      response.request().method() === 'GET',
-  );
+  // 只认总数 +1 的列表响应，避免把页面初始加载的旧响应当作创建后的刷新。
+  const refreshed = page.waitForResponse(async (response) => {
+    if (
+      new URL(response.url()).pathname !== '/api/v1/b/invites' ||
+      response.request().method() !== 'GET'
+    ) {
+      return false;
+    }
+    const body = (await response.json().catch(() => null)) as {
+      data?: { total?: number };
+    } | null;
+    return body?.data?.total === beforeTotal + 1;
+  });
   await dialog.getByRole('button', { name: '创建邀请' }).click();
   const response = await created;
   expect(response.ok()).toBe(true);
   expect(response.request().headers()['idempotency-key']).toBeTruthy();
-  // 等创建后的列表刷新落定，避免后续断言落在旧行上。
   expect((await refreshed).ok()).toBe(true);
 
   const resultDialog = page.locator('.el-dialog').filter({ hasText: '邀请已创建' });
@@ -1175,7 +1196,10 @@ test('B 端：B11 创建入队邀请、复制链接并撤销', async ({ page }) 
   await expect(firstRow.locator('.el-tag')).toHaveText('已撤销');
   await expect(firstRow.getByRole('button', { name: '撤销' })).toBeDisabled();
 
-  expect(errors).toEqual([]);
+  // 仅当登录确实被限流重试时，忽略对应的 429 资源错误。
+  expect(errors.filter((message) => !(rateLimited && message.includes('status of 429')))).toEqual(
+    [],
+  );
 });
 
 test('B 端：B11 比赛邀请未选比赛时阻止提交', async ({ page }) => {
@@ -1187,18 +1211,37 @@ test('B 端：B11 比赛邀请未选比赛时阻止提交', async ({ page }) => 
       posts.push(request.url());
     }
   });
-  await loginAdminRetrying(page, '13910000022');
+  const rateLimited = await loginAdminRetrying(page, '13910000022');
 
   await page.goto('/admin/invites');
   await page.getByRole('button', { name: '新建邀请' }).click();
   const dialog = page.locator('.el-dialog').filter({ hasText: '新建邀请' });
+  const matchListLoaded = () =>
+    page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/v1/c/matches' &&
+        response.request().method() === 'GET',
+    );
+
   // Element Plus 的 radio input 不可见，点 label 才能触发。
+  const firstMatches = matchListLoaded();
   await dialog.locator('.el-radio').filter({ hasText: '比赛邀请' }).click();
   await expect(dialog.getByText('关联比赛')).toBeVisible();
+  expect((await firstMatches).ok()).toBe(true);
 
   await dialog.getByRole('button', { name: '创建邀请' }).click();
-  await expect(dialog.locator('.dialog-error')).toHaveText('请选择比赛');
+  await expect(dialog.locator('.create-error')).toHaveText('请选择比赛');
   expect(posts).toEqual([]);
 
-  expect(errors).toEqual([]);
+  // 切换类型后清空旧错误；再次切回比赛邀请会重新拉取比赛，不使用永久缓存。
+  await dialog.locator('.el-radio').filter({ hasText: '入队邀请' }).click();
+  await expect(dialog.locator('.create-error')).toHaveCount(0);
+  const secondMatches = matchListLoaded();
+  await dialog.locator('.el-radio').filter({ hasText: '比赛邀请' }).click();
+  expect((await secondMatches).ok()).toBe(true);
+
+  // 仅当登录确实被限流重试时，忽略对应的 429 资源错误。
+  expect(errors.filter((message) => !(rateLimited && message.includes('status of 429')))).toEqual(
+    [],
+  );
 });

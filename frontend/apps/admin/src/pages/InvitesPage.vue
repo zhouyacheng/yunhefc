@@ -14,6 +14,7 @@ import {
 import type { InputInstance } from 'element-plus';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import { onBeforeRouteLeave } from 'vue-router';
 
 import { api, publicApi } from '../api/client';
 import { useSessionStore } from '../stores/session';
@@ -39,14 +40,26 @@ let clockTimer: ReturnType<typeof setInterval> | null = null;
 const createDialog = reactive({
   visible: false,
   submitting: false,
+  /** 上一次提交结果未知（网络中断/5xx）：必须先重试原请求或明确放弃。 */
+  retryable: false,
   error: '',
   type: 0 as InviteType,
   matchId: null as number | null,
   expiresInDays: 7,
   maxUses: null as number | null,
 });
-/** 网络超时后重试沿用同一幂等键，避免服务端已落库却重复创建。 */
+const createDialogLocked = computed(() => createDialog.submitting || createDialog.retryable);
+
+interface CreateInvitePayload {
+  type: InviteType;
+  matchId?: number | null;
+  expiresInDays: number;
+  maxUses: number | null;
+}
+
+/** 网络超时后重试沿用同一幂等键与请求体，命中服务端缓存即可取回 inviteUrl。 */
 let createSubmitKey: string | null = null;
+let createSubmitPayload: CreateInvitePayload | null = null;
 
 const matchOptions = ref<MatchSummary[]>([]);
 const matchesLoading = ref(false);
@@ -102,12 +115,14 @@ function openCreate(): void {
   }
   createDialog.visible = true;
   createDialog.submitting = false;
+  createDialog.retryable = false;
   createDialog.error = '';
   createDialog.type = 0;
   createDialog.matchId = null;
   createDialog.expiresInDays = 7;
   createDialog.maxUses = null;
   createSubmitKey = newIdempotencyKey();
+  createSubmitPayload = null;
 }
 
 async function loadMatches(force = false): Promise<void> {
@@ -143,33 +158,42 @@ async function submitCreate(): Promise<void> {
     return;
   }
   createDialog.error = '';
-  if (createDialog.type === 1 && createDialog.matchId === null) {
-    createDialog.error = '请选择比赛';
-    return;
-  }
-  const days = Number(createDialog.expiresInDays);
-  if (!Number.isInteger(days) || days < 1 || days > 30) {
-    createDialog.error = '有效期必须为 1–30 天';
-    return;
-  }
-  const maxUses = createDialog.maxUses === null ? null : Number(createDialog.maxUses);
-  if (maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1)) {
-    createDialog.error = '使用次数上限必须大于 0';
-    return;
+  let payload: CreateInvitePayload;
+  if (createDialog.retryable && createSubmitPayload !== null) {
+    // 结果未知时冻结表单，只允许原样重试，命中服务端缓存即可取回链接。
+    payload = createSubmitPayload;
+  } else {
+    if (createDialog.type === 1 && createDialog.matchId === null) {
+      createDialog.error = '请选择比赛';
+      return;
+    }
+    const days = Number(createDialog.expiresInDays);
+    if (!Number.isInteger(days) || days < 1 || days > 30) {
+      createDialog.error = '有效期必须为 1–30 天';
+      return;
+    }
+    const maxUses = createDialog.maxUses === null ? null : Number(createDialog.maxUses);
+    if (maxUses !== null && (!Number.isInteger(maxUses) || maxUses < 1)) {
+      createDialog.error = '使用次数上限必须大于 0';
+      return;
+    }
+    payload = {
+      type: createDialog.type,
+      matchId: createDialog.type === 1 ? createDialog.matchId : undefined,
+      expiresInDays: days,
+      maxUses,
+    };
   }
   createDialog.submitting = true;
+  createSubmitPayload = payload;
+  createSubmitKey ??= newIdempotencyKey();
   try {
-    const created = await api.post<InviteCreated>(
-      '/invites',
-      {
-        type: createDialog.type,
-        matchId: createDialog.type === 1 ? createDialog.matchId : undefined,
-        expiresInDays: days,
-        maxUses,
-      },
-      { idempotencyKey: createSubmitKey ?? newIdempotencyKey() },
-    );
+    const created = await api.post<InviteCreated>('/invites', payload, {
+      idempotencyKey: createSubmitKey,
+    });
     createSubmitKey = null;
+    createSubmitPayload = null;
+    createDialog.retryable = false;
     createDialog.visible = false;
     createdDialog.inviteUrl = created.inviteUrl;
     createdDialog.expiresAt = created.expiresAt;
@@ -178,10 +202,53 @@ async function submitCreate(): Promise<void> {
     createdDialog.visible = true;
     void load();
   } catch (caught) {
-    createDialog.error = isApiError(caught) ? caught.message : '创建失败，请稍后重试';
+    if (isUncertainCreateFailure(caught)) {
+      createDialog.retryable = true;
+      createDialog.error = '创建结果未知，请点击「重试创建」取回链接；修改表单前请先重试或取消。';
+    } else {
+      // 服务端已明确拒绝（4xx），不会留下邀请，换新键后允许修改重提。
+      createDialog.retryable = false;
+      createSubmitKey = null;
+      createSubmitPayload = null;
+      createDialog.error = isApiError(caught) ? caught.message : '创建失败，请稍后重试';
+    }
   } finally {
     createDialog.submitting = false;
   }
+}
+
+/** 网络中断、超时、5xx 与占位进行中都可能“已落库但响应丢失”。 */
+function isUncertainCreateFailure(caught: unknown): boolean {
+  if (!isApiError(caught)) {
+    return true;
+  }
+  return (
+    caught.status === 0 ||
+    caught.status >= 500 ||
+    caught.code === ERROR_CODES.IDEMPOTENCY_IN_PROGRESS
+  );
+}
+
+async function cancelCreate(): Promise<void> {
+  if (createDialog.submitting) {
+    return;
+  }
+  if (createDialog.retryable) {
+    const discard = await ElMessageBox.confirm(
+      '上一次创建结果未知，关闭后将无法取回邀请链接。确定放弃？',
+      '放弃创建',
+      { type: 'warning', confirmButtonText: '放弃', cancelButtonText: '继续重试' },
+    )
+      .then(() => true)
+      .catch(() => false);
+    if (!discard) {
+      return;
+    }
+  }
+  createDialog.visible = false;
+  createDialog.retryable = false;
+  createSubmitKey = null;
+  createSubmitPayload = null;
 }
 
 async function copyInviteUrl(): Promise<void> {
@@ -227,6 +294,30 @@ async function revokeInvite(invite: Invite): Promise<void> {
   }
 }
 
+function handleBeforeUnload(event: BeforeUnloadEvent): void {
+  event.preventDefault();
+  event.returnValue = '';
+}
+
+// 创建请求在途时离开页面会丢失唯一一次展示的 inviteUrl，先让用户确认。
+onBeforeRouteLeave(() => {
+  if (!createDialog.submitting) {
+    return true;
+  }
+  return window.confirm('邀请正在创建，离开后将无法取回邀请链接。确定离开？');
+});
+
+watch(
+  () => createDialog.submitting,
+  (submitting) => {
+    if (submitting) {
+      window.addEventListener('beforeunload', handleBeforeUnload);
+    } else {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    }
+  },
+);
+
 onMounted(() => {
   void load();
   clockTimer = setInterval(() => {
@@ -238,6 +329,7 @@ onUnmounted(() => {
   if (clockTimer !== null) {
     clearInterval(clockTimer);
   }
+  window.removeEventListener('beforeunload', handleBeforeUnload);
 });
 </script>
 
@@ -319,13 +411,13 @@ onUnmounted(() => {
       v-model="createDialog.visible"
       title="新建邀请"
       width="520px"
-      :show-close="!createDialog.submitting"
-      :close-on-click-modal="!createDialog.submitting"
-      :close-on-press-escape="!createDialog.submitting"
+      :show-close="!createDialogLocked"
+      :close-on-click-modal="!createDialogLocked"
+      :close-on-press-escape="!createDialogLocked"
     >
       <el-form label-width="96px" @submit.prevent="submitCreate">
         <el-form-item label="邀请类型">
-          <el-radio-group v-model="createDialog.type">
+          <el-radio-group v-model="createDialog.type" :disabled="createDialog.retryable">
             <el-radio :value="0">入队邀请</el-radio>
             <el-radio :value="1">比赛邀请</el-radio>
           </el-radio-group>
@@ -337,6 +429,7 @@ onUnmounted(() => {
             filterable
             placeholder="请选择比赛"
             :loading="matchesLoading"
+            :disabled="createDialog.retryable"
             no-data-text="暂无可邀请的比赛"
           >
             <el-option
@@ -357,6 +450,7 @@ onUnmounted(() => {
             :min="1"
             :max="30"
             :precision="0"
+            :disabled="createDialog.retryable"
             controls-position="right"
           />
           <span class="form-suffix">天</span>
@@ -367,6 +461,7 @@ onUnmounted(() => {
             :min="1"
             :precision="0"
             :value-on-clear="null"
+            :disabled="createDialog.retryable"
             controls-position="right"
             placeholder="留空不限"
           />
@@ -375,16 +470,21 @@ onUnmounted(() => {
       </el-form>
       <p v-if="createDialog.error" class="dialog-error">{{ createDialog.error }}</p>
       <template #footer>
-        <el-button :disabled="createDialog.submitting" @click="createDialog.visible = false">
-          取消
-        </el-button>
+        <el-button :disabled="createDialog.submitting" @click="cancelCreate">取消</el-button>
         <el-button type="primary" :loading="createDialog.submitting" @click="submitCreate">
-          创建邀请
+          {{ createDialog.retryable ? '重试创建' : '创建邀请' }}
         </el-button>
       </template>
     </el-dialog>
 
-    <el-dialog v-model="createdDialog.visible" title="邀请已创建" width="560px">
+    <el-dialog
+      v-model="createdDialog.visible"
+      title="邀请已创建"
+      width="560px"
+      :show-close="false"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+    >
       <p class="muted">链接仅展示一次，请立即复制并发送给受邀人。</p>
       <div class="invite-url">
         <el-input ref="urlInput" :model-value="createdDialog.inviteUrl" readonly />

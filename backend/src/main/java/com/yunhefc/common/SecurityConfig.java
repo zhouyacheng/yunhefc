@@ -54,7 +54,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/c/auth/csrf", "/api/v1/b/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/c/auth/wechat/authorize",
-                                "/api/v1/c/auth/wechat/callback").permitAll()
+                                "/api/v1/c/auth/wechat/callback",
+                                "/api/v1/c/auth/wechat/mock-authorize").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/c/auth/sms-codes",
                                 "/api/v1/c/auth/register",

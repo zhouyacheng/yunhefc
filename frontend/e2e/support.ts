@@ -23,6 +23,6 @@ export async function loginAs(
   await page.goto('/login');
   await page.getByPlaceholder('请输入手机号').fill(phone);
   await page.getByPlaceholder('请输入密码').fill(password);
-  await page.getByRole('button', { name: '登录' }).click();
+  await page.getByRole('button', { name: '登录', exact: true }).click();
   await expect(page).toHaveURL(/\/matches$/);
 }

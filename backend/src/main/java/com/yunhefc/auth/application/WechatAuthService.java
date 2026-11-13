@@ -21,6 +21,7 @@ import com.yunhefc.auth.wechat.WechatOAuthException;
 import com.yunhefc.auth.wechat.WechatProperties;
 import com.yunhefc.auth.wechat.WechatStateStore;
 import com.yunhefc.audit.application.AuditRecorder;
+import com.yunhefc.common.api.RequestContext;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.AuthSessionService;
@@ -41,7 +42,10 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.LinkedHashSet;
@@ -57,6 +61,7 @@ public class WechatAuthService {
 
     private static final Logger log = LoggerFactory.getLogger(WechatAuthService.class);
     private static final Pattern PHONE = Pattern.compile("^1\\d{10}$");
+    private static final String WECHAT_CALLBACK_PAGE = "/auth/wechat/callback";
 
     private final WechatProperties properties;
     private final WechatOAuthClient oauthClient;
@@ -133,6 +138,50 @@ public class WechatAuthService {
 
         request.getSession(true).setAttribute(SessionKeys.WECHAT_OPENID, wechatUser.openid());
         return new CallbackResponse(true, redirect, sessionService.rotateCsrf(request, response));
+    }
+
+    /**
+     * AUTH-08 HTML 导航分支：把回调结果映射为 302 落点。
+     * 失败时 state 可能已被消费，先 peek 保留用户原目标。
+     */
+    public String callbackLanding(String code, String state, HttpServletRequest request,
+                                  HttpServletResponse response) {
+        String fallbackRedirect = stateStore.peek(state);
+        try {
+            CallbackResponse result = callback(code, state, request, response);
+            return result.needBindPhone()
+                    ? WECHAT_CALLBACK_PAGE + "?bind=1&redirect=" + encode(result.redirect())
+                    : encodeRedirect(result.redirect());
+        } catch (BusinessException ex) {
+            return errorLanding(ex.errorCode(), fallbackRedirect);
+        } catch (RuntimeException ex) {
+            log.error("微信回调失败, requestId={}", RequestContext.requestId(), ex);
+            return errorLanding(ErrorCode.INTERNAL_ERROR, fallbackRedirect);
+        }
+    }
+
+    private String errorLanding(ErrorCode errorCode, String redirect) {
+        String safeRedirect;
+        try {
+            safeRedirect = validateRedirect(redirect);
+        } catch (BusinessException ex) {
+            safeRedirect = "/";
+        }
+        return WECHAT_CALLBACK_PAGE + "?error=" + errorCode.code()
+                + "&redirect=" + encode(safeRedirect);
+    }
+
+    private static String encode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    /** 成功落点来自前端原始 redirect：按 URI 组件规则编码非 ASCII、空格与裸 %。 */
+    private static String encodeRedirect(String redirect) {
+        return UriComponentsBuilder.fromUriString(redirect)
+                .build()
+                .encode(StandardCharsets.UTF_8)
+                .toUri()
+                .toASCIIString();
     }
 
     @Transactional

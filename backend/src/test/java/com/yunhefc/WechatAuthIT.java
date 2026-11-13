@@ -5,6 +5,8 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -177,6 +179,134 @@ class WechatAuthIT extends IntegrationTestSupport {
                                 {"phone":"%s","password":"Passw0rd!"}
                                 """.formatted(phone)))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void htmlCallbackRedirectsToBindSuccessAndErrorLanding() throws Exception {
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/matches/7"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String state = stateOf(authorize);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+
+        // 首次授权：回绑定手机页，redirect 正确编码。
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .accept(MediaType.TEXT_HTML)
+                        .param("code", "html-first")
+                        .param("state", state))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location",
+                        "/auth/wechat/callback?bind=1&redirect=%2Fmatches%2F7"));
+
+        // 缺 code：失败页保留 redirect。
+        MvcResult failed = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/matches/7"))
+                .andExpect(status().isOk())
+                .andReturn();
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie(failed, "YHFC_C"))
+                        .accept(MediaType.TEXT_HTML)
+                        .param("state", stateOf(failed)))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location",
+                        "/auth/wechat/callback?error=40001&redirect=%2Fmatches%2F7"));
+
+        // state 无效：回失败页并落首页。
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .accept(MediaType.TEXT_HTML)
+                        .param("code", "abc")
+                        .param("state", "expired-state"))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location",
+                        "/auth/wechat/callback?error=40001&redirect=%2F"));
+
+        // JSON 分支：缺 code 仍是 40001 envelope。
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .accept(MediaType.APPLICATION_JSON)
+                        .param("state", "expired-state"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
+    void htmlCallbackBindsLoggedInUserAndLogsInExistingUser() throws Exception {
+        String phone = "13900000983";
+        jdbc.update("INSERT INTO app_user (phone, password_hash, status) VALUES (?, ?, 1)",
+                phone, passwordEncoder.encode("Passw0rd!"));
+        MvcResult login = mockMvc.perform(post("/api/v1/c/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","password":"Passw0rd!"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie session = cookie(login, "YHFC_C");
+
+        // 已登录用户回调：绑定 openid 到当前账号并回 redirect。
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .cookie(session)
+                        .param("redirect", "/profile"))
+                .andExpect(status().isOk())
+                .andReturn();
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(session)
+                        .accept(MediaType.TEXT_HTML)
+                        .param("code", "html-logged-in")
+                        .param("state", stateOf(authorize)))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "/profile"));
+
+        Long userId = jdbc.queryForObject("SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
+        assertThat(jdbc.queryForObject("SELECT openid FROM app_user WHERE id = ?", String.class, userId))
+                .isEqualTo("mock-openid-html-logged-in");
+
+        // openid 已有账号：无会话回调直接登录。
+        MvcResult freshAuthorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/matches"))
+                .andExpect(status().isOk())
+                .andReturn();
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie(freshAuthorize, "YHFC_C"))
+                        .accept(MediaType.TEXT_HTML)
+                        .param("code", "html-logged-in")
+                        .param("state", stateOf(freshAuthorize)))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "/matches"));
+    }
+
+    @Test
+    void htmlCallbackEncodesNonAsciiRedirect() throws Exception {
+        String phone = "13900000984";
+        jdbc.update("INSERT INTO app_user (phone, password_hash, openid, status) VALUES (?, ?, ?, 1)",
+                phone, passwordEncoder.encode("Passw0rd!"), "mock-openid-html-cjk");
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/matches?q=张"))
+                .andExpect(status().isOk())
+                .andReturn();
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie(authorize, "YHFC_C"))
+                        .accept(MediaType.TEXT_HTML)
+                        .param("code", "html-cjk")
+                        .param("state", stateOf(authorize)))
+                .andExpect(status().isFound())
+                .andExpect(header().string("Location", "/matches?q=%E5%BC%A0"));
+    }
+
+    @Test
+    void mockAuthorizePageIsServedInMockMode() throws Exception {
+        mockMvc.perform(get("/api/v1/c/auth/wechat/mock-authorize").param("state", "mock-state"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.TEXT_HTML))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/api/v1/c/auth/wechat/callback?code=mock-code&amp;state=mock-state")));
+    }
+
+    private static String stateOf(MvcResult result) throws Exception {
+        String authorizeUrl = JsonPath.read(result.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        return authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
     }
 
     private Cookie adminLogin(String phone) throws Exception {

@@ -1,6 +1,18 @@
 /** 手机号规则；AUTH-11 与 C 端注册/登录共用。 */
 export const PHONE_PATTERN = /^1\d{10}$/;
 
+/** AUTH-07 响应。 */
+export interface WechatAuthorizeResponse {
+  authorizeUrl: string;
+}
+
+/** AUTH-09 响应：会话已建立，权限与未读数由 AUTH-10 补取。 */
+export interface WechatBindPhoneResponse {
+  user: User;
+  player?: Player | null;
+  csrfToken: string;
+}
+
 export interface User {
   id: number;
   name: string;

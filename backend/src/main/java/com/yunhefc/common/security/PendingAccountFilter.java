@@ -32,6 +32,7 @@ public class PendingAccountFilter extends OncePerRequestFilter {
             new AllowedRoute("GET", "/api/v1/c/auth/csrf"),
             new AllowedRoute("GET", "/api/v1/c/auth/wechat/authorize"),
             new AllowedRoute("GET", "/api/v1/c/auth/wechat/callback"),
+            new AllowedRoute("GET", "/api/v1/c/auth/wechat/mock-authorize"),
             new AllowedRoute("GET", "/api/v1/b/auth/csrf"),
             new AllowedRoute("GET", "/api/v1/c/invites/*"),
             new AllowedRoute("GET", "/api/v1/c/team/players"),

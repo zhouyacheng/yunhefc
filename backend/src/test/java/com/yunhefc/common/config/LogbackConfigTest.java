@@ -27,6 +27,19 @@ class LogbackConfigTest {
             "org.springframework.boot.logging.logback.StructuredLogEncoder";
 
     @Test
+    void registersMaskedMessageConverterForTextPatterns() throws Exception {
+        Element root = document().getDocumentElement();
+
+        Element rule = child(root, "conversionRule");
+        assertThat(rule.getAttribute("conversionWord")).isEqualTo("maskedMsg");
+        assertThat(rule.getAttribute("converterClass"))
+                .isEqualTo("com.yunhefc.infra.logging.SensitiveMessageConverter");
+
+        Element pattern = property(root, "CONSOLE_LOG_PATTERN");
+        assertThat(pattern.getAttribute("value")).contains("%maskedMsg");
+    }
+
+    @Test
     void prodUsesEcsJsonEncodersAndRollingPolicy() throws Exception {
         Element prod = profile("prod");
         Map<String, Element> appenders = appenders(prod);
@@ -98,18 +111,34 @@ class LogbackConfigTest {
     }
 
     private Element profile(String name) throws Exception {
-        try (InputStream input = getClass().getResourceAsStream("/logback-spring.xml")) {
-            assertThat(input).as("logback-spring.xml").isNotNull();
-            Document document = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(input);
-            NodeList profiles = document.getElementsByTagName("springProfile");
-            for (int i = 0; i < profiles.getLength(); i++) {
-                Element element = (Element) profiles.item(i);
-                if (name.equals(element.getAttribute("name"))) {
-                    return element;
-                }
+        NodeList profiles = document().getElementsByTagName("springProfile");
+        for (int i = 0; i < profiles.getLength(); i++) {
+            Element element = (Element) profiles.item(i);
+            if (name.equals(element.getAttribute("name"))) {
+                return element;
             }
         }
         throw new AssertionError("missing springProfile " + name);
+    }
+
+    private Document document() throws Exception {
+        try (InputStream input = getClass().getResourceAsStream("/logback-spring.xml")) {
+            assertThat(input).as("logback-spring.xml").isNotNull();
+            return DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(input);
+        }
+    }
+
+    private Element property(Element parent, String name) {
+        NodeList nodes = parent.getChildNodes();
+        for (int i = 0; i < nodes.getLength(); i++) {
+            Node node = nodes.item(i);
+            if (node instanceof Element element
+                    && "property".equals(element.getTagName())
+                    && name.equals(element.getAttribute("name"))) {
+                return element;
+            }
+        }
+        throw new AssertionError("missing <property name=\"" + name + "\">");
     }
 
     private Map<String, Element> appenders(Element profile) {

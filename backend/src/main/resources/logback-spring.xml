@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
+    <!-- 文本 Pattern 兜底脱敏；prod 的 ECS 结构化日志不经过 Pattern，仍需调用点先脱敏。 -->
+    <conversionRule conversionWord="maskedMsg"
+                    converterClass="com.yunhefc.infra.logging.SensitiveMessageConverter"/>
+    <property name="CONSOLE_LOG_PATTERN"
+              value="%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [%X{traceId:-}] %logger{36} - %maskedMsg%n"/>
+
     <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
     <springProperty scope="context" name="LOG_PATH" source="logging.file.path" defaultValue="logs"/>
 

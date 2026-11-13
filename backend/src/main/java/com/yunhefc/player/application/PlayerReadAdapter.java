@@ -65,9 +65,10 @@ public class PlayerReadAdapter implements PlayerReadPort {
     }
 
     @Override
-    public List<Long> findUserIdsByNameContaining(String keyword) {
+    public List<Long> findUserIdsByNameContaining(Long teamId, String keyword) {
         return playerMapper.selectList(new LambdaQueryWrapper<Player>()
                         .select(Player::getUserId)
+                        .eq(Player::getTeamId, teamId)
                         .like(Player::getName, LikePattern.escape(keyword)))
                 .stream()
                 .map(Player::getUserId)

@@ -81,6 +81,8 @@ ACR_USERNAME=<read-only-user>
 ACR_PASSWORD=<read-only-password>
 ```
 
+> 上述 1–4 可运行 `scripts/rc-bootstrap-wizard.sh`（仓库根执行）交互完成：检查 DNS、上传证书、写 ACR 凭证、建 RDS 库与账号、生成生产 `.env`（600）。密钥只经 stdin 写入 ECS，不落本地。
+
 ### 1.3 发布前迁移（应用启动前，人工执行）
 
 迁移文件只在仓库里（不随 release 目录下发）。在目标 commit 的代码检出中：

@@ -188,7 +188,7 @@ finish() {
 # ──────────────────────────────────────────────────────────────────────────
 
 TOTAL_STAGES=10
-ENV_FILE="${ENV_FILE:-deploy/.env.acceptance}"
+ENV_FILE="${RC_ENV_FILE:-deploy/.env.acceptance}"
 RESULT_FILE="${RESULT_FILE:-deploy/rc-acceptance-results.md}"
 SSH_OPTS=(-o ConnectTimeout=10 -o BatchMode=yes)
 
@@ -251,11 +251,11 @@ pause "确认 www 首页可正常打开后回车"
 
 # ── Stage 2 ───────────────────────────────────────────────────────────────
 stage "§5.3 部署冒烟"
-health=$(curl -fsS --max-time 10 "$WEB/actuator/health" 2>/dev/null || true)
+health=$(curl -fsS --max-time 10 "$API/actuator/health" 2>/dev/null || true)
 if [[ "$health" == *'"status":"UP"'* ]]; then
-  say "  ${GREEN}✓${RESET} readiness /actuator/health = UP"; record "§5.3 health UP" "PASS"
+  say "  ${GREEN}✓${RESET} readiness $API/actuator/health = UP"; record "§5.3 health UP" "PASS"
 else
-  warn "health 未返回 UP"; record "§5.3 health UP" "FAIL"
+  warn "$API/actuator/health 未返回 UP"; record "§5.3 health UP" "FAIL"
 fi
 expect_code "C 端首页 200" "200" "$WEB/"
 expect_code "公开读接口 200" "200" "$WEB/api/v1/c/matches?scope=upcoming&page=1&pageSize=1"

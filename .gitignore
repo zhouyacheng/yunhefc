@@ -19,6 +19,7 @@ frontend/playwright-report/
 deploy/.env
 deploy/.env.*
 !deploy/.env.example
+deploy/rc-acceptance-results.md
 
 # IDE / OS
 .idea/

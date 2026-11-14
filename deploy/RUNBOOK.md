@@ -153,6 +153,8 @@ curl -fsS https://www.<domain>/api/v1/c/matches?page=1&pageSize=1 | head
 curl -sS -o /dev/null -w '%{http_code}\n' http://<domain>/   # 301
 ```
 
+RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐项覆盖冒烟、TLS、响应头、CORS、暴露面、迁移账号、限流与 RDS 备份；结果写入 `deploy/rc-acceptance-results.md`。
+
 ---
 
 ## 2. 日常发布与回滚

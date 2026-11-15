@@ -215,7 +215,7 @@ remote 'docker --version && docker compose version' 2>/dev/null | sed 's/^/  /' 
 # ── Stage 2 ───────────────────────────────────────────────────────────────
 stage "DNS：www / admin / api"
 open_url "https://dns.console.aliyun.com/"
-step "确认 www.$RC_DOMAIN 已指向 $ECS_IP；为 admin 与 api 各添加一条 A 记录 → $ECS_IP。"
+step "确认 www.$RC_DOMAIN 已指向 ${ECS_IP}；为 admin 与 api 各添加一条 A 记录 → ${ECS_IP}。"
 pause "添加完成后回车，向导会检查解析"
 dns_ok=0
 for _ in $(seq 1 12); do
@@ -244,7 +244,7 @@ if [[ -f "$CERT_FULLCHAIN" && -f "$CERT_PRIVKEY" ]]; then
   if openssl x509 -in "$CERT_FULLCHAIN" -noout -text 2>/dev/null | grep -A1 'Subject Alternative Name' | grep -q "$RC_DOMAIN"; then
     say "  ${GREEN}✓${RESET} SAN 覆盖 $RC_DOMAIN"
   else
-    warn "SAN 未覆盖 $RC_DOMAIN，浏览器会报证书错误"
+    warn "SAN 未覆盖 ${RC_DOMAIN}，浏览器会报证书错误"
   fi
   scp "${SCP_OPTS[@]}" "$CERT_FULLCHAIN" "$ECS_SSH:/opt/yunhefc/certs/fullchain.pem"
   scp "${SCP_OPTS[@]}" "$CERT_PRIVKEY" "$ECS_SSH:/opt/yunhefc/certs/privkey.pem"

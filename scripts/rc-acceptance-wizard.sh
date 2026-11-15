@@ -204,8 +204,8 @@ expect_code() {
     say "  ${GREEN}✓${RESET} $label ($code)"
     record "$label" "PASS ($code)"
   else
-    warn "$label 期望 $expected，实际 ${code:-无响应}"
-    record "$label" "FAIL (期望 $expected，实际 ${code:-无响应})"
+    warn "$label 期望 ${expected}，实际 ${code:-无响应}"
+    record "$label" "FAIL (期望 ${expected}，实际 ${code:-无响应})"
   fi
 }
 

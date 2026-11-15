@@ -3,6 +3,7 @@ import { Tabbar, TabbarItem } from 'vant';
 import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import logoUrl from '../assets/logo.png';
 import { useNotificationPolling } from '../composables/useNotificationPolling';
 import { useSessionStore } from '../stores/session';
 import { hasSessionHint } from '../stores/session-hint';
@@ -24,6 +25,9 @@ const TABS: readonly TabEntry[] = [
   { name: 'team', path: '/team', icon: 'friends-o', label: '球队' },
   { name: 'profile', path: '/profile', icon: 'user-o', label: '我的', badge: true },
 ];
+
+/** 桌面顶部导航只放内容入口；「我的」由右侧用户入口承担（02 §2.4）。 */
+const NAV_TABS = TABS.filter((tab) => tab.name !== 'profile');
 
 const session = useSessionStore();
 const route = useRoute();
@@ -65,7 +69,21 @@ onMounted(() => {
 <template>
   <div class="c-shell">
     <header class="c-header">
-      <RouterLink class="c-brand" to="/">云河FC</RouterLink>
+      <RouterLink class="c-brand" to="/">
+        <img class="c-brand__logo" :src="logoUrl" alt="" />
+        <span>云河FC</span>
+      </RouterLink>
+      <nav class="c-nav" aria-label="主导航">
+        <RouterLink
+          v-for="tab in NAV_TABS"
+          :key="tab.name"
+          class="c-nav__link"
+          :class="{ 'c-nav__link--active': activeTab === tab.name }"
+          :to="tab.path"
+        >
+          {{ tab.label }}
+        </RouterLink>
+      </nav>
       <RouterLink v-if="session.isAuthenticated" class="c-user" to="/profile">
         {{ session.user?.name }}
       </RouterLink>

@@ -33,7 +33,7 @@ const total = ref(0);
 const loading = ref(true);
 const error = ref('');
 const drawerOpen = ref(false);
-const mobileQuery = window.matchMedia('(max-width: 640px)');
+const mobileQuery = window.matchMedia('(max-width: 760px)');
 const isMobile = ref(mobileQuery.matches);
 let requestSeq = 0;
 
@@ -139,6 +139,7 @@ onBeforeUnmount(() => {
 <template>
   <section class="page">
     <header class="page-head">
+      <p class="eyebrow">MATCHDAY</p>
       <h1>赛程</h1>
       <p class="muted">共 {{ total }} 场比赛 · 按开赛时间降序</p>
     </header>

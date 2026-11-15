@@ -9,8 +9,17 @@ import { useRouter } from 'vue-router';
 import { api } from '../api/client';
 import MatchCard from '../components/MatchCard.vue';
 import { homeCta, type HomeCtaResult } from '../features/home/cta';
-import { matchTagType } from '../features/matches/presentation';
+import { queuePercent, scoreText, statusTone, winnerSide } from '../features/matches/presentation';
 import { useSessionStore } from '../stores/session';
+
+const FEATURES = [
+  { icon: '📈', title: '排行榜与身价', text: '年度出场、进球、助攻、胜率、缺勤与 AI 身价' },
+  { icon: '💰', title: '球队账本', text: '收入/支出分类，按月/年统计' },
+  { icon: '📸', title: '动态与相册', text: '比赛照片、B 站视频、点赞留言' },
+  { icon: '🗳️', title: '投票', text: '标题、图片选项、多选、截止时间' },
+  { icon: '📣', title: '公众号提醒', text: '赛事发布与模板消息' },
+  { icon: '🏆', title: '资产与荣誉', text: '器材台账、球队里程碑' },
+];
 
 const session = useSessionStore();
 const router = useRouter();
@@ -43,6 +52,8 @@ const cta = computed<HomeCtaResult | null>(() => {
     myRegistration: detail.myRegistration ?? null,
   });
 });
+
+const heroWinner = computed(() => (hero.value ? winnerSide(hero.value) : null));
 
 /** 仅清除静默刷新失败留下的错误，避免吞掉报名业务错误。 */
 function clearRefreshError(): void {
@@ -158,11 +169,6 @@ onUnmounted(() => {
 
 <template>
   <section class="page">
-    <header class="page-head">
-      <h1>首页</h1>
-      <p class="muted">下一场比赛与近期赛程</p>
-    </header>
-
     <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>
 
     <div v-else-if="error" class="state">
@@ -172,66 +178,103 @@ onUnmounted(() => {
 
     <template v-else>
       <section v-if="hero && cta" class="home-hero">
-        <div class="home-hero__head">
-          <span class="home-hero__eyebrow">下一场</span>
-          <Tag :type="matchTagType(hero.status)">{{ matchStatusText(hero.status) }}</Tag>
-        </div>
-
-        <article class="home-hero__card">
-          <div class="home-hero__meta-row">
-            <span class="muted small">{{ matchTypeText(hero.type) }}</span>
-            <span class="muted small">第 {{ hero.seasonMatchNo }} 场</span>
-          </div>
-
-          <h2 class="home-hero__title">{{ hero.title }}</h2>
-
-          <div class="home-hero__teams">
-            <span>{{ hero.homeTeamName }}</span>
-            <strong>VS</strong>
-            <span>{{ hero.awayTeamName }}</span>
-          </div>
-
-          <div class="home-hero__meta">
-            <span>{{ formatDateTime(hero.startAt) }}</span>
-            <span>{{ hero.venue }}</span>
-          </div>
-
-          <div class="hero-queue">
-            <div class="hero-queue__item">
-              <span>正式</span>
-              <b>{{ hero.confirmedCount }} / {{ hero.capacity }}</b>
-            </div>
-            <div class="hero-queue__item">
-              <span>外挂</span>
-              <b>{{ hero.guestCount }} / {{ hero.guestCapacity }}</b>
-            </div>
-            <div class="hero-queue__item">
-              <span>候补</span>
-              <b>{{ hero.waitlistCount }} / {{ hero.waitlistCapacity }}</b>
+        <div class="home-hero__inner">
+          <div class="home-hero__copy">
+            <p class="eyebrow">YUNHE FC · MATCHDAY</p>
+            <h1>下一场，准时到场</h1>
+            <p>比赛发布、报名候补、赛前签到，一屏看清。</p>
+            <div class="home-hero__actions">
+              <RouterLink to="/matches">
+                <Button type="primary">查看赛程</Button>
+              </RouterLink>
+              <RouterLink to="/team">
+                <Button plain>球队名单</Button>
+              </RouterLink>
             </div>
           </div>
 
-          <Button
-            type="primary"
-            block
-            :disabled="cta.disabled || registering"
-            :loading="registering"
-            @click="onCtaClick"
-          >
-            {{ cta.label }}
-          </Button>
+          <article class="home-hero__card">
+            <div class="home-hero__meta-row">
+              <span class="home-hero__eyebrow">{{ matchTypeText(hero.type) }}</span>
+              <Tag class="status-tag" :class="`status-tag--${statusTone(hero.status)}`">
+                {{ matchStatusText(hero.status) }}
+              </Tag>
+            </div>
 
-          <p v-if="cta.reason" class="hint">{{ cta.reason }}</p>
-          <p v-if="actionMessage" class="hint">{{ actionMessage }}</p>
-          <p v-if="actionError" class="action-error">
-            {{ actionError }}
-            <Button v-if="refreshFailed" size="mini" type="primary" plain @click="load(true)">
-              重试刷新
+            <h2 class="home-hero__title">{{ hero.title }}</h2>
+
+            <div class="home-hero__teams">
+              <span :class="{ 'team-name--winner': heroWinner === 0 }">
+                {{ hero.homeTeamName }}
+              </span>
+              <strong>{{ scoreText(hero) }}</strong>
+              <span :class="{ 'team-name--winner': heroWinner === 1 }">
+                {{ hero.awayTeamName }}
+              </span>
+            </div>
+
+            <div class="home-hero__meta">
+              <span>{{ formatDateTime(hero.startAt) }}</span>
+              <span>{{ hero.venue }}</span>
+              <span>第 {{ hero.seasonMatchNo }} 场</span>
+            </div>
+
+            <div class="hero-queue">
+              <div class="hero-queue__item">
+                <div class="hero-queue__row">
+                  <span>正式</span>
+                  <b>{{ hero.confirmedCount }} / {{ hero.capacity }}</b>
+                </div>
+                <div class="progress">
+                  <i :style="{ width: `${queuePercent(hero.confirmedCount, hero.capacity)}%` }" />
+                </div>
+              </div>
+              <div class="hero-queue__item">
+                <div class="hero-queue__row">
+                  <span>外挂</span>
+                  <b>{{ hero.guestCount }} / {{ hero.guestCapacity }}</b>
+                </div>
+                <div class="progress">
+                  <i :style="{ width: `${queuePercent(hero.guestCount, hero.guestCapacity)}%` }" />
+                </div>
+              </div>
+              <div class="hero-queue__item">
+                <div class="hero-queue__row">
+                  <span>候补</span>
+                  <b>{{ hero.waitlistCount }} / {{ hero.waitlistCapacity }}</b>
+                </div>
+                <div class="progress">
+                  <i
+                    :style="{
+                      width: `${queuePercent(hero.waitlistCount, hero.waitlistCapacity)}%`,
+                    }"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <Button
+              type="primary"
+              block
+              :disabled="cta.disabled || registering"
+              :loading="registering"
+              @click="onCtaClick"
+            >
+              {{ cta.label }}
             </Button>
-          </p>
 
-          <RouterLink class="ghost-link" :to="`/matches/${hero.id}`">查看比赛详情 →</RouterLink>
-        </article>
+            <p v-if="cta.reason" class="hint">{{ cta.reason }}</p>
+            <p v-if="actionMessage" class="hint">{{ actionMessage }}</p>
+            <p v-if="actionError" class="action-error">
+              {{ actionError }}
+              <Button v-if="refreshFailed" size="mini" type="primary" plain @click="load(true)">
+                重试刷新
+              </Button>
+            </p>
+
+            <RouterLink class="ghost-link" :to="`/matches/${hero.id}`">查看比赛详情 →</RouterLink>
+          </article>
+        </div>
       </section>
 
       <div v-else class="card home-empty">
@@ -260,12 +303,22 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <section class="card home-firepower">
-        <div class="card-head">
-          <h2>球队火力</h2>
-          <span class="muted small">二期上线</span>
+      <section class="home-firepower">
+        <div class="section-head">
+          <div>
+            <h2>二期能力</h2>
+            <p>球队数据与运营能力将在二期上线。</p>
+          </div>
         </div>
-        <p class="hint">球队火力将在二期上线。</p>
+
+        <div class="feature-grid">
+          <article v-for="feature in FEATURES" :key="feature.title" class="feature-card card">
+            <span class="feature-icon" aria-hidden="true">{{ feature.icon }}</span>
+            <h3>{{ feature.title }}</h3>
+            <p>{{ feature.text }}</p>
+            <Tag class="status-tag status-tag--soon">二期</Tag>
+          </article>
+        </div>
       </section>
     </template>
   </section>

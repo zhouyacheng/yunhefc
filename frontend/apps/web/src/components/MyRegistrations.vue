@@ -99,6 +99,19 @@ function statusText(row: MyRegistration): string {
   return REGISTRATION_STATUS_TEXT[row.registration.status] ?? row.registration.statusLabel ?? '—';
 }
 
+function statusTone(row: MyRegistration): string {
+  if (isVoided(row)) {
+    return 'closed';
+  }
+  if (row.registration.status === 0) {
+    return 'open';
+  }
+  if (row.registration.status === 1) {
+    return 'postponed';
+  }
+  return 'muted';
+}
+
 function emptyText(): string {
   return scope.value === 'active' ? '暂无进行中报名' : '暂无历史报名';
 }
@@ -171,7 +184,9 @@ watch(
           >
             <div class="registration-item__head">
               <strong>{{ row.match.title }}</strong>
-              <Tag :type="isVoided(row) ? 'default' : 'primary'" plain>{{ statusText(row) }}</Tag>
+              <Tag class="status-tag" :class="`status-tag--${statusTone(row)}`">
+                {{ statusText(row) }}
+              </Tag>
             </div>
             <p class="muted small">
               {{ formatDateTime(row.match.startAt) }} · {{ row.match.venue }}
@@ -205,42 +220,23 @@ watch(
 
 <style scoped>
 .segmented {
-  display: inline-flex;
-  margin-bottom: 10px;
-  padding: 3px;
-  background: #f1f5f9;
-  border-radius: 10px;
-}
-
-.segmented button {
-  padding: 5px 14px;
-  color: var(--yh-muted);
-  font: inherit;
-  font-size: 13px;
-  background: none;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.segmented button.segmented__item--active {
-  color: var(--yh-ink);
-  background: var(--yh-surface);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+  margin-bottom: 12px;
 }
 
 .registration-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .registration-item {
   display: block;
-  padding: 12px;
-  background: #f8fafc;
-  border: 1px solid var(--yh-line);
-  border-radius: 12px;
+  min-height: 44px;
+  padding: 12px 0;
+  border-bottom: 1px dashed var(--yh-line);
+}
+
+.registration-item:last-child {
+  border-bottom: 0;
 }
 
 .registration-item__head {

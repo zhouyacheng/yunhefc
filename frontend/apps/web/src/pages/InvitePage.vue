@@ -177,6 +177,7 @@ watch(token, () => void load(), { immediate: true });
 <template>
   <section class="page">
     <header class="page-head">
+      <p class="eyebrow">INVITE</p>
       <h1>邀请</h1>
       <p class="muted">通过邀请加入云河FC</p>
     </header>
@@ -189,87 +190,114 @@ watch(token, () => void load(), { immediate: true });
     </div>
 
     <template v-else-if="invite">
-      <div v-if="state === 'invalid'" class="card" data-testid="invite-invalid">
-        <div class="card-head">
-          <h2>邀请已失效</h2>
+      <div class="invite-landing">
+        <div v-if="state === 'invalid'" class="card" data-testid="invite-invalid">
+          <div class="card-head">
+            <h2>邀请已失效</h2>
+          </div>
+          <p class="muted">{{ invalidText }}</p>
+          <p class="muted">请联系邀请人重新获取邀请链接。</p>
+          <div class="invite-actions">
+            <Button type="primary" block @click="goHome">返回首页</Button>
+          </div>
         </div>
-        <p class="muted">{{ invalidText }}</p>
-        <p class="muted">请联系邀请人重新获取邀请链接。</p>
-        <Button type="primary" block style="margin-top: 12px" @click="goHome"> 返回首页 </Button>
-      </div>
 
-      <div v-else-if="state === 'member'" class="card" data-testid="invite-member">
-        <div class="card-head">
-          <h2>你已是球队成员，无需重复加入</h2>
-          <Tag type="primary">{{ inviteTypeText(invite.type) }}</Tag>
+        <div v-else-if="state === 'member'" class="card" data-testid="invite-member">
+          <div class="card-head">
+            <h2>你已是球队成员，无需重复加入</h2>
+            <Tag class="status-tag status-tag--type">{{ inviteTypeText(invite.type) }}</Tag>
+          </div>
+          <p class="muted">{{ invite.team?.name ?? '云河FC' }}</p>
+          <div class="invite-actions">
+            <Button type="primary" block @click="goHome">返回首页</Button>
+          </div>
         </div>
-        <p class="muted">{{ invite.team?.name ?? '云河FC' }}</p>
-        <Button type="primary" block style="margin-top: 12px" @click="goHome"> 返回首页 </Button>
-      </div>
 
-      <div v-else-if="state === 'team'" class="card" data-testid="invite-team">
-        <div class="card-head">
-          <h2>{{ invite.team?.name ?? '未知球队' }}</h2>
-          <Tag type="primary">{{ inviteTypeText(invite.type) }}</Tag>
+        <div v-else-if="state === 'team'" class="card" data-testid="invite-team">
+          <div class="card-head">
+            <h2>{{ invite.team?.name ?? '未知球队' }}</h2>
+            <Tag class="status-tag status-tag--type">{{ inviteTypeText(invite.type) }}</Tag>
+          </div>
+          <p class="muted">邀请人 {{ invite.inviter?.name ?? '未知' }}</p>
+          <p class="muted">有效期至 {{ formatDateTime(invite.expiresAt) }}</p>
+          <p class="muted">剩余次数：{{ remainingUsesText(invite) }}</p>
+          <p v-if="actionError" class="action-error">{{ actionError }}</p>
+
+          <div class="invite-actions">
+            <Button
+              v-if="session.isAuthenticated"
+              type="primary"
+              block
+              :loading="accepting"
+              @click="accept"
+            >
+              加入球队
+            </Button>
+            <template v-else>
+              <p class="muted">登录或注册后即可加入球队</p>
+              <Button type="primary" block @click="goLogin">登录</Button>
+              <Button block @click="goRegister">注册</Button>
+            </template>
+          </div>
         </div>
-        <p class="muted">邀请人 {{ invite.inviter?.name ?? '未知' }}</p>
-        <p class="muted">有效期至 {{ formatDateTime(invite.expiresAt) }}</p>
-        <p class="muted">剩余次数：{{ remainingUsesText(invite) }}</p>
-        <p v-if="actionError" class="action-error">{{ actionError }}</p>
 
-        <Button
-          v-if="session.isAuthenticated"
-          type="primary"
-          block
-          :loading="accepting"
-          style="margin-top: 12px"
-          @click="accept"
-        >
-          加入球队
-        </Button>
-        <template v-else>
-          <p class="muted">登录或注册后即可加入球队</p>
-          <Button type="primary" block @click="goLogin">登录</Button>
-          <Button block style="margin-top: 12px" @click="goRegister">注册</Button>
-        </template>
-      </div>
+        <div v-else class="card" data-testid="invite-match">
+          <div class="card-head">
+            <h2>{{ matchTitle }}</h2>
+            <Tag class="status-tag status-tag--type">{{ inviteTypeText(invite.type) }}</Tag>
+          </div>
+          <p class="muted">时间：{{ formatDateTime(matchStartAt) }}</p>
+          <p class="muted">地点：{{ matchVenue }}</p>
+          <p class="muted">
+            名额：{{
+              matchDetail ? `${matchDetail.confirmedCount} / ${matchDetail.capacity}` : '—'
+            }}
+          </p>
+          <p v-if="matchHintText" class="muted">{{ matchHintText }}</p>
+          <p class="muted">邀请人 {{ invite.inviter?.name ?? '未知' }}</p>
+          <p class="muted">有效期至 {{ formatDateTime(invite.expiresAt) }}</p>
+          <p class="muted">剩余次数：{{ remainingUsesText(invite) }}</p>
+          <p v-if="actionError" class="action-error">{{ actionError }}</p>
 
-      <div v-else class="card" data-testid="invite-match">
-        <div class="card-head">
-          <h2>{{ matchTitle }}</h2>
-          <Tag type="primary">{{ inviteTypeText(invite.type) }}</Tag>
+          <div class="invite-actions">
+            <template v-if="accepted">
+              <p class="muted">邀请已接受，比赛信息暂不可用。</p>
+              <Button type="primary" block @click="goHome">返回首页</Button>
+            </template>
+            <Button
+              v-else-if="session.isAuthenticated"
+              type="primary"
+              block
+              :loading="accepting"
+              @click="accept"
+            >
+              去比赛
+            </Button>
+            <template v-else>
+              <p class="muted">登录或注册后即可前往比赛</p>
+              <Button type="primary" block @click="goLogin">登录</Button>
+              <Button block @click="goRegister">注册</Button>
+            </template>
+          </div>
         </div>
-        <p class="muted">时间：{{ formatDateTime(matchStartAt) }}</p>
-        <p class="muted">地点：{{ matchVenue }}</p>
-        <p class="muted">
-          名额：{{ matchDetail ? `${matchDetail.confirmedCount} / ${matchDetail.capacity}` : '—' }}
-        </p>
-        <p v-if="matchHintText" class="muted">{{ matchHintText }}</p>
-        <p class="muted">邀请人 {{ invite.inviter?.name ?? '未知' }}</p>
-        <p class="muted">有效期至 {{ formatDateTime(invite.expiresAt) }}</p>
-        <p class="muted">剩余次数：{{ remainingUsesText(invite) }}</p>
-        <p v-if="actionError" class="action-error">{{ actionError }}</p>
-
-        <template v-if="accepted">
-          <p class="muted">邀请已接受，比赛信息暂不可用。</p>
-          <Button type="primary" block style="margin-top: 12px" @click="goHome"> 返回首页 </Button>
-        </template>
-        <Button
-          v-else-if="session.isAuthenticated"
-          type="primary"
-          block
-          :loading="accepting"
-          style="margin-top: 12px"
-          @click="accept"
-        >
-          去比赛
-        </Button>
-        <template v-else>
-          <p class="muted">登录或注册后即可前往比赛</p>
-          <Button type="primary" block @click="goLogin">登录</Button>
-          <Button block style="margin-top: 12px" @click="goRegister">注册</Button>
-        </template>
       </div>
     </template>
   </section>
 </template>
+
+<style scoped>
+.invite-landing {
+  width: min(560px, 100%);
+  margin: 0 auto;
+}
+
+.invite-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.invite-actions p {
+  margin: 0;
+}
+</style>

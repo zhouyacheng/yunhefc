@@ -1053,6 +1053,7 @@ render();
             <div><span>微信</span><b>${user.wechat ? '已绑定' : '未绑定'}</b></div>
             <div><span>修改密码</span><b>短信验证码重置</b></div>
           </div>
+          ${user.wechat ? '' : '<button class="btn btn-ghost btn-sm" data-action="bind-wechat">绑定微信</button><p class="muted small">仅在微信内置浏览器显示。</p>'}
           <p class="muted small">解绑微信请联系管理员。</p>
         </section>
       </div>
@@ -1060,6 +1061,10 @@ render();
     const editProfile = $('[data-edit-profile]', host);
     if (editProfile) {
       editProfile.addEventListener('click', () => openProfileEditor(user));
+    }
+    const bindWechat = $('[data-action="bind-wechat"]', host);
+    if (bindWechat) {
+      bindWechat.addEventListener('click', () => Y.toast('请在微信内打开并完成授权'));
     }
     const logout = $('[data-logout]', host);
     if (logout) {

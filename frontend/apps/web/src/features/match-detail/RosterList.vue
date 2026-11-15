@@ -153,12 +153,12 @@ function attendanceText(entry: RosterEntry): string {
 }
 
 .roster-warning {
+  padding: 9px 10px;
   margin: 0;
-  padding: 8px 10px;
-  color: #92400e;
+  color: var(--yh-amber-ink);
   font-size: 13px;
-  background: #fef3c7;
-  border-radius: 10px;
+  background: var(--yh-amber-soft);
+  border-radius: var(--yh-radius-sm);
 }
 
 .roster-section {
@@ -177,11 +177,12 @@ function attendanceText(entry: RosterEntry): string {
 
 .roster-row {
   display: flex;
-  align-items: center;
   gap: 10px;
+  align-items: center;
+  min-height: 44px;
   padding: 9px 10px;
-  background: #f8fafc;
-  border-radius: 10px;
+  background: var(--yh-surface-soft);
+  border-radius: var(--yh-radius-sm);
 }
 
 .roster-row__main {
@@ -199,7 +200,7 @@ function attendanceText(entry: RosterEntry): string {
 }
 
 .roster-order {
-  color: #b45309;
+  color: var(--yh-amber);
   font-size: 12px;
   white-space: nowrap;
 }

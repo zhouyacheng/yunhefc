@@ -157,6 +157,7 @@ onMounted(() => {
 <template>
   <section class="page">
     <header class="page-head">
+      <p class="eyebrow">SQUAD</p>
       <h1>球队</h1>
       <p class="muted">云河FC · 球员名单与本赛季数据</p>
     </header>
@@ -175,10 +176,12 @@ onMounted(() => {
     <template v-else>
       <div class="team-groups">
         <section v-for="group in groups" :key="group.position" class="team-group">
-          <h2 class="team-group__title">
-            <span>{{ positionText(group.position) }}</span>
-            <span class="muted small">{{ groupCount(group) }} 人</span>
-          </h2>
+          <div class="team-group__head">
+            <h2 class="team-group__title">
+              <span>{{ positionText(group.position) }}</span>
+              <span class="muted small">{{ groupCount(group) }} 人</span>
+            </h2>
+          </div>
 
           <div class="team-roster">
             <article
@@ -186,27 +189,30 @@ onMounted(() => {
               :key="player.id"
               class="player-card"
             >
-              <img
-                v-if="showAvatar(player)"
-                class="player-card__avatar"
-                :src="avatarSrc(player.avatarUrl) ?? undefined"
-                alt=""
-                @error="onAvatarError(player.id)"
-              />
-              <span v-else class="player-card__avatar player-card__avatar--fallback">
-                {{ avatarInitial(player.name) }}
-              </span>
+              <div class="player-card__top">
+                <img
+                  v-if="showAvatar(player)"
+                  class="player-card__avatar"
+                  :src="avatarSrc(player.avatarUrl) ?? undefined"
+                  alt=""
+                  @error="onAvatarError(player.id)"
+                />
+                <span v-else class="player-card__avatar player-card__avatar--fallback">
+                  {{ avatarInitial(player.name) }}
+                </span>
+                <span class="player-card__jersey">#{{ player.jersey ?? '—' }}</span>
+              </div>
 
               <div class="player-card__body">
-                <div class="player-card__head">
-                  <strong>{{ player.name }}</strong>
-                  <span class="muted small">#{{ player.jersey ?? '—' }}</span>
-                </div>
+                <h3 class="player-card__name">{{ player.name }}</h3>
 
                 <div class="player-card__meta muted small">
                   <span>{{ positionText(player.position) }}</span>
                   <span>{{ player.region || '—' }}</span>
-                  <span class="player-card__stars">{{ skillStars(player.skill) }}</span>
+                </div>
+
+                <div class="player-card__stars" :aria-label="`星级 ${player.skill}/5`">
+                  {{ skillStars(player.skill) }}
                 </div>
 
                 <div class="player-card__stats small">
@@ -243,50 +249,61 @@ onMounted(() => {
 .team-groups {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 32px;
 }
 
 .team-group {
-  padding: 14px 16px;
-  background: var(--yh-surface);
-  border: 1px solid var(--yh-line);
-  border-radius: 16px;
-  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+  display: block;
+}
+
+.team-group__head {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 14px;
 }
 
 .team-group__title {
   display: flex;
-  align-items: baseline;
   gap: 8px;
-  margin: 0 0 10px;
-  font-size: 17px;
+  align-items: baseline;
+  margin: 0;
+  font-size: 22px;
+  letter-spacing: -0.02em;
 }
 
 .team-roster {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .player-card {
   display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 10px 0;
-  border-top: 1px dashed var(--yh-line);
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  background: var(--yh-surface);
+  border: 1px solid var(--yh-line);
+  border-radius: var(--yh-radius);
+  box-shadow: var(--yh-shadow-sm);
 }
 
-.player-card:first-child {
-  padding-top: 0;
-  border-top: 0;
+.player-card__top {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .player-card__avatar {
   flex: none;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   object-fit: cover;
-  background: #e8edf5;
+  background: var(--yh-slate-soft);
 }
 
 .player-card__avatar--fallback {
@@ -294,41 +311,62 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   color: var(--yh-green);
-  font-weight: 700;
+  font-weight: 800;
+}
+
+.player-card__jersey {
+  color: var(--yh-line);
+  font-size: 24px;
+  font-weight: 900;
+  letter-spacing: -0.05em;
 }
 
 .player-card__body {
-  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
 }
 
-.player-card__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+.player-card__name {
+  margin: 0;
+  font-size: 15px;
 }
 
 .player-card__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  gap: 4px 8px;
 }
 
 .player-card__stars {
   color: var(--yh-gold);
+  font-size: 12px;
   letter-spacing: 1px;
 }
 
 .player-card__stats {
   display: flex;
   gap: 12px;
-  margin-top: 4px;
+  padding-top: 10px;
+  margin-top: auto;
   color: var(--yh-muted);
+  border-top: 1px dashed var(--yh-line);
 }
 
 .team-group__toggle {
-  margin-top: 10px;
+  margin-top: 12px;
+}
+
+@media (max-width: 1000px) {
+  .team-roster {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .team-roster {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

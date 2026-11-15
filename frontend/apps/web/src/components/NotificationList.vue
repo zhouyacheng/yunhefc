@@ -342,41 +342,18 @@ onMounted(() => {
 <style scoped>
 .notifications__toolbar {
   display: flex;
+  gap: 8px;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-
-.segmented {
-  display: inline-flex;
-  padding: 3px;
-  background: #f1f5f9;
-  border-radius: 10px;
-}
-
-.segmented button {
-  padding: 5px 12px;
-  color: var(--yh-muted);
-  font: inherit;
-  font-size: 13px;
-  background: none;
-  border: 0;
-  border-radius: 8px;
-  cursor: pointer;
-}
-
-.segmented button.segmented__item--active {
-  color: var(--yh-ink);
-  background: var(--yh-surface);
-  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.12);
+  margin-bottom: 14px;
 }
 
 .notifications__read-all {
-  padding: 0;
+  min-height: 44px;
+  padding: 0 4px;
   color: var(--yh-green);
-  font: inherit;
   font-size: 13px;
+  font-weight: 600;
   background: none;
   border: 0;
   cursor: pointer;
@@ -390,7 +367,6 @@ onMounted(() => {
 .notification-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 .notification-item {
@@ -398,19 +374,28 @@ onMounted(() => {
   display: flex;
   gap: 10px;
   width: 100%;
-  padding: 12px;
-  color: inherit;
+  min-height: 44px;
+  padding: 12px 0;
+  color: var(--yh-muted);
   font: inherit;
   text-align: left;
-  background: #f8fafc;
-  border: 1px solid var(--yh-line);
-  border-radius: 12px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px dashed var(--yh-line);
   cursor: pointer;
 }
 
+.notification-item:last-child {
+  border-bottom: 0;
+}
+
 .notification-item--unread {
-  background: #f0fdf4;
-  border-color: #bbf7d0;
+  color: var(--yh-ink);
+}
+
+.notification-item--unread .notification-item__head strong {
+  color: var(--yh-ink);
+  font-weight: 700;
 }
 
 .notification-item__dot {
@@ -438,7 +423,7 @@ onMounted(() => {
 }
 
 .notification-item__body {
-  color: #334155;
+  color: var(--yh-slate-ink);
   font-size: 13px;
   line-height: 1.45;
 }
@@ -451,16 +436,5 @@ onMounted(() => {
 .notifications__more {
   display: block;
   margin: 12px auto 0;
-}
-
-.inline-retry {
-  padding: 4px 12px;
-  color: var(--yh-green);
-  font: inherit;
-  font-size: 13px;
-  background: none;
-  border: 1px solid var(--yh-green);
-  border-radius: 8px;
-  cursor: pointer;
 }
 </style>

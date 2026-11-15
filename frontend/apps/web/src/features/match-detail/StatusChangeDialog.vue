@@ -163,7 +163,7 @@ function submit(): void {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px 18px 28px;
+  padding: 18px 18px max(28px, env(safe-area-inset-bottom));
 }
 
 .status-close {
@@ -202,12 +202,20 @@ function submit(): void {
 .status-field input,
 .status-field textarea {
   flex: 1;
+  min-height: 42px;
   padding: 9px 10px;
   color: var(--yh-ink);
   font: inherit;
-  background: #ffffff;
+  background: var(--yh-surface);
   border: 1px solid var(--yh-line);
-  border-radius: 10px;
+  border-radius: 9px;
+}
+
+.status-field input:focus,
+.status-field textarea:focus {
+  border-color: var(--yh-green);
+  outline: none;
+  box-shadow: var(--yh-focus-shadow);
 }
 
 .status-field textarea {
@@ -216,7 +224,7 @@ function submit(): void {
 
 .status-error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--yh-red-ink);
   font-size: 13px;
 }
 </style>

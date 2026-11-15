@@ -172,7 +172,7 @@ function selectAll(event: Event): void {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px 18px 28px;
+  padding: 18px 18px max(28px, env(safe-area-inset-bottom));
 }
 
 .invite-close {
@@ -186,12 +186,12 @@ function selectAll(event: Event): void {
 }
 
 .invite-notice {
-  margin: 0;
   padding: 9px 10px;
-  color: #92400e;
+  margin: 0;
+  color: var(--yh-amber-ink);
   font-size: 13px;
-  background: #fef3c7;
-  border-radius: 10px;
+  background: var(--yh-amber-soft);
+  border-radius: var(--yh-radius-sm);
 }
 
 .invite-link {
@@ -200,9 +200,9 @@ function selectAll(event: Event): void {
   color: var(--yh-ink);
   font: inherit;
   font-size: 13px;
-  background: #f8fafc;
+  background: var(--yh-surface-soft);
   border: 1px solid var(--yh-line);
-  border-radius: 10px;
+  border-radius: var(--yh-radius-sm);
   word-break: break-all;
 }
 
@@ -221,17 +221,24 @@ function selectAll(event: Event): void {
 
 .invite-field input {
   flex: 1;
+  min-height: 42px;
   padding: 9px 10px;
   color: var(--yh-ink);
   font: inherit;
-  background: #ffffff;
+  background: var(--yh-surface);
   border: 1px solid var(--yh-line);
-  border-radius: 10px;
+  border-radius: 9px;
+}
+
+.invite-field input:focus {
+  border-color: var(--yh-green);
+  outline: none;
+  box-shadow: var(--yh-focus-shadow);
 }
 
 .invite-error {
   margin: 0;
-  color: #b91c1c;
+  color: var(--yh-red-ink);
   font-size: 13px;
 }
 </style>

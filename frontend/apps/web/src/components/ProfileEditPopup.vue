@@ -380,11 +380,12 @@ onUnmounted(() => {
 
 .profile-edit__head h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
 }
 
 .profile-edit__close {
-  padding: 0;
+  min-height: 44px;
+  padding: 0 4px;
   color: var(--yh-muted);
   font: inherit;
   font-size: 14px;
@@ -398,7 +399,7 @@ onUnmounted(() => {
   flex: 1;
   flex-direction: column;
   gap: 14px;
-  padding: 18px 18px 28px;
+  padding: 18px 18px max(28px, env(safe-area-inset-bottom));
   overflow-y: auto;
 }
 
@@ -455,13 +456,14 @@ onUnmounted(() => {
 
 .edit-field {
   display: flex;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  min-height: 44px;
   padding: 12px 14px;
   background: var(--yh-surface);
   border: 1px solid var(--yh-line);
-  border-radius: 12px;
+  border-radius: var(--yh-radius-sm);
 }
 
 .edit-field > span {
@@ -469,12 +471,19 @@ onUnmounted(() => {
 }
 
 .edit-field select {
+  min-height: 36px;
   padding: 6px 10px;
   font: inherit;
   font-size: 14px;
-  background: #f8fafc;
+  background: var(--yh-surface-soft);
   border: 1px solid var(--yh-line);
-  border-radius: 8px;
+  border-radius: 9px;
+}
+
+.edit-field select:focus {
+  border-color: var(--yh-green);
+  outline: none;
+  box-shadow: var(--yh-focus-shadow);
 }
 
 .edit-field--column {
@@ -493,16 +502,5 @@ onUnmounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 14px;
-}
-
-.inline-retry {
-  padding: 2px 8px;
-  color: var(--yh-green);
-  font: inherit;
-  font-size: 12px;
-  background: none;
-  border: 1px solid var(--yh-green);
-  border-radius: 6px;
-  cursor: pointer;
 }
 </style>

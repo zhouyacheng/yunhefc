@@ -5,6 +5,7 @@ import { ActionSheet, Button, CellGroup, Field } from 'vant';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import logoUrl from '../assets/logo.png';
 import { api } from '../api/client';
 import {
   authErrorMessage,
@@ -349,13 +350,14 @@ function selectPosition(action: { code?: number }): void {
 
 <template>
   <div class="login-page">
-    <div class="login-brand">
-      <p class="login-eyebrow">YUNHE FC</p>
-      <h1>云河FC</h1>
-      <p class="muted">{{ mode === 'register' ? '加入球队，参与比赛' : '登录后参与比赛' }}</p>
-    </div>
-
     <div class="login-card">
+      <div class="login-brand">
+        <img class="login-logo" :src="logoUrl" alt="" />
+        <p class="login-eyebrow">YUNHE FC</p>
+        <h1>云河FC</h1>
+        <p class="muted">{{ mode === 'register' ? '加入球队，参与比赛' : '登录后参与比赛' }}</p>
+      </div>
+
       <nav class="login-modes" role="tablist" aria-label="认证模式">
         <button
           v-for="item in MODES"
@@ -568,26 +570,3 @@ function selectPosition(action: { code?: number }): void {
     />
   </div>
 </template>
-
-<style scoped>
-.login-or {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 16px 0 10px;
-  color: #64748b;
-  font-size: 12px;
-}
-
-.login-or::before,
-.login-or::after {
-  flex: 1;
-  height: 1px;
-  background: rgba(148, 163, 184, 0.35);
-  content: '';
-}
-
-.login-or__error {
-  margin-top: 10px;
-}
-</style>

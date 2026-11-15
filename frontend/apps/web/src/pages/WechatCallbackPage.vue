@@ -6,6 +6,7 @@ import { ActionSheet, Button, CellGroup, Field } from 'vant';
 import { computed, onBeforeUnmount, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import logoUrl from '../assets/logo.png';
 import { api } from '../api/client';
 import {
   authErrorMessage,
@@ -189,15 +190,16 @@ function selectPosition(action: { code?: number }): void {
 
 <template>
   <div class="login-page">
-    <div class="login-brand">
-      <p class="login-eyebrow">YUNHE FC</p>
-      <h1>{{ bindMode ? '绑定手机号' : '微信授权未完成' }}</h1>
-      <p class="muted">
-        {{ bindMode ? '首次微信登录需绑定手机号，已注册手机号将直接登录' : errorText }}
-      </p>
-    </div>
-
     <div class="login-card">
+      <div class="login-brand">
+        <img class="login-logo" :src="logoUrl" alt="" />
+        <p class="login-eyebrow">YUNHE FC</p>
+        <h1>{{ bindMode ? '绑定手机号' : '微信授权未完成' }}</h1>
+        <p class="muted">
+          {{ bindMode ? '首次微信登录需绑定手机号，已注册手机号将直接登录' : errorText }}
+        </p>
+      </div>
+
       <form v-if="bindMode" class="login-form" @submit.prevent="submitBind">
         <CellGroup inset>
           <Field
@@ -278,14 +280,3 @@ function selectPosition(action: { code?: number }): void {
     />
   </div>
 </template>
-
-<style scoped>
-.wechat-alt {
-  display: block;
-  margin-top: 16px;
-  color: #cbd5e1;
-  font-size: 14px;
-  text-align: center;
-  text-decoration: underline;
-}
-</style>

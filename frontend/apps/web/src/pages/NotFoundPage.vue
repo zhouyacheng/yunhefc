@@ -15,14 +15,16 @@ function goHome(): void {
 
 <template>
   <section class="page">
-    <header class="page-head">
-      <h1>页面不存在</h1>
-      <p class="muted">你访问的页面或资源不存在。</p>
-    </header>
-
-    <div class="card">
-      <Button type="primary" block @click="goHome">返回首页</Button>
-      <Button block style="margin-top: 12px" @click="goBack">返回上一页</Button>
+    <div class="page-gate">
+      <div class="card empty-state">
+        <p class="eyebrow">404</p>
+        <h1>页面不存在</h1>
+        <p>你访问的页面或资源不存在。</p>
+        <div class="empty-state__actions">
+          <Button type="primary" block @click="goHome">返回首页</Button>
+          <Button block @click="goBack">返回上一页</Button>
+        </div>
+      </div>
     </div>
   </section>
 </template>

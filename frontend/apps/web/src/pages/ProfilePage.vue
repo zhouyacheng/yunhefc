@@ -101,93 +101,102 @@ onMounted(() => {
 <template>
   <section class="page profile-page">
     <header class="page-head">
+      <p class="eyebrow">PROFILE</p>
       <h1>我的</h1>
       <p class="muted">个人资料、通知与报名记录</p>
     </header>
 
     <p v-if="pending" class="notice profile-pending" role="status">账号待审核</p>
 
-    <section v-if="session.user && session.player" class="card profile-identity">
-      <div class="profile-avatar">
-        <img
-          v-if="isDisplayableAvatarUrl(avatarSrc) && !avatarBroken"
-          :src="avatarSrc"
-          :alt="session.player.name"
-          @error="avatarBroken = true"
-        />
-        <span v-else class="profile-avatar__placeholder">
-          {{ avatarPlaceholder(session.player.name) }}
-        </span>
+    <div class="profile-grid">
+      <div class="profile-col">
+        <section v-if="session.user && session.player" class="card profile-identity">
+          <div class="profile-avatar">
+            <img
+              v-if="isDisplayableAvatarUrl(avatarSrc) && !avatarBroken"
+              :src="avatarSrc"
+              :alt="session.player.name"
+              @error="avatarBroken = true"
+            />
+            <span v-else class="profile-avatar__placeholder">
+              {{ avatarPlaceholder(session.player.name) }}
+            </span>
+          </div>
+
+          <div class="profile-identity__info">
+            <div class="profile-identity__name-row">
+              <h2>{{ session.player.name }}</h2>
+              <Tag class="status-tag status-tag--admin">{{ roleText }}</Tag>
+            </div>
+            <p class="muted small">{{ session.user.phoneMasked }}</p>
+            <div class="profile-identity__meta">
+              <span>号码 {{ session.player.jersey ?? '—' }}</span>
+              <span>位置 {{ positionText(session.player.position) }}</span>
+              <span :aria-label="`星级 ${session.player.skill}/5`">
+                {{ skillStars(session.player.skill) }}
+              </span>
+            </div>
+          </div>
+
+          <Button
+            v-if="!pending"
+            class="profile-edit-trigger"
+            size="small"
+            plain
+            type="primary"
+            @click="openEdit"
+          >
+            编辑资料
+          </Button>
+        </section>
+
+        <p v-if="savedHint" class="hint profile-saved">{{ savedHint }}</p>
+
+        <MyRegistrations class="profile-block" :pending="pending" />
       </div>
 
-      <div class="profile-identity__info">
-        <div class="profile-identity__name-row">
-          <h2>{{ session.player.name }}</h2>
-          <Tag type="primary" plain>{{ roleText }}</Tag>
-        </div>
-        <p class="muted small">{{ session.user.phoneMasked }}</p>
-        <div class="profile-identity__meta">
-          <span>号码 {{ session.player.jersey ?? '—' }}</span>
-          <span>位置 {{ positionText(session.player.position) }}</span>
-          <span :aria-label="`星级 ${session.player.skill}/5`">
-            {{ skillStars(session.player.skill) }}
-          </span>
-        </div>
+      <div class="profile-col">
+        <NotificationList class="profile-block" />
+
+        <section v-if="session.user" class="card profile-security profile-block">
+          <div class="card-head">
+            <h2>账号与安全</h2>
+          </div>
+
+          <div class="security-row">
+            <span>手机号</span>
+            <span class="muted">{{ session.user.phoneMasked }}</span>
+          </div>
+          <div class="security-row">
+            <span>微信绑定</span>
+            <span class="muted">{{ session.user.wechatBound ? '已绑定' : '未绑定' }}</span>
+          </div>
+          <Button
+            v-if="canBindWechat"
+            class="wechat-bind"
+            size="small"
+            type="primary"
+            plain
+            :loading="wechatLoading"
+            @click="bindWechat"
+          >
+            绑定微信
+          </Button>
+          <p v-if="wechatError" class="notice notice--danger wechat-bind__error">
+            {{ wechatError }}
+          </p>
+          <RouterLink
+            class="security-row security-row--link"
+            :to="{ name: 'login', query: { mode: 'reset' } }"
+          >
+            <span>找回密码</span>
+            <span class="muted">短信验证码重置 →</span>
+          </RouterLink>
+
+          <Button type="danger" plain block @click="logout">退出登录</Button>
+        </section>
       </div>
-
-      <Button
-        v-if="!pending"
-        class="profile-edit-trigger"
-        size="small"
-        plain
-        type="primary"
-        @click="openEdit"
-      >
-        编辑资料
-      </Button>
-    </section>
-
-    <p v-if="savedHint" class="hint">{{ savedHint }}</p>
-
-    <NotificationList class="profile-block" />
-
-    <MyRegistrations class="profile-block" :pending="pending" />
-
-    <section v-if="session.user" class="card profile-security profile-block">
-      <div class="card-head">
-        <h2>账号与安全</h2>
-      </div>
-
-      <div class="security-row">
-        <span>手机号</span>
-        <span class="muted">{{ session.user.phoneMasked }}</span>
-      </div>
-      <div class="security-row">
-        <span>微信绑定</span>
-        <span class="muted">{{ session.user.wechatBound ? '已绑定' : '未绑定' }}</span>
-      </div>
-      <Button
-        v-if="canBindWechat"
-        class="wechat-bind"
-        size="small"
-        type="primary"
-        plain
-        :loading="wechatLoading"
-        @click="bindWechat"
-      >
-        绑定微信
-      </Button>
-      <p v-if="wechatError" class="notice notice--danger wechat-bind__error">{{ wechatError }}</p>
-      <RouterLink
-        class="security-row security-row--link"
-        :to="{ name: 'login', query: { mode: 'reset' } }"
-      >
-        <span>找回密码</span>
-        <span class="muted">短信验证码重置 →</span>
-      </RouterLink>
-
-      <Button type="danger" plain block @click="logout">退出登录</Button>
-    </section>
+    </div>
 
     <ProfileEditPopup
       v-if="session.player"
@@ -200,20 +209,33 @@ onMounted(() => {
 
 <style scoped>
 .profile-pending {
-  margin: 0 0 12px;
+  margin: 0 0 16px;
+}
+
+.profile-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.profile-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }
 
 .profile-identity {
   display: flex;
+  gap: 16px;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 12px;
 }
 
 .profile-avatar {
   flex: none;
-  width: 68px;
-  height: 68px;
+  width: 72px;
+  height: 72px;
   overflow: hidden;
   background: var(--yh-navy);
   border-radius: 50%;
@@ -243,13 +265,14 @@ onMounted(() => {
 .profile-identity__name-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
   gap: 8px;
+  align-items: center;
 }
 
 .profile-identity__name-row h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 24px;
+  letter-spacing: -0.02em;
 }
 
 .profile-identity__info > .muted {
@@ -270,17 +293,18 @@ onMounted(() => {
 
 .profile-block {
   display: block;
-  margin-top: 12px;
+  margin-top: 0;
 }
 
 .security-row {
   display: flex;
+  gap: 12px;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  min-height: 44px;
   padding: 10px 0;
   font-size: 14px;
-  border-bottom: 1px solid var(--yh-line);
+  border-bottom: 1px dashed var(--yh-line);
 }
 
 .security-row--link {
@@ -289,6 +313,36 @@ onMounted(() => {
 
 .profile-security :deep(.van-button) {
   margin-top: 14px;
+}
+
+@media (max-width: 1000px) {
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-col {
+    display: contents;
+  }
+
+  .profile-identity {
+    order: 1;
+  }
+
+  .notifications {
+    order: 2;
+  }
+
+  .my-registrations {
+    order: 3;
+  }
+
+  .profile-security {
+    order: 4;
+  }
+
+  .profile-saved {
+    order: 5;
+  }
 }
 
 @media (max-width: 480px) {

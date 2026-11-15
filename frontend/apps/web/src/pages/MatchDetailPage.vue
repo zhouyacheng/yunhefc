@@ -94,7 +94,13 @@ import StatusChangeDialog, {
   type StatusDialogMode,
   type StatusDialogPayload,
 } from '../features/match-detail/StatusChangeDialog.vue';
-import { matchTagType, scoreText } from '../features/matches/presentation';
+import {
+  queuePercent,
+  resultTone,
+  scoreText,
+  statusTone,
+  winnerSide,
+} from '../features/matches/presentation';
 import { toBrowserPath } from '../router';
 import { useSessionStore } from '../stores/session';
 import { hasSessionHint } from '../stores/session-hint';
@@ -271,6 +277,22 @@ const myRegistrationStatusText = computed(() => {
     ? '已作废'
     : (REGISTRATION_STATUS_TEXT[registration.value.status] ?? registration.value.statusLabel ?? '');
 });
+const registrationTone = computed(() => {
+  if (!registration.value) {
+    return 'muted';
+  }
+  if (isCancelled.value) {
+    return 'closed';
+  }
+  if (registration.value.status === 0) {
+    return 'open';
+  }
+  if (registration.value.status === 1) {
+    return 'postponed';
+  }
+  return 'muted';
+});
+const heroWinner = computed(() => (match.value ? winnerSide(match.value) : null));
 const confirmed = computed(() => registration.value?.status === 0);
 const canCheckIn = computed(
   () => confirmed.value && !checkInClosed.value && windowState.value === 'open',
@@ -1315,17 +1337,24 @@ onBeforeUnmount(() => {
       <header class="card match-hero">
         <div class="match-hero__top">
           <span class="small muted">{{ matchTypeText(match.type) }}</span>
-          <Tag :type="matchTagType(match.status)" plain>{{ matchStatusText(match.status) }}</Tag>
+          <Tag class="status-tag" :class="`status-tag--${statusTone(match.status)}`">
+            {{ matchStatusText(match.status) }}
+          </Tag>
           <span class="muted small">第 {{ match.seasonMatchNo }} 场</span>
         </div>
         <div class="match-hero__teams">
-          <span>{{ match.homeTeamName }}</span>
+          <span :class="{ 'team-name--winner': heroWinner === 0 }">{{ match.homeTeamName }}</span>
           <strong>{{ displayedScoreText() }}</strong>
-          <span>{{ match.awayTeamName }}</span>
+          <span :class="{ 'team-name--winner': heroWinner === 1 }">{{ match.awayTeamName }}</span>
         </div>
         <div class="match-hero__meta muted small">
           <span>{{ formatDateTime(match.startAt) }}</span>
           <span>{{ match.venue }}</span>
+        </div>
+        <div v-if="match.resultText" class="match-hero__result">
+          <Tag class="status-tag" :class="`status-tag--${resultTone(match.resultText)}`">
+            {{ match.resultText }}
+          </Tag>
         </div>
 
         <div v-if="isCancelled" class="voided-banner">
@@ -1435,186 +1464,212 @@ onBeforeUnmount(() => {
       </nav>
 
       <template v-if="activeTab === 'overview'">
-        <section class="card registration-card" data-testid="registration-card">
-          <div class="card-head">
-            <h2>我的报名</h2>
-            <Tag
-              v-if="registration || isCancelled"
-              size="medium"
-              type="primary"
-              plain
-              data-testid="registration-status"
-            >
-              {{ myRegistrationStatusText || '已作废' }}
-            </Tag>
-          </div>
-
-          <template v-if="isCancelled">
-            <p class="muted">比赛已取消，报名记录仅保留、已作废，不占名额。</p>
-            <div class="hero-queue">
-              <div class="hero-queue__item">
-                <span>历史报名</span>
-                <b>{{ match.confirmedCount + match.guestCount }}</b>
-              </div>
-              <div class="hero-queue__item">
-                <span>历史候补</span>
-                <b>{{ match.waitlistCount }}</b>
-              </div>
-            </div>
-          </template>
-
-          <template v-else-if="!session.isAuthenticated">
-            <p class="muted">登录后可报名与签到</p>
-            <RouterLink :to="loginTarget">
-              <Button type="primary" block>去登录</Button>
-            </RouterLink>
-          </template>
-
-          <template v-else-if="pending">
-            <p class="notice" data-testid="pending-banner">
-              账号待审核：可以浏览比赛，暂不能报名或签到。
-            </p>
-            <p v-if="registration" class="muted small">
-              当前报名状态：{{ myRegistrationStatusText }}
-            </p>
-          </template>
-
-          <template v-else>
-            <div class="hero-queue queue-progress">
-              <div class="hero-queue__item" data-testid="queue-formal">
-                <span>正式</span>
-                <b>{{ match.confirmedCount }} / {{ match.capacity }}</b>
-              </div>
-              <div class="hero-queue__item" data-testid="queue-guest">
-                <span>外挂</span>
-                <b>{{ match.guestCount }} / {{ match.guestCapacity }}</b>
-              </div>
-              <div class="hero-queue__item" data-testid="queue-waitlist">
-                <span>候补</span>
-                <b>{{ match.waitlistCount }} / {{ match.waitlistCapacity }}</b>
-              </div>
+        <div class="overview-grid">
+          <section class="card registration-card" data-testid="registration-card">
+            <div class="card-head">
+              <h2>我的报名</h2>
+              <Tag
+                v-if="registration || isCancelled"
+                class="status-tag"
+                :class="`status-tag--${registrationTone}`"
+                data-testid="registration-status"
+              >
+                {{ myRegistrationStatusText || '已作废' }}
+              </Tag>
             </div>
 
-            <template v-if="!hasActiveRegistration && signup">
-              <template v-if="signup.visible">
-                <Button
-                  v-if="signup.action === 'login'"
-                  type="primary"
-                  block
-                  @click="router.push(loginTarget)"
-                >
-                  {{ signup.label }}
-                </Button>
-                <Button
-                  v-else
-                  type="primary"
-                  block
-                  data-testid="signup-button"
-                  :disabled="signup.disabled"
-                  :loading="signingUp"
-                  @click="signupNow"
-                >
-                  {{ signup.label }}
-                </Button>
-                <p v-if="signup.reason" class="hint">{{ signup.reason }}</p>
-              </template>
-              <p v-else-if="signup.reason" class="hint">{{ signup.reason }}</p>
+            <template v-if="isCancelled">
+              <p class="muted">比赛已取消，报名记录仅保留、已作废，不占名额。</p>
+              <div class="hero-queue">
+                <div class="hero-queue__item">
+                  <span>历史报名</span>
+                  <b>{{ match.confirmedCount + match.guestCount }}</b>
+                </div>
+                <div class="hero-queue__item">
+                  <span>历史候补</span>
+                  <b>{{ match.waitlistCount }}</b>
+                </div>
+              </div>
             </template>
 
-            <template v-else-if="hasActiveRegistration && cancel">
-              <div v-if="attendance" class="attendance-status">
-                <p>
-                  考勤状态：<strong>{{ ATTENDANCE_STATUS_TEXT[attendance.status] }}</strong>
-                </p>
-                <p class="muted small">
-                  来源：{{ ATTENDANCE_SOURCE_TEXT[attendance.source] }} ·
-                  {{ formatDateTime(attendance.recordedAt) }}
-                </p>
+            <template v-else-if="!session.isAuthenticated">
+              <p class="muted">登录后可报名与签到</p>
+              <RouterLink :to="loginTarget">
+                <Button type="primary" block>去登录</Button>
+              </RouterLink>
+            </template>
+
+            <template v-else-if="pending">
+              <p class="notice" data-testid="pending-banner">
+                账号待审核：可以浏览比赛，暂不能报名或签到。
+              </p>
+              <p v-if="registration" class="muted small">
+                当前报名状态：{{ myRegistrationStatusText }}
+              </p>
+            </template>
+
+            <template v-else>
+              <div class="hero-queue queue-progress">
+                <div class="hero-queue__item" data-testid="queue-formal">
+                  <div class="hero-queue__row">
+                    <span>正式</span>
+                    <b>{{ match.confirmedCount }} / {{ match.capacity }}</b>
+                  </div>
+                  <div class="progress">
+                    <i
+                      :style="{ width: `${queuePercent(match.confirmedCount, match.capacity)}%` }"
+                    />
+                  </div>
+                </div>
+                <div class="hero-queue__item" data-testid="queue-guest">
+                  <div class="hero-queue__row">
+                    <span>外挂</span>
+                    <b>{{ match.guestCount }} / {{ match.guestCapacity }}</b>
+                  </div>
+                  <div class="progress">
+                    <i
+                      :style="{ width: `${queuePercent(match.guestCount, match.guestCapacity)}%` }"
+                    />
+                  </div>
+                </div>
+                <div class="hero-queue__item" data-testid="queue-waitlist">
+                  <div class="hero-queue__row">
+                    <span>候补</span>
+                    <b>{{ match.waitlistCount }} / {{ match.waitlistCapacity }}</b>
+                  </div>
+                  <div class="progress">
+                    <i
+                      :style="{
+                        width: `${queuePercent(match.waitlistCount, match.waitlistCapacity)}%`,
+                      }"
+                    />
+                  </div>
+                </div>
               </div>
 
-              <template v-else-if="!checkInClosed">
-                <Button
-                  v-if="confirmed"
-                  type="primary"
-                  block
-                  data-testid="check-in-button"
-                  :disabled="!canCheckIn"
-                  :loading="checkInLoading"
-                  @click="checkIn"
-                >
-                  签到
-                </Button>
-                <p v-if="checkInHint" class="hint">{{ checkInHint }}</p>
+              <template v-if="!hasActiveRegistration && signup">
+                <template v-if="signup.visible">
+                  <Button
+                    v-if="signup.action === 'login'"
+                    type="primary"
+                    block
+                    @click="router.push(loginTarget)"
+                  >
+                    {{ signup.label }}
+                  </Button>
+                  <Button
+                    v-else
+                    type="primary"
+                    block
+                    data-testid="signup-button"
+                    :disabled="signup.disabled"
+                    :loading="signingUp"
+                    @click="signupNow"
+                  >
+                    {{ signup.label }}
+                  </Button>
+                  <p v-if="signup.reason" class="hint">{{ signup.reason }}</p>
+                </template>
+                <p v-else-if="signup.reason" class="hint">{{ signup.reason }}</p>
               </template>
 
+              <template v-else-if="hasActiveRegistration && cancel">
+                <div v-if="attendance" class="attendance-status">
+                  <p>
+                    考勤状态：<strong>{{ ATTENDANCE_STATUS_TEXT[attendance.status] }}</strong>
+                  </p>
+                  <p class="muted small">
+                    来源：{{ ATTENDANCE_SOURCE_TEXT[attendance.source] }} ·
+                    {{ formatDateTime(attendance.recordedAt) }}
+                  </p>
+                </div>
+
+                <template v-else-if="!checkInClosed">
+                  <Button
+                    v-if="confirmed"
+                    type="primary"
+                    block
+                    data-testid="check-in-button"
+                    :disabled="!canCheckIn"
+                    :loading="checkInLoading"
+                    @click="checkIn"
+                  >
+                    签到
+                  </Button>
+                  <p v-if="checkInHint" class="hint">{{ checkInHint }}</p>
+                </template>
+
+                <Button
+                  type="primary"
+                  plain
+                  block
+                  data-testid="cancel-registration"
+                  :disabled="cancel.disabled"
+                  :loading="cancelling"
+                  @click="cancelNow"
+                >
+                  {{ cancel.label }}
+                </Button>
+                <p v-if="cancel.reason" class="hint">{{ cancel.reason }}</p>
+              </template>
+            </template>
+
+            <p v-if="actionMessage" class="hint" data-testid="action-message">
+              {{ actionMessage }}
+            </p>
+            <p v-if="actionError" class="action-error" data-testid="action-error">
+              {{ actionError }}
+            </p>
+            <p v-if="refreshError" class="action-error">
+              {{ refreshError }}
               <Button
+                size="mini"
                 type="primary"
                 plain
-                block
-                data-testid="cancel-registration"
-                :disabled="cancel.disabled"
-                :loading="cancelling"
-                @click="cancelNow"
+                data-testid="refresh-retry"
+                @click="load(true)"
               >
-                {{ cancel.label }}
+                重试刷新
               </Button>
-              <p v-if="cancel.reason" class="hint">{{ cancel.reason }}</p>
+            </p>
+          </section>
+
+          <div class="overview-side">
+            <p v-if="rosterDiffText" class="notice roster-diff" data-testid="roster-diff">
+              {{ rosterDiffText }}
+            </p>
+
+            <template v-if="!isCancelled">
+              <RosterList
+                v-if="canViewFullRoster"
+                :sections="overviewRoster"
+                :loading="overviewRosterLoading"
+                :error="overviewRosterError"
+                :attendance-error="overviewAttendanceError"
+                :admin-url="rosterAdminUrl"
+                @retry="loadOverviewRoster(requestSeq)"
+                @admin-click="saveRosterSnapshot"
+              />
+              <section v-else-if="!session.isAuthenticated" class="card roster-hint">
+                <p class="muted">登录后查看名单与考勤</p>
+              </section>
+              <section v-else-if="pending" class="card roster-hint">
+                <p class="muted">账号待审核，暂不可查看全队名单。</p>
+              </section>
+              <template v-else>
+                <p class="hint roster-hint">外挂仅显示本人报名。</p>
+                <RosterList
+                  :sections="overviewRoster"
+                  :loading="overviewRosterLoading"
+                  :error="overviewRosterError"
+                  :attendance-error="overviewAttendanceError"
+                  :admin-url="null"
+                  @retry="loadOverviewRoster(requestSeq)"
+                />
+              </template>
             </template>
-          </template>
-
-          <p v-if="actionMessage" class="hint" data-testid="action-message">
-            {{ actionMessage }}
-          </p>
-          <p v-if="actionError" class="action-error" data-testid="action-error">
-            {{ actionError }}
-          </p>
-          <p v-if="refreshError" class="action-error">
-            {{ refreshError }}
-            <Button
-              size="mini"
-              type="primary"
-              plain
-              data-testid="refresh-retry"
-              @click="load(true)"
-            >
-              重试刷新
-            </Button>
-          </p>
-        </section>
-
-        <p v-if="rosterDiffText" class="notice roster-diff" data-testid="roster-diff">
-          {{ rosterDiffText }}
-        </p>
-
-        <template v-if="!isCancelled">
-          <RosterList
-            v-if="canViewFullRoster"
-            :sections="overviewRoster"
-            :loading="overviewRosterLoading"
-            :error="overviewRosterError"
-            :attendance-error="overviewAttendanceError"
-            :admin-url="rosterAdminUrl"
-            @retry="loadOverviewRoster(requestSeq)"
-            @admin-click="saveRosterSnapshot"
-          />
-          <section v-else-if="!session.isAuthenticated" class="card roster-hint">
-            <p class="muted">登录后查看名单与考勤</p>
-          </section>
-          <section v-else-if="pending" class="card roster-hint">
-            <p class="muted">账号待审核，暂不可查看全队名单。</p>
-          </section>
-          <template v-else>
-            <p class="hint roster-hint">外挂仅显示本人报名。</p>
-            <RosterList
-              :sections="overviewRoster"
-              :loading="overviewRosterLoading"
-              :error="overviewRosterError"
-              :attendance-error="overviewAttendanceError"
-              :admin-url="null"
-              @retry="loadOverviewRoster(requestSeq)"
-            />
-          </template>
-        </template>
+          </div>
+        </div>
       </template>
 
       <template v-else-if="activeTab === 'events'">
@@ -1680,7 +1735,7 @@ onBeforeUnmount(() => {
               :class="`timeline-row--${event.team === 0 ? 'home' : 'away'}`"
             >
               <div class="timeline-side timeline-side--home">
-                <div v-if="event.team === 0" class="event-card">
+                <div v-if="event.team === 0" class="event-card event-card--home">
                   <div class="event-card__head">
                     <strong>{{ eventTypeText(event.type) }}</strong>
                     <button
@@ -1701,7 +1756,7 @@ onBeforeUnmount(() => {
                 <span class="timeline-dot" />
               </div>
               <div class="timeline-side timeline-side--away">
-                <div v-if="event.team === 1" class="event-card">
+                <div v-if="event.team === 1" class="event-card event-card--away">
                   <div class="event-card__head">
                     <strong>{{ eventTypeText(event.type) }}</strong>
                     <button
@@ -2004,23 +2059,22 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.match-hero__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-
 .status-select {
   flex: 1;
   min-width: 130px;
+  min-height: 44px;
   padding: 7px 10px;
-  color: var(--yh-ink);
+  color: #ffffff;
   font: inherit;
   font-size: 13px;
-  background: #ffffff;
-  border: 1px solid var(--yh-line);
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 9px;
+}
+
+.status-select option {
+  color: var(--yh-ink);
+  background: var(--yh-surface);
 }
 
 .share-manual {
@@ -2029,9 +2083,9 @@ onBeforeUnmount(() => {
   color: var(--yh-ink);
   font: inherit;
   font-size: 13px;
-  background: #f8fafc;
+  background: var(--yh-surface);
   border: 1px solid var(--yh-line);
-  border-radius: 10px;
+  border-radius: var(--yh-radius-sm);
   word-break: break-all;
 }
 

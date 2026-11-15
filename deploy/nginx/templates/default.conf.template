@@ -55,13 +55,13 @@ server {
     location /api/ {
         include /etc/nginx/snippets/security-headers.conf;
         include /etc/nginx/snippets/proxy-params.conf;
-        proxy_pass http://backend:8080;
+        proxy_pass http://backend_upstream;
     }
 
     location = /actuator/health {
         include /etc/nginx/snippets/security-headers.conf;
         include /etc/nginx/snippets/proxy-params.conf;
-        proxy_pass http://backend:8080/actuator/health;
+        proxy_pass http://backend_upstream/actuator/health;
     }
 
     location / {

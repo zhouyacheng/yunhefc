@@ -198,12 +198,46 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  # 把 Kafka/Redis 镜像同步到 ACR，发布时不再依赖 Docker Hub。
+  # 已存在则跳过；不挂 needs，与 images 并行，不拉长关键路径。
+  mirror-infra:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: docker/login-action@v4
+        with:
+          registry: ${{ vars.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - name: Mirror kafka and redis
+        env:
+          ACR_REGISTRY: ${{ vars.ACR_REGISTRY }}
+          ACR_NAMESPACE: ${{ vars.ACR_NAMESPACE }}
+        run: |
+          set -euo pipefail
+          mirror() {
+            local src="$1" repo="$2" tag="$3"
+            local dst="$ACR_REGISTRY/$ACR_NAMESPACE/$repo:$tag"
+            if docker manifest inspect "$dst" >/dev/null 2>&1; then
+              echo "already present: $dst"
+              return 0
+            fi
+            docker pull --platform linux/amd64 "$src"
+            docker tag "$src" "$dst"
+            docker push "$dst"
+            docker manifest inspect "$dst" >/dev/null
+            echo "mirrored: $src -> $dst"
+          }
+          mirror apache/kafka:3.7.2 yunhefc-infra-kafka 3.7.2
+          mirror redis:6.2.24 yunhefc-infra-redis 6.2.24
+
   images:
     # main 合并后产出不可变双镜像：同一 sha-<7>，linux/amd64，禁止 latest。
     if: github.event_name == 'push'
     needs: [backend, frontend, e2e]
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8

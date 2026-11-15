@@ -291,6 +291,15 @@ for fqdn in "www.$RC_DOMAIN"; do
   else
     warn "$fqdn 证书缺失或剩余 ≤30 天"; record "$fqdn 证书>30天" "FAIL"
   fi
+  san_lines=$(echo | openssl s_client -servername "$fqdn" -connect "$fqdn:443" 2>/dev/null \
+    | openssl x509 -noout -ext subjectAltName 2>/dev/null \
+    | tr ', ' '\n\n' | sed '/^$/d' || true)
+  if printf '%s\n' "$san_lines" | grep -Fqx "DNS:$fqdn" \
+      || printf '%s\n' "$san_lines" | grep -Fqx "DNS:*.${RC_DOMAIN}"; then
+    say "  ${GREEN}✓${RESET} $fqdn SAN 覆盖"; record "$fqdn SAN 覆盖" "PASS"
+  else
+    warn "$fqdn 证书 SAN 未包含 DNS:$fqdn 或 DNS:*.${RC_DOMAIN}"; record "$fqdn SAN 覆盖" "FAIL"
+  fi
   for v in tls1_2 tls1_3; do
     if echo | openssl s_client -"$v" -servername "$fqdn" -connect "$fqdn:443" >/dev/null 2>&1; then
       say "  ${GREEN}✓${RESET} $fqdn 支持 ${v#tls}"

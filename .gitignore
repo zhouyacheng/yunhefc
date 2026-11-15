@@ -20,6 +20,12 @@ deploy/.env
 deploy/.env.*
 !deploy/.env.example
 deploy/rc-acceptance-results.md
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+/deploy/certs/
 
 # IDE / OS
 .idea/

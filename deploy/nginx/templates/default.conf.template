@@ -5,7 +5,7 @@ server {
     return 301 https://www.${DOMAIN}$request_uri;
 }
 
-# 旧子域过渡：admin 页面路径补 /admin，API 路径保持原样；无需过渡时可直接删除这些 server 块与 DNS。
+# 旧子域仅保留 80 过渡（不需要证书）：admin 页面路径补 /admin，API 路径保持原样；HTTPS 不再提供。
 server {
     listen 80;
     listen [::]:80;
@@ -27,17 +27,14 @@ server {
     return 308 https://www.${DOMAIN}$request_uri;
 }
 
-# 裸域（可选）：证书需含裸域 SAN；无该 DNS 时不影响 www。
+# 443 只服务 www；旧子域/未知 SNI 显式拒绝，避免忽略证书告警后落入 www 路由。
 server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
-    server_name ${DOMAIN};
+    listen 443 ssl default_server;
+    listen [::]:443 ssl default_server;
+    server_name _;
 
     include /etc/nginx/snippets/tls.conf;
-    include /etc/nginx/snippets/security-headers.conf;
-
-    return 301 https://www.${DOMAIN}$request_uri;
+    return 444;
 }
 
 server {
@@ -122,35 +119,4 @@ server {
     }
 
     include /etc/nginx/snippets/spa-locations.conf;
-}
-
-# 旧子域过渡（443）：证书需覆盖 admin/api；确认不再需要后连同 DNS 一起删除。
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
-    server_name admin.${DOMAIN};
-
-    include /etc/nginx/snippets/tls.conf;
-    include /etc/nginx/snippets/security-headers.conf;
-
-    location ^~ /api/ {
-        return 308 https://www.${DOMAIN}$request_uri;
-    }
-
-    location / {
-        return 301 https://www.${DOMAIN}/admin$request_uri;
-    }
-}
-
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    http2 on;
-    server_name api.${DOMAIN};
-
-    include /etc/nginx/snippets/tls.conf;
-    include /etc/nginx/snippets/security-headers.conf;
-
-    return 308 https://www.${DOMAIN}$request_uri;
 }

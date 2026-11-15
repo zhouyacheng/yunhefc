@@ -70,10 +70,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON yunhefc.* TO 'yunhefc_app'@'%';
 
 ### 1.2 DNS / 证书 / 环境文件 / ACR
 
-1. `www.<domain>` 解析到 ECS；如启用裸域 301，再添加一条 `@` A 记录。`admin`/`api` 仅作过渡跳转，可稍后删除。
-2. 证书放到 `/opt/yunhefc/certs/fullchain.pem`、`privkey.pem`，覆盖 `www.<domain>`（启用裸域时含裸域 SAN），剩余有效期 >30 天。
+1. `www.<domain>` 解析到 ECS；如需裸域 HTTP 301，再添加一条 `@` A 记录（裸域不提供 HTTPS）。`admin`/`api` 仅作 80 过渡跳转，可稍后删除。
+2. 证书放到 `/opt/yunhefc/certs/fullchain.pem`、`privkey.pem`，**只需覆盖 `www.<domain>`**（SAN 含 `DNS:www.<domain>` 或 `DNS:*.<domain>`），剩余有效期 >30 天。裸域与旧 `admin`/`api` 子域不提供 HTTPS。
 
-> 过渡期保留 `admin`/`api` A 记录与证书，Nginx 会 301/308 到 www（admin 页面补 `/admin`，API 保持路径）；确认不再需要后同时删除这些 server 块与 A 记录。HSTS `includeSubDomains` 下，删除后旧书签会直接连接失败。
+> 旧 `admin`/`api` 仅保留 80 端口 301/308 过渡（admin 页面补 `/admin`，API 保持路径），不依赖证书；HTTPS 已停止。HSTS `includeSubDomains` 下，已缓存客户端会直接连接失败，应尽快删除旧 A 记录。
 
 3. `cp deploy/.env.example /opt/yunhefc/.env && chmod 600 /opt/yunhefc/.env`，填真实值；`SESSION_COOKIE_SECURE=true`、`SESSION_COOKIE_DOMAIN=` 留空。
 4. ACR 只读凭证 `/opt/yunhefc/env/acr.env`（600）：
@@ -185,7 +185,7 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 - `flock` 保证同一时间只有一个发布/回滚；SSH 中断后重跑同一 `--sha` 幂等。
 - 发布/回滚脚本随 release 快照下发：`deploy.yml` 直接执行目标快照的 `bin/release.sh`，回滚使用 `current/bin/release.sh`；`/opt/yunhefc/bin/release.sh` 固定安装仅作首次引导/应急，不随发布更新。
 - **跨拓扑回滚保护**：当前版本成功部署后（存在 `.deployed`）若目标 release 的 `topology` 与当前不同（例如回到三子域版本），脚本会拒绝。先备份/恢复旧 `.env`、旧脚本与 `admin`/`api` DNS，确认后显式加 `--force`。
-- 同域切换前备份 `/opt/yunhefc/.env` 并把 `CORS_ALLOWED_ORIGINS` 改为 `https://www.<domain>` 单源。`admin`/`api` 过渡跳转依赖旧 DNS/证书；确认不再需要后再删除 A 记录。
+- 同域切换前备份 `/opt/yunhefc/.env` 并把 `CORS_ALLOWED_ORIGINS` 改为 `https://www.<domain>` 单源。`admin`/`api` 仅保留 80 过渡，只依赖旧 DNS、不依赖证书；确认不再需要后再删除 A 记录。
 - 保留 current + previous + 最新一个其他版本；清理旧目录与对应镜像，绝不删除 current/previous。
 - 回滚不修改 `state/previous`；回滚后如需继续回退，请显式传 `--rollback <sha7>`。
 - 回滚触发：readiness 超时、迁移失败、冒烟失败、发布后 30 分钟内 5xx 或关键路径异常。
@@ -222,7 +222,10 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 ### 3.3 证书续期/重签
 
 1. 替换 `/opt/yunhefc/certs/fullchain.pem`、`privkey.pem`。
-2. 校验：`openssl x509 -noout -enddate -in /opt/yunhefc/certs/fullchain.pem`（覆盖 www，启用裸域时含裸域；剩余 >30 天）。
+2. 校验：`openssl x509 -noout -enddate -in /opt/yunhefc/certs/fullchain.pem`（只需覆盖 www；剩余 >30 天）。SAN 必须含 `DNS:www.<domain>` 或 `DNS:*.<domain>`：
+   ```bash
+   openssl x509 -in /opt/yunhefc/certs/fullchain.pem -noout -ext subjectAltName
+   ```
 3. 测试并平滑重载：
 
 ```bash

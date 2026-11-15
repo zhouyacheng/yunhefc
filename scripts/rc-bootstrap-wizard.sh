@@ -238,7 +238,7 @@ fi
 
 # ── Stage 3 ───────────────────────────────────────────────────────────────
 stage "TLS 证书"
-say "需要覆盖 www.$RC_DOMAIN 的证书（启用裸域时含裸域 SAN）；nginx 固定读取 fullchain.pem / privkey.pem。"
+say "证书只需覆盖 www.$RC_DOMAIN；裸域/旧子域不提供 HTTPS。nginx 固定读取 fullchain.pem / privkey.pem。"
 ask CERT_FULLCHAIN "本地 fullchain.pem 路径："
 ask CERT_PRIVKEY "本地 privkey.pem 路径："
 if [[ -f "$CERT_FULLCHAIN" && -f "$CERT_PRIVKEY" ]]; then

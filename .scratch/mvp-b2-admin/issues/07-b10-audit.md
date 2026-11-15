@@ -1,7 +1,7 @@
 # 07 — B10 操作日志
 
 Type: implementation
-Status: ready-for-agent
+Status: resolved
 Blocked by: 无
 
 **What to build:** 按 02 §6.12 交付只读操作日志页：筛选、时间倒序分页、脱敏后的前后快照展开；不提供导出/编辑/删除。

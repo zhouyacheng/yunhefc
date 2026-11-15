@@ -52,3 +52,7 @@ Blocked by: `mvp-b1-backend/issues/10`（邀请链接路径修复，已随 `563e
 - 验证：`pnpm --filter @yunhefc/shared test` 47/47；`pnpm -r test`、`pnpm -r typecheck`、`pnpm -r build`、`pnpm lint` 全绿；admin Playwright 23/23 通过（B11 两条包含在套件内）。
 - 环境说明：本地后端为验证 B1 邀请链接修复已用 JDK 21 重新编译并重启（`mvnw spring-boot:run`，dev profile）。全量 web Playwright 存在既有测试数据漂移（赛程 9 张而非 5 张、首页下一场已随时间变化），与本票无关，未重跑 `test-data.sql`。
 - 未执行：无后端/DB/Flyway/契约改动；未执行 SQL；未 push。
+
+## Comments
+
+- 2026-11-13（`/code-review` 高危修复）：创建成功弹窗改为不可通过遮罩/Esc/关闭按钮关闭；创建失败若结果未知（网络/5xx/40915）冻结表单，沿用同一 `Idempotency-Key` 与请求体重试以命中服务端缓存取回 `inviteUrl`，仅 4xx 明确拒绝才换新键；创建在途阻止路由离开并注册 `beforeunload`。剩余中低问题见 `10-b11-invite-review-followups.md`。

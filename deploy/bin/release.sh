@@ -19,6 +19,7 @@ usage() {
 用法:
   release.sh --sha <sha7>            发布指定版本
   release.sh --rollback [sha7]       回滚到指定版本；省略时回滚到 state/previous
+  release.sh --rollback --force      强制跨拓扑回滚（需先手工恢复旧 .env/脚本/DNS）
 环境变量:
   DEPLOY_ROOT (默认 /opt/yunhefc)、YUNHEFC_ENV_FILE、ACR_ENV_FILE、
   READINESS_TIMEOUT (默认 180 秒)、SMOKE_TIMEOUT (默认 15 秒)、COMPOSE_PROJECT
@@ -37,6 +38,7 @@ env_value() {
 
 MODE="deploy"
 SHA=""
+FORCE_TOPOLOGY=0
 while (($#)); do
     case "$1" in
         --sha)
@@ -52,6 +54,10 @@ while (($#)); do
                 SHA="$1"
                 shift
             fi
+            ;;
+        --force)
+            FORCE_TOPOLOGY=1
+            shift
             ;;
         -h|--help)
             usage
@@ -102,6 +108,10 @@ fi
 
 DOMAIN_VALUE="$(env_value "$ENV_FILE" DOMAIN)"
 [[ -n "$DOMAIN_VALUE" ]] || die "$ENV_FILE 未配置 DOMAIN"
+[[ "$DOMAIN_VALUE" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
+    || die "$ENV_FILE 的 DOMAIN 必须是小写裸域名（如 example.com），不含 www./scheme/路径/端口"
+[[ "$DOMAIN_VALUE" != www.* ]] \
+    || die "$ENV_FILE 的 DOMAIN 不能带 www. 前缀"
 
 # prod 启动会校验 PUBLIC_BASE_URL 与 CORS 单源；这里提前拦截，避免切版后才 crash-loop。
 PUBLIC_BASE_URL_VALUE="$(env_value "$ENV_FILE" PUBLIC_BASE_URL)"
@@ -130,6 +140,19 @@ fi
 [[ -d "$release_dir" ]] || die "release 目录不存在: $release_dir"
 [[ -f "$release_dir/docker-compose.yml" && -f "$release_dir/docker-compose.prod.yml" ]] \
     || die "release 目录缺少 compose 快照: $release_dir"
+
+# 跨拓扑回滚保护：当前版本已成功部署（有 .deployed）且目标拓扑不同/未标记时拒绝。
+# 拓扑标记随 deploy/ 快照下发；旧的三子域 release 没有 topology 文件。
+CURRENT_DIR="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+if [[ "$MODE" == "rollback" && "$FORCE_TOPOLOGY" -eq 0 \
+        && -n "$CURRENT_DIR" && -f "$CURRENT_DIR/.deployed" \
+        && "$CURRENT_DIR" != "$release_dir" ]]; then
+    CURRENT_TOPOLOGY="$(cat "$CURRENT_DIR/topology" 2>/dev/null || true)"
+    TARGET_TOPOLOGY="$(cat "$release_dir/topology" 2>/dev/null || true)"
+    if [[ "$TARGET_TOPOLOGY" != "$CURRENT_TOPOLOGY" ]]; then
+        die "回滚目标拓扑（${TARGET_TOPOLOGY:-未标记}）与当前（${CURRENT_TOPOLOGY:-未标记}）不同；请先恢复旧 .env/旧脚本/DNS，确认后加 --force"
+    fi
+fi
 
 IMAGE_TAG="$(env_value "$release_dir/release.env" IMAGE_TAG)"
 IMAGE_TAG="${IMAGE_TAG:-sha-${SHA:-${release_dir##*/}}}"
@@ -306,6 +329,9 @@ compose up -d --no-deps backend nginx
 
 wait_ready || die "发布失败：readiness 未通过，current 保留在 $release_dir"
 smoke || die "发布失败：冒烟未通过，current 保留在 $release_dir"
+
+# 成功标记：跨拓扑回滚保护只拦截“已成功部署过的当前版本”。
+printf '%s %s\n' "$(date -u +%FT%TZ)" "$IMAGE_TAG" > "$release_dir/.deployed"
 
 cleanup_releases
 cleanup_images

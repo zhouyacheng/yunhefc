@@ -225,7 +225,15 @@ banner "云河FC 生产 RC 验收"
 # ── Stage 1 ───────────────────────────────────────────────────────────────
 stage "环境信息"
 say "采集 RC 访问信息。密码不写入文件，后续阶段按需隐藏输入。"
-ask RC_DOMAIN "生产域名（不含 www，例如 example.com）："
+while :; do
+  ask RC_DOMAIN "生产域名（不含 www，例如 example.com）："
+  if [[ "$RC_DOMAIN" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
+      && [[ "$RC_DOMAIN" != www.* ]]; then
+    break
+  fi
+  warn "域名必须是小写裸域名（如 example.com），不带 www./scheme/路径/端口"
+  RC_DOMAIN=""
+done
 ask ECS_SSH "ECS SSH 目标（user@host）："
 ask RDS_HOST "RDS 主机（私网域名）："
 ask RDS_PORT "RDS 端口 [3306]："
@@ -325,24 +333,34 @@ if confirm "Cookie 属性全部符合？"; then
 else
   record "§6.3 Cookie 属性" "FAIL"
 fi
-unauth_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST --max-time 10 \
-  -H 'Content-Type: application/json' -d '{}' "$WEB/api/v1/c/registrations" 2>/dev/null || true)
+csrf_jar="$(mktemp)"
+csrf_json=$(curl -s -c "$csrf_jar" --max-time 10 "$WEB/api/v1/c/auth/csrf" 2>/dev/null || true)
+csrf_token=$(printf '%s' "$csrf_json" \
+  | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+if [[ -n "$csrf_token" ]]; then
+  unauth_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST --max-time 10 \
+    -b "$csrf_jar" -H "X-XSRF-TOKEN: $csrf_token" \
+    -H 'Content-Type: application/json' -d '{}' "$WEB/api/v1/c/registrations" 2>/dev/null || true)
+else
+  unauth_code=""
+fi
+rm -f "$csrf_jar"
 if [[ "$unauth_code" == "401" ]]; then
   say "  ${GREEN}✓${RESET} 未登录写接口 401"; record "§6.3 未登录写接口" "PASS"
+elif [[ -z "$csrf_token" ]]; then
+  warn "无法获取匿名 CSRF token，跳过未登录写接口检查"; record "§6.3 未登录写接口" "FAIL"
 else
   warn "未登录写接口期望 401，实际 ${unauth_code:-无响应}"; record "§6.3 未登录写接口" "FAIL"
 fi
 
 # ── Stage 6 ───────────────────────────────────────────────────────────────
 stage "§6.4 CORS"
-allow=$(curl -s -D - -o /dev/null -X OPTIONS --max-time 10 \
-  -H "Origin: $WEB" -H 'Access-Control-Request-Method: GET' \
-  "$WEB/api/v1/c/matches?scope=upcoming&page=1&pageSize=1" 2>/dev/null \
-  | grep -i '^access-control-allow-origin:' || true)
-if [[ "$allow" == *"$WEB"* ]]; then
-  say "  ${GREEN}✓${RESET} $WEB 预检通过"; record "§6.4 CORS $WEB" "PASS"
+same_origin_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+  "$WEB/api/v1/c/matches?scope=upcoming&page=1&pageSize=1" 2>/dev/null || true)
+if [[ "$same_origin_code" == "200" ]]; then
+  say "  ${GREEN}✓${RESET} 同源公开读 200（同源请求不产生 ACAO）"; record "§6.4 同源公开读" "PASS"
 else
-  warn "$WEB 预检未返回 ACAO"; record "§6.4 CORS $WEB" "FAIL"
+  warn "同源公开读期望 200，实际 ${same_origin_code:-无响应}"; record "§6.4 同源公开读" "FAIL"
 fi
 for origin in "https://admin.$RC_DOMAIN" "https://evil.example"; do
   denied=$(curl -s -D - -o /dev/null -X OPTIONS --max-time 10 \

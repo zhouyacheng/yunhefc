@@ -14,15 +14,15 @@
 ├── .env                    600，运行时配置（见 deploy/.env.example）
 ├── env/acr.env             600，ACR_REGISTRY / ACR_NAMESPACE / ACR_USERNAME / ACR_PASSWORD（只读拉取）
 ├── certs/                  fullchain.pem、privkey.pem（只读挂载到 nginx）
-├── bin/release.sh          固定安装，不随发布自更新
-├── releases/<sha7>/        deploy/ 快照：compose、nginx/、bin/、*.Dockerfile、RUNBOOK.md、.env.example、release.env（不含 .env/.env.*）
+├── bin/release.sh          应急脚本；发布/回滚优先用 releases/<sha7>/bin/release.sh
+├── releases/<sha7>/        deploy/ 快照：compose、nginx/、bin/、topology、*.Dockerfile、RUNBOOK.md、.env.example、release.env（不含 .env/.env.*）
 ├── current -> releases/<sha7>
 └── state/previous         上一次可用版本目录；release.lock
 ```
 
 - ECS：系统盘 ≥40GB、2GB swap、Docker + Compose plugin、`rsync`（`deploy.yml` 用它同步发布快照）；`deploy` 用户在 `docker` 组，非 root。
 - 验证：`free -m` 可用内存 <1.9GB 时，把 `docker-compose.prod.yml` 的 backend `-Xmx` 降至 384m、Kafka `-Xmx` 降至 192m；仍 OOM 则升配 4C8G。
-- 安装/更新发布脚本（脚本变更时执行一次）：
+- 目录初始化与可选应急脚本（首次引导；发布/回滚脚本随快照下发，不再依赖这里更新）：
 
 ```bash
 sudo install -d -o deploy -g deploy /opt/yunhefc/{bin,releases,state,env,certs}
@@ -70,10 +70,10 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON yunhefc.* TO 'yunhefc_app'@'%';
 
 ### 1.2 DNS / 证书 / 环境文件 / ACR
 
-1. `www.<domain>` 解析到 ECS；如启用裸域 301，再添加一条 `@` A 记录。不再需要 `admin`/`api` 子域。
+1. `www.<domain>` 解析到 ECS；如启用裸域 301，再添加一条 `@` A 记录。`admin`/`api` 仅作过渡跳转，可稍后删除。
 2. 证书放到 `/opt/yunhefc/certs/fullchain.pem`、`privkey.pem`，覆盖 `www.<domain>`（启用裸域时含裸域 SAN），剩余有效期 >30 天。
 
-> 同域切换上线后删除 `admin`/`api` A 记录。HSTS `includeSubDomains` 会让旧子域在无 443 监听时直接连接失败，旧书签不再可用。
+> 过渡期保留 `admin`/`api` A 记录与证书，Nginx 会 301/308 到 www（admin 页面补 `/admin`，API 保持路径）；确认不再需要后同时删除这些 server 块与 A 记录。HSTS `includeSubDomains` 下，删除后旧书签会直接连接失败。
 
 3. `cp deploy/.env.example /opt/yunhefc/.env && chmod 600 /opt/yunhefc/.env`，填真实值；`SESSION_COOKIE_SECURE=true`、`SESSION_COOKIE_DOMAIN=` 留空。
 4. ACR 只读凭证 `/opt/yunhefc/env/acr.env`（600）：
@@ -122,10 +122,10 @@ printf 'IMAGE_TAG=sha-%s\n' "$sha7" > /opt/yunhefc/releases/$sha7/release.env
 2. 执行发布：
 
 ```bash
-/opt/yunhefc/bin/release.sh --sha "$sha7"
+/opt/yunhefc/releases/$sha7/bin/release.sh --sha "$sha7"
 ```
 
-脚本顺序：校验双镜像 → `docker compose pull backend nginx` → 写 `state/previous` → 切 `current` → 基础设施未运行时启动 `redis/kafka/kafka-init`（已运行则不动）→ `up -d --no-deps backend nginx` → readiness ≤180s → 冒烟（C 端首页、`/actuator/health`、公开读接口）。
+脚本顺序：校验双镜像 → `docker compose pull backend nginx` → 写 `state/previous` → 切 `current` → 基础设施未运行时启动 `redis/kafka/kafka-init`（已运行则不动）→ `up -d --no-deps backend nginx` → readiness ≤180s → 冒烟（C 端首页、`/admin/`、`/actuator/health`、公开读接口、敏感路径 404）。
 `compose up` 退出 0 不代表健康；以 readiness 与冒烟为准。任一步失败脚本退出非零，`current` 保留在失败版本。
 基础设施镜像（`yunhefc-infra-kafka`、`yunhefc-infra-redis`）来自 ACR，发布链路不访问 Docker Hub；首次启动前需确认这两个 tag 已由 CI `mirror-infra` 产出。
 
@@ -173,22 +173,19 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 
 ```bash
 # 发布（release 目录由 deploy.yml 准备）
-/opt/yunhefc/bin/release.sh --sha <sha7>
+/opt/yunhefc/releases/<sha7>/bin/release.sh --sha <sha7>
 
-# 回滚到 state/previous（不修改 previous）
-/opt/yunhefc/bin/release.sh --rollback
+# 回滚到 state/previous（使用 current 快照里的脚本）
+/opt/yunhefc/current/bin/release.sh --rollback
 
 # 回滚到指定版本
-/opt/yunhefc/bin/release.sh --rollback <sha7>
+/opt/yunhefc/current/bin/release.sh --rollback <sha7>
 ```
 
 - `flock` 保证同一时间只有一个发布/回滚；SSH 中断后重跑同一 `--sha` 幂等。
-- `release.sh` 固定安装在 `/opt/yunhefc/bin`，**不随发布自更新**。同域切换前必须先备份并安装新脚本：
-  ```bash
-  sudo cp -p /opt/yunhefc/bin/release.sh /opt/yunhefc/bin/release.sh.pre-www
-  sudo install -m 755 deploy/bin/release.sh /opt/yunhefc/bin/release.sh
-  ```
-  同时备份 `/opt/yunhefc/.env`，并把 `CORS_ALLOWED_ORIGINS` 改为 `https://www.<domain>` 单源；回滚时先恢复旧 `.env` 与 `release.sh.pre-www`（若已删除 `admin`/`api` DNS，还要先恢复解析），再执行 `--rollback`。
+- 发布/回滚脚本随 release 快照下发：`deploy.yml` 直接执行目标快照的 `bin/release.sh`，回滚使用 `current/bin/release.sh`；`/opt/yunhefc/bin/release.sh` 固定安装仅作首次引导/应急，不随发布更新。
+- **跨拓扑回滚保护**：当前版本成功部署后（存在 `.deployed`）若目标 release 的 `topology` 与当前不同（例如回到三子域版本），脚本会拒绝。先备份/恢复旧 `.env`、旧脚本与 `admin`/`api` DNS，确认后显式加 `--force`。
+- 同域切换前备份 `/opt/yunhefc/.env` 并把 `CORS_ALLOWED_ORIGINS` 改为 `https://www.<domain>` 单源。`admin`/`api` 过渡跳转依赖旧 DNS/证书；确认不再需要后再删除 A 记录。
 - 保留 current + previous + 最新一个其他版本；清理旧目录与对应镜像，绝不删除 current/previous。
 - 回滚不修改 `state/previous`；回滚后如需继续回退，请显式传 `--rollback <sha7>`。
 - 回滚触发：readiness 超时、迁移失败、冒烟失败、发布后 30 分钟内 5xx 或关键路径异常。

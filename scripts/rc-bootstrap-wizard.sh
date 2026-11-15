@@ -200,8 +200,15 @@ banner "云河FC 生产 RC 引导"
 
 # ── Stage 1 ───────────────────────────────────────────────────────────────
 stage "ECS 与目标确认"
-ask RC_DOMAIN "生产域名（不含 www）[yunhefc.com]："
-RC_DOMAIN="${RC_DOMAIN:-yunhefc.com}"
+while :; do
+  ask RC_DOMAIN "生产域名（不含 www）[yunhefc.com]："
+  RC_DOMAIN="${RC_DOMAIN:-yunhefc.com}"
+  if [[ "$RC_DOMAIN" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
+      && [[ "$RC_DOMAIN" != www.* ]]; then
+    break
+  fi
+  warn "域名必须是小写裸域名（如 yunhefc.com），不带 www./scheme/路径/端口"
+done
 ask ECS_SSH "ECS SSH 目标 [root@47.116.72.163]："
 ECS_SSH="${ECS_SSH:-root@47.116.72.163}"
 ECS_IP="${ECS_SSH#*@}"
@@ -240,10 +247,13 @@ if [[ -f "$CERT_FULLCHAIN" && -f "$CERT_PRIVKEY" ]]; then
   else
     warn "证书缺失或剩余 ≤30 天"
   fi
-  if openssl x509 -in "$CERT_FULLCHAIN" -noout -text 2>/dev/null | grep -A1 'Subject Alternative Name' | grep -q "$RC_DOMAIN"; then
-    say "  ${GREEN}✓${RESET} SAN 覆盖 $RC_DOMAIN"
+  san_lines=$(openssl x509 -in "$CERT_FULLCHAIN" -noout -ext subjectAltName 2>/dev/null \
+    | tr ', ' '\n\n' | sed '/^$/d' || true)
+  if printf '%s\n' "$san_lines" | grep -Fqx "DNS:www.$RC_DOMAIN" \
+      || printf '%s\n' "$san_lines" | grep -Fqx "DNS:*.$RC_DOMAIN"; then
+    say "  ${GREEN}✓${RESET} SAN 覆盖 www.$RC_DOMAIN"
   else
-    warn "SAN 未覆盖 ${RC_DOMAIN}，浏览器会报证书错误"
+    warn "SAN 未覆盖 www.$RC_DOMAIN，浏览器会报证书错误"
   fi
   scp "${SCP_OPTS[@]}" "$CERT_FULLCHAIN" "$ECS_SSH:/opt/yunhefc/certs/fullchain.pem"
   scp "${SCP_OPTS[@]}" "$CERT_PRIVKEY" "$ECS_SSH:/opt/yunhefc/certs/privkey.pem"

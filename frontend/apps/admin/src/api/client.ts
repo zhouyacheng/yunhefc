@@ -9,10 +9,11 @@ export const api = createApiClient({
   loginPath: `${basePath}login`,
 });
 
-/** 公开读接口（EVT-01）在 /c 命名空间；后台页面复用同一会话读取。 */
+/** 公开读接口（EVT-01）在 /c 命名空间；同域后必须 omit，避免误带 C 端会话。 */
 export const publicApi = createApiClient({
   namespace: 'c',
   baseUrl: '/api/v1/c',
+  credentials: 'omit',
   basePath,
   loginPath: `${basePath}login`,
 });

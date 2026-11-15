@@ -452,6 +452,46 @@ export function matchCancellable(status: number | null | undefined): boolean {
   return matchEditable(status) || status === MATCH_STATUS_POSTPONED;
 }
 
+export interface MatchStatusCommandOption {
+  status: MatchStatus;
+  label: string;
+  disabled: boolean;
+  reason: string;
+}
+
+const MATCH_STATUSES: MatchStatus[] = [0, 1, 2, 3, 4, 5, 6];
+
+/**
+ * B02 状态下拉：列出全部 7 个状态，按后端合法集（MAT-06/07/08）禁用并给出原因。
+ * 0–4 恒可（含从终态恢复）；5 仅源状态 0–3 且有 `match:edit:any`；
+ * 6 在已结束/已取消时禁用。
+ */
+export function matchStatusCommandOptions(input: {
+  currentStatus: number;
+  canEditAny: boolean;
+  canChangeStatus: boolean;
+}): MatchStatusCommandOption[] {
+  return MATCH_STATUSES.map((status) => {
+    const label = MATCH_STATUS_TEXT[status];
+    if (status === MATCH_STATUS_POSTPONED) {
+      if (!input.canEditAny) {
+        return { status, label, disabled: true, reason: '需要编辑比赛权限' };
+      }
+      if (!matchPostponable(input.currentStatus)) {
+        return { status, label, disabled: true, reason: '当前状态不可延期' };
+      }
+      return { status, label, disabled: false, reason: '' };
+    }
+    if (!input.canChangeStatus) {
+      return { status, label, disabled: true, reason: '需要状态管理权限' };
+    }
+    if (status === MATCH_STATUS_CANCELLED && !matchCancellable(input.currentStatus)) {
+      return { status, label, disabled: true, reason: '当前状态不可取消' };
+    }
+    return { status, label, disabled: false, reason: '' };
+  });
+}
+
 export function matchSeasonError(season: string | null | undefined): string | null {
   if (!season) {
     return null;

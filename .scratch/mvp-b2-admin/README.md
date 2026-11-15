@@ -20,5 +20,6 @@ B1 已完成后端 `AuthService.sections` 移除 dashboard；本批已出票如�
 | 08 | 报名页比赛选择器改用公开赛程 | resolved | —（验证票 01 时发现） |
 | 09 | B11 邀请管理 | resolved | `mvp-b1-backend/issues/10` |
 | 10 | B11 评审后续项 | resolved | 09 |
+| 11 | B02 状态下拉按后端合法集禁用 | resolved | —（B4 评审发现） |
 
-与 `mvp-release/batches.md` §B2「7 张票」的偏差：B08 按实施粒度拆为 04/05 两张；08 已被已 resolved 的修正票占用，B11 顺延为 09；新增 B1 前置票 10（邀请链接路径修复），B11 依赖它；10 为 B11 的 `/code-review` 后续项。
+与 `mvp-release/batches.md` §B2「7 张票」的偏差：B08 按实施粒度拆为 04/05 两张；08 已被已 resolved 的修正票占用，B11 顺延为 09；新增 B1 前置票 10（邀请链接路径修复），B11 依赖它；10 为 B11 的 `/code-review` 后续项；11 为 B4 冻结 C 端口径时发现的 B02 一致性问题，不影响 B2 已交付范围。

@@ -62,6 +62,12 @@ async function chooseStatus(page: Page, row: Locator, label: string): Promise<vo
   await page.locator('.el-dropdown-menu__item:visible').filter({ hasText: label }).first().click();
 }
 
+/** 状态下拉不会响应 Escape，需点击表格外区域关闭后再操作下一行。 */
+async function closeStatusMenu(page: Page): Promise<void> {
+  await page.locator('.el-table__header').click({ position: { x: 10, y: 10 } });
+  await expect(page.locator('.el-dropdown-menu:visible')).toHaveCount(0);
+}
+
 /** B06 保存可能依次弹出“调整已保存分组”和“保存分组”确认。 */
 async function confirmGroupingDialogs(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -513,6 +519,29 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await expect(messageBox).toBeVisible();
   await messageBox.getByRole('button', { name: '确认取消' }).click();
   await expect(matchRow(page, editedTitle).getByText('已取消')).toBeVisible();
+
+  // 合法集：已结束不可延期、已取消不可再取消，禁用项用 title 说明原因。
+  const finishedRow = page
+    .locator('.el-table__row')
+    .filter({ hasText: '橙队VS兰队' })
+    .filter({ hasText: '已结束' });
+  await finishedRow.getByRole('button', { name: '状态' }).click();
+  const postponedItem = page
+    .locator('.el-dropdown-menu__item:visible')
+    .filter({ hasText: '已延期' })
+    .first();
+  await expect(postponedItem).toHaveClass(/is-disabled/);
+  await expect(postponedItem).toHaveAttribute('title', '当前状态不可延期');
+  await closeStatusMenu(page);
+
+  await matchRow(page, editedTitle).getByRole('button', { name: '状态' }).click();
+  const cancelledItem = page
+    .locator('.el-dropdown-menu__item:visible')
+    .filter({ hasText: '已取消' })
+    .first();
+  await expect(cancelledItem).toHaveClass(/is-disabled/);
+  await expect(cancelledItem).toHaveAttribute('title', '当前状态不可取消');
+  await closeStatusMenu(page);
 
   expect(errors).toEqual([]);
 });

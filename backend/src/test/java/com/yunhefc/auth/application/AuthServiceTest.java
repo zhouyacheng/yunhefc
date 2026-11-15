@@ -8,20 +8,19 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.yunhefc.auth.domain.AppUser;
-import com.yunhefc.auth.domain.Team;
 import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.auth.dto.AuthDtos.RegisterRequest;
 import com.yunhefc.auth.dto.AuthDtos.ResetPasswordRequest;
 import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
-import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.notification.NotificationReadPort;
 import com.yunhefc.contracts.player.PlayerReadPort;
+import com.yunhefc.contracts.team.TeamReadPort;
 import com.yunhefc.infra.storage.AvatarUrlSigner;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
 import org.junit.jupiter.api.Test;
@@ -47,7 +46,7 @@ class AuthServiceTest {
     @Mock
     private UserRoleMapper userRoleMapper;
     @Mock
-    private TeamMapper teamMapper;
+    private TeamReadPort teamReadPort;
     @Mock
     private PlayerReadPort playerReadPort;
     @Mock
@@ -77,11 +76,9 @@ class AuthServiceTest {
     @Test
     void registerMapsDuplicatePhoneToConflict() {
         RegisterRequest request = new RegisterRequest("13900000001", "123456", "Passw0rd!", "球员", 0, null);
-        Team team = new Team();
-        team.setId(1L);
         when(passwordEncoder.encode("Passw0rd!")).thenReturn("hash");
         when(userMapper.selectCount(any())).thenReturn(0L);
-        when(teamMapper.selectOne(any())).thenReturn(team);
+        when(teamReadPort.currentTeamId()).thenReturn(1L);
         when(clock.instant()).thenReturn(Instant.parse("2026-11-10T00:00:00Z"));
         when(userMapper.insert(any(AppUser.class)))
                 .thenThrow(new DuplicateKeyException(

@@ -7,7 +7,6 @@ import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.InviteLink;
 import com.yunhefc.auth.domain.InviteType;
 import com.yunhefc.auth.domain.RoleCodes;
-import com.yunhefc.auth.domain.Team;
 import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.dto.AuthDtos.AuthResult;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
@@ -22,7 +21,6 @@ import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
 import com.yunhefc.auth.infrastructure.PrincipalMapper;
 import com.yunhefc.auth.infrastructure.PrincipalRow;
-import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.security.BackendPermissions;
@@ -38,6 +36,7 @@ import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccessPort;
+import com.yunhefc.contracts.team.TeamReadPort;
 import com.yunhefc.infra.storage.AvatarUrlSigner;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
 import lombok.RequiredArgsConstructor;
@@ -73,7 +72,7 @@ public class AuthService implements UserAccessPort {
     private final PrincipalMapper principalMapper;
     private final AppRoleMapper roleMapper;
     private final UserRoleMapper userRoleMapper;
-    private final TeamMapper teamMapper;
+    private final TeamReadPort teamReadPort;
     private final PlayerReadPort playerReadPort;
     private final PlayerProfileApplicationService playerProfileService;
     private final NotificationReadPort notificationReadPort;
@@ -108,7 +107,7 @@ public class AuthService implements UserAccessPort {
             throw new BusinessException(ErrorCode.PHONE_EXISTS);
         }
 
-        Long teamId = teamId();
+        Long teamId = teamReadPort.currentTeamId();
         Instant now = Instant.now(clock);
         AppUser user = new AppUser();
         user.setPhone(request.phone());
@@ -214,7 +213,8 @@ public class AuthService implements UserAccessPort {
         Integer statusCode = validStatus(status);
         String search = normalizeKeyword(keyword);
         Set<Long> nameUserIds = search == null ? Set.of()
-                : new LinkedHashSet<>(playerReadPort.findUserIdsByNameContaining(teamId(), search));
+                : new LinkedHashSet<>(playerReadPort.findUserIdsByNameContaining(
+                        teamReadPort.currentTeamId(), search));
         LambdaQueryWrapper<AppUser> wrapper = new LambdaQueryWrapper<AppUser>()
                 .eq(statusCode != null, AppUser::getStatus, statusCode)
                 .and(search != null, query -> {
@@ -283,7 +283,7 @@ public class AuthService implements UserAccessPort {
                 row.getId(),
                 row.getPhone(),
                 row.getStatus(),
-                player == null ? teamId() : player.teamId(),
+                player == null ? teamReadPort.currentTeamId() : player.teamId(),
                 player == null ? UserViewAssembler.maskPhone(row.getPhone()) : player.name(),
                 splitCodes(row.getRoles()),
                 splitCodes(row.getPermissions())));
@@ -319,14 +319,6 @@ public class AuthService implements UserAccessPort {
 
     private Set<String> permissions(Long userId) {
         return new LinkedHashSet<>(userRoleMapper.findPermissionCodes(userId));
-    }
-
-    private Long teamId() {
-        Team team = teamMapper.selectOne(new LambdaQueryWrapper<Team>().orderByAsc(Team::getId).last("LIMIT 1"));
-        if (team == null) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "球队未初始化");
-        }
-        return team.getId();
     }
 
     private AppRole role(Long teamId, String code) {

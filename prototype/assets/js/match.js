@@ -59,8 +59,19 @@
   };
   const STATUS_OPTIONS = ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'LOCKED', 'IN_PROGRESS', 'FINISHED', 'POSTPONED', 'CANCELLED'];
 
+  const POSTPONABLE_FROM = ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'LOCKED', 'IN_PROGRESS'];
+
   function statusOptions(match) {
-    return STATUS_OPTIONS.map((status) => ({ status, disabled: false, reason: '' }));
+    return STATUS_OPTIONS.map((status) => {
+      if (status === 'POSTPONED') {
+        if (!Y.hasPermission('match:edit:any')) return { status, disabled: true, reason: '需要编辑比赛权限' };
+        if (!POSTPONABLE_FROM.includes(match.status)) return { status, disabled: true, reason: '当前状态不可延期' };
+      }
+      if (status === 'CANCELLED' && ['FINISHED', 'CANCELLED'].includes(match.status)) {
+        return { status, disabled: true, reason: '当前状态不可取消' };
+      }
+      return { status, disabled: false, reason: '' };
+    });
   }
 
   function setMatchStatus(match, nextStatus, actorName, options) {

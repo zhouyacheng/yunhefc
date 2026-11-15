@@ -10,8 +10,13 @@ Blocked by: None
 
 - [x] `ci.yml` 的 `e2e` job 在 checkout 后配置 `actions/setup-java@v6`（temurin 21），与 `backend` job 一致。
 - [x] 不改动 e2e 的其他步骤与触发条件。
-- [ ] 合并到 main 后，`main` 的 e2e job 通过（待合并后验证）。
+- [x] 合并到 main 后，`main` 的 e2e job 通过（run 43466733771，e2e 4m10s）。
 
 ## Result
 
 - 2026-11-14：已在 `qua` 添加 setup-java 21；PR 合并后由 main push 触发 e2e 验证。
+
+## Comments
+
+- 2026-11-14：PR #3 https://github.com/zhouyacheng/yunhefc/pull/3；合并后由 main push 触发 e2e 验证。
+- 2026-11-14：PR #3 合并为 `ea92ad4`；main CI run 43466733771 全绿（prototype/backend/frontend/e2e/images）。

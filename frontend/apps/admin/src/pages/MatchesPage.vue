@@ -19,6 +19,7 @@ import type {
   MatchAdmin,
   MatchCreate,
   MatchSide,
+  MatchStatusCommandOption,
   MatchType,
   MatchUpdate,
   Page,
@@ -40,6 +41,7 @@ import {
   matchScheduleError,
   matchScorePairError,
   matchSeasonError,
+  matchStatusCommandOptions,
   matchStatusText,
   matchStatusTone,
   matchTypeText,
@@ -89,10 +91,6 @@ const canViewSettings = computed(() => hasPermission(session.permissions, SETTIN
 
 const statusOptions = Object.entries(MATCH_STATUS_TEXT).map(([value, text]) => ({
   value: String(value),
-  text,
-}));
-const statusChoices = Object.entries(MATCH_STATUS_TEXT).map(([value, text]) => ({
-  value: Number(value),
   text,
 }));
 const typeOptions = Object.entries(MATCH_TYPE_TEXT).map(([value, text]) => ({
@@ -585,20 +583,16 @@ async function submitMatch(): Promise<void> {
   }
 }
 
-function statusItemDisabled(row: MatchAdmin, choice: number): boolean {
-  if (actionBusy.value !== null) {
-    return true;
-  }
-  if (choice === row.status) {
-    return true;
-  }
-  if (choice === MATCH_STATUS_POSTPONED) {
-    return !(canEdit.value && matchPostponable(row.status));
-  }
-  if (choice === MATCH_STATUS_CANCELLED) {
-    return !(canStatus.value && matchCancellable(row.status));
-  }
-  return !canStatus.value;
+function statusChoicesFor(row: MatchAdmin): MatchStatusCommandOption[] {
+  return matchStatusCommandOptions({
+    currentStatus: row.status,
+    canEditAny: canEdit.value,
+    canChangeStatus: canStatus.value,
+  });
+}
+
+function statusItemDisabled(row: MatchAdmin, choice: MatchStatusCommandOption): boolean {
+  return actionBusy.value !== null || choice.status === row.status || choice.disabled;
 }
 
 async function onStatusCommand(row: MatchAdmin, command: number | string): Promise<void> {
@@ -842,12 +836,13 @@ onMounted(load);
               <template #dropdown>
                 <el-dropdown-menu>
                   <el-dropdown-item
-                    v-for="choice in statusChoices"
-                    :key="choice.value"
-                    :command="choice.value"
-                    :disabled="statusItemDisabled(row, choice.value)"
+                    v-for="choice in statusChoicesFor(row)"
+                    :key="choice.status"
+                    :command="choice.status"
+                    :disabled="statusItemDisabled(row, choice)"
+                    :title="choice.disabled ? choice.reason : undefined"
                   >
-                    {{ choice.text }}
+                    {{ choice.label }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>

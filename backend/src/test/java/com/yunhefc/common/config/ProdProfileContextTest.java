@@ -9,7 +9,7 @@ class ProdProfileContextTest {
 
     @Test
     void startsWithCompleteProdConfiguration() {
-        runner("true", "", "https://www.example.com,https://admin.example.com",
+        runner("true", "", "https://www.example.com",
                 "strong-password", "redis-password")
                 .withInitializer(context -> context.getEnvironment().setActiveProfiles("prod"))
                 .run(context -> {
@@ -20,7 +20,7 @@ class ProdProfileContextTest {
 
     @Test
     void failsFastWithInsecureProdConfiguration() {
-        runner("false", "", "https://www.example.com,https://admin.example.com",
+        runner("false", "", "https://www.example.com",
                 "strong-password", "redis-password")
                 .withInitializer(context -> context.getEnvironment().setActiveProfiles("prod"))
                 .run(context -> {
@@ -28,6 +28,14 @@ class ProdProfileContextTest {
                     assertThat(context.getStartupFailure())
                             .hasRootCauseMessage("生产环境 SESSION_COOKIE_SECURE 必须为 true");
                 });
+    }
+
+    @Test
+    void failsFastWithMultipleCorsOrigins() {
+        runner("true", "", "https://www.example.com,https://admin.example.com",
+                "strong-password", "redis-password")
+                .withInitializer(context -> context.getEnvironment().setActiveProfiles("prod"))
+                .run(context -> assertThat(context).hasFailed());
     }
 
     @Test

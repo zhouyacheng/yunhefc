@@ -14,15 +14,7 @@ class ProdStartupValidatorTest {
     @Test
     void acceptsSecureProdConfiguration() {
         assertThatCode(() -> validator(session(true, ""),
-                cors("https://www.example.com", "https://admin.example.com"),
-                "strong-password", "redis-password").validate())
-                .doesNotThrowAnyException();
-    }
-
-    @Test
-    void acceptsOriginsInAnyOrder() {
-        assertThatCode(() -> validator(session(true, ""),
-                cors("https://admin.example.com", "https://www.example.com"),
+                cors("https://www.example.com"),
                 "strong-password", "redis-password").validate())
                 .doesNotThrowAnyException();
     }
@@ -44,9 +36,44 @@ class ProdStartupValidatorTest {
     }
 
     @Test
+    void rejectsMultipleCorsOrigins() {
+        assertThatThrownBy(() -> validator(session(true, ""),
+                cors("https://www.example.com", "https://admin.example.com"),
+                "strong-password", "redis-password").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CORS_ALLOWED_ORIGINS");
+    }
+
+    @Test
+    void rejectsEmptyCorsOrigins() {
+        assertThatThrownBy(() -> validator(session(true, ""), cors(),
+                "strong-password", "redis-password").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CORS_ALLOWED_ORIGINS");
+    }
+
+    @Test
+    void rejectsAdminCorsOrigin() {
+        assertThatThrownBy(() -> validator(session(true, ""),
+                cors("https://admin.example.com"),
+                "strong-password", "redis-password").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CORS_ALLOWED_ORIGINS");
+    }
+
+    @Test
+    void rejectsCorsOriginThatDiffersFromPublicBaseUrl() {
+        assertThatThrownBy(() -> validator(session(true, ""),
+                cors("https://api.example.com"),
+                "strong-password", "redis-password").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("CORS_ALLOWED_ORIGINS");
+    }
+
+    @Test
     void rejectsLocalhostCorsOrigin() {
         assertThatThrownBy(() -> validator(session(true, ""),
-                cors("https://www.example.com", "http://localhost:5273"),
+                cors("http://localhost:5273"),
                 "strong-password", "redis-password").validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("CORS_ALLOWED_ORIGINS");
@@ -55,34 +82,30 @@ class ProdStartupValidatorTest {
     @Test
     void rejectsWildcardCorsOrigin() {
         assertThatThrownBy(() -> validator(session(true, ""),
-                cors("https://www.example.com", "https://*.example.com"),
+                cors("https://*.example.com"),
                 "strong-password", "redis-password").validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("CORS_ALLOWED_ORIGINS");
     }
 
     @Test
-    void rejectsCorsOriginsFromDifferentDomains() {
+    void rejectsHttpCorsOrigin() {
         assertThatThrownBy(() -> validator(session(true, ""),
-                cors("https://www.example.com", "https://admin.other.com"),
+                cors("http://www.example.com"),
                 "strong-password", "redis-password").validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("CORS_ALLOWED_ORIGINS");
     }
 
     @Test
-    void rejectsIncompleteCorsOrigins() {
+    void rejectsCorsOriginWithPortOrPath() {
         assertThatThrownBy(() -> validator(session(true, ""),
-                cors("https://www.example.com"),
+                cors("https://www.example.com:443"),
                 "strong-password", "redis-password").validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("CORS_ALLOWED_ORIGINS");
-    }
-
-    @Test
-    void rejectsHttpCorsOrigins() {
         assertThatThrownBy(() -> validator(session(true, ""),
-                cors("http://www.example.com", "http://admin.example.com"),
+                cors("https://www.example.com/app"),
                 "strong-password", "redis-password").validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("CORS_ALLOWED_ORIGINS");
@@ -141,6 +164,14 @@ class ProdStartupValidatorTest {
     }
 
     @Test
+    void rejectsPublicBaseUrlWithPort() {
+        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+                "strong-password", "redis-password", "https://www.example.com:443").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PUBLIC_BASE_URL");
+    }
+
+    @Test
     void rejectsPublicBaseUrlThatIsNotTheWwwOrigin() {
         assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
                 "strong-password", "redis-password", "https://admin.example.com").validate())
@@ -152,6 +183,14 @@ class ProdStartupValidatorTest {
     void rejectsPaddedPublicBaseUrl() {
         assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
                 "strong-password", "redis-password", "https://www.example.com ").validate())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("PUBLIC_BASE_URL");
+    }
+
+    @Test
+    void rejectsUppercasePublicBaseUrl() {
+        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+                "strong-password", "redis-password", "https://WWW.example.com").validate())
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("PUBLIC_BASE_URL");
     }
@@ -176,7 +215,7 @@ class ProdStartupValidatorTest {
     }
 
     private CorsProperties corsOfExampleDomain() {
-        return cors("https://www.example.com", "https://admin.example.com");
+        return cors("https://www.example.com");
     }
 
     private CorsProperties cors(String... origins) {

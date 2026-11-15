@@ -55,6 +55,23 @@ describe('envelope', () => {
     expect(calls[0]?.init.credentials).toBe('include');
   });
 
+  it('honors credentials override', async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock: typeof fetch = async (input, init = {}) => {
+      calls.push({ url: String(input), init });
+      return json(envelope(null));
+    };
+    const client = createApiClient({
+      namespace: 'c',
+      credentials: 'omit',
+      fetch: fetchMock,
+    });
+
+    await client.get('/matches');
+
+    expect(calls[0]?.init.credentials).toBe('omit');
+  });
+
   it('serializes query parameters and drops empty values', async () => {
     const { client, calls } = harness(async () => json(envelope(null)));
 

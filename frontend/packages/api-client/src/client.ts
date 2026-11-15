@@ -12,6 +12,8 @@ export interface ApiClientOptions {
   namespace: Namespace;
   baseUrl?: string;
   fetch?: typeof fetch;
+  /** 是否携带 Cookie，默认 `include`；后台公开读可传 `omit` 避免带上 C 端会话。 */
+  credentials?: RequestCredentials;
   /** 应用挂载前缀，admin 传 `/admin/`。 */
   basePath?: string;
   loginPath?: string;
@@ -52,6 +54,7 @@ export class ApiClient {
   private readonly namespace: Namespace;
   private readonly basePath: string;
   private readonly loginPath: string;
+  private readonly credentials: RequestCredentials;
   private readonly fetchImpl: typeof fetch;
   private readonly getCurrentPath: () => string;
   private readonly onUnauthorized: (loginUrl: string) => void;
@@ -64,6 +67,7 @@ export class ApiClient {
     this.baseUrl = (options.baseUrl ?? `/api/v1/${options.namespace}`).replace(/\/$/, '');
     this.basePath = options.basePath ?? defaultBasePath(options.namespace);
     this.loginPath = options.loginPath ?? defaultLoginPath(options.namespace);
+    this.credentials = options.credentials ?? 'include';
     this.fetchImpl = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.getCurrentPath = options.getCurrentPath ?? defaultCurrentPath;
     this.onUnauthorized =
@@ -187,7 +191,7 @@ export class ApiClient {
     try {
       return await this.fetchImpl(url, {
         method,
-        credentials: 'include',
+        credentials: this.credentials,
         headers,
         body,
         signal: options.signal,
@@ -210,7 +214,7 @@ export class ApiClient {
     try {
       response = await this.fetchImpl(url, {
         method: 'GET',
-        credentials: 'include',
+        credentials: this.credentials,
         headers: { Accept: 'application/json' },
       });
     } catch (cause) {

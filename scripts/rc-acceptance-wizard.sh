@@ -225,7 +225,15 @@ banner "云河FC 生产 RC 验收"
 # ── Stage 1 ───────────────────────────────────────────────────────────────
 stage "环境信息"
 say "采集 RC 访问信息。密码不写入文件，后续阶段按需隐藏输入。"
-ask RC_DOMAIN "生产域名（不含 www，例如 example.com）："
+while :; do
+  ask RC_DOMAIN "生产域名（不含 www，例如 example.com）："
+  if [[ "$RC_DOMAIN" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
+      && [[ "$RC_DOMAIN" != www.* ]]; then
+    break
+  fi
+  warn "域名必须是小写裸域名（如 example.com），不带 www./scheme/路径/端口"
+  RC_DOMAIN=""
+done
 ask ECS_SSH "ECS SSH 目标（user@host）："
 ask RDS_HOST "RDS 主机（私网域名）："
 ask RDS_PORT "RDS 端口 [3306]："
@@ -243,26 +251,24 @@ write_env ACR_REGISTRY "$ACR_REGISTRY"
 chmod 600 "$ENV_FILE"
 
 WEB="https://www.$RC_DOMAIN"
-ADMIN="https://admin.$RC_DOMAIN"
-API="https://api.$RC_DOMAIN"
+ADMIN="$WEB/admin"
 
 open_url "$WEB"
 pause "确认 www 首页可正常打开后回车"
 
 # ── Stage 2 ───────────────────────────────────────────────────────────────
 stage "§5.3 部署冒烟"
-health=$(curl -fsS --max-time 10 "$API/actuator/health" 2>/dev/null || true)
+health=$(curl -fsS --max-time 10 "$WEB/actuator/health" 2>/dev/null || true)
 if [[ "$health" == *'"status":"UP"'* ]]; then
-  say "  ${GREEN}✓${RESET} readiness $API/actuator/health = UP"; record "§5.3 health UP" "PASS"
+  say "  ${GREEN}✓${RESET} readiness $WEB/actuator/health = UP"; record "§5.3 health UP" "PASS"
 else
-  warn "$API/actuator/health 未返回 UP"; record "§5.3 health UP" "FAIL"
+  warn "$WEB/actuator/health 未返回 UP"; record "§5.3 health UP" "FAIL"
 fi
 expect_code "C 端首页 200" "200" "$WEB/"
+expect_code "B 端 /admin/ 200" "200" "$ADMIN/"
 expect_code "公开读接口 200" "200" "$WEB/api/v1/c/matches?scope=upcoming&page=1&pageSize=1"
-expect_code "api 子域公开读 200" "200" "$API/api/v1/c/matches?scope=upcoming&page=1&pageSize=1"
-expect_code "api 子域根路径 404" "404" "$API/"
-expect_code "api 子域 /admin 404" "404" "$API/admin/"
-expect_code "api 子域 health 200" "200" "$API/actuator/health"
+expect_code "敏感端点 /actuator/env 404" "404" "$WEB/actuator/env"
+expect_code "/api 根路径 404" "404" "$WEB/api"
 wechat_code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: text/html' --max-time 10 "$WEB/api/v1/c/auth/wechat/callback" 2>/dev/null || true)
 if [[ "$wechat_code" == "302" ]]; then
   say "  ${GREEN}✓${RESET} 微信回调 HTML 导航 302"; record "§5.3 微信回调 302" "PASS"
@@ -270,16 +276,15 @@ else
   warn "微信回调期望 302，实际 ${wechat_code:-无响应}"; record "§5.3 微信回调 302" "FAIL"
 fi
 open_url "$ADMIN/"
-if confirm "www 与 admin 同源登录成功、无重定向循环？"; then
-  record "§5.3 www/admin 同源登录" "PASS"
+if confirm "C 端 / 与 B 端 /admin/ 登录成功、无重定向循环？"; then
+  record "§5.3 C/B 同源登录" "PASS"
 else
-  record "§5.3 www/admin 同源登录" "FAIL"
+  record "§5.3 C/B 同源登录" "FAIL"
 fi
 
 # ── Stage 3 ───────────────────────────────────────────────────────────────
 stage "§6.1 TLS / 证书"
-for host in www admin api; do
-  fqdn="$host.$RC_DOMAIN"
+for fqdn in "www.$RC_DOMAIN"; do
   if echo | openssl s_client -servername "$fqdn" -connect "$fqdn:443" 2>/dev/null \
       | openssl x509 -checkend 2592000 -noout >/dev/null 2>&1; then
     say "  ${GREEN}✓${RESET} $fqdn 证书剩余 >30 天"; record "$fqdn 证书>30天" "PASS"
@@ -304,7 +309,7 @@ done
 
 # ── Stage 4 ───────────────────────────────────────────────────────────────
 stage "§6.2 安全响应头"
-for fqdn in "www.$RC_DOMAIN" "admin.$RC_DOMAIN"; do
+for fqdn in "www.$RC_DOMAIN"; do
   hdrs=$(curl -sI --max-time 10 "https://$fqdn/" 2>/dev/null || true)
   check_headers "$fqdn" "$hdrs" "HSTS" "strict-transport-security"
   check_headers "$fqdn" "$hdrs" "X-Content-Type-Options" "x-content-type-options"
@@ -320,44 +325,54 @@ done
 
 # ── Stage 5 ───────────────────────────────────────────────────────────────
 stage "§6.3 Cookie 与会话"
-say "在浏览器登录 admin，DevTools → Application → Cookies 检查会话 Cookie。"
+say "在浏览器登录 B 端 /admin/，DevTools → Application → Cookies 检查会话 Cookie。"
 open_url "$ADMIN/"
-step "Secure=true；HttpOnly=true；SameSite=Lax；Domain 为空；Path=/。"
+step "Secure=true；HttpOnly=true；SameSite=Lax；Domain 为空；YHFC_B Path=/api/v1/b，YHFC_C Path=/api/v1/c。"
 if confirm "Cookie 属性全部符合？"; then
   record "§6.3 Cookie 属性" "PASS"
 else
   record "§6.3 Cookie 属性" "FAIL"
 fi
-unauth_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST --max-time 10 \
-  -H 'Content-Type: application/json' -d '{}' "$WEB/api/v1/c/registrations" 2>/dev/null || true)
+csrf_jar="$(mktemp)"
+csrf_json=$(curl -s -c "$csrf_jar" --max-time 10 "$WEB/api/v1/c/auth/csrf" 2>/dev/null || true)
+csrf_token=$(printf '%s' "$csrf_json" \
+  | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+if [[ -n "$csrf_token" ]]; then
+  unauth_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST --max-time 10 \
+    -b "$csrf_jar" -H "X-XSRF-TOKEN: $csrf_token" \
+    -H 'Content-Type: application/json' -d '{}' "$WEB/api/v1/c/registrations" 2>/dev/null || true)
+else
+  unauth_code=""
+fi
+rm -f "$csrf_jar"
 if [[ "$unauth_code" == "401" ]]; then
   say "  ${GREEN}✓${RESET} 未登录写接口 401"; record "§6.3 未登录写接口" "PASS"
+elif [[ -z "$csrf_token" ]]; then
+  warn "无法获取匿名 CSRF token，跳过未登录写接口检查"; record "§6.3 未登录写接口" "FAIL"
 else
   warn "未登录写接口期望 401，实际 ${unauth_code:-无响应}"; record "§6.3 未登录写接口" "FAIL"
 fi
 
 # ── Stage 6 ───────────────────────────────────────────────────────────────
 stage "§6.4 CORS"
-for origin in "$WEB" "$ADMIN"; do
-  allow=$(curl -s -D - -o /dev/null -X OPTIONS --max-time 10 \
+same_origin_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+  "$WEB/api/v1/c/matches?scope=upcoming&page=1&pageSize=1" 2>/dev/null || true)
+if [[ "$same_origin_code" == "200" ]]; then
+  say "  ${GREEN}✓${RESET} 同源公开读 200（同源请求不产生 ACAO）"; record "§6.4 同源公开读" "PASS"
+else
+  warn "同源公开读期望 200，实际 ${same_origin_code:-无响应}"; record "§6.4 同源公开读" "FAIL"
+fi
+for origin in "https://admin.$RC_DOMAIN" "https://evil.example"; do
+  denied=$(curl -s -D - -o /dev/null -X OPTIONS --max-time 10 \
     -H "Origin: $origin" -H 'Access-Control-Request-Method: GET' \
-    "$API/api/v1/c/matches?scope=upcoming&page=1&pageSize=1" 2>/dev/null \
+    "$WEB/api/v1/c/matches?scope=upcoming&page=1&pageSize=1" 2>/dev/null \
     | grep -i '^access-control-allow-origin:' || true)
-  if [[ "$allow" == *"$origin"* ]]; then
-    say "  ${GREEN}✓${RESET} $origin 预检通过"; record "§6.4 CORS $origin" "PASS"
+  if [[ -z "$denied" ]]; then
+    say "  ${GREEN}✓${RESET} 非白名单 Origin 无 ACAO：$origin"; record "§6.4 CORS 非白名单 $origin" "PASS"
   else
-    warn "$origin 预检未返回 ACAO"; record "§6.4 CORS $origin" "FAIL"
+    warn "非白名单 Origin 返回 ACAO：$origin → $denied"; record "§6.4 CORS 非白名单 $origin" "FAIL"
   fi
 done
-evil=$(curl -s -D - -o /dev/null -X OPTIONS --max-time 10 \
-  -H 'Origin: https://evil.example' -H 'Access-Control-Request-Method: GET' \
-  "$API/api/v1/c/matches?scope=upcoming&page=1&pageSize=1" 2>/dev/null \
-  | grep -i '^access-control-allow-origin:' || true)
-if [[ -z "$evil" ]]; then
-  say "  ${GREEN}✓${RESET} 非白名单 Origin 无 ACAO"; record "§6.4 CORS 非白名单" "PASS"
-else
-  warn "非白名单 Origin 返回 ACAO：$evil"; record "§6.4 CORS 非白名单" "FAIL"
-fi
 
 # ── Stage 7 ───────────────────────────────────────────────────────────────
 stage "§6.5 真实 IP / §6.8 Redis 与 Kafka"
@@ -386,7 +401,7 @@ fi
 
 # ── Stage 8 ───────────────────────────────────────────────────────────────
 stage "§6.6 暴露面 / §6.7 迁移与账号"
-for base in "$WEB" "$API"; do
+for base in "$WEB"; do
   for path in /actuator/env /actuator/beans /v3/api-docs /swagger-ui/index.html; do
     expect_code "敏感端点 $base$path 404" "404" "$base$path"
   done
@@ -478,7 +493,7 @@ else
   record "§5.6 RDS 备份/PITR" "FAIL"
 fi
 open_url "$WEB"
-open_url "$ADMIN"
+open_url "$ADMIN/"
 step "HTTPS 下 C/B 登录无重定向循环。"
 step "微信内完成授权并回到站内。"
 step "无权限管理员访问 B 端被拒绝。"

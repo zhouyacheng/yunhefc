@@ -200,8 +200,15 @@ banner "云河FC 生产 RC 引导"
 
 # ── Stage 1 ───────────────────────────────────────────────────────────────
 stage "ECS 与目标确认"
-ask RC_DOMAIN "生产域名（不含 www）[yunhefc.com]："
-RC_DOMAIN="${RC_DOMAIN:-yunhefc.com}"
+while :; do
+  ask RC_DOMAIN "生产域名（不含 www）[yunhefc.com]："
+  RC_DOMAIN="${RC_DOMAIN:-yunhefc.com}"
+  if [[ "$RC_DOMAIN" =~ ^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$ ]] \
+      && [[ "$RC_DOMAIN" != www.* ]]; then
+    break
+  fi
+  warn "域名必须是小写裸域名（如 yunhefc.com），不带 www./scheme/路径/端口"
+done
 ask ECS_SSH "ECS SSH 目标 [root@47.116.72.163]："
 ECS_SSH="${ECS_SSH:-root@47.116.72.163}"
 ECS_IP="${ECS_SSH#*@}"
@@ -213,26 +220,25 @@ fi
 remote 'docker --version && docker compose version' 2>/dev/null | sed 's/^/  /' || warn "Docker/Compose 未就绪"
 
 # ── Stage 2 ───────────────────────────────────────────────────────────────
-stage "DNS：www / admin / api"
+stage "DNS：www"
 open_url "https://dns.console.aliyun.com/"
-step "确认 www.$RC_DOMAIN 已指向 ${ECS_IP}；为 admin 与 api 各添加一条 A 记录 → ${ECS_IP}。"
+step "确认 www.$RC_DOMAIN 已指向 ${ECS_IP}；如需裸域跳转，再添加一条 @ A 记录 → ${ECS_IP}。"
 pause "添加完成后回车，向导会检查解析"
 dns_ok=0
 for _ in $(seq 1 12); do
-  a=$(dig +short "admin.$RC_DOMAIN" | head -n1)
-  b=$(dig +short "api.$RC_DOMAIN" | head -n1)
-  if [[ -n "$a" && -n "$b" ]]; then dns_ok=1; break; fi
+  a=$(dig +short "www.$RC_DOMAIN" | head -n1)
+  if [[ -n "$a" ]]; then dns_ok=1; break; fi
   sleep 5
 done
 if (( dns_ok )); then
-  say "  ${GREEN}✓${RESET} admin/api 已解析"
+  say "  ${GREEN}✓${RESET} www 已解析"
 else
-  warn "admin/api 仍未解析；可稍后重跑向导"; SKIPPED+=("DNS admin/api A 记录")
+  warn "www 仍未解析；可稍后重跑向导"; SKIPPED+=("DNS www A 记录")
 fi
 
 # ── Stage 3 ───────────────────────────────────────────────────────────────
 stage "TLS 证书"
-say "需要覆盖 $RC_DOMAIN 的证书；nginx 固定读取 fullchain.pem / privkey.pem。"
+say "需要覆盖 www.$RC_DOMAIN 的证书（启用裸域时含裸域 SAN）；nginx 固定读取 fullchain.pem / privkey.pem。"
 ask CERT_FULLCHAIN "本地 fullchain.pem 路径："
 ask CERT_PRIVKEY "本地 privkey.pem 路径："
 if [[ -f "$CERT_FULLCHAIN" && -f "$CERT_PRIVKEY" ]]; then
@@ -241,10 +247,13 @@ if [[ -f "$CERT_FULLCHAIN" && -f "$CERT_PRIVKEY" ]]; then
   else
     warn "证书缺失或剩余 ≤30 天"
   fi
-  if openssl x509 -in "$CERT_FULLCHAIN" -noout -text 2>/dev/null | grep -A1 'Subject Alternative Name' | grep -q "$RC_DOMAIN"; then
-    say "  ${GREEN}✓${RESET} SAN 覆盖 $RC_DOMAIN"
+  san_lines=$(openssl x509 -in "$CERT_FULLCHAIN" -noout -ext subjectAltName 2>/dev/null \
+    | tr ', ' '\n\n' | sed '/^$/d' || true)
+  if printf '%s\n' "$san_lines" | grep -Fqx "DNS:www.$RC_DOMAIN" \
+      || printf '%s\n' "$san_lines" | grep -Fqx "DNS:*.$RC_DOMAIN"; then
+    say "  ${GREEN}✓${RESET} SAN 覆盖 www.$RC_DOMAIN"
   else
-    warn "SAN 未覆盖 ${RC_DOMAIN}，浏览器会报证书错误"
+    warn "SAN 未覆盖 www.$RC_DOMAIN，浏览器会报证书错误"
   fi
   scp "${SCP_OPTS[@]}" "$CERT_FULLCHAIN" "$ECS_SSH:/opt/yunhefc/certs/fullchain.pem"
   scp "${SCP_OPTS[@]}" "$CERT_PRIVKEY" "$ECS_SSH:/opt/yunhefc/certs/privkey.pem"
@@ -254,7 +263,7 @@ else
   warn "证书文件不存在，跳过"; SKIPPED+=("TLS 证书上传")
 fi
 open_url "https://yundun.console.aliyun.com/?p=cas"
-step "如无证书，可在数字证书管理服务申请 *.${RC_DOMAIN} 通配符证书后重跑本阶段。"
+step "如无证书，可在数字证书管理服务申请覆盖 www.${RC_DOMAIN} 的证书后重跑本阶段。"
 
 # ── Stage 4 ───────────────────────────────────────────────────────────────
 stage "ACR 镜像仓库"
@@ -342,7 +351,7 @@ ask_secret OSS_ACCESS_KEY_SECRET "OSS AccessKeySecret："
   printf 'PUBLIC_BASE_URL=https://www.%s\n' "$RC_DOMAIN"
   printf 'SESSION_COOKIE_SECURE=true\n'
   printf 'SESSION_COOKIE_DOMAIN=\n'
-  printf 'CORS_ALLOWED_ORIGINS=https://www.%s,https://admin.%s\n' "$RC_DOMAIN" "$RC_DOMAIN"
+  printf 'CORS_ALLOWED_ORIGINS=https://www.%s\n' "$RC_DOMAIN"
   printf 'DB_URL=jdbc:mysql://%s:%s/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8\n' "$RDS_HOST" "$RDS_PORT"
   printf 'DB_USERNAME=yunhefc_app\n'
   printf 'DB_PASSWORD=%s\n' "$RDS_APP_PASSWORD"

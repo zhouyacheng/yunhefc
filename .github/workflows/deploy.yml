@@ -133,7 +133,8 @@ jobs:
         run: |
           set -euo pipefail
           echo "STAGE=release" >> "$GITHUB_ENV"
-          ssh yunhefc-deploy /opt/yunhefc/bin/release.sh --sha "$SHA7"
+          # 直接执行目标 release 快照里的脚本，避免宿主机固定安装的旧脚本先切版。
+          ssh yunhefc-deploy "test -x /opt/yunhefc/releases/$SHA7/bin/release.sh && /opt/yunhefc/releases/$SHA7/bin/release.sh --sha $SHA7"
 
       # 钉钉/企业微信群机器人通用格式；webhook 失败不影响 job 结果。
       - name: Notify webhook

@@ -4,7 +4,7 @@ import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // 默认挂在 /admin/；部署在 admin 子域根路径时用 ADMIN_BASE_URL=/ 覆盖。
+  // 默认挂在 /admin/；生产与 dev 一致，仍可用 ADMIN_BASE_URL 覆盖。
   base: process.env.ADMIN_BASE_URL ?? '/admin/',
   plugins: [vue()],
   resolve: {

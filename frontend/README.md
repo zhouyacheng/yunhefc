@@ -15,7 +15,7 @@ pnpm dev:web      # http://localhost:5273
 pnpm dev:admin    # http://localhost:5274/admin/
 ```
 
-Vite dev 把 `/api` 代理到 `http://localhost:8080`，并去掉转发请求的 `Origin`，因此不需要额外 CORS 配置。admin 的 `BASE_URL` 默认 `/admin/`，部署在 admin 子域根路径时用 `ADMIN_BASE_URL=/` 构建；B 端登录页的“前往 C 端”链接用 `VITE_WEB_URL` 配置，dev 默认 `http://localhost:5273`。
+Vite dev 把 `/api` 代理到 `http://localhost:8080`，并去掉转发请求的 `Origin`，因此不需要额外 CORS 配置。生产统一使用 `https://www.<domain>/admin/`，admin 以 `ADMIN_BASE_URL=/admin/` 构建；B 端登录页的“前往 C 端”链接用 `VITE_WEB_URL` 配置，dev 默认 `http://localhost:5273`。
 
 ## 后端 dev profile 与测试数据
 

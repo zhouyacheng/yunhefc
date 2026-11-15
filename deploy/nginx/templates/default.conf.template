@@ -1,8 +1,43 @@
 server {
     listen 80;
     listen [::]:80;
-    server_name www.${DOMAIN} admin.${DOMAIN} api.${DOMAIN};
-    return 301 https://$host$request_uri;
+    server_name ${DOMAIN} www.${DOMAIN};
+    return 301 https://www.${DOMAIN}$request_uri;
+}
+
+# 旧子域过渡：admin 页面路径补 /admin，API 路径保持原样；无需过渡时可直接删除这些 server 块与 DNS。
+server {
+    listen 80;
+    listen [::]:80;
+    server_name admin.${DOMAIN};
+
+    location ^~ /api/ {
+        return 308 https://www.${DOMAIN}$request_uri;
+    }
+
+    location / {
+        return 301 https://www.${DOMAIN}/admin$request_uri;
+    }
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name api.${DOMAIN};
+    return 308 https://www.${DOMAIN}$request_uri;
+}
+
+# 裸域（可选）：证书需含裸域 SAN；无该 DNS 时不影响 www。
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+    server_name ${DOMAIN};
+
+    include /etc/nginx/snippets/tls.conf;
+    include /etc/nginx/snippets/security-headers.conf;
+
+    return 301 https://www.${DOMAIN}$request_uri;
 }
 
 server {
@@ -16,12 +51,80 @@ server {
 
     server_tokens off;
     client_max_body_size 3m;
-    root /usr/share/nginx/html/www;
+    root /usr/share/nginx/html;
     index index.html;
+
+    # 反代与静态资源定义在 spa-locations.conf；此处只补充 B 端子路径与敏感端点。
+    location = /api {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
+
+    location = /50x.html {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
+
+    location = /actuator/health {
+        include /etc/nginx/snippets/security-headers.conf;
+        include /etc/nginx/snippets/proxy-params.conf;
+        proxy_pass http://backend_upstream/actuator/health;
+    }
+
+    location = /actuator {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
+
+    location ^~ /actuator/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
+
+    location ^~ /v3/api-docs {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
+
+    location ^~ /swagger-ui {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
+
+    location = /admin {
+        return 301 /admin/$is_args$args;
+    }
+
+    location = /admin/index.html {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+    }
+
+    location = /admin/assets {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
+
+    location ^~ /admin/assets/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    location ^~ /admin/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        try_files $uri $uri/ /admin/index.html;
+    }
+
+    location = /assets {
+        include /etc/nginx/snippets/security-headers.conf;
+        return 404;
+    }
 
     include /etc/nginx/snippets/spa-locations.conf;
 }
 
+# 旧子域过渡（443）：证书需覆盖 admin/api；确认不再需要后连同 DNS 一起删除。
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
@@ -31,15 +134,15 @@ server {
     include /etc/nginx/snippets/tls.conf;
     include /etc/nginx/snippets/security-headers.conf;
 
-    server_tokens off;
-    client_max_body_size 3m;
-    root /usr/share/nginx/html/admin;
-    index index.html;
+    location ^~ /api/ {
+        return 308 https://www.${DOMAIN}$request_uri;
+    }
 
-    include /etc/nginx/snippets/spa-locations.conf;
+    location / {
+        return 301 https://www.${DOMAIN}/admin$request_uri;
+    }
 }
 
-# 直连别名：只放行 /api/ 与 /actuator/health，其余 404。
 server {
     listen 443 ssl;
     listen [::]:443 ssl;
@@ -49,22 +152,5 @@ server {
     include /etc/nginx/snippets/tls.conf;
     include /etc/nginx/snippets/security-headers.conf;
 
-    server_tokens off;
-    client_max_body_size 3m;
-
-    location /api/ {
-        include /etc/nginx/snippets/security-headers.conf;
-        include /etc/nginx/snippets/proxy-params.conf;
-        proxy_pass http://backend_upstream;
-    }
-
-    location = /actuator/health {
-        include /etc/nginx/snippets/security-headers.conf;
-        include /etc/nginx/snippets/proxy-params.conf;
-        proxy_pass http://backend_upstream/actuator/health;
-    }
-
-    location / {
-        return 404;
-    }
+    return 308 https://www.${DOMAIN}$request_uri;
 }

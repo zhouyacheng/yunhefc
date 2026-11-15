@@ -14,10 +14,10 @@ public class ProdStartupValidator {
 
     private static final String DEFAULT_DB_PASSWORD = "yunhefc";
     private static final String CORS_RULE =
-            "生产环境 CORS_ALLOWED_ORIGINS 必须恰好是同一域名的 https://www.<domain> 与 https://admin.<domain>"
-                    + "（拒绝 localhost 与通配符）";
+            "生产环境 CORS_ALLOWED_ORIGINS 必须恰为一个与 PUBLIC_BASE_URL 相同的 https://www.<domain> 单源"
+                    + "（拒绝空值、多源、localhost、通配符、admin./api. 子域）";
     private static final String PUBLIC_BASE_URL_RULE =
-            "生产环境 PUBLIC_BASE_URL 必须与 CORS 的 https://www.<domain> 完全一致（不带路径与末尾斜杠）";
+            "生产环境 PUBLIC_BASE_URL 必须为 https://www.<domain>（不带端口、路径与末尾斜杠）";
 
     private final Environment environment;
     private final SessionProperties sessionProperties;
@@ -32,8 +32,8 @@ public class ProdStartupValidator {
 
     public void validate() {
         validateSessionCookie();
-        validateCors();
-        validatePublicBaseUrl();
+        String publicBaseUrl = validatePublicBaseUrl();
+        validateCors(publicBaseUrl);
         validateDbPassword();
         validateRedisPassword();
     }
@@ -47,37 +47,43 @@ public class ProdStartupValidator {
         }
     }
 
-    private void validateCors() {
+    /** 同域收敛后 PUBLIC_BASE_URL 是唯一规范源；先校验它，再要求 CORS 与它完全一致。 */
+    private String validatePublicBaseUrl() {
+        String value = environment.getProperty("yunhefc.public-base-url");
+        if (!StringUtils.hasText(value) || !value.equals(value.trim())) {
+            throw new IllegalStateException(PUBLIC_BASE_URL_RULE);
+        }
+        String host = httpsHost(value, PUBLIC_BASE_URL_RULE);
+        if (!host.startsWith("www.") || host.length() <= 4 || host.indexOf('.', 4) <= 4) {
+            throw new IllegalStateException(PUBLIC_BASE_URL_RULE);
+        }
+        if (!value.equals("https://" + host)) {
+            throw new IllegalStateException(PUBLIC_BASE_URL_RULE);
+        }
+        return value;
+    }
+
+    private void validateCors(String publicBaseUrl) {
         List<String> origins = corsProperties.allowedOrigins().stream()
                 .filter(StringUtils::hasText)
                 .map(String::trim)
                 .toList();
-        if (origins.size() != 2) {
+        if (origins.size() != 1) {
             throw new IllegalStateException(CORS_RULE);
         }
-        String wwwDomain = originDomain(origins, "www.");
-        String adminDomain = originDomain(origins, "admin.");
-        if (wwwDomain == null || adminDomain == null || !wwwDomain.equals(adminDomain)) {
+        String origin = origins.get(0);
+        String host = httpsHost(origin, CORS_RULE);
+        if (!origin.equals("https://" + host) || !origin.equals(publicBaseUrl)) {
             throw new IllegalStateException(CORS_RULE);
         }
     }
 
-    private String originDomain(List<String> origins, String prefix) {
-        for (String origin : origins) {
-            String host = httpsHost(origin);
-            if (host.startsWith(prefix) && host.length() > prefix.length()) {
-                return host.substring(prefix.length());
-            }
-        }
-        return null;
-    }
-
-    private String httpsHost(String origin) {
+    private String httpsHost(String origin, String rule) {
         URI uri;
         try {
             uri = URI.create(origin);
         } catch (IllegalArgumentException ex) {
-            throw new IllegalStateException(CORS_RULE);
+            throw new IllegalStateException(rule);
         }
         String host = uri.getHost();
         if (!"https".equalsIgnoreCase(uri.getScheme())
@@ -91,26 +97,9 @@ public class ProdStartupValidator {
                 || host.equalsIgnoreCase("localhost")
                 || host.equals("127.0.0.1")
                 || host.equals("::1")) {
-            throw new IllegalStateException(CORS_RULE);
+            throw new IllegalStateException(rule);
         }
         return host.toLowerCase(Locale.ROOT);
-    }
-
-    /** 邀请链接必须落在 C 端 www 源；同时拒绝首尾空白，避免校验值与实际拼接值不一致。 */
-    private void validatePublicBaseUrl() {
-        String value = environment.getProperty("yunhefc.public-base-url");
-        if (!StringUtils.hasText(value) || !value.equals(value.trim()) || !value.equals(wwwOrigin())) {
-            throw new IllegalStateException(PUBLIC_BASE_URL_RULE);
-        }
-    }
-
-    private String wwwOrigin() {
-        return corsProperties.allowedOrigins().stream()
-                .filter(StringUtils::hasText)
-                .map(String::trim)
-                .filter(origin -> httpsHost(origin).startsWith("www."))
-                .findFirst()
-                .orElseThrow(() -> new IllegalStateException(PUBLIC_BASE_URL_RULE));
     }
 
     private void validateDbPassword() {

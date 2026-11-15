@@ -103,14 +103,15 @@ fi
 DOMAIN_VALUE="$(env_value "$ENV_FILE" DOMAIN)"
 [[ -n "$DOMAIN_VALUE" ]] || die "$ENV_FILE 未配置 DOMAIN"
 
-# prod 启动会校验 PUBLIC_BASE_URL 必须等于 CORS 的 www 源；这里提前拦截，避免切版后才 crash-loop。
+# prod 启动会校验 PUBLIC_BASE_URL 与 CORS 单源；这里提前拦截，避免切版后才 crash-loop。
 PUBLIC_BASE_URL_VALUE="$(env_value "$ENV_FILE" PUBLIC_BASE_URL)"
-[[ "$PUBLIC_BASE_URL_VALUE" =~ ^https://www\.[A-Za-z0-9.-]+$ ]] \
-    || die "$ENV_FILE 的 PUBLIC_BASE_URL 必须为 https://www.<domain>（不带路径与末尾斜杠）"
-CORS_WWW="$(printf '%s' "$(env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS)" \
-    | tr ',' '\n' | sed -n 's#^\(https://www\.[A-Za-z0-9.-]*\)$#\1#p' | head -n 1)"
-[[ -n "$CORS_WWW" && "$PUBLIC_BASE_URL_VALUE" == "$CORS_WWW" ]] \
-    || die "$ENV_FILE 的 PUBLIC_BASE_URL 必须与 CORS_ALLOWED_ORIGINS 中的 www 源完全一致"
+[[ "$PUBLIC_BASE_URL_VALUE" == "https://www.$DOMAIN_VALUE" ]] \
+    || die "$ENV_FILE 的 PUBLIC_BASE_URL 必须等于 https://www.$DOMAIN_VALUE（不带路径与末尾斜杠）"
+CORS_ORIGINS_VALUE="$(env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS)"
+CORS_ORIGIN_COUNT="$(printf '%s\n' "$CORS_ORIGINS_VALUE" \
+    | tr ',' '\n' | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"
+[[ "$CORS_ORIGIN_COUNT" == "1" && "$CORS_ORIGINS_VALUE" == "$PUBLIC_BASE_URL_VALUE" ]] \
+    || die "$ENV_FILE 的 CORS_ALLOWED_ORIGINS 必须恰为 $PUBLIC_BASE_URL_VALUE 单源"
 
 release_dir=""
 if [[ "$MODE" == "rollback" ]]; then
@@ -179,16 +180,18 @@ wait_ready() {
 
 smoke() {
     local www="https://www.$DOMAIN_VALUE"
-    local api="https://api.$DOMAIN_VALUE"
     local resolve_www="$DOMAIN_VALUE:443:127.0.0.1"
-    local resolve_api="$DOMAIN_VALUE:443:127.0.0.1"
 
     curl -fsSk --max-time "$SMOKE_TIMEOUT" \
         --resolve "www.$resolve_www" "$www/" >/dev/null \
         || { log "冒烟失败: C 端首页"; return 1; }
 
     curl -fsSk --max-time "$SMOKE_TIMEOUT" \
-        --resolve "api.$resolve_api" "$api/actuator/health" \
+        --resolve "www.$resolve_www" "$www/admin/" >/dev/null \
+        || { log "冒烟失败: B 端首页"; return 1; }
+
+    curl -fsSk --max-time "$SMOKE_TIMEOUT" \
+        --resolve "www.$resolve_www" "$www/actuator/health" \
         | grep -q '"status":"UP"' \
         || { log "冒烟失败: /actuator/health"; return 1; }
 
@@ -196,6 +199,14 @@ smoke() {
         --resolve "www.$resolve_www" "$www/api/v1/c/matches?page=1&pageSize=1" \
         | grep -q '"code":0' \
         || { log "冒烟失败: 公开读接口"; return 1; }
+
+    local path code
+    for path in /actuator/env /v3/api-docs /swagger-ui/index.html; do
+        code="$(curl -sSk -o /dev/null -w '%{http_code}' --max-time "$SMOKE_TIMEOUT" \
+            --resolve "www.$resolve_www" "$www$path")"
+        [[ "$code" == "404" ]] \
+            || { log "冒烟失败: $path 期望 404，实际 $code"; return 1; }
+    done
 
     log "冒烟通过"
 }

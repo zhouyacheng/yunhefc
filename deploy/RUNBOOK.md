@@ -70,8 +70,11 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON yunhefc.* TO 'yunhefc_app'@'%';
 
 ### 1.2 DNS / 证书 / 环境文件 / ACR
 
-1. 三子域解析到 ECS：`www.<domain>`、`admin.<domain>`、`api.<domain>`。
-2. 通配符证书放到 `/opt/yunhefc/certs/fullchain.pem`、`privkey.pem`，剩余有效期 >30 天。
+1. `www.<domain>` 解析到 ECS；如启用裸域 301，再添加一条 `@` A 记录。不再需要 `admin`/`api` 子域。
+2. 证书放到 `/opt/yunhefc/certs/fullchain.pem`、`privkey.pem`，覆盖 `www.<domain>`（启用裸域时含裸域 SAN），剩余有效期 >30 天。
+
+> 同域切换上线后删除 `admin`/`api` A 记录。HSTS `includeSubDomains` 会让旧子域在无 443 监听时直接连接失败，旧书签不再可用。
+
 3. `cp deploy/.env.example /opt/yunhefc/.env && chmod 600 /opt/yunhefc/.env`，填真实值；`SESSION_COOKIE_SECURE=true`、`SESSION_COOKIE_DOMAIN=` 留空。
 4. ACR 只读凭证 `/opt/yunhefc/env/acr.env`（600）：
 
@@ -143,7 +146,7 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/bootstrap-admin
 
 4. 校验：
    - 末尾 `admin_permissions` = **28**；
-   - `https://admin.<domain>` 用该手机号/密码登录成功；
+   - `https://www.<domain>/admin/` 用该手机号/密码登录成功；
    - C 端 `/c/me` 返回的 `player` 非空；
    - 登录后立即走 C 端「忘记密码」短信重置（AUTH-06）把初始口令换成个人口令，确认新口令可登录，并从运维记录中删除初始口令。
    - 当前没有「已登录状态改密」接口，只能用短信重置；改密需要真实短信通道可用。
@@ -152,9 +155,11 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/bootstrap-admin
 ### 1.6 首次验收
 
 ```bash
-curl -fsS https://api.<domain>/actuator/health          # {"status":"UP"}
+curl -fsS https://www.<domain>/actuator/health          # {"status":"UP"}
 curl -fsSI https://www.<domain>/                        # 200；HSTS/nosniff/Referrer-Policy/X-Frame-Options
+curl -fsSI https://www.<domain>/admin/                  # 200；B 端静态入口
 curl -fsS https://www.<domain>/api/v1/c/matches?page=1&pageSize=1 | head
+curl -sS -o /dev/null -w '%{http_code}\n' https://www.<domain>/actuator/env   # 404
 curl -sS -o /dev/null -w '%{http_code}\n' http://<domain>/   # 301
 ```
 
@@ -178,6 +183,12 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 ```
 
 - `flock` 保证同一时间只有一个发布/回滚；SSH 中断后重跑同一 `--sha` 幂等。
+- `release.sh` 固定安装在 `/opt/yunhefc/bin`，**不随发布自更新**。同域切换前必须先备份并安装新脚本：
+  ```bash
+  sudo cp -p /opt/yunhefc/bin/release.sh /opt/yunhefc/bin/release.sh.pre-www
+  sudo install -m 755 deploy/bin/release.sh /opt/yunhefc/bin/release.sh
+  ```
+  同时备份 `/opt/yunhefc/.env`，并把 `CORS_ALLOWED_ORIGINS` 改为 `https://www.<domain>` 单源；回滚时先恢复旧 `.env` 与 `release.sh.pre-www`（若已删除 `admin`/`api` DNS，还要先恢复解析），再执行 `--rollback`。
 - 保留 current + previous + 最新一个其他版本；清理旧目录与对应镜像，绝不删除 current/previous。
 - 回滚不修改 `state/previous`；回滚后如需继续回退，请显式传 `--rollback <sha7>`。
 - 回滚触发：readiness 超时、迁移失败、冒烟失败、发布后 30 分钟内 5xx 或关键路径异常。
@@ -204,7 +215,7 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 ### 3.2 `.env` 丢失或损坏
 
 1. 从密码管理器取回离线副本，写回 `/opt/yunhefc/.env`，`chmod 600`。
-2. 确认 `SESSION_COOKIE_SECURE=true`、`SESSION_COOKIE_DOMAIN=` 为空、CORS 恰为两个 https 域名、`PUBLIC_BASE_URL` 为 C 端 https 根地址。
+2. 确认 `SESSION_COOKIE_SECURE=true`、`SESSION_COOKIE_DOMAIN=` 为空、`CORS_ALLOWED_ORIGINS` 恰为 `https://www.<domain>` 单源、`PUBLIC_BASE_URL` 与该源完全一致。
 3. 重新创建 backend/nginx 让环境变量生效：
 
 ```bash
@@ -214,7 +225,7 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 ### 3.3 证书续期/重签
 
 1. 替换 `/opt/yunhefc/certs/fullchain.pem`、`privkey.pem`。
-2. 校验：`openssl x509 -noout -enddate -in /opt/yunhefc/certs/fullchain.pem`（覆盖 www/admin/api，剩余 >30 天）。
+2. 校验：`openssl x509 -noout -enddate -in /opt/yunhefc/certs/fullchain.pem`（覆盖 www，启用裸域时含裸域；剩余 >30 天）。
 3. 测试并平滑重载：
 
 ```bash
@@ -377,7 +388,7 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 - 无 tag 发布、无路径过滤；PR 的三项检查均为必需检查，失败即阻断合并（分支保护见 §6.3）。
 - PR 并发组 `ci-<ref>` 取消旧运行；main 不取消，避免镜像/E2E 半途中断。
 - `e2e`：下载 main 的 boot jar，以 `dev` profile 启动并轮询 `/actuator/health` ≤180s；注入 `SMS_MOCK_ENABLED=true`、`OSS_MODE=mock`、`WECHAT_MODE=mock`、`KAFKA_LISTENER_ENABLED=false`、`OUTBOX_ENABLED=false`；Flyway 建表后重放 `scripts/sql/test-data.sql`（可重复执行），再跑 Playwright Chromium。失败上传 `frontend/test-results` 与 `frontend/playwright-report`，保留 7 天。
-- `images`：`linux/amd64`，tag 固定为该 commit 的 `sha-<7>`（`github.sha` 前 7 位），双仓库 `yunhefc-backend`、`yunhefc-nginx`；两个 manifest 都校验存在；禁止 `latest`。构建期变量：`ADMIN_BASE_URL=/`、`VITE_WEB_URL=https://www.<PUBLIC_DOMAIN>`、`VITE_ADMIN_URL=https://admin.<PUBLIC_DOMAIN>`。
+- `images`：`linux/amd64`，tag 固定为该 commit 的 `sha-<7>`（`github.sha` 前 7 位），双仓库 `yunhefc-backend`、`yunhefc-nginx`；两个 manifest 都校验存在；禁止 `latest`。构建期变量：`ADMIN_BASE_URL=/admin/`、`VITE_WEB_URL=https://www.<PUBLIC_DOMAIN>`、`VITE_ADMIN_URL=/admin/`。
 
 ### 6.2 手动发布
 
@@ -406,7 +417,7 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 | `DEPLOY_WEBHOOK_URL` | Secret | 发布结果通知（钉钉/企业微信群机器人通用格式）；未配置时跳过 |
 
 - 生产业务密钥只放 ECS `/opt/yunhefc/.env`（600），不进 GitHub Secrets；ECS 侧 ACR 只读凭证在 `/opt/yunhefc/env/acr.env`（600）。
-- `PUBLIC_DOMAIN` 填裸域名（如 `example.com`），用于生成 `https://www.<domain>` 与 `https://admin.<domain>`；改域名必须重新构建 nginx 镜像。
+- `PUBLIC_DOMAIN` 填裸域名（如 `example.com`），用于生成 C 端跨端链接 `https://www.<domain>`；改域名必须重新构建 nginx 镜像。
 
 ### 6.5 外部前置（不在仓库内）
 

@@ -20,8 +20,7 @@ class ProdProfileYamlTest {
     void bindsProductionProfileKeys() throws Exception {
         MockEnvironment environment = new MockEnvironment()
                 .withProperty("SESSION_COOKIE_SECURE", "true")
-                .withProperty("CORS_ALLOWED_ORIGINS",
-                        "https://www.example.com,https://admin.example.com");
+                .withProperty("CORS_ALLOWED_ORIGINS", "https://www.example.com");
         for (PropertySource<?> source : new YamlPropertySourceLoader()
                 .load("application-prod", new ClassPathResource("application-prod.yml"))) {
             environment.getPropertySources().addLast(source);
@@ -45,7 +44,7 @@ class ProdProfileYamlTest {
 
         CorsProperties cors = binder.bind("yunhefc.cors", CorsProperties.class).get();
         assertThat(cors.allowedOrigins())
-                .containsExactly("https://www.example.com", "https://admin.example.com");
+                .containsExactly("https://www.example.com");
 
         assertThat(environment.getProperty("spring.flyway.enabled", Boolean.class)).isFalse();
         assertThat(environment.getProperty("spring.datasource.hikari.maximum-pool-size", Integer.class))

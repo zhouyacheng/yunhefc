@@ -127,7 +127,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 2. 手机号只返回脱敏值；不返回 openid、passwordHash、邀请 token、会话 ID、CSRF token。
 3. 日志与错误响应不得包含密码、验证码、token、openid、手机号明文。
 4. 外部 HTTP 调用设置连接/读取超时与重试上限；失败返回明确业务错误。
-5. CORS 只允许 `www` 与 `admin` Origin，允许携带凭证；不使用通配符。
+5. CORS 只允许 `https://www.<domain>` 单一 Origin（B 端同源，不再需要 admin Origin），允许携带凭证；不使用通配符。
 
 ---
 

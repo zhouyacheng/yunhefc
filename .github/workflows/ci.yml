@@ -283,9 +283,9 @@ jobs:
           push: true
           tags: ${{ vars.ACR_REGISTRY }}/${{ vars.ACR_NAMESPACE }}/yunhefc-nginx:${{ env.IMAGE_TAG }}
           build-args: |
-            ADMIN_BASE_URL=/
+            ADMIN_BASE_URL=/admin/
             VITE_WEB_URL=https://www.${{ vars.PUBLIC_DOMAIN }}
-            VITE_ADMIN_URL=https://admin.${{ vars.PUBLIC_DOMAIN }}
+            VITE_ADMIN_URL=/admin/
           provenance: false
           cache-from: type=gha,scope=nginx
           cache-to: type=gha,mode=max,scope=nginx

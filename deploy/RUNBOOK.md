@@ -381,6 +381,7 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 | `pull_request` | `prototype` | 5 min | 8 个原型 JS 逐个 `node --check` |
 | `pull_request` | `backend` | 20 min | temurin 21 + Maven 缓存，`./mvnw -B -ntp verify`（含 `*IT`，Testcontainers 需要 runner 的 Docker） |
 | `pull_request` | `frontend` | 15 min | pnpm 12.16.1 / Node 24：`install --frozen-lockfile` → `typecheck` → `build` → `test` |
+| `push` main | `backend` | 10 min | `./mvnw -B -ntp package -DskipTests` 产出 boot jar；测试已在 PR 阶段通过 |
 | `push` main | `e2e` | 20 min | 依赖 `backend`；MySQL 8.4 + Redis 6.2.24 service + 真实后端 |
 | `push` main | `images` | 40 min | 依赖 `backend`/`frontend`/`e2e`；推送 ACR 双镜像 |
 | `push` main | `mirror-infra` | 10 min | 条件同步 `apache/kafka:3.7.2`、`redis:6.2.24` 到 ACR（已存在则跳过） |

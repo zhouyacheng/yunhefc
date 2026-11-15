@@ -250,6 +250,10 @@ write_env RDS_APP_USER "$RDS_APP_USER"
 write_env ACR_REGISTRY "$ACR_REGISTRY"
 chmod 600 "$ENV_FILE"
 
+# 验收机可能配置了 HTTP 代理；生产域名必须直连，避免代理 403/证书拦截造成假 FAIL。
+export NO_PROXY="${NO_PROXY:+$NO_PROXY,}www.$RC_DOMAIN,$RC_DOMAIN"
+export no_proxy="$NO_PROXY"
+
 WEB="https://www.$RC_DOMAIN"
 ADMIN="$WEB/admin"
 
@@ -442,26 +446,44 @@ stage "§6.9 限流与锁定 / §6.10 日志与密钥"
 ask TEST_PHONE "专用测试手机号（仅用于限流验证）："
 say "将连续发起 11 次错误登录；该账号会被锁定约 15 分钟，请使用专用测试号。"
 if confirm "执行 11 次错误登录？"; then
-  codes=()
-  for _ in $(seq 1 11); do
-    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST --max-time 10 \
-      -H 'Content-Type: application/json' \
-      -d "{\"phone\":\"$TEST_PHONE\",\"password\":\"wrong-password\"}" \
-      "$WEB/api/v1/c/auth/login" 2>/dev/null || true)
-    codes+=("$code")
-  done
-  sixth="${codes[5]:-}"
-  last="${codes[10]:-}"
-  if [[ "$sixth" == "40103" ]]; then
-    say "  ${GREEN}✓${RESET} 第 6 次登录返回 40103（账号锁定）"; record "§6.9 账号锁定" "PASS"
+  csrf_jar="$(mktemp)"
+  csrf_json=$(curl -s -c "$csrf_jar" --max-time 10 "$WEB/api/v1/c/auth/csrf" 2>/dev/null || true)
+  csrf_token=$(printf '%s' "$csrf_json" \
+    | sed -n 's/.*"token"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
+  if [[ -z "$csrf_token" ]]; then
+    warn "无法获取匿名 CSRF token，跳过锁定/限流检查"
+    record "§6.9 账号锁定" "FAIL"
+    record "§6.9 登录限流" "FAIL"
   else
-    warn "第 6 次登录返回 ${sixth:-无响应}，期望 40103"; record "§6.9 账号锁定" "FAIL"
+    codes=()
+    sixth_code=""
+    for i in $(seq 1 11); do
+      resp=$(curl -s -w '\n%{http_code}' -X POST --max-time 10 \
+        -b "$csrf_jar" -H "X-XSRF-TOKEN: $csrf_token" \
+        -H 'Content-Type: application/json' \
+        -d "{\"phone\":\"$TEST_PHONE\",\"password\":\"wrong-password\"}" \
+        "$WEB/api/v1/c/auth/login" 2>/dev/null || true)
+      http_code="${resp##*$'\n'}"
+      body="${resp%$'\n'*}"
+      codes+=("$http_code")
+      if [[ "$i" == "6" ]]; then
+        sixth_code=$(printf '%s' "$body" \
+          | sed -n 's/.*"code"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p')
+      fi
+    done
+    last="${codes[10]:-}"
+    if [[ "$sixth_code" == "40103" ]]; then
+      say "  ${GREEN}✓${RESET} 第 6 次登录返回 40103（账号锁定）"; record "§6.9 账号锁定" "PASS"
+    else
+      warn "第 6 次登录 body code=${sixth_code:-无响应}，期望 40103"; record "§6.9 账号锁定" "FAIL"
+    fi
+    if [[ "$last" == "429" ]]; then
+      say "  ${GREEN}✓${RESET} 第 11 次登录返回 429"; record "§6.9 登录限流" "PASS"
+    else
+      warn "第 11 次登录 HTTP=${last:-无响应}，期望 429"; record "§6.9 登录限流" "FAIL"
+    fi
   fi
-  if [[ "$last" == "429" ]]; then
-    say "  ${GREEN}✓${RESET} 第 11 次登录返回 429"; record "§6.9 登录限流" "PASS"
-  else
-    warn "第 11 次登录返回 ${last:-无响应}，期望 429"; record "§6.9 登录限流" "FAIL"
-  fi
+  rm -f "$csrf_jar"
 fi
 warn "短信 6 次/分会发真实短信，向导不自动执行；请用专用号码手工验证并记录。"
 if command -v gitleaks >/dev/null 2>&1; then

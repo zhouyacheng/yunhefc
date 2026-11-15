@@ -2,11 +2,11 @@
 
 ## 0. 当前阶段
 
-- **设计冻结**：需求 v1.15；设计文档 01 v0.13、02 v0.15、03 v1.15、04 v0.17、05 v0.23、06 v1.45。
+- **设计冻结**：需求 v1.15；设计文档 01 v0.13、02 v0.22、03 v1.20、04 v0.21、05 v0.32、06 v1.56。
 - **评审通过**：P-01~P-25 已确认；设计成果不再主动变更。
-- **代码状态**：`backend/` 骨架、Flyway V1–V5、M01（C/B 认证、RBAC、邀请、Redis 会话、Outbox、幂等、微信 mock/real 与失败分类、真实短信云市场 HTTP+APPCODE、prod 配置 fail-fast）、M02（PLR-01/03/05/06/07/08/09、STA-01）、M03（MAT-02/03/04/05/06/07/08/09/10/11/12 及 MATCH-05 自动流转）、M04（报名/候补/递补）、M05（ATT-01~06、赛后 +6h 自动缺勤、C03 签到、B03 报名/考勤）、M06（EVT-01~07、事件软删除与历史、推导比分、存储比分、C03 事件 Tab、B04 事件/比分）、stats 汇总（Quartz 每 10 分钟全量重算、汇总表批量 upsert、Redis 缓存、供分组读取的 `seasonStats`）、M07（LINEUP-01~08、B05 阵容板与模板管理、C03 阵容 Tab）与 M08（GRP-01~06、B06 生成/调整/保存/清除、C03 分组 Tab、名单变化与指纹冲突）已实现；`frontend/` pnpm workspace（C/B 壳层、登录、赛程/比赛列表、B03、B04、B05、B06、api-client/permissions/shared、Vitest + Playwright 黄金路径）已建立；`deploy/` 尚未创建。
+- **代码状态**：MVP 功能已全部实现。`backend/` 单部署单元覆盖 M01–M11 与横切支撑（认证/RBAC/邀请/Redis 会话/Outbox/Kafka、球员档案与球队页、比赛与状态机、报名/候补/递补、考勤与签到、事件与比分、阵容、分组、通知 NTF-01~04 + 7 类触发 + 90 天物理删除、审计查询与年度导出、系统设置、OSS 上传与签名读、真实短信与微信网页授权、prod 配置 fail-fast 与保留任务）；`frontend/` pnpm workspace 覆盖 C 端 C01–C09 与 B 端 B02–B11（B01 已下线），含 api-client/permissions/shared 与 Vitest + Playwright；`deploy/`（Docker Compose、Nginx、Dockerfile、RUNBOOK）与 `.github/workflows/ci.yml`、`deploy.yml` 已建立。
 - **原型定位**：`prototype/` 仅演示交互与信息架构，不是生产代码；正式实现以设计文档为准。
-- **下一步**：M05–M08 实施批次（`.scratch/m05-m08-build/issues/01`–`11`）已全部交付并收尾；下一步从 M09 通知或上线准备中选择新批次，先明确终点与范围再出票。
+- **下一步**：`.scratch/` 下实施票已全部关闭；下一阶段是生产 RC 验收——按 `.scratch/mvp-release/release-checklist.md` 与 `scripts/rc-acceptance-wizard.sh` 执行，先确认 cutover 窗口、外部凭证与验收证据口径；新的功能批次需先明确终点与范围再出票。
 
 ## 1. 唯一事实源
 
@@ -65,12 +65,12 @@ docs/design/       01–06 设计文档
 docs/rules/        database/api/kafka/logging/java 规则
 scripts/sql/       schema.sql、quartz.sql、test-data.sql
 prototype/         静态可交互原型
-backend/           (planned) Spring Boot 单部署单元
+backend/           Spring Boot 单部署单元
 frontend/          pnpm workspace
 frontend/apps/web/     C 端 Vue 3 + Vant
 frontend/apps/admin/   B 端 Vue 3 + Element Plus
 frontend/packages/     共享 API、权限与类型
-deploy/            (planned) Docker Compose、Nginx
+deploy/            Docker Compose、Nginx、Dockerfile、RUNBOOK
 ```
 
 - 后端分包按 03 §4：`common`、`contracts`、`infra`、`query`、`stats`、`auth`、`player`、`match`、`registration`、`attendance`、`event`、`lineup`、`grouping`、`notification`、`audit`、`settings`。
@@ -97,6 +97,7 @@ deploy/            (planned) Docker Compose、Nginx
 
 - 注释只写业务意图、复杂逻辑、关键设计原因；保持简洁。
 - 未经明确要求不提交 git；提交前先确认分支与变更范围。
+- 不允许切换到main/prod分支, main/prod分支不允许提交和推送, 在main/prod分支时先进行提示
 
 ## 6. 验证清单
 

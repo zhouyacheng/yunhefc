@@ -46,8 +46,14 @@ jobs:
           java-version: "21"
           cache: maven
       - name: Verify (unit + integration)
+        if: github.event_name == 'pull_request'
         working-directory: backend
         run: ./mvnw -B -ntp verify
+      # main 只产出 boot jar；测试已在 PR 阶段通过，不再重复 verify。
+      - name: Package boot jar (skip tests)
+        if: github.event_name == 'push'
+        working-directory: backend
+        run: ./mvnw -B -ntp package -DskipTests
       # main 上产出唯一的 boot jar，供 e2e 与 images 复用，避免重复构建。
       - name: Upload boot jar
         if: github.event_name == 'push'

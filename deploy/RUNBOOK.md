@@ -20,12 +20,13 @@
 └── state/previous         上一次可用版本目录；release.lock
 ```
 
-- ECS：系统盘 ≥40GB、2GB swap、Docker + Compose plugin；`deploy` 用户在 `docker` 组，非 root。
+- ECS：系统盘 ≥40GB、2GB swap、Docker + Compose plugin、`rsync`（`deploy.yml` 用它同步发布快照）；`deploy` 用户在 `docker` 组，非 root。
 - 验证：`free -m` 可用内存 <1.9GB 时，把 `docker-compose.prod.yml` 的 backend `-Xmx` 降至 384m、Kafka `-Xmx` 降至 192m；仍 OOM 则升配 4C8G。
 - 安装/更新发布脚本（脚本变更时执行一次）：
 
 ```bash
 sudo install -d -o deploy -g deploy /opt/yunhefc/{bin,releases,state,env,certs}
+sudo chown deploy:deploy /opt/yunhefc   # release.sh 需在根目录切换 current 符号链接
 sudo install -m 755 deploy/bin/release.sh /opt/yunhefc/bin/release.sh
 ```
 
@@ -123,6 +124,7 @@ printf 'IMAGE_TAG=sha-%s\n' "$sha7" > /opt/yunhefc/releases/$sha7/release.env
 
 脚本顺序：校验双镜像 → `docker compose pull backend nginx` → 写 `state/previous` → 切 `current` → 基础设施未运行时启动 `redis/kafka/kafka-init`（已运行则不动）→ `up -d --no-deps backend nginx` → readiness ≤180s → 冒烟（C 端首页、`/actuator/health`、公开读接口）。
 `compose up` 退出 0 不代表健康；以 readiness 与冒烟为准。任一步失败脚本退出非零，`current` 保留在失败版本。
+基础设施镜像（`yunhefc-infra-kafka`、`yunhefc-infra-redis`）来自 ACR，发布链路不访问 Docker Hub；首次启动前需确认这两个 tag 已由 CI `mirror-infra` 产出。
 
 ### 1.5 首位管理员
 
@@ -183,7 +185,7 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 
 发布前人工检查：
 
-1. ACR 中 `yunhefc-backend:sha-<7>` 与 `yunhefc-nginx:sha-<7>` 两个 manifest 都存在。
+1. ACR 中 `yunhefc-backend:sha-<7>`、`yunhefc-nginx:sha-<7>`、`yunhefc-infra-kafka:3.7.2`、`yunhefc-infra-redis:6.2.24` 四个 manifest 都存在。
 2. `flyway migrate` 已成功，`flyway_schema_history` 为最新。
 3. RDS 控制台可见：自动备份开启、保留 7 天、binlog 开启、最近备份与 PITR 可恢复时间点覆盖回滚窗口；覆盖不了则推迟发布。
 
@@ -329,7 +331,7 @@ COMMIT;
 # 容器健康
 docker ps --filter name=yunhefc-backend
 
-# readiness（DB + Redis）
+# readiness（DB + Redis + schema）
 compose_current exec backend \
   curl -fsS http://127.0.0.1:8080/actuator/health/readiness
 
@@ -369,7 +371,8 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 | `pull_request` | `backend` | 20 min | temurin 21 + Maven 缓存，`./mvnw -B -ntp verify`（含 `*IT`，Testcontainers 需要 runner 的 Docker） |
 | `pull_request` | `frontend` | 15 min | pnpm 12.16.1 / Node 24：`install --frozen-lockfile` → `typecheck` → `build` → `test` |
 | `push` main | `e2e` | 20 min | 依赖 `backend`；MySQL 8.4 + Redis 6.2.24 service + 真实后端 |
-| `push` main | `images` | 20 min | 依赖 `backend`/`frontend`/`e2e`；推送 ACR 双镜像 |
+| `push` main | `images` | 40 min | 依赖 `backend`/`frontend`/`e2e`；推送 ACR 双镜像 |
+| `push` main | `mirror-infra` | 10 min | 条件同步 `apache/kafka:3.7.2`、`redis:6.2.24` 到 ACR（已存在则跳过） |
 
 - 无 tag 发布、无路径过滤；PR 的三项检查均为必需检查，失败即阻断合并（分支保护见 §6.3）。
 - PR 并发组 `ci-<ref>` 取消旧运行；main 不取消，避免镜像/E2E 半途中断。

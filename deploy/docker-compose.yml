@@ -34,7 +34,7 @@ services:
       - app
 
   kafka:
-    image: apache/kafka:3.7.2
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY 未设置}/yunhefc-infra-kafka:3.7.2
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
@@ -72,7 +72,7 @@ services:
 
   # 一次性预创建 topic；禁止 broker 自动建 topic。
   kafka-init:
-    image: apache/kafka:3.7.2
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY 未设置}/yunhefc-infra-kafka:3.7.2
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
@@ -97,7 +97,7 @@ services:
       - app
 
   redis:
-    image: redis:6.2.24
+    image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY 未设置}/yunhefc-infra-redis:6.2.24
     command:
       - sh
       - -c

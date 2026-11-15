@@ -61,7 +61,7 @@ class ProdProfileYamlTest {
         assertThat(environment.getProperty("management.endpoint.health.probes.enabled", Boolean.class))
                 .isTrue();
         assertThat(environment.getProperty("management.endpoint.health.group.readiness.include"))
-                .isEqualTo("readinessState,db,redis");
+                .isEqualTo("readinessState,db,redis,schema");
         assertThat(environment.getProperty("logging.structured.json.context.include", Boolean.class))
                 .isTrue();
         assertThat(environment.getProperty("springdoc.api-docs.enabled", Boolean.class)).isFalse();

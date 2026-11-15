@@ -416,15 +416,23 @@ fi
 # ── Stage 9 ───────────────────────────────────────────────────────────────
 stage "§6.9 限流与锁定 / §6.10 日志与密钥"
 ask TEST_PHONE "专用测试手机号（仅用于限流验证）："
-say "将连续发起 11 次错误登录；该账号会被锁定约 1 分钟。"
+say "将连续发起 11 次错误登录；该账号会被锁定约 15 分钟，请使用专用测试号。"
 if confirm "执行 11 次错误登录？"; then
-  last=""
+  codes=()
   for _ in $(seq 1 11); do
-    last=$(curl -s -o /dev/null -w '%{http_code}' -X POST --max-time 10 \
+    code=$(curl -s -o /dev/null -w '%{http_code}' -X POST --max-time 10 \
       -H 'Content-Type: application/json' \
       -d "{\"phone\":\"$TEST_PHONE\",\"password\":\"wrong-password\"}" \
       "$WEB/api/v1/c/auth/login" 2>/dev/null || true)
+    codes+=("$code")
   done
+  sixth="${codes[5]:-}"
+  last="${codes[10]:-}"
+  if [[ "$sixth" == "40103" ]]; then
+    say "  ${GREEN}✓${RESET} 第 6 次登录返回 40103（账号锁定）"; record "§6.9 账号锁定" "PASS"
+  else
+    warn "第 6 次登录返回 ${sixth:-无响应}，期望 40103"; record "§6.9 账号锁定" "FAIL"
+  fi
   if [[ "$last" == "429" ]]; then
     say "  ${GREEN}✓${RESET} 第 11 次登录返回 429"; record "§6.9 登录限流" "PASS"
   else

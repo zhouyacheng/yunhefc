@@ -15,7 +15,7 @@
 ├── env/acr.env             600，ACR_REGISTRY / ACR_NAMESPACE / ACR_USERNAME / ACR_PASSWORD（只读拉取）
 ├── certs/                  fullchain.pem、privkey.pem（只读挂载到 nginx）
 ├── bin/release.sh          固定安装，不随发布自更新
-├── releases/<sha7>/        docker-compose.yml、docker-compose.prod.yml、release.env
+├── releases/<sha7>/        deploy/ 快照：compose、nginx/、bin/、*.Dockerfile、RUNBOOK.md、.env.example、release.env（不含 .env/.env.*）
 ├── current -> releases/<sha7>
 └── state/previous         上一次可用版本目录；release.lock
 ```
@@ -110,7 +110,8 @@ docker run --rm --network host \
 ```bash
 sha7=<7位commit>
 install -d /opt/yunhefc/releases/$sha7
-rsync -a --exclude '.env' deploy/ /opt/yunhefc/releases/$sha7/
+rsync -a --include '.env.example' --exclude '.env' --exclude '.env.*' \
+  --exclude 'rc-acceptance-results.md' deploy/ /opt/yunhefc/releases/$sha7/
 printf 'IMAGE_TAG=sha-%s\n' "$sha7" > /opt/yunhefc/releases/$sha7/release.env
 ```
 
@@ -380,7 +381,7 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 1. 发布前按 §1.3 用迁移账号执行 `flyway migrate`，并完成 §2 的发布前检查；workflow 不执行 SQL、不补迁移。
 2. 合并到 main 后等待 `ci` 的 `e2e` 与 `images` 成功，记下该 commit 的 7 位 sha。
 3. `Actions → deploy → Run workflow`：填 `sha`（7 位小写十六进制）与可选 `note`。
-4. workflow 依次：校验 sha 格式与仓库变量 → 校验 commit 属于 `origin/main` → `docker manifest inspect` 校验双镜像 → 固定主机指纹 SSH → 把目标 commit 的 compose 快照与 `release.env`（`IMAGE_TAG=sha-<7>`）写入 `/opt/yunhefc/releases/<sha7>/` → 执行 `release.sh --sha <sha7>`。
+4. workflow 依次：校验 sha 格式与仓库变量 → 校验 commit 属于 `origin/main` → `docker manifest inspect` 校验双镜像 → 固定主机指纹 SSH → 把目标 commit 的 `deploy/` 快照（compose、nginx、bin、Dockerfile、RUNBOOK；不含 `.env`/`.env.*`）与 `release.env`（`IMAGE_TAG=sha-<7>`）写入 `/opt/yunhefc/releases/<sha7>/` → 执行 `release.sh --sha <sha7>`。
 5. `production` Environment 的审批在 job 启动前生效；未批准不会触碰 ECS。
 6. 结束（无论成败）向 `DEPLOY_WEBHOOK_URL` 发送 result、stage、tag、actor、note 与 run URL；webhook 失败不影响 job 结果。
 7. 发布失败不自动回滚；回滚按 §2 手动执行 `release.sh --rollback`（或 `--rollback <sha7>`）。

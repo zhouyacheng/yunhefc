@@ -1,6 +1,11 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { collectConsoleErrors, loginAs } from './support';
+
+/** 清空预填月份，让只测其他条件的用例回到“全部时间”。 */
+async function clearMonth(page: Page): Promise<void> {
+  await page.getByRole('button', { name: '清除月份', exact: true }).click();
+}
 
 test('C02 赛程：状态筛选写入 URL，刷新后恢复', async ({ page }) => {
   const errors = collectConsoleErrors(page);
@@ -8,15 +13,18 @@ test('C02 赛程：状态筛选写入 URL，刷新后恢复', async ({ page }) =
   await page.goto('/matches');
   await expect(page.locator('.match-card')).toHaveCount(5);
 
+  await clearMonth(page);
   await page.locator('select[name="status"]').selectOption('4');
   await page.getByRole('button', { name: '搜索', exact: true }).click();
 
   await expect(page).toHaveURL(/status=4/);
+  await expect(page).toHaveURL(/month=all/);
   await expect(page.locator('.match-card')).toHaveCount(2);
   await expect(page.locator('.match-card-link').first()).toHaveAttribute('href', '/matches/1004');
 
   await page.reload();
   await expect(page.locator('select[name="status"]')).toHaveValue('4');
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('全部月份');
   await expect(page.locator('.match-card')).toHaveCount(2);
 
   expect(errors).toEqual([]);
@@ -26,6 +34,7 @@ test('C02 赛程：类型 0 作为有效筛选值', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 
   await page.goto('/matches');
+  await clearMonth(page);
   await page.locator('select[name="type"]').selectOption('0');
   await page.getByRole('button', { name: '搜索', exact: true }).click();
 
@@ -67,6 +76,7 @@ test('C02 赛程：重置清空 URL 与筛选', async ({ page }) => {
   await expect(page.locator('.match-card')).toHaveCount(5);
   await expect(page.locator('select[name="status"]')).toHaveValue('');
   await expect(page.locator('input[name="venue"]')).toHaveValue('');
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText(/^\d{4}-\d{2}$/);
 
   expect(errors).toEqual([]);
 });
@@ -89,6 +99,7 @@ test('C02 赛程：地点无匹配显示空态与重置入口', async ({ page })
   const errors = collectConsoleErrors(page);
 
   await page.goto('/matches');
+  await clearMonth(page);
   await page.locator('input[name="venue"]').fill('不存在球场');
   await page.getByRole('button', { name: '搜索', exact: true }).click();
 
@@ -99,6 +110,94 @@ test('C02 赛程：地点无匹配显示空态与重置入口', async ({ page })
   await page.getByRole('button', { name: '重置筛选', exact: true }).click();
   await expect(page).toHaveURL(/\/matches$/);
   await expect(page.locator('.match-card')).toHaveCount(5);
+
+  expect(errors).toEqual([]);
+});
+
+test('C02 赛程：默认预填当月但不自动筛选', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/matches');
+
+  await expect(page).not.toHaveURL(/month=|startDate=|endDate=/);
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText(/^\d{4}-\d{2}$/);
+  await expect(page.locator('.match-card')).toHaveCount(5);
+
+  expect(errors).toEqual([]);
+});
+
+test('C02 赛程：清空月份查看全部时间并可刷新恢复', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/matches');
+  await clearMonth(page);
+  await page.getByRole('button', { name: '搜索', exact: true }).click();
+
+  await expect(page).toHaveURL(/month=all/);
+  await expect(page.locator('.match-card')).toHaveCount(5);
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('全部月份');
+  await expect(page.locator('.match-card')).toHaveCount(5);
+
+  expect(errors).toEqual([]);
+});
+
+test('C02 赛程：月份筛选生效，重置后重新预填当月', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/matches?month=2020-01');
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('2020-01');
+  await expect(page.getByText('暂无符合条件的比赛')).toBeVisible();
+
+  await page.getByRole('button', { name: '重置', exact: true }).click();
+
+  await expect(page).toHaveURL(/\/matches$/);
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText(/^\d{4}-\d{2}$/);
+  await expect(page.locator('.match-card')).toHaveCount(5);
+
+  expect(errors).toEqual([]);
+});
+
+test('C02 赛程：自定义时间从 URL 恢复，选月份后清空范围', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/matches?startDate=2026-11-01&endDate=2026-11-01');
+  await expect(page.getByRole('button', { name: '选择自定义时间' })).toHaveText(
+    '2026-11-01 至 2026-11-01',
+  );
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('全部月份');
+
+  await page.getByRole('button', { name: '选择月份' }).click();
+  await page.getByRole('button', { name: '确认', exact: true }).click();
+  await expect(page.getByRole('button', { name: '选择自定义时间' })).toHaveText('选择日期范围');
+
+  await page.getByRole('button', { name: '搜索', exact: true }).click();
+  await expect(page).toHaveURL(/month=\d{4}-\d{2}/);
+  await expect(page).not.toHaveURL(/startDate|endDate/);
+
+  expect(errors).toEqual([]);
+});
+
+test('C02 赛程：Calendar 选择同一天范围并生效', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/matches');
+  await page.getByRole('button', { name: '选择自定义时间' }).click();
+  await expect(page.locator('.van-calendar')).toBeVisible();
+
+  const days = page.locator('.van-calendar__day:not(.van-calendar__day--disabled)');
+  await days.first().click();
+  await days.first().click();
+  await page.locator('.van-calendar__confirm').click();
+
+  await expect(page.getByRole('button', { name: '选择自定义时间' })).toHaveText(/至/);
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('全部月份');
+
+  await page.getByRole('button', { name: '搜索', exact: true }).click();
+  await expect(page).toHaveURL(/startDate=\d{4}-\d{2}-\d{2}/);
+  await expect(page).toHaveURL(/endDate=\d{4}-\d{2}-\d{2}/);
+  await expect(page).not.toHaveURL(/month=/);
 
   expect(errors).toEqual([]);
 });
@@ -130,6 +229,7 @@ test.describe('C02 赛程移动端', () => {
     await page.locator('.schedule-filters__trigger').click();
     await expect(page.locator('.schedule-filters__drawer')).toBeVisible();
 
+    await clearMonth(page);
     await page.locator('select[name="status"]').selectOption('4');
     await page.getByRole('button', { name: '搜索', exact: true }).click();
 

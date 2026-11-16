@@ -148,23 +148,44 @@
   function initMatches() {
     const host = $('#matches-content');
     if (!host) return;
-    const filters = { type: 'ALL', venue: '', status: 'ALL', year: 'ALL', month: 'ALL' };
+    const currentMonth = () => {
+      const now = new Date();
+      return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    };
+    const emptyApplied = () => ({
+      type: 'ALL',
+      venue: '',
+      status: 'ALL',
+      month: 'ALL',
+      startDate: '',
+      endDate: '',
+    });
+    // form 是草稿（月份预填当月），applied 才是实际过滤条件；首屏不按预填月份筛选。
+    const form = {
+      type: 'ALL',
+      venue: '',
+      status: 'ALL',
+      month: currentMonth(),
+      startDate: '',
+      endDate: '',
+    };
+    const applied = emptyApplied();
     let page = 1;
     let pageSize = 10;
     const types = Y.MATCH_TYPES.map((value) => [value, Y.typeLabel(value)]);
     const statuses = Y.MATCH_STATUSES;
-    const years = [...new Set(Y.state.matches.map((match) => new Date(match.start).getFullYear()))].sort((a, b) => b - a);
 
     host.innerHTML = `<div class="container section">
       <div class="page-head">
-        <div><span class="eyebrow">MATCHDAY</span><h1>赛程</h1><p class="muted">按比赛类型、地点、状态、年份、月份筛选；胜队名称以红色高亮</p></div>
+        <div><span class="eyebrow">MATCHDAY</span><h1>赛程</h1><p class="muted">按比赛类型、地点、状态、月份、自定义时间筛选；胜队名称以红色高亮</p></div>
       </div>
       <form class="schedule-filters" data-filter-form>
         <label class="filter-field"><span>比赛类型</span><select class="input input-sm" data-filter="type"><option value="ALL">全部</option>${types.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select></label>
         <label class="filter-field grow"><span>地点</span><input class="input input-sm" data-filter="venue" placeholder="搜索比赛地点"></label>
         <label class="filter-field"><span>比赛状态</span><select class="input input-sm" data-filter="status"><option value="ALL">全部</option>${statuses.map((value) => `<option value="${value}">${Y.statusLabel(value)}</option>`).join('')}</select></label>
-        <label class="filter-field"><span>年份</span><select class="input input-sm" data-filter="year"><option value="ALL">全部</option>${years.map((year) => `<option value="${year}">${year}年</option>`).join('')}</select></label>
-        <label class="filter-field"><span>月份</span><select class="input input-sm" data-filter="month"><option value="ALL">全部</option>${Array.from({ length: 12 }, (_, index) => `<option value="${index + 1}">${index + 1}月</option>`).join('')}</select></label>
+        <label class="filter-field"><span>月份</span><input class="input input-sm" type="month" data-filter="month"></label>
+        <label class="filter-field"><span>自定义时间（起）</span><input class="input input-sm" type="date" data-filter="startDate"></label>
+        <label class="filter-field"><span>自定义时间（止）</span><input class="input input-sm" type="date" data-filter="endDate"></label>
         <button class="btn btn-primary btn-sm" type="submit" data-search-filters>搜索</button>
         <button class="btn btn-ghost btn-sm" type="button" data-reset-filters>重置</button>
       </form>
@@ -173,14 +194,32 @@
       <div data-pagination></div>
     </div>`;
 
+    function dayStart(value) {
+      if (!value) return null;
+      const [year, month, day] = value.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+
     function filtered() {
-      const term = filters.venue.trim().toLowerCase();
+      const term = applied.venue.trim().toLowerCase();
+      const rangeStart = dayStart(applied.startDate);
+      const rangeEnd = dayStart(applied.endDate);
       return Y.state.matches.filter((match) => {
         const date = new Date(match.start);
-        if (filters.type !== 'ALL' && match.type !== filters.type) return false;
-        if (filters.status !== 'ALL' && match.status !== filters.status) return false;
-        if (filters.year !== 'ALL' && date.getFullYear() !== Number(filters.year)) return false;
-        if (filters.month !== 'ALL' && date.getMonth() + 1 !== Number(filters.month)) return false;
+        if (applied.type !== 'ALL' && match.type !== applied.type) return false;
+        if (applied.status !== 'ALL' && match.status !== applied.status) return false;
+        if (applied.month !== 'ALL') {
+          const month = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+          if (month !== applied.month) return false;
+        }
+        if (rangeStart && rangeEnd) {
+          const endExclusive = new Date(
+            rangeEnd.getFullYear(),
+            rangeEnd.getMonth(),
+            rangeEnd.getDate() + 1,
+          );
+          if (date < rangeStart || date >= endExclusive) return false;
+        }
         if (term && !(match.venue || '').toLowerCase().includes(term)) return false;
         return true;
       }).sort(sortMatches);
@@ -208,26 +247,48 @@
     }
 
     function sync() {
-      Object.keys(filters).forEach((key) => {
-        $(`[data-filter="${key}"]`, host).value = filters[key];
+      Object.keys(form).forEach((key) => {
+        $(`[data-filter="${key}"]`, host).value = form[key];
       });
       paint();
     }
 
     $('[data-filter-form]', host).addEventListener('submit', (event) => {
       event.preventDefault();
-      Object.keys(filters).forEach((key) => {
-        filters[key] = $(`[data-filter="${key}"]`, host).value;
+      Object.keys(form).forEach((key) => {
+        form[key] = $(`[data-filter="${key}"]`, host).value;
       });
+      Object.assign(applied, form);
+      if (applied.startDate && applied.endDate) {
+        // 自定义时间优先，与月份互斥。
+        applied.month = 'ALL';
+      } else {
+        applied.startDate = '';
+        applied.endDate = '';
+      }
       page = 1;
       paint();
     });
     $('[data-reset-filters]', host).addEventListener('click', () => {
-      Object.assign(filters, { type: 'ALL', venue: '', status: 'ALL', year: 'ALL', month: 'ALL' });
+      Object.assign(applied, emptyApplied());
+      Object.assign(form, emptyApplied(), { month: currentMonth() });
       page = 1;
       sync();
     });
-    paint();
+    // 月份与自定义时间互斥：选择任一侧即清空另一侧输入。
+    $('[data-filter="month"]', host).addEventListener('change', (event) => {
+      if (event.target.value) {
+        $('[data-filter="startDate"]', host).value = '';
+        $('[data-filter="endDate"]', host).value = '';
+      }
+    });
+    $('[data-filter="startDate"]', host).addEventListener('change', () => {
+      $('[data-filter="month"]', host).value = '';
+    });
+    $('[data-filter="endDate"]', host).addEventListener('change', () => {
+      $('[data-filter="month"]', host).value = '';
+    });
+    sync();
   }
 
   function initMatch() {

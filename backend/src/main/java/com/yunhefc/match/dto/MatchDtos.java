@@ -37,6 +37,8 @@ public final class MatchDtos {
             Integer status,
             String season,
             String month,
+            String startDate,
+            String endDate,
             String scope,
             String sort,
             long page,

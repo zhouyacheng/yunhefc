@@ -13,14 +13,15 @@ import {
   withScheduleFilters,
 } from './query';
 
+const noTimeFilters = { month: null, monthAll: false, startDate: null, endDate: null };
+
 describe('parseScheduleQuery', () => {
   it('falls back to defaults for an empty query', () => {
     expect(parseScheduleQuery({})).toEqual({
       type: null,
       venue: '',
       status: null,
-      season: null,
-      month: null,
+      ...noTimeFilters,
       page: 1,
       pageSize: DEFAULT_PAGE_SIZE,
     });
@@ -32,7 +33,6 @@ describe('parseScheduleQuery', () => {
         type: '9',
         status: '-1',
         month: '2026-13',
-        season: '26',
         page: '0',
         pageSize: '15',
       }),
@@ -40,25 +40,63 @@ describe('parseScheduleQuery', () => {
       type: null,
       venue: '',
       status: null,
-      season: null,
-      month: null,
+      ...noTimeFilters,
       page: 1,
       pageSize: DEFAULT_PAGE_SIZE,
     });
   });
 
-  it('lets month win over season', () => {
-    expect(parseScheduleQuery({ season: '2026', month: '2026-11' })).toMatchObject({
-      season: null,
+  it('parses a month filter', () => {
+    expect(parseScheduleQuery({ month: '2026-11' })).toMatchObject({
       month: '2026-11',
+      monthAll: false,
+      startDate: null,
+      endDate: null,
     });
   });
 
-  it('keeps season when month is illegal', () => {
-    expect(parseScheduleQuery({ season: '2025', month: '2026-13' })).toMatchObject({
-      season: '2025',
+  it('treats month=all as explicit no-time-filter', () => {
+    expect(parseScheduleQuery({ month: 'all' })).toMatchObject({
       month: null,
+      monthAll: true,
     });
+  });
+
+  it('lets a valid range win over month', () => {
+    expect(
+      parseScheduleQuery({
+        month: '2026-11',
+        startDate: '2026-11-01',
+        endDate: '2026-11-15',
+      }),
+    ).toMatchObject({
+      month: null,
+      monthAll: true,
+      startDate: '2026-11-01',
+      endDate: '2026-11-15',
+    });
+  });
+
+  it('ignores one-sided and reversed ranges', () => {
+    expect(parseScheduleQuery({ startDate: '2026-11-01', month: '2026-11' })).toMatchObject({
+      month: '2026-11',
+      monthAll: false,
+      startDate: null,
+      endDate: null,
+    });
+    expect(
+      parseScheduleQuery({
+        month: '2026-11',
+        startDate: '2026-11-15',
+        endDate: '2026-11-01',
+      }),
+    ).toMatchObject({ month: '2026-11', monthAll: false, startDate: null, endDate: null });
+  });
+
+  it('rejects impossible calendar dates', () => {
+    expect(parseScheduleQuery({ startDate: '2026-02-30', endDate: '2026-03-01' })).toMatchObject(
+      noTimeFilters,
+    );
   });
 
   it('takes the first value when a param repeats', () => {
@@ -80,50 +118,110 @@ describe('serializeScheduleQuery', () => {
       type: '1',
       venue: '聚龙',
       status: '4',
-      season: '2026',
+      month: '2026-11',
       page: '2',
       pageSize: '20',
     };
     expect(serializeScheduleQuery(parseScheduleQuery(raw))).toEqual(raw);
   });
 
-  it('omits season when month is present', () => {
+  it('writes month=all for explicit no-time-filter', () => {
     expect(
       serializeScheduleQuery({
         ...resetScheduleQuery(),
-        season: '2026',
-        month: '2026-11',
+        monthAll: true,
       }),
-    ).toEqual({ month: '2026-11' });
+    ).toEqual({ month: 'all' });
+  });
+
+  it('writes a range without month=all', () => {
+    expect(
+      serializeScheduleQuery({
+        ...resetScheduleQuery(),
+        monthAll: true,
+        startDate: '2026-11-01',
+        endDate: '2026-11-15',
+      }),
+    ).toEqual({ startDate: '2026-11-01', endDate: '2026-11-15' });
   });
 });
 
 describe('form conversion', () => {
-  it('clears season when a month is supplied', () => {
+  it('prefills the current Shanghai month for the default state', () => {
+    expect(toScheduleForm(parseScheduleQuery({}), new Date('2026-10-31T16:30:00Z'))).toMatchObject({
+      month: '2026-11',
+      startDate: '',
+      endDate: '',
+    });
+    expect(toScheduleForm(parseScheduleQuery({}), new Date('2026-10-31T15:30:00Z'))).toMatchObject({
+      month: '2026-10',
+    });
+  });
+
+  it('leaves month blank for explicit all and for ranges', () => {
+    expect(toScheduleForm(parseScheduleQuery({ month: 'all' })).month).toBe('');
+    expect(
+      toScheduleForm(parseScheduleQuery({ startDate: '2026-11-01', endDate: '2026-11-15' })),
+    ).toMatchObject({ month: '', startDate: '2026-11-01', endDate: '2026-11-15' });
+  });
+
+  it('applies a month when no range is supplied', () => {
     expect(
       fromScheduleForm({
         type: '1',
         venue: ' 聚龙 ',
         status: '4',
-        season: '2025',
         month: '2026-11',
+        startDate: '',
+        endDate: '',
       }),
     ).toEqual({
       type: 1,
       venue: '聚龙',
       status: 4,
-      season: null,
       month: '2026-11',
+      monthAll: false,
+      startDate: null,
+      endDate: null,
     });
   });
 
+  it('lets a valid range win over a month', () => {
+    expect(
+      fromScheduleForm({
+        type: '',
+        venue: '',
+        status: '',
+        month: '2026-11',
+        startDate: '2026-11-01',
+        endDate: '2026-11-15',
+      }),
+    ).toMatchObject({
+      month: null,
+      monthAll: true,
+      startDate: '2026-11-01',
+      endDate: '2026-11-15',
+    });
+  });
+
+  it('marks a cleared month without a range as explicit all', () => {
+    expect(
+      fromScheduleForm({
+        type: '',
+        venue: '',
+        status: '',
+        month: '',
+        startDate: '',
+        endDate: '',
+      }),
+    ).toMatchObject({ month: null, monthAll: true, startDate: null, endDate: null });
+  });
+
   it('maps a query back to form strings', () => {
-    expect(toScheduleForm(parseScheduleQuery({ type: '0', season: '2026', status: '4' }))).toEqual({
+    expect(toScheduleForm(parseScheduleQuery({ type: '0', status: '4' }))).toMatchObject({
       type: '0',
       venue: '',
       status: '4',
-      season: '2026',
-      month: '',
     });
   });
 });
@@ -137,8 +235,7 @@ describe('query transitions', () => {
         type: null,
         venue: '聚龙',
         status: null,
-        season: null,
-        month: null,
+        ...noTimeFilters,
       }),
     ).toMatchObject({ venue: '聚龙', page: 1, pageSize: DEFAULT_PAGE_SIZE });
   });
@@ -152,8 +249,7 @@ describe('query transitions', () => {
       type: null,
       venue: '',
       status: null,
-      season: null,
-      month: null,
+      ...noTimeFilters,
       page: 1,
       pageSize: 20,
     });
@@ -174,14 +270,13 @@ describe('toMatchListQuery', () => {
     });
   });
 
-  it('sends month instead of season and drops blank venue', () => {
+  it('sends month and drops blank venue', () => {
     expect(
       toMatchListQuery(
         parseScheduleQuery({
           type: '1',
           venue: '  ',
           status: '4',
-          season: '2025',
           month: '2026-11',
         }),
       ),
@@ -193,6 +288,29 @@ describe('toMatchListQuery', () => {
       type: 1,
       status: 4,
       month: '2026-11',
+    });
+  });
+
+  it('never sends month=all', () => {
+    expect(toMatchListQuery(parseScheduleQuery({ month: 'all' }))).not.toHaveProperty('month');
+  });
+
+  it('sends a date range instead of month', () => {
+    expect(
+      toMatchListQuery(
+        parseScheduleQuery({
+          month: '2026-11',
+          startDate: '2026-11-01',
+          endDate: '2026-11-15',
+        }),
+      ),
+    ).toEqual({
+      scope: 'all',
+      sort: 'startAt:desc',
+      page: 1,
+      pageSize: DEFAULT_PAGE_SIZE,
+      startDate: '2026-11-01',
+      endDate: '2026-11-15',
     });
   });
 });

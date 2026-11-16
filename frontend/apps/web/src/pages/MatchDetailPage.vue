@@ -70,6 +70,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
+import { adminUrl, openAdmin } from '../features/admin-handoff/admin-handoff';
 import { isPending } from '../features/auth/user-status';
 import InviteDialog from '../features/match-detail/InviteDialog.vue';
 import { type MatchInvitePayload } from '../features/match-detail/invite';
@@ -388,16 +389,26 @@ const groupingPositionRows = computed(() =>
 );
 const displayedScore = computed(() => eventDerived.value ?? match.value?.derivedScore ?? null);
 const showAdminLink = computed(() => session.isAuthenticated && isEventAdmin.value);
-const adminBase =
-  import.meta.env.VITE_ADMIN_URL ??
-  (import.meta.env.DEV ? 'http://localhost:5274/admin/' : '/admin/');
-const adminPrefix = adminBase.endsWith('/') ? adminBase : `${adminBase}/`;
-const adminEventsUrl = computed(() => `${adminPrefix}events?match=${matchId}`);
-const adminGroupingUrl = computed(() => `${adminPrefix}grouping?match=${matchId}`);
-const adminRegistrationsUrl = computed(() => `${adminPrefix}registrations?match=${matchId}`);
+const adminEventsUrl = computed(() => adminUrl({ path: '/events', query: { match: matchId } }));
+const adminGroupingUrl = computed(() => adminUrl({ path: '/grouping', query: { match: matchId } }));
+const adminRegistrationsUrl = computed(() =>
+  adminUrl({ path: '/registrations', query: { match: matchId } }),
+);
 const rosterAdminUrl = computed(() =>
   canManageRegistrations.value && removalAllowed.value ? adminRegistrationsUrl.value : null,
 );
+
+function openAdminTarget(path: string): void {
+  void openAdmin({ path, query: { match: matchId } });
+}
+
+function openRosterAdmin(): void {
+  if (!rosterAdminUrl.value) {
+    return;
+  }
+  saveRosterSnapshot();
+  void openAdmin({ path: '/registrations', query: { match: matchId } });
+}
 const goalCount = computed(() => events.value.filter((event) => event.type === 0).length);
 const cardCount = computed(
   () => events.value.filter((event) => event.type === 3 || event.type === 4).length,
@@ -1648,7 +1659,7 @@ onBeforeUnmount(() => {
                 :attendance-error="overviewAttendanceError"
                 :admin-url="rosterAdminUrl"
                 @retry="loadOverviewRoster(requestSeq)"
-                @admin-click="saveRosterSnapshot"
+                @admin-click="openRosterAdmin"
               />
               <section v-else-if="!session.isAuthenticated" class="card roster-hint">
                 <p class="muted">登录后查看名单与考勤</p>
@@ -1708,7 +1719,14 @@ onBeforeUnmount(() => {
             >
               录入事件
             </Button>
-            <a v-if="showAdminLink" class="ghost-link" :href="adminEventsUrl">去管理后台</a>
+            <a
+              v-if="showAdminLink"
+              class="ghost-link"
+              :href="adminEventsUrl"
+              @click.prevent="openAdminTarget('/events')"
+            >
+              去管理后台
+            </a>
           </div>
 
           <div v-if="eventsLoading" class="state state--inline">
@@ -1872,7 +1890,14 @@ onBeforeUnmount(() => {
               ><span>总分差</span>
             </div>
           </div>
-          <a v-if="canManageGrouping" class="ghost-link" :href="adminGroupingUrl">去管理后台</a>
+          <a
+            v-if="canManageGrouping"
+            class="ghost-link"
+            :href="adminGroupingUrl"
+            @click.prevent="openAdminTarget('/grouping')"
+          >
+            去管理后台
+          </a>
         </section>
 
         <section class="card grouping-panel">
@@ -2018,7 +2043,13 @@ onBeforeUnmount(() => {
 
         <p v-if="selectorError" class="action-error">
           {{ selectorError }}
-          <a v-if="showAdminLink" :href="adminGroupingUrl">去 B06 重新生成分组</a>
+          <a
+            v-if="showAdminLink"
+            :href="adminGroupingUrl"
+            @click.prevent="openAdminTarget('/grouping')"
+          >
+            去 B06 重新生成分组
+          </a>
           <span v-else>请联系管理员到 B06 重新生成分组</span>
         </p>
         <p v-if="eventFormError" class="action-error">{{ eventFormError }}</p>

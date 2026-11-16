@@ -1,6 +1,8 @@
 package com.yunhefc.auth.controller;
 
+import com.yunhefc.auth.application.AdminHandoffService;
 import com.yunhefc.auth.application.AuthService;
+import com.yunhefc.auth.dto.AuthDtos.AdminTicketExchangeRequest;
 import com.yunhefc.auth.dto.AuthDtos.AuthResult;
 import com.yunhefc.auth.dto.AuthDtos.BLoginResponse;
 import com.yunhefc.auth.dto.AuthDtos.BMeView;
@@ -33,6 +35,7 @@ import java.util.Map;
 public class BackendAuthController {
 
     private final AuthService authService;
+    private final AdminHandoffService adminHandoffService;
     private final AuthSessionService authSessionService;
     private final RedisRateLimiter rateLimiter;
     private final LoginRateLimitProperties loginRateLimit;
@@ -49,6 +52,18 @@ public class BackendAuthController {
         rateLimiter.check("login:" + Hashing.sha256(request.phone()) + ":" + servletRequest.getRemoteAddr(),
                 loginRateLimit.maxAttempts(), loginRateLimit.window());
         AuthResult result = authService.login(request, true);
+        String csrfToken = authSessionService.establish(
+                servletRequest, response, SessionKeys.B_USER_ID, result.user().id());
+        return ApiResponse.ok(new BLoginResponse(result.user(), result.permissions(), csrfToken));
+    }
+
+    /** C→B 免登录交接：票据即凭证，兑换后建立独立 B 会话。 */
+    @PostMapping("/auth/admin-ticket/exchange")
+    public ApiResponse<BLoginResponse> exchangeTicket(
+            @Valid @RequestBody AdminTicketExchangeRequest request,
+            HttpServletRequest servletRequest,
+            HttpServletResponse response) {
+        AuthResult result = adminHandoffService.consume(request.ticket());
         String csrfToken = authSessionService.establish(
                 servletRequest, response, SessionKeys.B_USER_ID, result.user().id());
         return ApiResponse.ok(new BLoginResponse(result.user(), result.permissions(), csrfToken));

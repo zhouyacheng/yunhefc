@@ -160,14 +160,34 @@ public class AuthService implements UserAccessPort {
         loginAttemptService.clear(request.phone());
 
         Set<String> permissions = permissions(user.getId());
-        if (backend && user.getStatus() == UserStatus.PENDING) {
-            throw new BusinessException(ErrorCode.ACCOUNT_PENDING);
-        }
-        if (backend && !BackendPermissions.hasBackendPermission(permissions)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN, "账号没有后台权限");
+        if (backend) {
+            requireBackendEligible(user, permissions);
         }
         userMapper.updateLastLoginAt(user.getId(), Instant.now(clock));
         return new AuthResult(userView(user), player(user.getId()), permissions);
+    }
+
+    /** 供 C→B 票据交接复用：账号可进入后台且具备任一后台权限。 */
+    public AuthResult requireBackendEligible(Long userId) {
+        AppUser user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.UNAUTHENTICATED);
+        }
+        Set<String> permissions = permissions(userId);
+        requireBackendEligible(user, permissions);
+        return new AuthResult(userView(user), player(userId), permissions);
+    }
+
+    private void requireBackendEligible(AppUser user, Set<String> permissions) {
+        if (user.getStatus() == UserStatus.DISABLED) {
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
+        }
+        if (user.getStatus() == UserStatus.PENDING) {
+            throw new BusinessException(ErrorCode.ACCOUNT_PENDING);
+        }
+        if (!BackendPermissions.hasBackendPermission(permissions)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN, "账号没有后台权限");
+        }
     }
 
     public MeView me(Long userId) {

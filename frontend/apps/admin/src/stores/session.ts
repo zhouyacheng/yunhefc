@@ -58,12 +58,27 @@ export const useSessionStore = defineStore('admin-session', () => {
     return pending;
   }
 
-  async function login(phone: string, password: string): Promise<void> {
-    const response = await api.post<BLoginResponse>('/auth/login', { phone, password });
+  async function establishSession(response: BLoginResponse): Promise<void> {
     api.setCsrfToken(response.csrfToken);
     const me = await api.get<BMeView>('/me', { redirectOnUnauthorized: false });
     apply(me);
     loaded.value = true;
+  }
+
+  async function login(phone: string, password: string): Promise<void> {
+    const response = await api.post<BLoginResponse>('/auth/login', { phone, password });
+    await establishSession(response);
+  }
+
+  /** C 端一次性票据换 B 会话；失败时保留可能已存在的有效会话。 */
+  async function exchangeTicket(ticket: string): Promise<void> {
+    api.clearCsrfToken();
+    const response = await api.post<BLoginResponse>(
+      '/auth/admin-ticket/exchange',
+      { ticket },
+      { redirectOnUnauthorized: false },
+    );
+    await establishSession(response);
   }
 
   async function logout(): Promise<void> {
@@ -85,6 +100,7 @@ export const useSessionStore = defineStore('admin-session', () => {
     homePath,
     ensureLoaded,
     login,
+    exchangeTicket,
     logout,
     clearSession,
   };

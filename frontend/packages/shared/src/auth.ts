@@ -46,6 +46,12 @@ export interface AuthResponse {
   csrfToken: string;
 }
 
+/** AUTH-18 响应：C→B 一次性交接票据。 */
+export interface AdminTicket {
+  ticket: string;
+  expiresIn: number;
+}
+
 /** AUTH-15 登录响应。 */
 export interface BLoginResponse {
   user: User;

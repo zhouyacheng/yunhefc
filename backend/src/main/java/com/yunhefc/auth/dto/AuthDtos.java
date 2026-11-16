@@ -76,6 +76,13 @@ public final class AuthDtos {
     public record BLoginResponse(UserView user, Set<String> permissions, String csrfToken) {
     }
 
+    public record AdminTicketResponse(String ticket, long expiresIn) {
+    }
+
+    public record AdminTicketExchangeRequest(
+            @NotBlank @Size(max = 128) String ticket) {
+    }
+
     public record MeView(
             UserView user,
             PlayerView player,

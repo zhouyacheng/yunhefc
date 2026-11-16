@@ -172,6 +172,41 @@ class MatchLifecycleIT extends IntegrationTestSupport {
     }
 
     @Test
+    void cancelRemovesSeasonMatchNoFromRedisList() throws Exception {
+        Cookie admin = bAdminLogin("13900000830");
+        Long matchId = createMatch(admin, "M03Redis取消", "2026-12-10T20:00:00");
+        int seasonMatchNo = jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, matchId);
+
+        cancel(admin, matchId, "Redis取消", 0)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(6));
+
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2099", 0, -1))
+                .doesNotContain(String.valueOf(seasonMatchNo));
+        assertThat(jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, matchId))
+                .isEqualTo(seasonMatchNo);
+    }
+
+    @Test
+    void createAfterCancellingLatestMatchSkipsOccupiedNumber() throws Exception {
+        Cookie admin = bAdminLogin("13900000831");
+        Long first = createMatch(admin, "M03Redis取消最高", "2026-12-10T20:00:00");
+        int firstNo = jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, first);
+        cancel(admin, first, "取消最高场次", 0).andExpect(status().isOk());
+
+        Long second = createMatch(admin, "M03Redis跳号", "2026-12-11T20:00:00");
+        int secondNo = jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, second);
+
+        assertThat(secondNo).isEqualTo(firstNo + 1);
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2099", 0, -1))
+                .containsExactly(String.valueOf(secondNo));
+    }
+
+    @Test
     void cancelKeepsRegistrationsAndRecordsReasonInAudit() throws Exception {
         Cookie admin = bAdminLogin("13900000804");
         Long formal = insertPlayer("13900000814", "M03取消正式");

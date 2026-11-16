@@ -57,6 +57,29 @@ function matchRow(page: Page, title: string): Locator {
   return page.locator('.el-table__row').filter({ hasText: title });
 }
 
+interface MatchAdminItem {
+  seasonMatchNo: number;
+  round: number | null;
+}
+
+/** 从管理端列表接口取系统分配的赛季场次编号，作为页面展示的独立事实源。 */
+async function matchAdminItemFor(
+  page: Page,
+  title: string,
+  season: string,
+): Promise<MatchAdminItem> {
+  const response = await page.request.get('/api/v1/b/matches', {
+    params: { season, pageSize: 50 },
+  });
+  expect(response.ok()).toBe(true);
+  const body = await response.json();
+  const item = (body.data.items as Array<MatchAdminItem & { title: string }>).find(
+    (match) => match.title === title,
+  );
+  expect(item).toBeTruthy();
+  return item!;
+}
+
 async function chooseStatus(page: Page, row: Locator, label: string): Promise<void> {
   await row.getByRole('button', { name: '状态' }).click();
   await page.locator('.el-dropdown-menu__item:visible').filter({ hasText: label }).first().click();
@@ -564,23 +587,11 @@ test('B 端：B02 比赛列表字段与赛季编辑', async ({ page }) => {
   await page.getByRole('button', { name: '新建比赛' }).click();
   const createDialog = page.locator('.el-dialog').filter({ hasText: '创建比赛' });
   await expect(createDialog).toBeVisible();
+  await expect(createDialog.locator('.el-form-item').filter({ hasText: /^场次/ })).toHaveCount(0);
   await createDialog.getByPlaceholder('例如 橙队VS兰队').fill(title);
   const createSeasonInput = createDialog.getByPlaceholder('如 2026');
   await createSeasonInput.fill('2077');
   await createSeasonInput.blur();
-  const createRoundInput = createDialog
-    .locator('.el-form-item')
-    .filter({ hasText: /^场次/ })
-    .locator('input')
-    .first();
-  await expect(createRoundInput).toHaveValue('1');
-  await createSeasonInput.fill('2026');
-  await createSeasonInput.blur();
-  await expect(createRoundInput).toHaveValue('');
-  await createSeasonInput.fill('2077');
-  await createSeasonInput.blur();
-  await expect(createRoundInput).toHaveValue('1');
-  await createRoundInput.fill('7');
   await fillDialogDateTime(createDialog, '开始时间', start);
   await fillDialogDateTime(createDialog, '结束时间', end);
   await createDialog.getByRole('button', { name: '创建比赛' }).click();
@@ -589,30 +600,50 @@ test('B 端：B02 比赛列表字段与赛季编辑', async ({ page }) => {
   await expect(createdRow).toBeVisible();
   const createdCells = createdRow.locator('td');
   await expect(createdCells.nth(0)).toHaveText('2077');
-  await expect(createdCells.nth(1)).toHaveText('7');
+  const created = await matchAdminItemFor(page, title, '2077');
+  await expect(createdCells.nth(1)).toHaveText(String(created.seasonMatchNo));
+  await expect(createdCells.nth(1)).toHaveText(/^\d+$/);
   await expect(createdCells.nth(4)).toHaveText(shanghaiDateTimeInput(start).replaceAll('-', '/'));
   await expect(createdCells.nth(5)).toHaveText(shanghaiDateTimeInput(end).replaceAll('-', '/'));
+
+  // 目标赛季先放一场，保证被编辑比赛重算后的 seasonMatchNo 与其 round 不同，
+  // 这样“场次”列若仍展示 round 就会被断言抓住。
+  const baselineTitle = `E2E基准${Date.now()}`;
+  await page.getByRole('button', { name: '新建比赛' }).click();
+  const baselineDialog = page.locator('.el-dialog').filter({ hasText: '创建比赛' });
+  await expect(baselineDialog).toBeVisible();
+  await baselineDialog.getByPlaceholder('例如 橙队VS兰队').fill(baselineTitle);
+  const baselineSeasonInput = baselineDialog.getByPlaceholder('如 2026');
+  await baselineSeasonInput.fill('2078');
+  await baselineSeasonInput.blur();
+  const baselineStart = futureInstant(16);
+  await fillDialogDateTime(baselineDialog, '开始时间', baselineStart);
+  await fillDialogDateTime(
+    baselineDialog,
+    '结束时间',
+    new Date(baselineStart.getTime() + 2 * 60 * 60 * 1000),
+  );
+  await baselineDialog.getByRole('button', { name: '创建比赛' }).click();
+  await expect(matchRow(page, baselineTitle)).toBeVisible();
 
   await createdRow.getByRole('button', { name: '编辑' }).click();
   const editDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
   await expect(editDialog).toBeVisible();
+  await expect(editDialog.locator('.el-form-item').filter({ hasText: /^场次/ })).toHaveCount(0);
   const seasonInput = editDialog.getByPlaceholder('如 2026');
   await expect(seasonInput).toBeEditable();
   await expect(seasonInput).toHaveValue('2077');
-  const roundInput = editDialog
-    .locator('.el-form-item')
-    .filter({ hasText: /^场次/ })
-    .locator('input')
-    .first();
-  await expect(roundInput).toHaveValue('7');
   await seasonInput.fill('2078');
-  await roundInput.fill('');
-  await roundInput.blur();
+  await seasonInput.blur();
   await editDialog.getByRole('button', { name: '保存修改' }).click();
 
   const editedRow = matchRow(page, title);
   await expect(editedRow.locator('td').nth(0)).toHaveText('2078');
-  await expect(editedRow.locator('td').nth(1)).toHaveText('—');
+  const edited = await matchAdminItemFor(page, title, '2078');
+  // round 不随赛季变化，seasonMatchNo 会重算；两者不同才能证明列表取的是 seasonMatchNo。
+  expect(edited.seasonMatchNo).not.toBe(edited.round);
+  await expect(editedRow.locator('td').nth(1)).toHaveText(String(edited.seasonMatchNo));
+  await expect(editedRow.locator('td').nth(1)).toHaveText(/^\d+$/);
 
   expect(errors).toEqual([]);
 });
@@ -1344,4 +1375,12 @@ test('B 端：B11 比赛邀请未选比赛时阻止提交', async ({ page }) => 
   expect(errors.filter((message) => !(rateLimited && message.includes('status of 429')))).toEqual(
     [],
   );
+});
+
+test('无效交接票据回到登录页并提示', async ({ page }) => {
+  await page.goto('/admin/#ticket=invalid');
+
+  await expect(page).toHaveURL(/\/admin\/login\?redirect=/);
+  await expect(page.getByText('自动登录已失效，请重新登录')).toBeVisible();
+  await expect(page.getByPlaceholder('请输入手机号')).toBeVisible();
 });

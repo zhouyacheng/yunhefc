@@ -9,6 +9,7 @@ import java.time.Duration;
 public record SessionProperties(
         @DefaultValue("7d") Duration cTtl,
         @DefaultValue("2h") Duration bTtl,
+        @DefaultValue("60s") Duration handoffTtl,
         @DefaultValue("") String cookieDomain,
         @DefaultValue("false") boolean cookieSecure,
         @DefaultValue("Lax") String sameSite) {

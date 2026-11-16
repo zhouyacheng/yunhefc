@@ -78,8 +78,7 @@ function attendanceText(entry: RosterEntry): string {
         class="ghost-link"
         data-testid="roster-admin-link"
         :href="adminUrl"
-        @mousedown="emit('adminClick')"
-        @click="emit('adminClick')"
+        @click.prevent="emit('adminClick')"
       >
         去 B03 管理报名
       </a>

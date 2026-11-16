@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { hasBackendPermission } from '@yunhefc/permissions';
 import { Tabbar, TabbarItem } from 'vant';
 import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import logoUrl from '../assets/logo.png';
 import { useNotificationPolling } from '../composables/useNotificationPolling';
+import { adminUrl, openAdmin } from '../features/admin-handoff/admin-handoff';
 import { useSessionStore } from '../stores/session';
 import { hasSessionHint } from '../stores/session-hint';
 
@@ -34,6 +36,17 @@ const route = useRoute();
 const router = useRouter();
 
 useNotificationPolling();
+
+/** 后台入口仅对具备任一后台权限的账号显示（02 §2.4）。 */
+const canEnterAdmin = computed(
+  () => session.isAuthenticated && hasBackendPermission(session.permissions),
+);
+const adminEntryUrl = computed(() => adminUrl({ path: '/' }));
+
+function onAdminEntry(event: MouseEvent): void {
+  event.preventDefault();
+  void openAdmin({ path: '/' });
+}
 
 const unreadBadge = computed<string | number | undefined>(() => {
   const count = session.unreadCount;
@@ -83,6 +96,15 @@ onMounted(() => {
         >
           {{ tab.label }}
         </RouterLink>
+        <a
+          v-if="canEnterAdmin"
+          class="c-nav__link"
+          data-testid="admin-entry"
+          :href="adminEntryUrl"
+          @click="onAdminEntry"
+        >
+          管理后台
+        </a>
       </nav>
       <RouterLink v-if="session.isAuthenticated" class="c-user" to="/profile">
         {{ session.user?.name }}

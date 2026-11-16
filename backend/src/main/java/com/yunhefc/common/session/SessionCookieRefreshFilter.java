@@ -22,6 +22,7 @@ public class SessionCookieRefreshFilter extends OncePerRequestFilter {
             "POST /api/v1/c/auth/register",
             "POST /api/v1/c/auth/logout",
             "POST /api/v1/b/auth/login",
+            "POST /api/v1/b/auth/admin-ticket/exchange",
             "POST /api/v1/b/auth/logout",
             "POST /api/v1/c/auth/wechat/bind-phone",
             "GET /api/v1/c/auth/wechat/callback");

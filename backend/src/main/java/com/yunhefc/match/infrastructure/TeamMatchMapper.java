@@ -24,6 +24,25 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
             """)
     Long maxSeasonMatchNo(@Param("teamId") Long teamId, @Param("season") String season);
 
+    // 重建 Redis 列表用：只取仍在赛程中的场次号（不含已取消）。
+    @Select("""
+            SELECT season_match_no FROM team_match
+            WHERE team_id = #{teamId} AND season = #{season}
+              AND is_deleted = 0 AND status <> #{cancelled}
+            """)
+    List<Integer> activeSeasonMatchNos(@Param("teamId") Long teamId,
+                                       @Param("season") String season,
+                                       @Param("cancelled") int cancelled);
+
+    // 候选号是否已被占用：与唯一键同口径，含已取消/伪删除记录。
+    @Select("""
+            SELECT COUNT(*) FROM team_match
+            WHERE team_id = #{teamId} AND season = #{season} AND season_match_no = #{seasonMatchNo}
+            """)
+    int countSeasonMatchNo(@Param("teamId") Long teamId,
+                           @Param("season") String season,
+                           @Param("seasonMatchNo") int seasonMatchNo);
+
     // 编辑前锁定比赛行：与报名域的名额行锁串行化，避免计数与容量校验之间插队。
     @Select("""
             SELECT * FROM team_match

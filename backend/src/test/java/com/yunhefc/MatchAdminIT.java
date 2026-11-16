@@ -153,6 +153,46 @@ class MatchAdminIT extends IntegrationTestSupport {
     }
 
     @Test
+    void createRecordsSeasonMatchNoInRedisList() throws Exception {
+        Cookie admin = adminLogin("13900000531");
+        MvcResult result = create(admin, matchBody("M03Redis场次", 1, "2095", "2026-12-25T20:00:00"));
+        createdMatchIds.add(id(result));
+        Integer seasonMatchNo = com.jayway.jsonpath.JsonPath.read(
+                result.getResponse().getContentAsString(), "$.data.seasonMatchNo");
+
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2095", 0, -1))
+                .containsExactly(String.valueOf(seasonMatchNo));
+    }
+
+    @Test
+    void createTakesNextNumberFromRedisListMax() throws Exception {
+        Cookie admin = adminLogin("13900000532");
+        MvcResult first = create(admin, matchBody("M03Redis已有", 1, "2094", "2026-12-26T20:00:00"));
+        createdMatchIds.add(id(first));
+        redisTemplate.opsForList().rightPush("yunhefc:season:2094", "9");
+
+        MvcResult second = create(admin, matchBody("M03Redis下一场", 1, "2094", "2026-12-27T20:00:00"));
+        createdMatchIds.add(id(second));
+        Integer seasonMatchNo = com.jayway.jsonpath.JsonPath.read(
+                second.getResponse().getContentAsString(), "$.data.seasonMatchNo");
+
+        assertThat(seasonMatchNo).isEqualTo(10);
+    }
+
+    @Test
+    void createRebuildsMissingSeasonListFromDatabase() throws Exception {
+        Cookie admin = adminLogin("13900000533");
+        createdMatchIds.add(id(create(admin, matchBody("M03Redis重建A", 1, "2093", "2026-12-26T20:00:00"))));
+        createdMatchIds.add(id(create(admin, matchBody("M03Redis重建B", 1, "2093", "2026-12-27T20:00:00"))));
+        redisTemplate.delete("yunhefc:season:2093");
+
+        createdMatchIds.add(id(create(admin, matchBody("M03Redis重建C", 1, "2093", "2026-12-28T20:00:00"))));
+
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2093", 0, -1))
+                .containsExactlyInAnyOrder("1", "2", "3");
+    }
+
+    @Test
     void createValidatesTimeScoreSideAndFields() throws Exception {
         Cookie admin = adminLogin("13900000502");
 

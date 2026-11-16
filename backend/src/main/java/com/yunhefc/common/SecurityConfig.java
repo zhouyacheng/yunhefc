@@ -62,7 +62,8 @@ public class SecurityConfig {
                                 "/api/v1/c/auth/login",
                                 "/api/v1/c/auth/password/reset",
                                 "/api/v1/c/auth/wechat/bind-phone",
-                                "/api/v1/b/auth/login").permitAll()
+                                "/api/v1/b/auth/login",
+                                "/api/v1/b/auth/admin-ticket/exchange").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/c/invites/**").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/c/team/players",

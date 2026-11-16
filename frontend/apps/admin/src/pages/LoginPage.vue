@@ -19,6 +19,7 @@ const errorMessage = ref('');
 const errorCode = ref<number | null>(null);
 
 const noBackendPermission = computed(() => errorCode.value === ERROR_CODES.FORBIDDEN);
+const handoffFailed = computed(() => route.query.handoff === 'failed');
 
 async function submit(): Promise<void> {
   errorMessage.value = '';
@@ -75,6 +76,14 @@ async function submit(): Promise<void> {
           />
         </el-form-item>
 
+        <el-alert
+          v-if="handoffFailed"
+          class="login-alert"
+          type="warning"
+          title="自动登录已失效，请重新登录"
+          :closable="false"
+          show-icon
+        />
         <el-alert
           v-if="errorMessage"
           class="login-alert"

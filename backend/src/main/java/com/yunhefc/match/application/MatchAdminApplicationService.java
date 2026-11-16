@@ -27,6 +27,7 @@ import com.yunhefc.match.dto.MatchDtos.MatchCreateRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchScheduleRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchStatusRequest;
 import com.yunhefc.match.dto.MatchDtos.MatchUpdateRequest;
+import com.yunhefc.match.infrastructure.SeasonMatchNoStore;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.CannotAcquireLockException;
@@ -54,6 +55,7 @@ public class MatchAdminApplicationService {
     private static final String OUR_TEAM_MARKER = "云河FC";
 
     private final TeamMatchMapper teamMatchMapper;
+    private final SeasonMatchNoStore seasonMatchNoStore;
     private final RegistrationDefaultsPort registrationDefaultsPort;
     private final RegistrationReadPort registrationReadPort;
     private final AuditRecorder auditRecorder;
@@ -163,6 +165,8 @@ public class MatchAdminApplicationService {
         }
 
         Map<String, Object> before = MatchAuditSnapshot.of(match);
+        String previousSeason = match.getSeason();
+        int previousSeasonMatchNo = match.getSeasonMatchNo();
         applyChanges(teamId, match, request);
 
         int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
@@ -200,6 +204,10 @@ public class MatchAdminApplicationService {
         }
 
         TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+        if (!saved.getSeason().equals(previousSeason)) {
+            seasonMatchNoStore.recordAfterCommit(teamId, saved.getSeason(), saved.getSeasonMatchNo());
+            seasonMatchNoStore.forgetAfterCommit(teamId, previousSeason, previousSeasonMatchNo);
+        }
         auditRecorder.recordCurrent("MATCH_UPDATE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
         return toView(saved, counts(matchId));
     }
@@ -222,6 +230,7 @@ public class MatchAdminApplicationService {
             throw versionConflict(match.getVersion());
         }
 
+        MatchStatus previous = match.getStatus();
         Map<String, Object> before = MatchAuditSnapshot.of(match);
         // 未显式恢复自动流转时，手动修改默认停止自动流转。
         boolean manualStatus = request.manualStatus() == null || request.manualStatus();
@@ -243,6 +252,9 @@ public class MatchAdminApplicationService {
         }
 
         TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
+        if (previous == MatchStatus.CANCELLED) {
+            seasonMatchNoStore.recordAfterCommit(teamId, saved.getSeason(), saved.getSeasonMatchNo());
+        }
         auditRecorder.recordCurrent("MATCH_STATUS_CHANGE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
         return toView(saved, counts(matchId));
     }
@@ -373,6 +385,7 @@ public class MatchAdminApplicationService {
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
                 current -> MatchStatusMachine.requireCancellable(current.getStatus()));
+        seasonMatchNoStore.forgetAfterCommit(teamId, saved.getSeason(), saved.getSeasonMatchNo());
         String reason = request.reason().strip();
         Map<String, Object> after = MatchAuditSnapshot.of(saved);
         after.put("reason", reason);
@@ -460,7 +473,7 @@ public class MatchAdminApplicationService {
             String season = seasonForUpdate(request.getSeason());
             if (!season.equals(match.getSeason())) {
                 match.setSeason(season);
-                match.setSeasonMatchNo((int) (teamMatchMapper.maxSeasonMatchNo(teamId, season) + 1));
+                match.setSeasonMatchNo(seasonMatchNoStore.next(teamId, season));
             }
         }
         if (request.getIncludeGuests() != null) {
@@ -606,11 +619,12 @@ public class MatchAdminApplicationService {
 
     private MatchAdminView persist(Long teamId, TeamMatch match, Integer requestedRound) {
         match.setId(null);
-        int seasonMatchNo = (int) (teamMatchMapper.maxSeasonMatchNo(teamId, match.getSeason()) + 1);
+        int seasonMatchNo = seasonMatchNoStore.next(teamId, match.getSeason());
         match.setSeasonMatchNo(seasonMatchNo);
         match.setRound(requestedRound == null ? seasonMatchNo : requestedRound);
         match.setTotalMatchNo((int) (teamMatchMapper.maxTotalMatchNo(teamId) + 1));
         teamMatchMapper.insert(match);
+        seasonMatchNoStore.recordAfterCommit(teamId, match.getSeason(), match.getSeasonMatchNo());
         TeamMatch saved = teamMatchMapper.selectById(match.getId());
         auditRecorder.recordCurrent("MATCH_CREATE", "MATCH", saved.getId(), null, MatchAuditSnapshot.of(saved));
         return toView(saved, RegistrationQueueCounts.EMPTY);

@@ -104,7 +104,6 @@ export interface MatchCreate {
   format?: string;
   competition?: string | null;
   season?: string;
-  round?: number | null;
   ourSide?: MatchSide;
   capacity?: number;
   guestCapacity?: number;
@@ -121,7 +120,6 @@ export interface MatchUpdate {
   endAt?: string;
   venue?: string;
   competition?: string | null;
-  round?: number | null;
   season?: string;
   homeTeamName?: string;
   awayTeamName?: string;

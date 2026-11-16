@@ -577,8 +577,8 @@ test('B 端：B02 比赛列表字段与赛季编辑', async ({ page }) => {
     text.trim(),
   );
   expect(headerTexts.slice(0, 4)).toEqual(['赛季', '场次', '比赛', '类型']);
-  expect(headerTexts.some((text) => text.includes('比赛开始时间'))).toBe(true);
-  expect(headerTexts.some((text) => text.includes('比赛结束时间'))).toBe(true);
+  expect(headerTexts.some((text) => text.includes('开始时间'))).toBe(true);
+  expect(headerTexts.some((text) => text.includes('结束时间'))).toBe(true);
 
   const title = `E2E比赛字段${Date.now()}`;
   const start = futureInstant(15);

@@ -121,13 +121,19 @@ VALUES
    '聚龙足球场', NULL, '2026', 2, '橙队', '兰队', NULL,
    4, 0, 30, 4, 2, 1, 2, 2, 2, 2, 0, 1001);
 
--- 重放时 INSERT IGNORE 不更新既有行，单独把 1001 的滚动时间写回。
+-- 重放时 INSERT IGNORE 不更新既有行，单独把 1001 的滚动时间与状态写回。
 UPDATE team_match
 SET start_at = @locked_start,
     end_at = DATE_ADD(@locked_start, INTERVAL 2 HOUR),
     signup_deadline = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR),
-    cancel_lock = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 150 MINUTE)
+    cancel_lock = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),
+    status = 2, manual_status = 1, version = 0, is_deleted = 0
 WHERE id = 1001;
+
+-- 1002 已结束场次同样需要复位，避免上一轮 E2E 改写的状态/版本残留。
+UPDATE team_match
+SET status = 4, manual_status = 0, version = 0, is_deleted = 0
+WHERE id = 1002;
 
 -- 报名：1001 场 19 人（15 正式 + 4 外挂），1002 场 12 人（10 正式 + 2 外挂）
 INSERT IGNORE INTO registration (match_id, player_id, type, status, registered_at)
@@ -156,7 +162,8 @@ ON DUPLICATE KEY UPDATE
   start_at = VALUES(start_at), end_at = VALUES(end_at),
   signup_deadline = VALUES(signup_deadline), cancel_lock = VALUES(cancel_lock),
   season = VALUES(season), status = VALUES(status), manual_status = VALUES(manual_status),
-  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no);
+  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no),
+  version = 0;
 
 -- 1002（测试登录账号）在 1003 场确认报名；重跑脚本时重置考勤，保证签到黄金路径可重复执行。
 INSERT INTO registration (match_id, player_id, type, status, registered_at)
@@ -183,7 +190,8 @@ ON DUPLICATE KEY UPDATE
   start_at = VALUES(start_at), end_at = VALUES(end_at),
   signup_deadline = VALUES(signup_deadline), cancel_lock = VALUES(cancel_lock),
   season = VALUES(season), status = VALUES(status), manual_status = VALUES(manual_status),
-  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no);
+  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no),
+  version = 0;
 
 INSERT INTO registration (match_id, player_id, type, status, registered_at)
 VALUES (1004, 1002, 1, 0, UTC_TIMESTAMP())

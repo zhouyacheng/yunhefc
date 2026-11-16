@@ -94,7 +94,7 @@
       </div>
     </section>
     ${recent.length ? `<section class="container section">
-      <div class="section-head"><div><h2>历史赛程</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部赛程 →</a></div>
+      <div class="section-head"><div><h2>最近赛程</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部赛程 →</a></div>
       <div class="match-grid">${recent.map(Y.renderMatchCard).join('')}</div>
     </section>` : ''}
     <section class="container section">

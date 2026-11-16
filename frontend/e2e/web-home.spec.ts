@@ -19,8 +19,8 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
     /\d{4}\/\d{2}\/\d{2} \d{2}:\d{2} ~ (?:\d{2}\/\d{2} )?\d{2}:\d{2}/,
   );
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
-  // 历史赛程取 Hero 之后的 3 场：1003、1005、1004。
-  await expect(page.getByRole('heading', { name: '历史赛程' })).toBeVisible();
+  // 最近赛程取 Hero 之后的 3 场：1003、1005、1004。
+  await expect(page.getByRole('heading', { name: '最近赛程' })).toBeVisible();
   await expect(page.locator('.home-section .match-card')).toHaveCount(3);
   await expect(page.locator('.home-section .match-card-link[href="/matches/1001"]')).toHaveCount(0);
   await expect(page.locator('.home-section .match-card-link').first()).toHaveAttribute(
@@ -56,6 +56,70 @@ test('C01 首页：登录球员看到最近一场与报名队列', async ({ page
   await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
 
   expect(errors).toEqual([]);
+});
+
+test('C01 首页：报名后静默刷新失败可重试', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  let listCalls = 0;
+
+  // 种子 Hero 1001 已锁定，1023 无法报名；仅改写列表响应把可报名的 1005 置顶，
+  // 报名仍走真实 POST，静默刷新失败一次后验证「重试刷新」恢复。
+  await page.route(
+    (url) =>
+      url.pathname === '/api/v1/c/matches' &&
+      url.searchParams.get('sort') === 'startAt:desc' &&
+      url.searchParams.get('pageSize') === '4',
+    async (route) => {
+      listCalls += 1;
+      if (listCalls === 2) {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ code: 50001, message: '刷新失败', data: null }),
+        });
+        return;
+      }
+      const response = await route.fetch();
+      const body = await response.json();
+      const items = body.data.items as Array<{ id: number }>;
+      const hero = items.find((item) => item.id === 1005);
+      if (hero) {
+        body.data.items = [hero, ...items.filter((item) => item.id !== 1005)];
+      }
+      await route.fulfill({ response, json: body });
+    },
+  );
+
+  await loginAs(page, '13910000023');
+  await page.locator('.van-tabbar-item').filter({ hasText: '首页' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('button', { name: '报名', exact: true })).toBeVisible();
+
+  try {
+    const responsePromise = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/v1/c/matches/1005/registrations' &&
+        response.request().method() === 'POST',
+    );
+    await page.getByRole('button', { name: '报名', exact: true }).click();
+    expect((await responsePromise).ok()).toBe(true);
+
+    await expect(page.getByText('刷新失败')).toBeVisible();
+    await expect(page.getByRole('button', { name: '重试刷新' })).toBeVisible();
+
+    await page.getByRole('button', { name: '重试刷新' }).click();
+    await expect(page.getByRole('button', { name: '重试刷新' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
+    await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
+    expect(errors).toEqual([]);
+  } finally {
+    // 清理本用例产生的报名，避免同一次运行中的后续 spec 受残留影响。
+    await page.request
+      .delete('/api/v1/c/matches/1005/registrations/me', {
+        headers: { 'Idempotency-Key': `e2e-home-refresh-${Date.now()}` },
+      })
+      .catch(() => undefined);
+  }
 });
 
 test('C01 首页：加载失败可重试', async ({ page }) => {

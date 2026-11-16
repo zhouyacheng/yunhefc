@@ -92,7 +92,7 @@ async function load(silent = false): Promise<void> {
     if (seq !== requestSeq) {
       return;
     }
-    // Hero 取全部比赛里开赛时间最大的一条；历史赛程取其后 3 场，不重复展示 Hero。
+    // Hero 取全部比赛里开赛时间最大的一条；最近赛程取其后 3 场，不重复展示 Hero。
     const [first] = page.items;
     matches.value = page.items.filter((match) => match.id !== first?.id).slice(0, 3);
     if (!first) {
@@ -307,7 +307,7 @@ onUnmounted(() => {
 
       <section v-if="matches.length > 0" class="home-section">
         <div class="card-head">
-          <h2>历史赛程</h2>
+          <h2>最近赛程</h2>
           <RouterLink class="ghost-link" to="/matches">全部赛程 →</RouterLink>
         </div>
 

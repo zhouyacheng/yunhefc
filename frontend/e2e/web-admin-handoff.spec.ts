@@ -38,6 +38,22 @@ test('待审核账号不显示管理后台入口', async ({ page }) => {
   await expect(page.getByTestId('admin-entry')).toHaveCount(0);
 });
 
+test('首页 Hero 为后台权限账号显示管理后台入口', async ({ page }) => {
+  await loginAs(page, '13910000001');
+  await page.goto('/');
+
+  await expect(page.locator('.home-hero')).toBeVisible();
+  await expect(page.getByTestId('hero-admin-entry')).toBeVisible();
+});
+
+test('无后台权限的账号在首页 Hero 不显示管理后台入口', async ({ page }) => {
+  await loginAs(page, '13910000016');
+  await page.goto('/');
+
+  await expect(page.locator('.home-hero')).toBeVisible();
+  await expect(page.getByTestId('hero-admin-entry')).toHaveCount(0);
+});
+
 test('直接访问 /admin/ 不会复用 C 端会话', async ({ page }) => {
   await loginAs(page, '13910000001');
 

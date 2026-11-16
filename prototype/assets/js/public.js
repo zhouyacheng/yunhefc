@@ -61,6 +61,7 @@
           <div class="hero-actions">
             <a class="btn btn-primary" href="matches.html">查看赛程</a>
             <button class="btn btn-ghost" data-signup-next${ctaDisabled ? ' disabled' : ''}>${cta}</button>
+            ${Y.canAccessAdmin(user) ? '<a class="btn btn-primary" href="admin.html">管理后台</a>' : ''}
           </div>
           <p class="hero-note">当前身份：${Y.roleLabel(Y.userRole())} · 数据保存在本地浏览器</p>
         </div>

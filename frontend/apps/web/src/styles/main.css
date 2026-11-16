@@ -277,6 +277,14 @@ textarea {
   background: var(--yh-indigo-soft);
 }
 
+/* Hero 常展示最近一场已结束比赛，状态标签需比列表更醒目。 */
+.home-hero .status-tag--finished.van-tag {
+  color: #ffffff;
+  background: var(--yh-indigo-ink);
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .status-tag--type.van-tag {
   background: var(--yh-type-soft);
 }

@@ -130,11 +130,6 @@ SET start_at = @locked_start,
     status = 2, manual_status = 1, version = 0, is_deleted = 0
 WHERE id = 1001;
 
--- 1002 已结束场次同样需要复位，避免上一轮 E2E 改写的状态/版本残留。
-UPDATE team_match
-SET status = 4, manual_status = 0, version = 0, is_deleted = 0
-WHERE id = 1002;
-
 -- 报名：1001 场 19 人（15 正式 + 4 外挂），1002 场 12 人（10 正式 + 2 外挂）
 INSERT IGNORE INTO registration (match_id, player_id, type, status, registered_at)
 SELECT 1001, id, type, 0, '2026-11-10 09:00:00'
@@ -501,7 +496,7 @@ VALUES (1005, 1011, 1, 1, '2026-11-13 09:00:00');
 -- 3) 1002 名单分段与 B03 返回递补：复位状态/报名；
 --    1011 保持最早候补，管理员移除 1002 的正式报名后递补到正式段。
 UPDATE team_match
-SET status = 4, manual_status = 0, version = 0
+SET status = 4, manual_status = 0, version = 0, is_deleted = 0
 WHERE id = 1002;
 
 DELETE FROM registration WHERE match_id = 1002 AND player_id IN (1002, 1011);

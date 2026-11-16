@@ -62,8 +62,9 @@ test('C01 首页：报名后静默刷新失败可重试', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   let listCalls = 0;
 
-  // 种子 Hero 1001 已锁定，1023 无法报名；仅改写列表响应把可报名的 1005 置顶，
-  // 报名仍走真实 POST，静默刷新失败一次后验证「重试刷新」恢复。
+  // 种子 Hero 1001 已锁定，1002 无法报名；仅改写列表响应把可报名的 1005 置顶，
+  // 报名仍走真实 POST，静默刷新失败一次后验证「重试刷新」与队列恢复。
+  // 报名保留给后续 web-match-detail 的递补用例复用，种子重放会清理。
   await page.route(
     (url) =>
       url.pathname === '/api/v1/c/matches' &&
@@ -90,36 +91,35 @@ test('C01 首页：报名后静默刷新失败可重试', async ({ page }) => {
     },
   );
 
-  await loginAs(page, '13910000023');
+  await loginAs(page);
   await page.locator('.van-tabbar-item').filter({ hasText: '首页' }).click();
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByRole('button', { name: '报名', exact: true })).toBeVisible();
 
-  try {
-    const responsePromise = page.waitForResponse(
-      (response) =>
-        new URL(response.url()).pathname === '/api/v1/c/matches/1005/registrations' &&
-        response.request().method() === 'POST',
-    );
-    await page.getByRole('button', { name: '报名', exact: true }).click();
-    expect((await responsePromise).ok()).toBe(true);
+  const formalQueue = page.locator('.hero-queue__item').first();
+  const confirmedCount = async (): Promise<number> => {
+    const text = await formalQueue.innerText();
+    return Number(text.match(/(\d+)\s*\/\s*(\d+)/)?.[1] ?? 0);
+  };
+  const initialConfirmed = await confirmedCount();
 
-    await expect(page.getByText('刷新失败')).toBeVisible();
-    await expect(page.getByRole('button', { name: '重试刷新' })).toBeVisible();
+  const responsePromise = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === '/api/v1/c/matches/1005/registrations' &&
+      response.request().method() === 'POST',
+  );
+  await page.getByRole('button', { name: '报名', exact: true }).click();
+  expect((await responsePromise).ok()).toBe(true);
 
-    await page.getByRole('button', { name: '重试刷新' }).click();
-    await expect(page.getByRole('button', { name: '重试刷新' })).toHaveCount(0);
-    await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
-    await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
-    expect(errors).toEqual([]);
-  } finally {
-    // 清理本用例产生的报名，避免同一次运行中的后续 spec 受残留影响。
-    await page.request
-      .delete('/api/v1/c/matches/1005/registrations/me', {
-        headers: { 'Idempotency-Key': `e2e-home-refresh-${Date.now()}` },
-      })
-      .catch(() => undefined);
-  }
+  await expect(page.getByText('刷新失败')).toBeVisible();
+  await expect(page.getByRole('button', { name: '重试刷新' })).toBeVisible();
+
+  await page.getByRole('button', { name: '重试刷新' }).click();
+  await expect(page.getByRole('button', { name: '重试刷新' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
+  await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
+  await expect.poll(confirmedCount).toBe(initialConfirmed + 1);
+  expect(errors).toEqual([]);
 });
 
 test('C01 首页：加载失败可重试', async ({ page }) => {

@@ -585,7 +585,11 @@ async function submitMatch(): Promise<void> {
   const mode = matchDialog.mode;
   const validationError = validateMatchForm(mode);
   if (validationError) {
-    matchDialog.error = validationError;
+    await ElMessageBox.alert(
+      validationError,
+      mode === 'create' ? '无法创建比赛' : '无法保存比赛',
+      { type: 'warning', confirmButtonText: '知道了' },
+    );
     return;
   }
   matchDialog.submitting = true;
@@ -625,7 +629,10 @@ async function submitMatch(): Promise<void> {
       guestCount: detail.guestCount,
     });
     if (capacityError) {
-      matchDialog.error = capacityError;
+      await ElMessageBox.alert(capacityError, '无法保存比赛', {
+        type: 'warning',
+        confirmButtonText: '知道了',
+      });
       return;
     }
     await api.patch<MatchAdmin>(

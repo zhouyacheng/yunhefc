@@ -40,6 +40,7 @@ import {
   matchReschedulable,
   matchScheduleError,
   matchScorePairError,
+  matchSeasonEditError,
   matchSeasonError,
   matchStatusCommandOptions,
   matchStatusText,
@@ -135,6 +136,8 @@ const cancelForm = reactive({ reason: '' });
 
 const actionBusy = ref<string | null>(null);
 let matchSubmitKey: string | null = null;
+const roundTouched = ref(false);
+let seasonSyncSeq = 0;
 
 const totalCapacity = computed(() => {
   const capacity = Number.isFinite(matchForm.capacity) ? matchForm.capacity : 0;
@@ -326,6 +329,38 @@ async function openCreate(): Promise<void> {
   matchDialog.error = '';
   matchSubmitKey = newIdempotencyKey();
   matchDialog.visible = true;
+  roundTouched.value = false;
+  void syncRoundForSeason(matchForm.season);
+}
+
+/** 创建时联动场次：新赛季首场填 1；已有比赛的赛季留空由后端取下一场。 */
+async function syncRoundForSeason(seasonValue: string): Promise<void> {
+  if (matchDialog.mode !== 'create') {
+    return;
+  }
+  const season = seasonValue.trim();
+  if (!/^\d{4}$/.test(season)) {
+    return;
+  }
+  const seq = ++seasonSyncSeq;
+  try {
+    const result = await api.get<Page<MatchAdmin>>('/matches', {
+      query: { season, pageSize: 1 },
+    });
+    if (seq !== seasonSyncSeq || matchDialog.mode !== 'create') {
+      return;
+    }
+    if (matchForm.season.trim() !== season) {
+      return;
+    }
+    if (result.total === 0) {
+      matchForm.round = 1;
+    } else if (!roundTouched.value) {
+      matchForm.round = null;
+    }
+  } catch {
+    // 查看权限或网络异常时保留空白，由后端默认值兜底。
+  }
 }
 
 async function openEdit(row: MatchAdmin): Promise<void> {
@@ -363,6 +398,7 @@ async function openEdit(row: MatchAdmin): Promise<void> {
     matchDialog.match = detail;
     matchDialog.error = '';
     matchDialog.visible = true;
+    roundTouched.value = false;
   } catch (caught) {
     ElMessage.error(describeError(caught, '比赛详情加载失败'));
   } finally {
@@ -434,11 +470,12 @@ function validateMatchForm(mode: MatchDialogMode): string | null {
   if (scheduleError) {
     return scheduleError;
   }
-  if (mode === 'create') {
-    const seasonError = matchSeasonError(matchForm.season.trim());
-    if (seasonError) {
-      return seasonError;
-    }
+  const seasonError =
+    mode === 'create'
+      ? matchSeasonError(matchForm.season.trim())
+      : matchSeasonEditError(matchForm.season);
+  if (seasonError) {
+    return seasonError;
   }
   if (!Number.isInteger(matchForm.capacity) || matchForm.capacity < 1) {
     return '正式名额必须为正整数';
@@ -450,7 +487,7 @@ function validateMatchForm(mode: MatchDialogMode): string | null {
     return '候补名额不能为负数';
   }
   if (matchForm.round !== null && (!Number.isInteger(matchForm.round) || matchForm.round < 0)) {
-    return '轮次必须为非负整数';
+    return '场次必须为非负整数';
   }
   if (
     matchForm.scoreHome !== null &&
@@ -495,8 +532,8 @@ function buildCreatePayload(): MatchCreate {
   return payload;
 }
 
-function buildUpdatePayload(version: number): MatchUpdate {
-  return {
+function buildUpdatePayload(version: number, currentSeason: string): MatchUpdate {
+  const payload: MatchUpdate = {
     title: matchForm.title.trim(),
     startAt: fromPickerDate(matchForm.startAt)!.toISOString(),
     endAt: fromPickerDate(matchForm.endAt)!.toISOString(),
@@ -511,6 +548,11 @@ function buildUpdatePayload(version: number): MatchUpdate {
     includeGuests: matchForm.includeGuests,
     version,
   };
+  const season = matchForm.season.trim();
+  if (season !== currentSeason) {
+    payload.season = season;
+  }
+  return payload;
 }
 
 // ---------------------------------------------------------------- submit
@@ -561,7 +603,10 @@ async function submitMatch(): Promise<void> {
       matchDialog.error = capacityError;
       return;
     }
-    await api.patch<MatchAdmin>(`/matches/${detail.id}`, buildUpdatePayload(detail.version));
+    await api.patch<MatchAdmin>(
+      `/matches/${detail.id}`,
+      buildUpdatePayload(detail.version, detail.season),
+    );
     matchDialog.visible = false;
     ElMessage.success('比赛已更新');
     await load();
@@ -772,12 +817,19 @@ onMounted(load);
     </div>
 
     <el-table v-loading="loading" :data="rows" empty-text="暂无比赛" stripe>
+      <el-table-column label="赛季" prop="season" width="90" />
+      <el-table-column label="场次" width="100">
+        <template #default="{ row }">{{ row.round ?? '—' }}</template>
+      </el-table-column>
       <el-table-column label="比赛" prop="title" min-width="200" />
       <el-table-column label="类型" width="110">
         <template #default="{ row }">{{ matchTypeText(row.type) }}</template>
       </el-table-column>
-      <el-table-column label="时间" min-width="170">
+      <el-table-column label="比赛开始时间" min-width="170">
         <template #default="{ row }">{{ formatDateTime(row.startAt) }}</template>
+      </el-table-column>
+      <el-table-column label="比赛结束时间" min-width="170">
+        <template #default="{ row }">{{ formatDateTime(row.endAt) }}</template>
       </el-table-column>
       <el-table-column label="状态" width="110">
         <template #default="{ row }">
@@ -936,15 +988,17 @@ onMounted(load);
         </el-form-item>
         <el-form-item label="赛季">
           <el-input
-            v-if="matchDialog.mode === 'create'"
             v-model="matchForm.season"
             class="season-input"
             maxlength="4"
             placeholder="如 2026"
+            @change="syncRoundForSeason(matchForm.season)"
           />
-          <span v-else>{{ matchForm.season }}（创建后不可修改）</span>
+          <span v-if="matchDialog.mode === 'edit'" class="muted small season-hint">
+            改赛季会按新赛季重算赛季场次编号，累计场次编号与场次不变
+          </span>
         </el-form-item>
-        <el-form-item label="轮次">
+        <el-form-item label="场次">
           <el-input-number
             v-model="matchForm.round"
             :min="0"
@@ -952,7 +1006,8 @@ onMounted(load);
             :precision="0"
             :value-on-clear="null"
             controls-position="right"
-            placeholder="可选"
+            :placeholder="matchDialog.mode === 'create' ? '留空默认同赛季下一场' : '留空表示不填写'"
+            @change="roundTouched = true"
           />
         </el-form-item>
         <el-form-item label="正式名额">
@@ -1108,6 +1163,10 @@ onMounted(load);
 
 .season-input {
   width: 120px;
+}
+
+.season-hint {
+  margin-left: 8px;
 }
 
 .score-inputs {

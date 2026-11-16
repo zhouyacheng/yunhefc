@@ -19,7 +19,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 class MatchEditIT extends IntegrationTestSupport {
 
@@ -97,13 +103,12 @@ class MatchEditIT extends IntegrationTestSupport {
         Long matchId = createMatch(admin, "M03不可改字段", "2026-12-10T20:00:00");
 
         edit(admin, matchId, """
-                {"title":"M03不可改字段后","type":2,"season":"2098","ourSide":1,
+                {"title":"M03不可改字段后","type":2,"ourSide":1,
                  "scoreHome":3,"scoreAway":2,"version":0}
                 """)
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001))
                 .andExpect(jsonPath("$.data.details.type").exists())
-                .andExpect(jsonPath("$.data.details.season").exists())
                 .andExpect(jsonPath("$.data.details.ourSide").exists())
                 .andExpect(jsonPath("$.data.details.scoreHome").exists())
                 .andExpect(jsonPath("$.data.details.scoreAway").exists());
@@ -273,16 +278,158 @@ class MatchEditIT extends IntegrationTestSupport {
                 status().isNotFound(), 40401);
     }
 
+    @Test
+    void seasonChangeRenumbersSeasonMatchNoAndKeepsTotalAndRound() throws Exception {
+        Cookie admin = adminLogin("13900000621");
+        Long matchId = createMatch(admin, "M03改赛季", "2026-12-10T20:00:00");
+        createMatch(admin, "M03目标赛季", "2098", "2026-12-11T20:00:00");
+
+        Map<String, Object> before = jdbc.queryForMap(
+                "SELECT season_match_no, total_match_no, round FROM team_match WHERE id = ?", matchId);
+        int expectedSeasonNo = jdbc.queryForObject("""
+                SELECT COALESCE(MAX(season_match_no), 0) FROM team_match
+                WHERE team_id = 1 AND season = '2098'
+                """, Integer.class) + 1;
+        assertThat(before.get("round")).isNotNull();
+
+        edit(admin, matchId, "{\"season\":\"2098\",\"version\":0}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.season").value("2098"))
+                .andExpect(jsonPath("$.data.seasonMatchNo").value(expectedSeasonNo))
+                .andExpect(jsonPath("$.data.totalMatchNo")
+                        .value(((Number) before.get("total_match_no")).intValue()))
+                .andExpect(jsonPath("$.data.round").value(((Number) before.get("round")).intValue()))
+                .andExpect(jsonPath("$.data.version").value(1));
+
+        String auditPayload = jdbc.queryForObject("""
+                SELECT payload_json FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_UPDATE'
+                """, String.class, matchId);
+        assertThat(auditPayload).contains("2099").contains("2098");
+    }
+
+    @Test
+    void sameSeasonUpdateDoesNotRenumber() throws Exception {
+        Cookie admin = adminLogin("13900000622");
+        Long matchId = createMatch(admin, "M03同赛季", "2026-12-10T20:00:00");
+        Map<String, Object> before = jdbc.queryForMap(
+                "SELECT season_match_no, total_match_no FROM team_match WHERE id = ?", matchId);
+
+        edit(admin, matchId, "{\"season\":\" 2099 \",\"version\":0}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.season").value("2099"))
+                .andExpect(jsonPath("$.data.seasonMatchNo")
+                        .value(((Number) before.get("season_match_no")).intValue()))
+                .andExpect(jsonPath("$.data.totalMatchNo")
+                        .value(((Number) before.get("total_match_no")).intValue()))
+                .andExpect(jsonPath("$.data.version").value(1));
+    }
+
+    @Test
+    void seasonValidationRejectsBlankAndNonFourDigit() throws Exception {
+        Cookie admin = adminLogin("13900000623");
+        Long matchId = createMatch(admin, "M03赛季校验", "2026-12-10T20:00:00");
+        Map<String, Object> before = jdbc.queryForMap(
+                "SELECT season, season_match_no FROM team_match WHERE id = ?", matchId);
+
+        for (String body : List.of(
+                "{\"season\":null,\"version\":0}",
+                "{\"season\":\"\",\"version\":0}",
+                "{\"season\":\"   \",\"version\":0}",
+                "{\"season\":\"26\",\"version\":0}",
+                "{\"season\":\"20266\",\"version\":0}",
+                "{\"season\":\"abcd\",\"version\":0}")) {
+            edit(admin, matchId, body)
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(40001))
+                    .andExpect(jsonPath("$.data.details.season").isNotEmpty());
+        }
+
+        Map<String, Object> after = jdbc.queryForMap(
+                "SELECT season, season_match_no, version FROM team_match WHERE id = ?", matchId);
+        assertThat(after.get("season")).isEqualTo("2099");
+        assertThat(after.get("season_match_no")).isEqualTo(before.get("season_match_no"));
+        assertThat(((Number) after.get("version")).intValue()).isZero();
+    }
+
+    @Test
+    void seasonChangeCanClearRound() throws Exception {
+        Cookie admin = adminLogin("13900000624");
+        Long matchId = createMatch(admin, "M03改赛季清场次", "2026-12-10T20:00:00");
+        int expectedSeasonNo = jdbc.queryForObject("""
+                SELECT COALESCE(MAX(season_match_no), 0) FROM team_match
+                WHERE team_id = 1 AND season = '2089'
+                """, Integer.class) + 1;
+
+        edit(admin, matchId, "{\"season\":\"2089\",\"round\":null,\"version\":0}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.season").value("2089"))
+                .andExpect(jsonPath("$.data.seasonMatchNo").value(expectedSeasonNo))
+                .andExpect(jsonPath("$.data.round").value((Object) null));
+    }
+
+    @Test
+    void concurrentSeasonChangesAllocateDistinctNumbers() throws Exception {
+        Cookie admin = adminLogin("13900000625");
+        Long first = createMatch(admin, "M03并发改赛季A", "2026-12-10T20:00:00");
+        Long second = createMatch(admin, "M03并发改赛季B", "2026-12-11T20:00:00");
+        Map<String, Object> beforeFirst = jdbc.queryForMap(
+                "SELECT total_match_no FROM team_match WHERE id = ?", first);
+        Map<String, Object> beforeSecond = jdbc.queryForMap(
+                "SELECT total_match_no FROM team_match WHERE id = ?", second);
+        int start = jdbc.queryForObject("""
+                SELECT COALESCE(MAX(season_match_no), 0) FROM team_match
+                WHERE team_id = 1 AND season = '2088'
+                """, Integer.class);
+
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch startLatch = new CountDownLatch(1);
+        List<Future<MvcResult>> futures = new ArrayList<>();
+        try {
+            for (Long matchId : List.of(first, second)) {
+                futures.add(pool.submit(() -> {
+                    startLatch.await();
+                    return edit(admin, matchId, "{\"season\":\"2088\",\"version\":0}")
+                            .andExpect(status().isOk())
+                            .andReturn();
+                }));
+            }
+            startLatch.countDown();
+
+            List<Integer> numbers = new ArrayList<>();
+            for (Future<MvcResult> future : futures) {
+                String json = future.get(30, TimeUnit.SECONDS).getResponse().getContentAsString();
+                numbers.add((Integer) com.jayway.jsonpath.JsonPath.read(json, "$.data.seasonMatchNo"));
+            }
+            assertThat(numbers).doesNotHaveDuplicates()
+                    .containsExactlyInAnyOrder(start + 1, start + 2);
+        } finally {
+            pool.shutdownNow();
+        }
+
+        assertThat(jdbc.queryForObject(
+                "SELECT total_match_no FROM team_match WHERE id = ?", Integer.class, first))
+                .isEqualTo(((Number) beforeFirst.get("total_match_no")).intValue());
+        assertThat(jdbc.queryForObject(
+                "SELECT total_match_no FROM team_match WHERE id = ?", Integer.class, second))
+                .isEqualTo(((Number) beforeSecond.get("total_match_no")).intValue());
+    }
+
     private Long createMatch(Cookie admin, String title, String startAt) throws Exception {
+        return createMatch(admin, title, "2099", startAt);
+    }
+
+    private Long createMatch(Cookie admin, String title, String season, String startAt) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/b/matches")
                         .cookie(admin)
                         .with(csrf())
                         .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"title":"%s","type":1,"season":"2099","startAt":"%s","endAt":"%s",
+                                {"title":"%s","type":1,"season":"%s","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
-                                """.formatted(title, local(startAt),
+                                """.formatted(title, season, local(startAt),
                                 LocalDateTime.parse(startAt).plusHours(2)
                                         .atZone(ZONE).toInstant().toString())))
                 .andExpect(status().isOk())

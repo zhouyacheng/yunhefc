@@ -546,6 +546,77 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   expect(errors).toEqual([]);
 });
 
+test('B 端：B02 比赛列表字段与赛季编辑', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page);
+
+  const headerTexts = (await page.locator('.el-table__header th').allInnerTexts()).map((text) =>
+    text.trim(),
+  );
+  expect(headerTexts.slice(0, 4)).toEqual(['赛季', '场次', '比赛', '类型']);
+  expect(headerTexts.some((text) => text.includes('比赛开始时间'))).toBe(true);
+  expect(headerTexts.some((text) => text.includes('比赛结束时间'))).toBe(true);
+
+  const title = `E2E比赛字段${Date.now()}`;
+  const start = futureInstant(15);
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+
+  await page.getByRole('button', { name: '新建比赛' }).click();
+  const createDialog = page.locator('.el-dialog').filter({ hasText: '创建比赛' });
+  await expect(createDialog).toBeVisible();
+  await createDialog.getByPlaceholder('例如 橙队VS兰队').fill(title);
+  const createSeasonInput = createDialog.getByPlaceholder('如 2026');
+  await createSeasonInput.fill('2077');
+  await createSeasonInput.blur();
+  const createRoundInput = createDialog
+    .locator('.el-form-item')
+    .filter({ hasText: /^场次/ })
+    .locator('input')
+    .first();
+  await expect(createRoundInput).toHaveValue('1');
+  await createSeasonInput.fill('2026');
+  await createSeasonInput.blur();
+  await expect(createRoundInput).toHaveValue('');
+  await createSeasonInput.fill('2077');
+  await createSeasonInput.blur();
+  await expect(createRoundInput).toHaveValue('1');
+  await createRoundInput.fill('7');
+  await fillDialogDateTime(createDialog, '开始时间', start);
+  await fillDialogDateTime(createDialog, '结束时间', end);
+  await createDialog.getByRole('button', { name: '创建比赛' }).click();
+
+  const createdRow = matchRow(page, title);
+  await expect(createdRow).toBeVisible();
+  const createdCells = createdRow.locator('td');
+  await expect(createdCells.nth(0)).toHaveText('2077');
+  await expect(createdCells.nth(1)).toHaveText('7');
+  await expect(createdCells.nth(4)).toHaveText(shanghaiDateTimeInput(start).replaceAll('-', '/'));
+  await expect(createdCells.nth(5)).toHaveText(shanghaiDateTimeInput(end).replaceAll('-', '/'));
+
+  await createdRow.getByRole('button', { name: '编辑' }).click();
+  const editDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
+  await expect(editDialog).toBeVisible();
+  const seasonInput = editDialog.getByPlaceholder('如 2026');
+  await expect(seasonInput).toBeEditable();
+  await expect(seasonInput).toHaveValue('2077');
+  const roundInput = editDialog
+    .locator('.el-form-item')
+    .filter({ hasText: /^场次/ })
+    .locator('input')
+    .first();
+  await expect(roundInput).toHaveValue('7');
+  await seasonInput.fill('2078');
+  await roundInput.fill('');
+  await roundInput.blur();
+  await editDialog.getByRole('button', { name: '保存修改' }).click();
+
+  const editedRow = matchRow(page, title);
+  await expect(editedRow.locator('td').nth(0)).toHaveText('2078');
+  await expect(editedRow.locator('td').nth(1)).toHaveText('—');
+
+  expect(errors).toEqual([]);
+});
+
 test('B 端：B02 只读权限不显示写操作', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   await page.route('**/api/v1/b/me', async (route) => {

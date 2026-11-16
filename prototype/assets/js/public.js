@@ -660,7 +660,7 @@
         const data = new FormData(form);
         const start = new Date(data.get('start'));
         const end = new Date(data.get('end'));
-        if (start.getHours() * 60 + start.getMinutes() <= 10 * 60) { Y.toast('开赛时间必须晚于当天 10:00'); return; }
+        if (start.getHours() * 60 + start.getMinutes() <= 1 * 60) { Y.toast('开赛时间必须晚于当天 01:00'); return; }
         if (!(start < end)) { Y.toast('结束时间必须晚于开始时间'); return; }
         const hours = (end - start) / (60 * 60 * 1000);
         if (hours < 2 || hours > 4) { Y.toast('开始时间与结束时间相差必须为 2–4 小时'); return; }

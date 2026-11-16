@@ -50,7 +50,7 @@
     const day = new Date(start);
     day.setHours(0, 0, 0, 0);
     const lock = new Date(day);
-    lock.setHours(10, 0, 0, 0);
+    lock.setHours(1, 0, 0, 0);
     return { signupDeadline: day.toISOString(), cancelLock: lock.toISOString() };
   }
 

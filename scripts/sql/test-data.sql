@@ -148,7 +148,8 @@ INSERT INTO team_match
 VALUES
   (1003, @team_id, 'M05签到联调赛', 1, '8人制',
    @checkin_start, DATE_ADD(@checkin_start, INTERVAL 2 HOUR),
-   DATE(@checkin_start), DATE_ADD(DATE(@checkin_start), INTERVAL 10 HOUR),
+   DATE_SUB(DATE(DATE_ADD(@checkin_start, INTERVAL 8 HOUR)), INTERVAL 8 HOUR),
+   DATE_SUB(DATE_ADD(DATE(DATE_ADD(@checkin_start, INTERVAL 8 HOUR)), INTERVAL 1 HOUR), INTERVAL 8 HOUR),
    '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 3, '橙队', '兰队', NULL,
    2, 1, 30, 4, 2, 1, 0, 0, 3, 3, 0, 1001)
 ON DUPLICATE KEY UPDATE
@@ -174,7 +175,8 @@ INSERT INTO team_match
 VALUES
   (1004, @team_id, 'M06事件联调赛', 0, '8人制',
    @event_start, DATE_ADD(@event_start, INTERVAL 2 HOUR),
-   DATE(@event_start), DATE_ADD(DATE(@event_start), INTERVAL 10 HOUR),
+   DATE_SUB(DATE(DATE_ADD(@event_start, INTERVAL 8 HOUR)), INTERVAL 8 HOUR),
+   DATE_SUB(DATE_ADD(DATE(DATE_ADD(@event_start, INTERVAL 8 HOUR)), INTERVAL 1 HOUR), INTERVAL 8 HOUR),
    '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 4, '云河FC', '对手FC', 0,
    3, 1, 30, 4, 2, 1, 0, 0, 4, 4, 0, 1001)
 ON DUPLICATE KEY UPDATE

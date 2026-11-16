@@ -391,9 +391,9 @@ export function matchStatusText(code: number | null | undefined): string {
 
 const MIN_MATCH_DURATION_MS = 2 * 60 * 60 * 1000;
 const MAX_MATCH_DURATION_MS = 4 * 60 * 60 * 1000;
-const EARLIEST_START_SECONDS = 10 * 60 * 60;
+const CANCEL_LOCK_SECONDS = 1 * 60 * 60;
 
-/** MAT-04/05/07/11：开始/结束相差 2–4 小时，开赛晚于当天 10:00（Asia/Shanghai）。 */
+/** MAT-04/05/07/11：开始/结束相差 2–4 小时，开赛晚于当天 01:00（Asia/Shanghai）。 */
 export function matchScheduleError(
   startAt: string | null | undefined,
   endAt: string | null | undefined,
@@ -412,7 +412,7 @@ export function matchScheduleError(
   }
   const local = new Date(start + SHANGHAI_OFFSET_MS);
   const seconds = local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds();
-  return seconds <= EARLIEST_START_SECONDS ? '开赛时间必须晚于当天 10:00' : null;
+  return seconds <= CANCEL_LOCK_SECONDS ? '开赛时间必须晚于当天 01:00' : null;
 }
 
 export interface MatchCapacitySnapshot {
@@ -433,13 +433,21 @@ export function matchCapacityError(input: MatchCapacitySnapshot): string | null 
   return null;
 }
 
-/** 终态与已延期比赛不可编辑；延期后只能走重新排期。 */
+/** 任意合法状态（含终态/已延期）均可编辑基本信息；编辑不改变比赛状态。 */
 export function matchEditable(status: number | null | undefined): boolean {
-  return status === 0 || status === 1 || status === 2 || status === 3;
+  return (
+    status === 0 ||
+    status === 1 ||
+    status === 2 ||
+    status === 3 ||
+    status === 4 ||
+    status === 5 ||
+    status === 6
+  );
 }
 
 export function matchPostponable(status: number | null | undefined): boolean {
-  return matchEditable(status);
+  return status === 0 || status === 1 || status === 2 || status === 3;
 }
 
 export function matchReschedulable(status: number | null | undefined): boolean {
@@ -448,7 +456,13 @@ export function matchReschedulable(status: number | null | undefined): boolean {
 
 /** 终态不可取消；已延期可取消。 */
 export function matchCancellable(status: number | null | undefined): boolean {
-  return matchEditable(status) || status === MATCH_STATUS_POSTPONED;
+  return (
+    status === 0 ||
+    status === 1 ||
+    status === 2 ||
+    status === 3 ||
+    status === MATCH_STATUS_POSTPONED
+  );
 }
 
 export interface MatchStatusCommandOption {

@@ -34,13 +34,14 @@ class MatchTimeRulesTest {
     }
 
     @Test
-    void startMustBeStrictlyAfterTenOClock() {
-        Instant tenOClock = local("2026-12-01T10:00:00");
-        Instant justAfter = LocalDateTime.ofInstant(tenOClock, MatchTimeRules.ZONE)
-                .toLocalDate().atTime(LocalTime.of(10, 0, 0, 1))
+    void startMustBeStrictlyAfterOneOClock() {
+        Instant oneOClock = local("2026-12-01T01:00:00");
+        Instant justAfter = LocalDateTime.ofInstant(oneOClock, MatchTimeRules.ZONE)
+                .toLocalDate().atTime(LocalTime.of(1, 0, 0, 1))
                 .atZone(MatchTimeRules.ZONE).toInstant();
 
-        assertRuleViolation(tenOClock, tenOClock.plus(Duration.ofHours(2)));
+        assertRuleViolation(local("2026-12-01T00:30:00"), local("2026-12-01T02:30:00"));
+        assertRuleViolation(oneOClock, oneOClock.plus(Duration.ofHours(2)));
         assertThat(MatchTimeRules.validateAndDerive(justAfter, justAfter.plus(Duration.ofHours(2)))
                 .signupDeadline()).isEqualTo(local("2026-12-01T00:00:00"));
     }
@@ -51,7 +52,7 @@ class MatchTimeRulesTest {
                 local("2026-12-01T20:00:00"), local("2026-12-01T22:00:00"));
 
         assertThat(schedule.signupDeadline()).isEqualTo(local("2026-12-01T00:00:00"));
-        assertThat(schedule.cancelLock()).isEqualTo(local("2026-12-01T10:00:00"));
+        assertThat(schedule.cancelLock()).isEqualTo(local("2026-12-01T01:00:00"));
     }
 
     private void assertRuleViolation(Instant start, Instant end) {

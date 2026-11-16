@@ -149,15 +149,15 @@ describe('match management rules', () => {
     );
   });
 
-  it('rejects a start at or before 10:00 Asia/Shanghai', () => {
-    // 02:00Z = 10:00 北京时间；09:59 与 10:00:01 是边界。
-    expect(matchScheduleError('2026-12-01T02:00:00Z', '2026-12-01T04:00:00Z')).toBe(
-      '开赛时间必须晚于当天 10:00',
+  it('rejects a start at or before 01:00 Asia/Shanghai', () => {
+    // 2026-11-30T17:00Z = 2026-12-01 01:00 北京时间；00:59 与 01:00:01 是边界。
+    expect(matchScheduleError('2026-11-30T17:00:00Z', '2026-11-30T19:00:00Z')).toBe(
+      '开赛时间必须晚于当天 01:00',
     );
-    expect(matchScheduleError('2026-12-01T01:59:00Z', '2026-12-01T03:59:00Z')).toBe(
-      '开赛时间必须晚于当天 10:00',
+    expect(matchScheduleError('2026-11-30T16:59:00Z', '2026-11-30T18:59:00Z')).toBe(
+      '开赛时间必须晚于当天 01:00',
     );
-    expect(matchScheduleError('2026-12-01T02:00:01Z', '2026-12-01T04:00:01Z')).toBeNull();
+    expect(matchScheduleError('2026-11-30T17:00:01Z', '2026-11-30T19:00:01Z')).toBeNull();
   });
 
   it('requires capacity to cover confirmed counts', () => {
@@ -172,15 +172,15 @@ describe('match management rules', () => {
     ).toBeNull();
   });
 
-  it('only allows editing before terminal or postponed states', () => {
-    expect([0, 1, 2, 3].every((status) => matchEditable(status))).toBe(true);
-    expect(matchEditable(4)).toBe(false);
-    expect(matchEditable(5)).toBe(false);
-    expect(matchEditable(6)).toBe(false);
+  it('allows editing in every match status', () => {
+    expect([0, 1, 2, 3, 4, 5, 6].every((status) => matchEditable(status))).toBe(true);
+    expect(matchEditable(null)).toBe(false);
+    expect(matchEditable(undefined)).toBe(false);
   });
 
   it('limits postpone and reschedule to their own states', () => {
     expect([0, 1, 2, 3].every((status) => matchPostponable(status))).toBe(true);
+    expect(matchPostponable(4)).toBe(false);
     expect(matchPostponable(5)).toBe(false);
     expect(matchPostponable(6)).toBe(false);
     expect(matchReschedulable(5)).toBe(true);

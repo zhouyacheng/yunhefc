@@ -529,8 +529,20 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await postponeDialog.getByRole('button', { name: '确认延期' }).click();
   await expect(matchRow(page, editedTitle).getByText('已延期')).toBeVisible();
 
+  // 已延期仍可编辑基本信息，保存后状态保持已延期。
+  await chooseRowAction(page, matchRow(page, editedTitle), '编辑');
+  const postponedEditDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
+  await expect(postponedEditDialog).toBeVisible();
+  await expect(
+    postponedEditDialog.getByText('编辑不会改变比赛状态；恢复报名请使用重新排期。'),
+  ).toBeVisible();
+  await postponedEditDialog.getByPlaceholder('比赛场地').fill('E2E延期球场');
+  await postponedEditDialog.getByRole('button', { name: '保存修改' }).click();
+  await expect(matchRow(page, editedTitle).getByText('E2E延期球场')).toBeVisible();
+  await expect(matchRow(page, editedTitle).getByText('已延期')).toBeVisible();
+
   await chooseRowAction(page, matchRow(page, editedTitle), '重新排期');
-  const rescheduleDialog = page.locator('.el-dialog').filter({ hasText: '重新排期' });
+  const rescheduleDialog = page.locator('.el-dialog').filter({ hasText: '确认重新排期' });
   await expect(rescheduleDialog).toBeVisible();
   const rescheduledStart = futureInstant(12);
   await fillDialogDateTime(rescheduleDialog, '开始时间', rescheduledStart);
@@ -553,11 +565,27 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await messageBox.getByRole('button', { name: '确认取消' }).click();
   await expect(matchRow(page, editedTitle).getByText('已取消')).toBeVisible();
 
+  // 已取消仍可编辑名称，保存后状态保持已取消。
+  await chooseRowAction(page, matchRow(page, editedTitle), '编辑');
+  const cancelledEditDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
+  await expect(cancelledEditDialog).toBeVisible();
+  const cancelledTitle = `${title}-取消后编辑`;
+  await cancelledEditDialog.getByPlaceholder('例如 橙队VS兰队').fill(cancelledTitle);
+  await cancelledEditDialog.getByRole('button', { name: '保存修改' }).click();
+  const cancelledRow = matchRow(page, cancelledTitle);
+  await expect(cancelledRow.getByText('已取消')).toBeVisible();
+
   // 合法集：已结束不可延期、已取消不可再取消，禁用项用 title 说明原因。
   const finishedRow = page
     .locator('.el-table__row')
     .filter({ hasText: '橙队VS兰队' })
     .filter({ hasText: '已结束' });
+  await openRowMenu(page, finishedRow);
+  await expect(
+    page.locator('.el-dropdown-menu__item:visible').filter({ hasText: '编辑' }).first(),
+  ).not.toHaveClass(/is-disabled/);
+  await closeRowMenu(page);
+
   await finishedRow.getByRole('button', { name: '状态' }).click();
   const postponedItem = page
     .locator('.el-dropdown-menu__item:visible')
@@ -567,7 +595,7 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await expect(postponedItem).toHaveAttribute('title', '当前状态不可延期');
   await closeRowMenu(page);
 
-  await matchRow(page, editedTitle).getByRole('button', { name: '状态' }).click();
+  await cancelledRow.getByRole('button', { name: '状态' }).click();
   const cancelledItem = page
     .locator('.el-dropdown-menu__item:visible')
     .filter({ hasText: '已取消' })

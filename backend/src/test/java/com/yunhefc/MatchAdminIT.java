@@ -112,7 +112,7 @@ class MatchAdminIT extends IntegrationTestSupport {
         assertThat(signupDeadline).isEqualTo(startAt.atZone(ZONE).toLocalDate()
                 .atStartOfDay(ZONE).toInstant());
         assertThat(cancelLock).isEqualTo(startAt.atZone(ZONE).toLocalDate()
-                .atTime(10, 0).atZone(ZONE).toInstant());
+                .atTime(1, 0).atZone(ZONE).toInstant());
     }
 
     @Test
@@ -200,10 +200,15 @@ class MatchAdminIT extends IntegrationTestSupport {
                 status().isUnprocessableEntity(), 42201);
         createExpecting(admin, createBody("M03时长", 1, "2026-12-01T20:00:00", "2026-12-02T01:00:00"),
                 status().isUnprocessableEntity(), 42201);
-        createExpecting(admin, createBody("M03开赛", 1, "2026-12-01T09:30:00", "2026-12-01T11:30:00"),
+        createExpecting(admin, createBody("M03开赛", 1, "2026-12-01T00:30:00", "2026-12-01T02:30:00"),
                 status().isUnprocessableEntity(), 42201);
-        createExpecting(admin, createBody("M03开赛", 1, "2026-12-01T10:00:00", "2026-12-01T12:00:00"),
+        createExpecting(admin, createBody("M03开赛", 1, "2026-12-01T01:00:00", "2026-12-01T03:00:00"),
                 status().isUnprocessableEntity(), 42201);
+        MvcResult early = create(admin,
+                createBody("M03早场", 1, "2026-12-02T01:30:00", "2026-12-02T03:30:00"));
+        assertThat(Instant.parse(com.jayway.jsonpath.JsonPath.read(
+                early.getResponse().getContentAsString(), "$.data.cancelLock")))
+                .isEqualTo(local("2026-12-02T01:00:00"));
         createExpecting(admin, """
                 {"title":"M03比分","type":1,"startAt":"%s","endAt":"%s","venue":"聚龙足球场",
                  "homeTeamName":"橙队","awayTeamName":"兰队","scoreHome":2}

@@ -95,7 +95,7 @@ export function shanghaiLocalToIso(value: string): string | null {
   return new Date(instant).toISOString();
 }
 
-/** 延期弹窗校验：2–4 小时、开赛晚于当天 10:00（Asia/Shanghai）。 */
+/** 延期弹窗校验：2–4 小时、开赛晚于当天 01:00（Asia/Shanghai）。 */
 export function postponeFormError(startLocal: string, endLocal: string): string | null {
   const startAt = shanghaiLocalToIso(startLocal);
   const endAt = shanghaiLocalToIso(endLocal);

@@ -514,7 +514,7 @@ class LineupBoardIT extends IntegrationTestSupport {
         Instant endAt = startAt.plus(Duration.ofHours(2));
         Instant signupDeadline = startAt.atZone(SHANGHAI).toLocalDate()
                 .atStartOfDay(SHANGHAI).toInstant();
-        Instant cancelLock = signupDeadline.plus(Duration.ofHours(10));
+        Instant cancelLock = signupDeadline.plus(Duration.ofHours(1));
         long seasonNo = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(season_match_no), 0) + 1
                 FROM team_match WHERE team_id = 1 AND season = '2099'

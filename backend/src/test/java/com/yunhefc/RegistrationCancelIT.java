@@ -85,8 +85,8 @@ class RegistrationCancelIT extends IntegrationTestSupport {
     void cancelBeforeLockWorksAfterSignupDeadline() throws Exception {
         Cookie admin = bAdminLogin("13900001105");
         Cookie player = playerLogin("13900001106", "截止后取消");
-        Long matchId = createMatch(admin, "M04截止后取消", "2099-07-02T20:00:00");
-        // 报名截止只停新增；锁定（当天 10:00）之前仍可取消。
+        Long matchId = createMatch(admin, "M04截止后取消", "2099-07-02T01:30:00");
+        // 报名截止只停新增；锁定（当天 01:00）之前仍可取消。
         jdbc.update("UPDATE team_match SET status = 1, manual_status = 1 WHERE id = ?", matchId);
         signup(player, matchId).andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40905));

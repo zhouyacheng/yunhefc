@@ -35,7 +35,6 @@ import {
   formatDateTime,
   matchCancellable,
   matchCapacityError,
-  matchEditable,
   matchPostponable,
   matchReschedulable,
   matchScheduleError,
@@ -398,11 +397,6 @@ async function openEdit(row: MatchAdmin): Promise<void> {
   actionBusy.value = `edit:${row.id}`;
   try {
     const detail = await fetchAuthoritative(row.id);
-    if (!matchEditable(detail.status)) {
-      ElMessage.warning('终态或已延期比赛不可编辑；已延期请使用重新排期。');
-      await load();
-      return;
-    }
     resetMatchForm({
       title: detail.title,
       type: detail.type,
@@ -617,11 +611,6 @@ async function submitMatch(): Promise<void> {
       return;
     }
     const detail = await fetchAuthoritative(target.id);
-    if (!matchEditable(detail.status)) {
-      matchDialog.error = '当前状态不可编辑；已延期请使用重新排期。';
-      await load();
-      return;
-    }
     const capacityError = matchCapacityError({
       capacity: matchForm.capacity,
       guestCapacity: matchForm.guestCapacity,
@@ -972,15 +961,7 @@ onMounted(loadSeasons);
               </el-button>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item
-                    command="edit"
-                    :disabled="!matchEditable(row.status) || actionBusy !== null"
-                    :title="
-                      matchEditable(row.status)
-                        ? undefined
-                        : '终态或已延期比赛不可编辑；已延期请使用重新排期'
-                    "
-                  >
+                  <el-dropdown-item command="edit" :disabled="actionBusy !== null">
                     编辑
                   </el-dropdown-item>
                   <el-dropdown-item
@@ -1122,6 +1103,12 @@ onMounted(loadSeasons);
             正式 {{ matchDialog.match.confirmedCount }} 人 / 外挂
             {{ matchDialog.match.guestCount }} 人；名额不得低于已确认人数。
           </span>
+        </el-form-item>
+        <el-form-item
+          v-if="matchDialog.mode === 'edit' && matchDialog.match?.status === MATCH_STATUS_POSTPONED"
+          label="状态"
+        >
+          <span class="muted small">编辑不会改变比赛状态；恢复报名请使用重新排期。</span>
         </el-form-item>
         <el-form-item v-if="matchDialog.mode === 'create'" label="比分">
           <div class="score-inputs">

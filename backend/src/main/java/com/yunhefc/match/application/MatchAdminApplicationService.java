@@ -172,9 +172,6 @@ public class MatchAdminApplicationService {
         if (match == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
         }
-        if (notEditable(match.getStatus())) {
-            throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT, "当前状态不可编辑比赛");
-        }
         if (!request.getVersion().equals(match.getVersion())) {
             throw versionConflict(match.getVersion());
         }
@@ -188,8 +185,6 @@ public class MatchAdminApplicationService {
                 .eq(TeamMatch::getId, matchId)
                 .eq(TeamMatch::getTeamId, teamId)
                 .eq(TeamMatch::getVersion, request.getVersion())
-                .notIn(TeamMatch::getStatus,
-                        MatchStatus.FINISHED, MatchStatus.POSTPONED, MatchStatus.CANCELLED)
                 .set(TeamMatch::getTitle, match.getTitle())
                 .set(TeamMatch::getStartAt, match.getStartAt())
                 .set(TeamMatch::getEndAt, match.getEndAt())
@@ -212,15 +207,15 @@ public class MatchAdminApplicationService {
             if (current == null) {
                 throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
             }
-            if (notEditable(current.getStatus())) {
-                throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT, "当前状态不可编辑比赛");
-            }
             throw versionConflict(current.getVersion());
         }
 
         TeamMatch saved = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
         if (!saved.getSeason().equals(previousSeason)) {
-            seasonMatchNoStore.recordAfterCommit(teamId, saved.getSeason(), saved.getSeasonMatchNo());
+            // 已取消比赛不进入 Redis 活跃列表；恢复为普通状态时由 doChangeStatus 回写。
+            if (saved.getStatus() != MatchStatus.CANCELLED) {
+                seasonMatchNoStore.recordAfterCommit(teamId, saved.getSeason(), saved.getSeasonMatchNo());
+            }
             seasonMatchNoStore.forgetAfterCommit(teamId, previousSeason, previousSeasonMatchNo);
         }
         auditRecorder.recordCurrent("MATCH_UPDATE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
@@ -457,12 +452,6 @@ public class MatchAdminApplicationService {
         }
         throw new BusinessException(ErrorCode.VALIDATION_FAILED,
                 ErrorCode.VALIDATION_FAILED.message(), Map.of("details", details));
-    }
-
-    private boolean notEditable(MatchStatus status) {
-        return status == MatchStatus.FINISHED
-                || status == MatchStatus.CANCELLED
-                || status == MatchStatus.POSTPONED;
     }
 
     private void applyChanges(Long teamId, TeamMatch match, MatchUpdateRequest request) {

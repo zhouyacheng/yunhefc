@@ -26,6 +26,9 @@ export function safeRouteRedirect(value: unknown): string | undefined {
 
 export const router = createRouter({
   history: createWebHistory(appBase),
+  scrollBehavior(_to, _from, savedPosition) {
+    return savedPosition ?? { top: 0 };
+  },
   routes: [
     {
       path: '/login',

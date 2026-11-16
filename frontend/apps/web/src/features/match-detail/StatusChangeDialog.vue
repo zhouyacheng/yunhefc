@@ -227,4 +227,12 @@ function submit(): void {
   color: var(--yh-red-ink);
   font-size: 13px;
 }
+
+@media (max-width: 760px) {
+  .status-field input,
+  .status-field textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
 </style>

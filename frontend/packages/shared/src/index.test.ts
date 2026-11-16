@@ -21,7 +21,6 @@ import {
   isPage,
   matchCancellable,
   matchCapacityError,
-  matchEditable,
   matchPostponable,
   matchReschedulable,
   matchScheduleError,
@@ -170,12 +169,6 @@ describe('match management rules', () => {
     expect(
       matchCapacityError({ capacity: 10, guestCapacity: 4, confirmedCount: 10, guestCount: 4 }),
     ).toBeNull();
-  });
-
-  it('allows editing in every match status', () => {
-    expect([0, 1, 2, 3, 4, 5, 6].every((status) => matchEditable(status))).toBe(true);
-    expect(matchEditable(null)).toBe(false);
-    expect(matchEditable(undefined)).toBe(false);
   });
 
   it('limits postpone and reschedule to their own states', () => {

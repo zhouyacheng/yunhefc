@@ -433,19 +433,6 @@ export function matchCapacityError(input: MatchCapacitySnapshot): string | null 
   return null;
 }
 
-/** 任意合法状态（含终态/已延期）均可编辑基本信息；编辑不改变比赛状态。 */
-export function matchEditable(status: number | null | undefined): boolean {
-  return (
-    status === 0 ||
-    status === 1 ||
-    status === 2 ||
-    status === 3 ||
-    status === 4 ||
-    status === 5 ||
-    status === 6
-  );
-}
-
 export function matchPostponable(status: number | null | undefined): boolean {
   return status === 0 || status === 1 || status === 2 || status === 3;
 }

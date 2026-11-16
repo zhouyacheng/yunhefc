@@ -296,7 +296,7 @@ ON DUPLICATE KEY UPDATE
 -- BEGIN B3 C-A fixtures（票 01 独占；可重复执行复位通知/报名/邀请状态）
 -- =========================================================================
 
--- 1) 首页 Hero：1005 队内赛，开赛 +1h、报名截止 +30min；重放复位 1002 的报名与考勤。
+-- 1) 1005 队内赛（最近可报名场次）：开赛 +1h、报名截止 +30min；重放复位 1002 的报名与考勤。
 SET @b3_start = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR);
 
 INSERT INTO team_match
@@ -325,7 +325,7 @@ ON DUPLICATE KEY UPDATE
 DELETE FROM attendance WHERE match_id = 1005 AND player_id = 1002;
 DELETE FROM registration WHERE match_id = 1005 AND player_id = 1002;
 
--- 1b) 1004 改为已结束：退出 upcoming（保证 1005 成为首页 Hero），赛后 24h 内仍可录入事件。
+-- 1b) 1004 改为已结束：退出 upcoming；1005 保留为最近可报名场次（首页 Hero 取开赛时间最大的 1001，见 P-49）。
 UPDATE team_match
 SET status = 4, manual_status = 0,
     start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),

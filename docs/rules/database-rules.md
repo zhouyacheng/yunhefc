@@ -154,5 +154,5 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间 UTC、`DATETIME(3)`；业务边界按 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V5 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V6 顺序正确、可重复、无环境硬编码
 - [ ] 未执行生产 DDL、未手工改表

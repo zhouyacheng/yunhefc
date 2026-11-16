@@ -219,6 +219,7 @@ class MatchEditIT extends IntegrationTestSupport {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.data.title").value(title))
                     .andExpect(jsonPath("$.data.status").value(entry.getValue()))
+                    .andExpect(jsonPath("$.data.manualStatus").value(true))
                     .andExpect(jsonPath("$.data.version").value(2));
         }
 
@@ -227,6 +228,7 @@ class MatchEditIT extends IntegrationTestSupport {
                 """.formatted(local("2026-12-20T19:00:00"), local("2026-12-20T22:00:00")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value(5))
+                .andExpect(jsonPath("$.data.manualStatus").value(true))
                 .andExpect(jsonPath("$.data.version").value(3))
                 .andReturn();
         Instant startAt = Instant.parse(json(postponedEdit, "$.data.startAt"));

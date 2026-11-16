@@ -112,13 +112,15 @@ class FlywayBackfillIT {
     }
 
     private String lockOf(Connection connection, int matchNo) throws Exception {
-        try (Statement statement = connection.createStatement();
-             ResultSet result = statement.executeQuery("""
-                     SELECT DATE_FORMAT(cancel_lock, '%%Y-%%m-%%d %%H:%%i:%%s')
-                     FROM team_match WHERE total_match_no = %d
-                     """.formatted(matchNo))) {
-            assertThat(result.next()).isTrue();
-            return result.getString(1);
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT DATE_FORMAT(cancel_lock, '%Y-%m-%d %H:%i:%s')
+                FROM team_match WHERE total_match_no = ?
+                """)) {
+            statement.setInt(1, matchNo);
+            try (ResultSet result = statement.executeQuery()) {
+                assertThat(result.next()).isTrue();
+                return result.getString(1);
+            }
         }
     }
 

@@ -25,6 +25,7 @@ const sectionLabel = computed(() => {
 
 <template>
   <el-result
+    class="forbidden-gate"
     icon="warning"
     title="403 无权限访问"
     :sub-title="`当前账号没有「${sectionLabel}」的后台权限`"

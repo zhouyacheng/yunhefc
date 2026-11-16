@@ -54,8 +54,8 @@ const actionError = ref('');
 const selectedMatch = computed(
   () => matches.value.find((match) => match.id === selectedMatchId.value) ?? null,
 );
-const hasGrouping = computed(
-  () => Boolean(grouping.value && (grouping.value.teams.A.length || grouping.value.teams.B.length)),
+const hasGrouping = computed(() =>
+  Boolean(grouping.value && (grouping.value.teams.A.length || grouping.value.teams.B.length)),
 );
 const groupingReady = computed(() => grouping.value !== null);
 const positionBuckets = [
@@ -132,9 +132,7 @@ const dirty = computed(() => {
 watch(
   () => grouping.value,
   (value) => {
-    draftTeams.value = value
-      ? { A: [...value.teams.A], B: [...value.teams.B] }
-      : { A: [], B: [] };
+    draftTeams.value = value ? { A: [...value.teams.A], B: [...value.teams.B] } : { A: [], B: [] };
     selectedPlayer.value = null;
   },
   { immediate: true },
@@ -189,10 +187,7 @@ const rosterDiffNames = computed(() => {
 });
 
 function teamScore(team: GroupingTeam): number {
-  return draftTeams.value[team].reduce(
-    (total, player) => total + (player.finalScore ?? 0),
-    0,
-  );
+  return draftTeams.value[team].reduce((total, player) => total + (player.finalScore ?? 0), 0);
 }
 
 function teamTotal(team: GroupingTeam): string {
@@ -210,7 +205,10 @@ function playerLabel(player: { name: string; jersey?: number | null; position: n
   return `${player.name}${jersey} · ${positionText(player.position)}`;
 }
 
-function rosterBadge(row: RegistrationRow): { label: string; type: 'success' | 'info' | 'warning' } {
+function rosterBadge(row: RegistrationRow): {
+  label: string;
+  type: 'success' | 'info' | 'warning';
+} {
   if (!groupingReady.value) {
     return { label: '—', type: 'info' };
   }
@@ -318,11 +316,11 @@ async function loadRoster(matchId: number): Promise<void> {
 
 async function confirmOverwrite(): Promise<boolean> {
   try {
-    await ElMessageBox.confirm(
-      '已有分组，重新生成会覆盖当前结果并清空保存状态。',
-      '重新生成分组',
-      { type: 'warning', confirmButtonText: '重新生成', cancelButtonText: '取消' },
-    );
+    await ElMessageBox.confirm('已有分组，重新生成会覆盖当前结果并清空保存状态。', '重新生成分组', {
+      type: 'warning',
+      confirmButtonText: '重新生成',
+      cancelButtonText: '取消',
+    });
     return true;
   } catch {
     return false;
@@ -382,8 +380,7 @@ function toggleSelect(playerId: number, team: GroupingTeam): void {
   if (!canGenerate.value) {
     return;
   }
-  selectedPlayer.value =
-    selectedPlayer.value?.playerId === playerId ? null : { playerId, team };
+  selectedPlayer.value = selectedPlayer.value?.playerId === playerId ? null : { playerId, team };
 }
 
 function movePlayer(playerId: number, target: GroupingTeam): void {
@@ -479,7 +476,10 @@ async function confirmSaveWarnings(view: GroupingAdmin): Promise<boolean> {
   lines.push('保存后事件与阵容将按此分组约束，名单变化不会自动重算。');
   try {
     await ElMessageBox.confirm(
-      h('div', lines.map((line) => h('p', line))),
+      h(
+        'div',
+        lines.map((line) => h('p', line)),
+      ),
       '保存分组',
       { type: 'warning', confirmButtonText: '仍然保存', cancelButtonText: '取消' },
     );
@@ -489,11 +489,7 @@ async function confirmSaveWarnings(view: GroupingAdmin): Promise<boolean> {
   }
 }
 
-async function postSave(
-  matchId: number,
-  view: GroupingAdmin,
-  confirm: boolean,
-): Promise<void> {
+async function postSave(matchId: number, view: GroupingAdmin, confirm: boolean): Promise<void> {
   if (!view.rosterFingerprint) {
     throw new Error('分组缺少名单指纹');
   }
@@ -674,7 +670,14 @@ onMounted(loadMatches);
       </el-select>
     </div>
 
-    <el-alert v-if="error" class="page-error" type="error" :title="error" :closable="false" show-icon>
+    <el-alert
+      v-if="error"
+      class="page-error"
+      type="error"
+      :title="error"
+      :closable="false"
+      show-icon
+    >
       <el-button size="small" @click="loadMatches">重试</el-button>
     </el-alert>
 
@@ -856,8 +859,7 @@ onMounted(loadMatches);
                     class="group-player"
                     :class="{
                       'group-player--draggable': canGenerate,
-                      'group-player--selected':
-                        selectedPlayer?.playerId === player.playerId,
+                      'group-player--selected': selectedPlayer?.playerId === player.playerId,
                     }"
                     :draggable="canGenerate"
                     @dragstart="onDragStart($event, player, team)"
@@ -865,7 +867,10 @@ onMounted(loadMatches);
                   >
                     <strong>{{ player.name }}</strong>
                     <small>#{{ player.jersey ?? '—' }} · {{ positionText(player.position) }}</small>
-                    <span class="score" :title="`手动 ${player.manualScore ?? '—'} / 自动 ${player.autoScore ?? '—'}`">
+                    <span
+                      class="score"
+                      :title="`手动 ${player.manualScore ?? '—'} / 自动 ${player.autoScore ?? '—'}`"
+                    >
                       {{ (player.finalScore ?? 0).toFixed(2) }}
                     </span>
                   </div>
@@ -946,42 +951,11 @@ onMounted(loadMatches);
   gap: 16px;
 }
 
-.page-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-head h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
-}
-
-.page-head p {
-  margin: 0;
-  font-size: 13px;
-}
-
-.match-picker {
-  width: 380px;
-  max-width: 100%;
-}
-
 .page-body {
   min-height: 120px;
 }
 
-.card {
-  padding: 16px;
-  background: var(--yh-surface);
-  border: 1px solid var(--yh-line);
-  border-radius: 12px;
-}
-
 .toolbar {
-  display: flex;
-  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
@@ -996,15 +970,11 @@ onMounted(loadMatches);
   margin: 0 6px;
 }
 
-.toolbar-actions,
-.head-actions {
+.toolbar-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-}
-
-.toolbar-actions {
   justify-content: flex-end;
 }
 
@@ -1023,20 +993,17 @@ onMounted(loadMatches);
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 14px 16px;
-  background: var(--yh-surface);
-  border: 1px solid var(--yh-line);
-  border-radius: 12px;
 }
 
 .summary-card span,
 .summary-card small {
   color: var(--yh-muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .summary-card b {
-  font-size: 24px;
+  font-size: 26px;
+  letter-spacing: -0.04em;
 }
 
 .group-admin-grid {
@@ -1050,13 +1017,14 @@ onMounted(loadMatches);
   padding: 16px;
   background: var(--yh-surface);
   border: 1px solid var(--yh-line);
-  border-radius: 12px;
+  border-radius: var(--yh-radius);
+  box-shadow: var(--yh-shadow-sm);
 }
 
 .group-admin-column--drop {
   cursor: pointer;
-  border-color: var(--el-color-primary);
-  box-shadow: inset 0 0 0 1px var(--el-color-primary);
+  border-color: var(--yh-green);
+  box-shadow: inset 0 0 0 1px var(--yh-green);
 }
 
 .group-admin-head {
@@ -1092,9 +1060,9 @@ onMounted(loadMatches);
   padding: 8px;
   margin-bottom: 6px;
   font-size: 12px;
-  background: #f8fafc;
+  background: var(--yh-surface-soft);
   border: 1px solid var(--yh-line);
-  border-radius: 9px;
+  border-radius: var(--yh-radius-sm);
 }
 
 .group-player--draggable {
@@ -1102,8 +1070,8 @@ onMounted(loadMatches);
 }
 
 .group-player--selected {
-  background: #eff6ff;
-  border-color: var(--el-color-primary);
+  background: var(--yh-blue-soft);
+  border-color: var(--yh-blue);
 }
 
 .group-player small {
@@ -1128,8 +1096,8 @@ onMounted(loadMatches);
   flex-direction: column;
   gap: 4px;
   padding: 10px;
-  background: #f8fafc;
-  border-radius: 9px;
+  background: var(--yh-surface-soft);
+  border-radius: var(--yh-radius-sm);
 }
 
 .position-grid span {
@@ -1174,36 +1142,12 @@ onMounted(loadMatches);
 .chip {
   padding: 6px 10px;
   font-size: 12px;
-  background: #f8fafc;
+  background: var(--yh-surface-soft);
   border: 1px solid var(--yh-line);
   border-radius: 999px;
 }
 
-.empty-inline {
-  margin: 8px 0;
-  color: var(--yh-muted);
-  font-size: 12px;
-}
-
-.hint {
-  margin: 8px 0;
-  color: var(--yh-muted);
-  font-size: 12px;
-}
-
-.hint--warning {
-  color: var(--el-color-warning);
-}
-
-.muted {
-  color: var(--yh-muted);
-}
-
-.small {
-  font-size: 12px;
-}
-
-@media (max-width: 960px) {
+@media (max-width: 1000px) {
   .group-admin-grid,
   .roster-grid,
   .summary-grid {
@@ -1215,15 +1159,10 @@ onMounted(loadMatches);
   }
 }
 
-@media (max-width: 720px) {
-  .page-head,
+@media (max-width: 760px) {
   .toolbar {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .match-picker {
-    width: 100%;
   }
 }
 </style>

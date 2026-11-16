@@ -1,0 +1,418 @@
+/* Element Plus 组件换皮。必须在 element-plus/dist/index.css 之后加载。 */
+
+/* ---------- Button ---------- */
+.el-button {
+  --el-button-hover-bg-color: var(--yh-surface-soft);
+  --el-button-hover-text-color: var(--yh-ink);
+  --el-button-hover-border-color: #cbd5e1;
+  font-weight: 600;
+  transition:
+    transform 0.15s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.el-button:not(.is-link):not(.is-text) {
+  height: 42px;
+  padding: 10px 18px;
+  border-radius: var(--yh-radius-sm);
+  background: var(--yh-surface);
+  border-color: var(--yh-line);
+  color: var(--yh-ink);
+}
+
+.el-button--small:not(.is-link):not(.is-text) {
+  height: 34px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.el-button:not(.is-link):not(.is-text):hover {
+  transform: translateY(-1px);
+}
+
+.el-button--primary:not(.is-plain):not(.is-link):not(.is-text):not(.is-disabled) {
+  color: #fff;
+  background-color: var(--yh-green);
+  background-image: linear-gradient(135deg, var(--yh-green-bright), var(--yh-green));
+  border-color: transparent;
+  box-shadow: var(--yh-green-shadow);
+}
+
+.el-button--primary:not(.is-plain):not(.is-link):not(.is-text):not(.is-disabled):hover {
+  background-image: linear-gradient(135deg, #1bb254, var(--yh-green));
+  border-color: transparent;
+  box-shadow: var(--yh-green-shadow);
+}
+
+.el-button:not(.is-link):not(.is-text).is-disabled,
+.el-button--primary.is-disabled {
+  color: #94a3b8;
+  background: var(--yh-surface-soft);
+  border-color: var(--yh-line);
+  box-shadow: none;
+  transform: none;
+}
+
+.el-button--danger:not(.is-plain):not(.is-link):not(.is-text) {
+  border-color: transparent;
+}
+
+.el-button.is-link {
+  height: auto;
+  padding: 2px 4px;
+  font-weight: 600;
+}
+
+.el-button.is-text {
+  font-weight: 600;
+}
+
+.el-button-group > .el-button:first-child {
+  border-radius: var(--yh-radius-sm) 0 0 var(--yh-radius-sm);
+}
+
+.el-button-group > .el-button:last-child {
+  border-radius: 0 var(--yh-radius-sm) var(--yh-radius-sm) 0;
+}
+
+/* ---------- Input / Select / Textarea ---------- */
+.el-input__wrapper,
+.el-select__wrapper {
+  min-height: 42px;
+  padding: 1px 12px;
+  border-radius: 9px;
+  background: var(--yh-surface);
+  box-shadow: 0 0 0 1px var(--yh-line) inset;
+  transition: box-shadow 0.15s ease;
+}
+
+.el-select__wrapper {
+  padding: 4px 12px;
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover {
+  box-shadow: 0 0 0 1px #cbd5e1 inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused {
+  box-shadow:
+    0 0 0 1px var(--yh-green) inset,
+    var(--yh-focus-shadow);
+}
+
+.el-input--small .el-input__wrapper,
+.el-select--small .el-select__wrapper {
+  min-height: 34px;
+}
+
+.el-textarea__inner {
+  padding: 9px 12px;
+  border-radius: 9px;
+  box-shadow: 0 0 0 1px var(--yh-line) inset;
+}
+
+.el-textarea__inner:focus {
+  box-shadow:
+    0 0 0 1px var(--yh-green) inset,
+    var(--yh-focus-shadow);
+}
+
+.el-form-item__label {
+  color: var(--yh-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ---------- Table：整表作为圆角卡片 ---------- */
+.el-table {
+  overflow: hidden;
+  border: 1px solid var(--yh-line);
+  border-radius: var(--yh-radius);
+  background: var(--yh-surface);
+  box-shadow: var(--yh-shadow-sm);
+  font-size: 13px;
+}
+
+.el-table__inner-wrapper {
+  border-radius: inherit;
+}
+
+.el-table th.el-table__cell {
+  padding: 12px 14px;
+  background: var(--yh-surface-soft);
+  color: var(--yh-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.el-table .el-table__cell {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--yh-line);
+}
+
+.el-table .cell {
+  padding: 0;
+  line-height: 1.5;
+}
+
+.el-table__body tr:last-child td.el-table__cell {
+  border-bottom: none;
+}
+
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: var(--el-table-tr-bg-color);
+}
+
+.el-table__empty-text {
+  color: var(--yh-muted);
+  font-size: 13px;
+}
+
+.el-table__fixed-right::before,
+.el-table__fixed::before {
+  background-color: var(--yh-line);
+}
+
+/* ---------- Dialog / MessageBox ---------- */
+.el-overlay {
+  backdrop-filter: blur(4px);
+}
+
+.el-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(92vh - 24px);
+  margin: 8vh auto 24px;
+  padding: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+}
+
+.el-dialog__header,
+.el-dialog__footer {
+  flex: none;
+}
+
+.el-dialog__header {
+  margin: 0;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--yh-line);
+}
+
+.el-dialog__title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.el-dialog__body {
+  flex: 1 1 auto;
+  padding: 20px;
+  overflow-y: auto;
+  color: var(--yh-ink);
+}
+
+.el-dialog__footer {
+  padding: 14px 20px;
+  background: var(--yh-surface-soft);
+  border-top: 1px solid var(--yh-line);
+}
+
+.el-message-box {
+  --el-messagebox-border-radius: 18px;
+  --el-messagebox-padding-primary: 20px;
+  border-radius: 18px;
+}
+
+/* ---------- Tag：统一胶囊色块，light / plain 同款 ---------- */
+.el-tag {
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.el-tag.el-tag--primary {
+  background: var(--yh-blue-soft);
+  border-color: transparent;
+  color: var(--yh-blue-ink);
+}
+
+.el-tag.el-tag--success {
+  background: var(--yh-green-soft);
+  border-color: transparent;
+  color: var(--yh-green-ink);
+}
+
+.el-tag.el-tag--warning {
+  background: var(--yh-amber-soft);
+  border-color: transparent;
+  color: var(--yh-amber-ink);
+}
+
+.el-tag.el-tag--danger {
+  background: var(--yh-red-soft);
+  border-color: transparent;
+  color: var(--yh-red-ink);
+}
+
+.el-tag.el-tag--info {
+  background: var(--yh-slate-soft);
+  border-color: transparent;
+  color: var(--yh-slate-ink);
+}
+
+/* ---------- Pagination ---------- */
+.el-pagination {
+  justify-content: center;
+  font-size: 12px;
+  color: var(--yh-muted);
+}
+
+.el-pagination.is-background .btn-prev,
+.el-pagination.is-background .btn-next,
+.el-pagination.is-background .el-pager li {
+  border-radius: 8px;
+  background: transparent;
+  color: var(--yh-muted);
+}
+
+.el-pagination.is-background .el-pager li.is-active {
+  background: var(--yh-green-soft);
+  color: var(--yh-green-ink);
+}
+
+.el-pagination .el-select__wrapper {
+  min-height: 32px;
+  padding: 2px 8px;
+  background: var(--yh-surface-soft);
+  box-shadow: none;
+}
+
+.el-pagination__total,
+.el-pagination__sizes {
+  color: var(--yh-muted);
+  font-size: 12px;
+}
+
+/* ---------- Message ---------- */
+.el-message {
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+}
+
+.el-message--success {
+  background: var(--yh-green);
+}
+
+.el-message--warning {
+  background: var(--yh-amber);
+}
+
+.el-message--error {
+  background: var(--yh-red);
+}
+
+.el-message--info {
+  background: var(--yh-navy);
+}
+
+.el-message .el-message__content,
+.el-message .el-message__icon {
+  color: #fff;
+}
+
+/* ---------- Card / Alert / Dropdown / Empty / Loading ---------- */
+.el-card {
+  border-radius: var(--yh-radius);
+  box-shadow: var(--yh-shadow-sm);
+}
+
+.el-card__header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--yh-line);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.el-alert {
+  padding: 10px 14px;
+  border-radius: var(--yh-radius-sm);
+  font-size: 13px;
+}
+
+.el-alert--warning.is-light {
+  background: var(--yh-amber-soft);
+  border: 1px solid var(--yh-amber-line);
+  color: var(--yh-amber-ink);
+}
+
+.el-dropdown-menu {
+  padding: 6px;
+  border-radius: var(--yh-radius-sm);
+  box-shadow: var(--yh-shadow-sm);
+}
+
+.el-dropdown-menu__item {
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.el-dropdown-menu__item:not(.is-disabled):hover,
+.el-dropdown-menu__item:not(.is-disabled):focus {
+  background: var(--yh-surface-soft);
+  color: var(--yh-ink);
+}
+
+.el-empty {
+  padding: 32px 0;
+}
+
+.el-empty__image {
+  width: 96px;
+}
+
+.el-empty__description p {
+  color: var(--yh-muted);
+  font-size: 13px;
+}
+
+.el-loading-mask {
+  background: var(--el-mask-color);
+}
+
+/* ---------- Focus / motion ---------- */
+a:focus-visible,
+button:focus-visible,
+.el-button:focus-visible,
+.el-menu-item:focus-visible,
+.el-tag:focus-visible {
+  outline: 3px solid rgba(22, 163, 74, 0.35);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .el-button:not(.is-link):not(.is-text):hover {
+    transform: none;
+  }
+}

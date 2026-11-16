@@ -1040,21 +1040,7 @@ onUnmounted(() => {
 
 <style scoped>
 .page-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
-}
-
-.page-head h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
-}
-
-.page-head p {
-  margin: 0;
-  font-size: 13px;
 }
 
 .player-filters {
@@ -1078,7 +1064,7 @@ onUnmounted(() => {
   width: 34px;
   height: 34px;
   object-fit: cover;
-  color: #ffffff;
+  color: #fff;
   font-size: 14px;
   font-weight: 700;
   background: var(--yh-navy);
@@ -1089,17 +1075,6 @@ onUnmounted(() => {
   width: 72px;
   height: 72px;
   font-size: 26px;
-}
-
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-
-.row-actions .el-button + .el-button {
-  margin-left: 0;
 }
 
 .avatar-editor {
@@ -1130,20 +1105,6 @@ onUnmounted(() => {
 
 .avatar-editor__meta p {
   margin: 4px 0 0;
-}
-
-.dialog-error {
-  margin: 8px 0 0;
-  color: var(--el-color-danger);
-  font-size: 12px;
-}
-
-.muted {
-  color: var(--yh-muted);
-}
-
-.small {
-  font-size: 12px;
 }
 
 .visually-hidden {

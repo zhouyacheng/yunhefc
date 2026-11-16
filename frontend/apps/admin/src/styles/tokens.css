@@ -1,0 +1,214 @@
+/* 原型设计 token，与 apps/web/src/styles/main.css 保持同名同值。 */
+:root {
+  --yh-bg: #f4f6fa;
+  --yh-surface: #ffffff;
+  --yh-surface-soft: #f8fafc;
+  --yh-ink: #0f172a;
+  --yh-muted: #64748b;
+  --yh-line: #e2e8f0;
+  --yh-navy: #0b1220;
+  --yh-navy-2: #111c33;
+  --yh-green: #0f7a4d;
+  --yh-green-bright: #16a34a;
+  --yh-green-soft: #dcfce7;
+  --yh-green-ink: #166534;
+  --yh-gold: #f5c451;
+  --yh-amber: #b45309;
+  --yh-amber-soft: #fef3c7;
+  --yh-amber-line: #fde68a;
+  --yh-amber-ink: #92400e;
+  --yh-red: #dc2626;
+  --yh-red-soft: #fee2e2;
+  --yh-red-ink: #b91c1c;
+  --yh-blue: #2563eb;
+  --yh-blue-soft: #dbeafe;
+  --yh-blue-ink: #1d4ed8;
+  --yh-indigo-soft: #e0e7ff;
+  --yh-indigo-ink: #3730a3;
+  --yh-slate-soft: #f1f5f9;
+  --yh-slate-ink: #475569;
+  --yh-purple-soft: #ede9fe;
+  --yh-purple-ink: #5b21b6;
+  --yh-type-soft: #eef2ff;
+  --yh-event-home: #f97316;
+  --yh-pitch-from: #0b6b3a;
+  --yh-pitch-to: #064e2b;
+  --yh-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+  --yh-shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.06);
+  --yh-green-shadow: 0 6px 16px rgba(15, 122, 77, 0.24);
+  --yh-focus-shadow: 0 0 0 3px rgba(22, 163, 74, 0.14);
+  --yh-radius: 16px;
+  --yh-radius-sm: 10px;
+  --yh-page-pad-x: 20px;
+  --yh-page-pad-y: 20px;
+
+  --yh-admin-sidebar: 224px;
+  --yh-admin-topbar: 60px;
+  --yh-admin-content: 1240px;
+
+  --el-color-primary: var(--yh-green);
+  --el-color-primary-light-3: #57a282;
+  --el-color-primary-light-3: color-mix(in srgb, var(--yh-green) 70%, white);
+  --el-color-primary-light-5: #87bda6;
+  --el-color-primary-light-5: color-mix(in srgb, var(--yh-green) 50%, white);
+  --el-color-primary-light-7: #b7d7ca;
+  --el-color-primary-light-7: color-mix(in srgb, var(--yh-green) 30%, white);
+  --el-color-primary-light-8: #cfe4db;
+  --el-color-primary-light-8: color-mix(in srgb, var(--yh-green) 20%, white);
+  --el-color-primary-light-9: #e7f2ed;
+  --el-color-primary-light-9: color-mix(in srgb, var(--yh-green) 10%, white);
+  --el-color-primary-dark-2: #0c623e;
+  --el-color-primary-dark-2: color-mix(in srgb, var(--yh-green) 80%, black);
+
+  --el-color-success: var(--yh-green-bright);
+  --el-color-success-light-3: #5cbf80;
+  --el-color-success-light-3: color-mix(in srgb, var(--yh-green-bright) 70%, white);
+  --el-color-success-light-5: #8bd1a5;
+  --el-color-success-light-5: color-mix(in srgb, var(--yh-green-bright) 50%, white);
+  --el-color-success-light-7: #b8e3c9;
+  --el-color-success-light-7: color-mix(in srgb, var(--yh-green-bright) 30%, white);
+  --el-color-success-light-8: #d1eddb;
+  --el-color-success-light-8: color-mix(in srgb, var(--yh-green-bright) 20%, white);
+  --el-color-success-light-9: #ebf6ed;
+  --el-color-success-light-9: color-mix(in srgb, var(--yh-green-bright) 10%, white);
+  --el-color-success-dark-2: #12823b;
+  --el-color-success-dark-2: color-mix(in srgb, var(--yh-green-bright) 80%, black);
+
+  --el-color-warning: var(--yh-amber);
+  --el-color-warning-light-3: #ca8753;
+  --el-color-warning-light-3: color-mix(in srgb, var(--yh-amber) 70%, white);
+  --el-color-warning-light-5: #d9a984;
+  --el-color-warning-light-5: color-mix(in srgb, var(--yh-amber) 50%, white);
+  --el-color-warning-light-7: #e8cbb5;
+  --el-color-warning-light-7: color-mix(in srgb, var(--yh-amber) 30%, white);
+  --el-color-warning-light-8: #f0ddce;
+  --el-color-warning-light-8: color-mix(in srgb, var(--yh-amber) 20%, white);
+  --el-color-warning-light-9: #f8eee6;
+  --el-color-warning-light-9: color-mix(in srgb, var(--yh-amber) 10%, white);
+  --el-color-warning-dark-2: #904207;
+  --el-color-warning-dark-2: color-mix(in srgb, var(--yh-amber) 80%, black);
+
+  --el-color-danger: var(--yh-red);
+  --el-color-danger-light-3: #e66767;
+  --el-color-danger-light-3: color-mix(in srgb, var(--yh-red) 70%, white);
+  --el-color-danger-light-5: #ed9292;
+  --el-color-danger-light-5: color-mix(in srgb, var(--yh-red) 50%, white);
+  --el-color-danger-light-7: #f4bebe;
+  --el-color-danger-light-7: color-mix(in srgb, var(--yh-red) 30%, white);
+  --el-color-danger-light-8: #f8d4d4;
+  --el-color-danger-light-8: color-mix(in srgb, var(--yh-red) 20%, white);
+  --el-color-danger-light-9: #fbe9e9;
+  --el-color-danger-light-9: color-mix(in srgb, var(--yh-red) 10%, white);
+  --el-color-danger-dark-2: #b01e1e;
+  --el-color-danger-dark-2: color-mix(in srgb, var(--yh-red) 80%, black);
+  --el-color-error: var(--yh-red);
+
+  --el-color-info: var(--yh-muted);
+  --el-color-info-light-3: #929dae;
+  --el-color-info-light-3: color-mix(in srgb, var(--yh-muted) 70%, white);
+  --el-color-info-light-5: #b1b9c5;
+  --el-color-info-light-5: color-mix(in srgb, var(--yh-muted) 50%, white);
+  --el-color-info-light-7: #d0d5dc;
+  --el-color-info-light-7: color-mix(in srgb, var(--yh-muted) 30%, white);
+  --el-color-info-light-8: #e0e3e8;
+  --el-color-info-light-8: color-mix(in srgb, var(--yh-muted) 20%, white);
+  --el-color-info-light-9: #eff1f3;
+  --el-color-info-light-9: color-mix(in srgb, var(--yh-muted) 10%, white);
+  --el-color-info-dark-2: #505d6f;
+  --el-color-info-dark-2: color-mix(in srgb, var(--yh-muted) 80%, black);
+
+  --el-bg-color: var(--yh-surface);
+  --el-bg-color-page: var(--yh-bg);
+  --el-bg-color-overlay: var(--yh-surface);
+  --el-text-color-primary: var(--yh-ink);
+  --el-text-color-regular: var(--yh-ink);
+  --el-text-color-secondary: var(--yh-muted);
+  --el-text-color-placeholder: #94a3b8;
+  --el-text-color-disabled: #94a3b8;
+  --el-border-color: var(--yh-line);
+  --el-border-color-light: var(--yh-line);
+  --el-border-color-lighter: var(--yh-line);
+  --el-border-color-extra-light: var(--yh-surface-soft);
+  --el-border-color-dark: #cbd5e1;
+  --el-border-color-darker: #94a3b8;
+  --el-fill-color: var(--yh-slate-soft);
+  --el-fill-color-light: var(--yh-surface-soft);
+  --el-fill-color-lighter: var(--yh-surface-soft);
+  --el-fill-color-extra-light: var(--yh-surface-soft);
+  --el-fill-color-dark: var(--yh-slate-soft);
+  --el-fill-color-darker: var(--yh-line);
+  --el-fill-color-blank: var(--yh-surface);
+  --el-disabled-bg-color: var(--yh-surface-soft);
+  --el-disabled-text-color: #94a3b8;
+  --el-disabled-border-color: var(--yh-line);
+
+  --el-font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
+  --el-font-size-base: 14px;
+  --el-font-weight-primary: 600;
+  --el-border-radius-base: 10px;
+  --el-border-radius-small: 8px;
+  --el-border-radius-round: 999px;
+  --el-component-size: 42px;
+  --el-component-size-small: 34px;
+  --el-component-size-large: 42px;
+  --el-box-shadow: var(--yh-shadow);
+  --el-box-shadow-light: var(--yh-shadow-sm);
+  --el-box-shadow-lighter: var(--yh-shadow-sm);
+  --el-overlay-color-lighter: rgba(8, 15, 28, 0.62);
+  --el-mask-color: rgba(255, 255, 255, 0.72);
+
+  --el-table-border-color: var(--yh-line);
+  --el-table-border: 1px solid var(--yh-line);
+  --el-table-text-color: var(--yh-ink);
+  --el-table-header-text-color: var(--yh-muted);
+  --el-table-row-hover-bg-color: #fbfdff;
+  --el-table-current-row-bg-color: var(--yh-surface-soft);
+  --el-table-header-bg-color: var(--yh-surface-soft);
+  --el-table-bg-color: var(--yh-surface);
+  --el-table-tr-bg-color: var(--yh-surface);
+  --el-table-expanded-cell-bg-color: var(--yh-surface-soft);
+
+  --el-menu-active-color: #ffffff;
+  --el-menu-text-color: #cbd5e1;
+  --el-menu-hover-text-color: #ffffff;
+  --el-menu-bg-color: transparent;
+  --el-menu-hover-bg-color: rgba(255, 255, 255, 0.07);
+  --el-menu-border-color: transparent;
+  --el-menu-item-height: 38px;
+  --el-menu-item-font-size: 13px;
+  --el-menu-base-level-padding: 12px;
+
+  --el-dialog-border-radius: 18px;
+  --el-dialog-title-font-size: 18px;
+  --el-dialog-content-font-size: 14px;
+  --el-dialog-margin-top: 8vh;
+  --el-dialog-box-shadow: 0 30px 80px rgba(0, 0, 0, 0.3);
+
+  --el-card-border-color: var(--yh-line);
+  --el-card-border-radius: 16px;
+  --el-card-padding: 18px;
+  --el-card-bg-color: var(--yh-surface);
+
+  --el-pagination-font-size: 12px;
+  --el-pagination-text-color: var(--yh-muted);
+  --el-pagination-button-color: var(--yh-muted);
+  --el-pagination-hover-color: var(--yh-green);
+  --el-pagination-border-radius: 8px;
+  --el-pagination-button-width: 32px;
+  --el-pagination-button-height: 32px;
+  --el-pagination-item-gap: 8px;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --yh-page-pad-x: 16px;
+    --yh-page-pad-y: 16px;
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --yh-page-pad-x: 14px;
+    --yh-page-pad-y: 14px;
+  }
+}

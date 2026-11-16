@@ -165,6 +165,7 @@
         if (field === 'startAt') return new Date(match.start).getTime();
         if (field === 'endAt') return new Date(match.end).getTime();
         if (field === 'type') return Number(match.type);
+        if (field === 'seasonMatchNo') return Number(match.seasonMatchNo) || 0;
         return String(match.season || '');
       };
       return list.slice().sort((a, b) => {
@@ -198,13 +199,13 @@
       <form class="schedule-filters" data-match-filter-form>
         <label class="filter-field"><span>状态</span><select class="input input-sm" data-match-filter="status">${statusOptionsHtml}</select></label>
         <label class="filter-field"><span>类型</span><select class="input input-sm" data-match-filter="type">${typeOptionsHtml}</select></label>
-        <label class="filter-field"><span>赛季</span><input class="input input-sm" list="match-season-options" maxlength="4" placeholder="全部赛季" data-match-filter="season" value="${esc(matchFilters.season)}"><datalist id="match-season-options">${seasonValues.map((season) => `<option value="${esc(season)}"></option>`).join('')}</datalist></label>
+        <label class="filter-field"><span>赛季</span><select class="input input-sm" data-match-filter="season"><option value="">全部赛季</option>${seasonValues.map((season) => `<option value="${esc(season)}"${matchFilters.season === season ? ' selected' : ''}>${esc(season)}</option>`).join('')}</select></label>
         <label class="filter-field"><span>开始日期</span><input class="input input-sm" type="date" data-match-filter="start" value="${esc(matchFilters.start)}"></label>
         <label class="filter-field"><span>结束日期</span><input class="input input-sm" type="date" data-match-filter="end" value="${esc(matchFilters.end)}"></label>
         <button type="button" class="btn btn-ghost btn-sm" data-match-reset>清空条件</button>
       </form>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th class="sortable" data-match-sort="season">赛季${matchSortMark('season')}</th><th>场次</th><th>比赛</th><th class="sortable" data-match-sort="type">类型${matchSortMark('type')}</th><th class="sortable" data-match-sort="startAt">开始时间${matchSortMark('startAt')}</th><th class="sortable" data-match-sort="endAt">结束时间${matchSortMark('endAt')}</th><th>状态</th><th>报名</th><th>操作</th></tr></thead>
+        <thead><tr><th class="sortable" data-match-sort="season">赛季${matchSortMark('season')}</th><th class="sortable" data-match-sort="seasonMatchNo">场次${matchSortMark('seasonMatchNo')}</th><th>比赛</th><th class="sortable" data-match-sort="type">类型${matchSortMark('type')}</th><th class="sortable" data-match-sort="startAt">开始时间${matchSortMark('startAt')}</th><th class="sortable" data-match-sort="endAt">结束时间${matchSortMark('endAt')}</th><th>状态</th><th>报名</th><th>操作</th></tr></thead>
         <tbody>${paged.items.map((match) => {
           const statusControl = !canStatus
             ? `<span class="badge">${Y.statusLabel(match.status)}</span>`

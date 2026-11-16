@@ -2091,16 +2091,18 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .status-select {
-  flex: 1;
-  min-width: 130px;
-  min-height: 44px;
-  padding: 7px 10px;
+  flex: 0 0 auto;
+  height: var(--van-button-small-height);
+  padding: 0 10px;
   color: #ffffff;
   font: inherit;
   font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  text-align-last: center;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 9px;
+  border-radius: var(--van-button-radius);
 }
 
 .status-select option {

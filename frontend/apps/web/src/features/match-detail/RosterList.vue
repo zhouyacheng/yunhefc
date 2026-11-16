@@ -80,7 +80,7 @@ function attendanceText(entry: RosterEntry): string {
         :href="adminUrl"
         @click.prevent="emit('adminClick')"
       >
-        去 B03 管理报名
+        管理报名
       </a>
     </div>
 

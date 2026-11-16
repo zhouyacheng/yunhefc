@@ -121,12 +121,13 @@ VALUES
    '聚龙足球场', NULL, '2026', 2, '橙队', '兰队', NULL,
    4, 0, 30, 4, 2, 1, 2, 2, 2, 2, 0, 1001);
 
--- 重放时 INSERT IGNORE 不更新既有行，单独把 1001 的滚动时间写回。
+-- 重放时 INSERT IGNORE 不更新既有行，单独把 1001 的滚动时间与状态写回。
 UPDATE team_match
 SET start_at = @locked_start,
     end_at = DATE_ADD(@locked_start, INTERVAL 2 HOUR),
     signup_deadline = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR),
-    cancel_lock = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 150 MINUTE)
+    cancel_lock = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),
+    status = 2, manual_status = 1, version = 0, is_deleted = 0
 WHERE id = 1001;
 
 -- 报名：1001 场 19 人（15 正式 + 4 外挂），1002 场 12 人（10 正式 + 2 外挂）
@@ -148,14 +149,16 @@ INSERT INTO team_match
 VALUES
   (1003, @team_id, 'M05签到联调赛', 1, '8人制',
    @checkin_start, DATE_ADD(@checkin_start, INTERVAL 2 HOUR),
-   DATE(@checkin_start), DATE_ADD(DATE(@checkin_start), INTERVAL 10 HOUR),
+   DATE_SUB(DATE(DATE_ADD(@checkin_start, INTERVAL 8 HOUR)), INTERVAL 8 HOUR),
+   DATE_SUB(DATE_ADD(DATE(DATE_ADD(@checkin_start, INTERVAL 8 HOUR)), INTERVAL 1 HOUR), INTERVAL 8 HOUR),
    '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 3, '橙队', '兰队', NULL,
    2, 1, 30, 4, 2, 1, 0, 0, 3, 3, 0, 1001)
 ON DUPLICATE KEY UPDATE
   start_at = VALUES(start_at), end_at = VALUES(end_at),
   signup_deadline = VALUES(signup_deadline), cancel_lock = VALUES(cancel_lock),
   season = VALUES(season), status = VALUES(status), manual_status = VALUES(manual_status),
-  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no);
+  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no),
+  version = 0;
 
 -- 1002（测试登录账号）在 1003 场确认报名；重跑脚本时重置考勤，保证签到黄金路径可重复执行。
 INSERT INTO registration (match_id, player_id, type, status, registered_at)
@@ -174,14 +177,16 @@ INSERT INTO team_match
 VALUES
   (1004, @team_id, 'M06事件联调赛', 0, '8人制',
    @event_start, DATE_ADD(@event_start, INTERVAL 2 HOUR),
-   DATE(@event_start), DATE_ADD(DATE(@event_start), INTERVAL 10 HOUR),
+   DATE_SUB(DATE(DATE_ADD(@event_start, INTERVAL 8 HOUR)), INTERVAL 8 HOUR),
+   DATE_SUB(DATE_ADD(DATE(DATE_ADD(@event_start, INTERVAL 8 HOUR)), INTERVAL 1 HOUR), INTERVAL 8 HOUR),
    '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 4, '云河FC', '对手FC', 0,
    3, 1, 30, 4, 2, 1, 0, 0, 4, 4, 0, 1001)
 ON DUPLICATE KEY UPDATE
   start_at = VALUES(start_at), end_at = VALUES(end_at),
   signup_deadline = VALUES(signup_deadline), cancel_lock = VALUES(cancel_lock),
   season = VALUES(season), status = VALUES(status), manual_status = VALUES(manual_status),
-  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no);
+  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no),
+  version = 0;
 
 INSERT INTO registration (match_id, player_id, type, status, registered_at)
 VALUES (1004, 1002, 1, 0, UTC_TIMESTAMP())
@@ -294,7 +299,7 @@ ON DUPLICATE KEY UPDATE
 -- BEGIN B3 C-A fixtures（票 01 独占；可重复执行复位通知/报名/邀请状态）
 -- =========================================================================
 
--- 1) 首页 Hero：1005 队内赛，开赛 +1h、报名截止 +30min；重放复位 1002 的报名与考勤。
+-- 1) 1005 队内赛（最近可报名场次）：开赛 +1h、报名截止 +30min；重放复位 1002 的报名与考勤。
 SET @b3_start = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR);
 
 INSERT INTO team_match
@@ -323,7 +328,7 @@ ON DUPLICATE KEY UPDATE
 DELETE FROM attendance WHERE match_id = 1005 AND player_id = 1002;
 DELETE FROM registration WHERE match_id = 1005 AND player_id = 1002;
 
--- 1b) 1004 改为已结束：退出 upcoming（保证 1005 成为首页 Hero），赛后 24h 内仍可录入事件。
+-- 1b) 1004 改为已结束：退出 upcoming；1005 保留为最近可报名场次（首页 Hero 取开赛时间最大的 1001，见 P-49）。
 UPDATE team_match
 SET status = 4, manual_status = 0,
     start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),
@@ -491,7 +496,7 @@ VALUES (1005, 1011, 1, 1, '2026-11-13 09:00:00');
 -- 3) 1002 名单分段与 B03 返回递补：复位状态/报名；
 --    1011 保持最早候补，管理员移除 1002 的正式报名后递补到正式段。
 UPDATE team_match
-SET status = 4, manual_status = 0, version = 0
+SET status = 4, manual_status = 0, version = 0, is_deleted = 0
 WHERE id = 1002;
 
 DELETE FROM registration WHERE match_id = 1002 AND player_id IN (1002, 1011);

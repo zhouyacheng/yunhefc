@@ -2,7 +2,7 @@
 import { isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import { hasBackendPermission } from '@yunhefc/permissions';
 import type { MatchDetail, MatchSummary, Page, Registration } from '@yunhefc/shared';
-import { formatDateTime, matchStatusText, matchTypeText } from '@yunhefc/shared';
+import { formatDateTimeRange, matchStatusText, matchTypeText } from '@yunhefc/shared';
 import { Button, Empty, Loading, Tag } from 'vant';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -86,20 +86,15 @@ async function load(silent = false): Promise<void> {
   now.value = Date.now();
 
   try {
-    const [upcomingPage, historyPage] = await Promise.all([
-      api.get<Page<MatchSummary>>('/matches', {
-        query: { scope: 'upcoming', sort: 'startAt:asc', pageSize: 1 },
-      }),
-      api.get<Page<MatchSummary>>('/matches', {
-        query: { sort: 'startAt:desc', pageSize: 4 },
-      }),
-    ]);
+    const page = await api.get<Page<MatchSummary>>('/matches', {
+      query: { sort: 'startAt:desc', pageSize: 4 },
+    });
     if (seq !== requestSeq) {
       return;
     }
-    // Hero 取最近一场待进行比赛；历史赛程取最近的 4 场比赛，排除 Hero 后最多展示 3 场。
-    const [first] = upcomingPage.items;
-    matches.value = historyPage.items.filter((match) => match.id !== first?.id).slice(0, 3);
+    // Hero 取全部比赛里开赛时间最大的一条；最近赛程取其后 3 场，不重复展示 Hero。
+    const [first] = page.items;
+    matches.value = page.items.filter((match) => match.id !== first?.id).slice(0, 3);
     if (!first) {
       hero.value = null;
       clearRefreshError();
@@ -228,8 +223,6 @@ onUnmounted(() => {
               </Tag>
             </div>
 
-            <h2 class="home-hero__title">{{ hero.title }}</h2>
-
             <div class="home-hero__teams">
               <span :class="{ 'team-name--winner': heroWinner === 0 }">
                 {{ hero.homeTeamName }}
@@ -241,7 +234,7 @@ onUnmounted(() => {
             </div>
 
             <div class="home-hero__meta">
-              <span>{{ formatDateTime(hero.startAt) }}</span>
+              <span>{{ formatDateTimeRange(hero.startAt, hero.endAt) }}</span>
               <span>{{ hero.venue }}</span>
               <span>第 {{ hero.seasonMatchNo }} 场</span>
             </div>
@@ -305,8 +298,8 @@ onUnmounted(() => {
       </section>
 
       <div v-else class="card home-empty">
-        <Empty description="暂无待进行比赛" />
-        <p class="muted small">当前没有可报名或进行中的比赛。</p>
+        <Empty description="暂无比赛" />
+        <p class="muted small">还没有比赛记录，等管理员排期后这里会显示最近一场。</p>
         <RouterLink to="/matches">
           <Button size="small" type="primary">去赛程</Button>
         </RouterLink>
@@ -314,7 +307,7 @@ onUnmounted(() => {
 
       <section v-if="matches.length > 0" class="home-section">
         <div class="card-head">
-          <h2>历史赛程</h2>
+          <h2>最近赛程</h2>
           <RouterLink class="ghost-link" to="/matches">全部赛程 →</RouterLink>
         </div>
 

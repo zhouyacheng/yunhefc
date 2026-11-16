@@ -168,7 +168,8 @@
 
   function nextMatch() {
     const upcoming = state.matches
-      .filter((match) => ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'LOCKED', 'IN_PROGRESS', 'POSTPONED'].includes(match.status))
+      .filter((match) => ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'LOCKED', 'IN_PROGRESS', 'POSTPONED'].includes(match.status)
+        && new Date(match.end).getTime() > Date.now())
       .sort((a, b) => new Date(a.start) - new Date(b.start));
     return upcoming[0] || null;
   }

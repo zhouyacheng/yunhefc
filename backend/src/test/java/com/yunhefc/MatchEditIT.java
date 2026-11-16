@@ -79,7 +79,7 @@ class MatchEditIT extends IntegrationTestSupport {
         assertThat(Instant.parse(json(result, "$.data.signupDeadline")))
                 .isEqualTo(startAt.atZone(ZONE).toLocalDate().atStartOfDay(ZONE).toInstant());
         assertThat(Instant.parse(json(result, "$.data.cancelLock")))
-                .isEqualTo(startAt.atZone(ZONE).toLocalDate().atTime(10, 0).atZone(ZONE).toInstant());
+                .isEqualTo(startAt.atZone(ZONE).toLocalDate().atTime(1, 0).atZone(ZONE).toInstant());
 
         String auditPayload = jdbc.queryForObject("""
                 SELECT payload_json FROM outbox_event
@@ -150,8 +150,16 @@ class MatchEditIT extends IntegrationTestSupport {
 
         editExpecting(admin, matchId, """
                 {"startAt":"%s","endAt":"%s","version":0}
-                """.formatted(local("2026-12-11T09:00:00"), local("2026-12-11T11:00:00")),
+                """.formatted(local("2026-12-11T00:30:00"), local("2026-12-11T02:30:00")),
                 status().isUnprocessableEntity(), 42201);
+        Long earlyMatchId = createMatch(admin, "M03早场编辑", "2026-12-10T20:00:00");
+        MvcResult early = edit(admin, earlyMatchId, """
+                {"startAt":"%s","endAt":"%s","version":0}
+                """.formatted(local("2026-12-11T01:30:00"), local("2026-12-11T03:30:00")))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(Instant.parse(json(early, "$.data.cancelLock")))
+                .isEqualTo(local("2026-12-11T01:00:00"));
         editExpecting(admin, matchId, """
                 {"startAt":"%s","endAt":"%s","version":0}
                 """.formatted(local("2026-12-11T20:00:00"), local("2026-12-11T21:00:00")),
@@ -194,21 +202,87 @@ class MatchEditIT extends IntegrationTestSupport {
     }
 
     @Test
-    void terminalAndPostponedMatchesCannotBeEdited() throws Exception {
+    void terminalAndPostponedMatchesRemainEditableWithoutStatusChange() throws Exception {
         Cookie admin = adminLogin("13900000604");
         Long finished = createMatch(admin, "M03终态已结束", "2026-12-10T20:00:00");
         Long cancelled = createMatch(admin, "M03终态已取消", "2026-12-10T20:00:00");
         Long postponed = createMatch(admin, "M03终态已延期", "2026-12-10T20:00:00");
-        jdbc.update("UPDATE team_match SET status = 4 WHERE id = ?", finished);
-        jdbc.update("UPDATE team_match SET status = 6 WHERE id = ?", cancelled);
-        jdbc.update("UPDATE team_match SET status = 5 WHERE id = ?", postponed);
+        changeStatus(admin, finished, 4, 0).andExpect(status().isOk());
+        cancel(admin, cancelled, "M03终态编辑", 0).andExpect(status().isOk());
+        postpone(admin, postponed, "2026-12-11T19:00:00", "2026-12-11T21:00:00", 0)
+                .andExpect(status().isOk());
 
-        for (Long matchId : List.of(finished, cancelled, postponed)) {
-            editExpecting(admin, matchId, "{\"title\":\"M03终态改写\",\"version\":0}",
-                    status().isConflict(), 40905);
+        Map<Long, Integer> statuses = Map.of(finished, 4, cancelled, 6, postponed, 5);
+        for (Map.Entry<Long, Integer> entry : statuses.entrySet()) {
+            String title = "M03终态改写" + entry.getKey();
+            edit(admin, entry.getKey(), "{\"title\":\"%s\",\"version\":1}".formatted(title))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.title").value(title))
+                    .andExpect(jsonPath("$.data.status").value(entry.getValue()))
+                    .andExpect(jsonPath("$.data.manualStatus").value(true))
+                    .andExpect(jsonPath("$.data.version").value(2));
         }
-        assertThat(jdbc.queryForObject(
-                "SELECT COUNT(*) FROM team_match WHERE title = 'M03终态改写'", Integer.class)).isZero();
+
+        MvcResult postponedEdit = edit(admin, postponed, """
+                {"startAt":"%s","endAt":"%s","version":2}
+                """.formatted(local("2026-12-20T19:00:00"), local("2026-12-20T22:00:00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(5))
+                .andExpect(jsonPath("$.data.manualStatus").value(true))
+                .andExpect(jsonPath("$.data.version").value(3))
+                .andReturn();
+        Instant startAt = Instant.parse(json(postponedEdit, "$.data.startAt"));
+        assertThat(Instant.parse(json(postponedEdit, "$.data.signupDeadline")))
+                .isEqualTo(startAt.atZone(ZONE).toLocalDate().atStartOfDay(ZONE).toInstant());
+        assertThat(Instant.parse(json(postponedEdit, "$.data.cancelLock")))
+                .isEqualTo(startAt.atZone(ZONE).toLocalDate().atTime(1, 0).atZone(ZONE).toInstant());
+
+        // 编辑不额外产生延期/取消通知，状态变更各自只发一次。
+        assertThat(countEvents("MATCH_POSTPONED", postponed)).isEqualTo(1);
+        assertThat(countEvents("MATCH_CANCELLED", cancelled)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED'
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_UPDATE'
+                  AND aggregate_id IN (?, ?, ?)
+                """, Integer.class, finished, cancelled, postponed)).isEqualTo(4);
+    }
+
+    @Test
+    void editingCancelledMatchSeasonDoesNotPolluteRedisActiveList() throws Exception {
+        Cookie admin = adminLogin("13900000617");
+        Long matchId = createMatch(admin, "M03取消改赛季", "2026-12-10T20:00:00");
+        int oldSeasonMatchNo = jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, matchId);
+        cancel(admin, matchId, "改赛季", 0).andExpect(status().isOk());
+
+        MvcResult edited = edit(admin, matchId, "{\"season\":\"2097\",\"version\":1}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(6))
+                .andExpect(jsonPath("$.data.version").value(2))
+                .andReturn();
+        int newSeasonMatchNo = (Integer) com.jayway.jsonpath.JsonPath.read(
+                edited.getResponse().getContentAsString(), "$.data.seasonMatchNo");
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2097", 0, -1))
+                .doesNotContain(String.valueOf(newSeasonMatchNo));
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2099", 0, -1))
+                .doesNotContain(String.valueOf(oldSeasonMatchNo));
+
+        changeStatus(admin, matchId, 0, 2).andExpect(status().isOk());
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2097", 0, -1))
+                .contains(String.valueOf(newSeasonMatchNo));
+    }
+
+    @Test
+    void staleVersionAfterCancelReturnsVersionConflict() throws Exception {
+        Cookie admin = adminLogin("13900000618");
+        Long matchId = createMatch(admin, "M03取消后旧版本", "2026-12-10T20:00:00");
+        cancel(admin, matchId, "并发编辑", 0).andExpect(status().isOk());
+
+        edit(admin, matchId, "{\"title\":\"M03取消后旧版本改\",\"version\":0}")
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40901))
+                .andExpect(jsonPath("$.data.currentVersion").value(1));
     }
 
     @Test
@@ -467,6 +541,44 @@ class MatchEditIT extends IntegrationTestSupport {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions changeStatus(
+            Cookie admin, Long matchId, int status, int version) throws Exception {
+        return mockMvc.perform(post("/api/v1/b/matches/" + matchId + "/status")
+                .cookie(admin)
+                .with(csrf())
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"status\":%d,\"version\":%d}".formatted(status, version)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions postpone(
+            Cookie admin, Long matchId, String startAt, String endAt, int version) throws Exception {
+        return mockMvc.perform(post("/api/v1/b/matches/" + matchId + "/postpone")
+                .cookie(admin)
+                .with(csrf())
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"startAt":"%s","endAt":"%s","version":%d}
+                        """.formatted(local(startAt), local(endAt), version)));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions cancel(
+            Cookie admin, Long matchId, String reason, int version) throws Exception {
+        return mockMvc.perform(post("/api/v1/b/matches/" + matchId + "/cancel")
+                .cookie(admin)
+                .with(csrf())
+                .header("Idempotency-Key", UUID.randomUUID().toString())
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"reason\":\"%s\",\"version\":%d}".formatted(reason, version)));
+    }
+
+    private int countEvents(String eventType, Long matchId) {
+        return jdbc.queryForObject("""
+                SELECT COUNT(*) FROM outbox_event WHERE event_type = ? AND aggregate_id = ?
+                """, Integer.class, eventType, matchId);
     }
 
     private void editExpecting(Cookie admin, Long matchId, String body,

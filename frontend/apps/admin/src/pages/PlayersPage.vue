@@ -570,6 +570,29 @@ function openDisable(row: PlayerAdmin): void {
   disableDialog.visible = true;
 }
 
+function onPlayerRowCommand(row: PlayerAdmin, command: number | string): void {
+  switch (command) {
+    case 'edit':
+      openEdit(row);
+      break;
+    case 'phone':
+      openPhone(row);
+      break;
+    case 'wechat':
+      void unbindWechat(row);
+      break;
+    case 'approve':
+      void approve(row);
+      break;
+    case 'convert':
+      void convert(row);
+      break;
+    case 'disable':
+      openDisable(row);
+      break;
+  }
+}
+
 async function submitDisable(): Promise<void> {
   if (disableDialog.submitting) {
     return;
@@ -774,69 +797,62 @@ onUnmounted(() => {
       <el-table-column label="微信" width="92">
         <template #default="{ row }">{{ row.wechatBound ? '已绑定' : '未绑定' }}</template>
       </el-table-column>
-      <el-table-column v-if="canEdit || canApprove" label="操作" width="280" fixed="right">
+      <el-table-column v-if="canEdit || canApprove" label="操作" width="88" fixed="right">
         <template #default="{ row }">
           <div class="row-actions">
-            <el-button
-              v-if="canEdit"
-              link
-              type="primary"
-              size="small"
-              :disabled="actionBusy !== null"
-              @click="openEdit(row)"
+            <el-dropdown
+              v-if="canEdit || (canApprove && playerApprovable(row))"
+              trigger="click"
+              placement="bottom-end"
+              @command="onPlayerRowCommand(row, $event)"
             >
-              编辑
-            </el-button>
-            <el-button
-              v-if="canEdit && row.userId != null"
-              link
-              type="primary"
-              size="small"
-              :disabled="actionBusy !== null"
-              @click="openPhone(row)"
-            >
-              换绑
-            </el-button>
-            <el-button
-              v-if="canEdit && row.wechatBound"
-              link
-              type="primary"
-              size="small"
-              :disabled="actionBusy !== null"
-              @click="unbindWechat(row)"
-            >
-              解绑微信
-            </el-button>
-            <el-button
-              v-if="canApprove && playerApprovable(row)"
-              link
-              type="success"
-              size="small"
-              :disabled="actionBusy !== null"
-              @click="approve(row)"
-            >
-              通过
-            </el-button>
-            <el-button
-              v-if="canEdit && playerConvertible(row)"
-              link
-              type="warning"
-              size="small"
-              :disabled="actionBusy !== null"
-              @click="convert(row)"
-            >
-              转正
-            </el-button>
-            <el-button
-              v-if="canEdit && playerDisableable(row)"
-              link
-              type="danger"
-              size="small"
-              :disabled="actionBusy !== null"
-              @click="openDisable(row)"
-            >
-              注销
-            </el-button>
+              <el-button link type="primary" size="small" :disabled="actionBusy !== null">
+                更多
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item v-if="canEdit" command="edit" :disabled="actionBusy !== null">
+                    编辑
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canEdit && row.userId != null"
+                    command="phone"
+                    :disabled="actionBusy !== null"
+                  >
+                    换绑
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canEdit && row.wechatBound"
+                    command="wechat"
+                    :disabled="actionBusy !== null"
+                  >
+                    解绑微信
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canApprove && playerApprovable(row)"
+                    command="approve"
+                    :disabled="actionBusy !== null"
+                  >
+                    通过
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canEdit && playerConvertible(row)"
+                    command="convert"
+                    :disabled="actionBusy !== null"
+                  >
+                    转正
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="canEdit && playerDisableable(row)"
+                    command="disable"
+                    class="row-action--danger"
+                    :disabled="actionBusy !== null"
+                  >
+                    注销
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </template>
       </el-table-column>

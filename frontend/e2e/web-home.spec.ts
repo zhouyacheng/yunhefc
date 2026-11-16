@@ -13,15 +13,19 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
 
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'B3首页联调赛' })).toBeVisible();
+  // Hero 取全部比赛里开赛时间最大的一条：种子数据中为 1001。
+  await expect(page.locator('.home-hero__teams')).toContainText(/橙队.*兰队/);
+  await expect(page.locator('.home-hero__meta span').first()).toContainText(
+    /\d{4}\/\d{2}\/\d{2} \d{2}:\d{2} ~ (?:\d{2}\/\d{2} )?\d{2}:\d{2}/,
+  );
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
-  // 历史赛程取最近 4 场比赛（不限状态），按时间降序，排除 Hero 后展示 3 场。
-  await expect(page.getByRole('heading', { name: '历史赛程' })).toBeVisible();
+  // 最近赛程取 Hero 之后的 3 场：1003、1005、1004。
+  await expect(page.getByRole('heading', { name: '最近赛程' })).toBeVisible();
   await expect(page.locator('.home-section .match-card')).toHaveCount(3);
-  await expect(page.locator('.home-section .match-card-link[href="/matches/1005"]')).toHaveCount(0);
+  await expect(page.locator('.home-section .match-card-link[href="/matches/1001"]')).toHaveCount(0);
   await expect(page.locator('.home-section .match-card-link').first()).toHaveAttribute(
     'href',
-    '/matches/1001',
+    '/matches/1003',
   );
   await expect(page.locator('.van-tabbar-item--active')).toContainText('首页');
 
@@ -33,7 +37,7 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('C01 首页：登录球员报名后 CTA 与队列更新', async ({ page }) => {
+test('C01 首页：登录球员看到最近一场与报名队列', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   await loginAs(page);
 
@@ -41,19 +45,34 @@ test('C01 首页：登录球员报名后 CTA 与队列更新', async ({ page }) 
 
   await page.locator('.van-tabbar-item').filter({ hasText: '首页' }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: 'B3首页联调赛' })).toBeVisible();
+  await expect(page.locator('.home-hero__teams')).toContainText(/橙队.*兰队/);
   await expect(page.locator('.van-tabbar-item--active')).toContainText('首页');
 
   const formalQueue = page.locator('.hero-queue__item').first();
-  await expect(formalQueue).toContainText('0 / 30');
+  await expect(formalQueue).toContainText('15 / 30');
+  await expect(page.locator('.hero-queue__item').nth(1)).toContainText('4 / 4');
+  // 1002 已在 1001 场报名，CTA 直接进入详情。
+  await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
+  await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
 
-  // 报名成功后的静默刷新失败一次，验证「重试刷新」入口。
-  let failRefresh = true;
+  expect(errors).toEqual([]);
+});
+
+test('C01 首页：报名后静默刷新失败可重试', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  let listCalls = 0;
+
+  // 种子 Hero 1001 已锁定，1002 无法报名；仅改写列表响应把可报名的 1005 置顶，
+  // 报名仍走真实 POST，静默刷新失败一次后验证「重试刷新」与队列恢复。
+  // 报名保留给后续 web-match-detail 的递补用例复用，种子重放会清理。
   await page.route(
-    (url) => url.pathname === '/api/v1/c/matches' && url.searchParams.get('scope') === 'upcoming',
+    (url) =>
+      url.pathname === '/api/v1/c/matches' &&
+      url.searchParams.get('sort') === 'startAt:desc' &&
+      url.searchParams.get('pageSize') === '4',
     async (route) => {
-      if (failRefresh) {
-        failRefresh = false;
+      listCalls += 1;
+      if (listCalls === 2) {
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -61,9 +80,28 @@ test('C01 首页：登录球员报名后 CTA 与队列更新', async ({ page }) 
         });
         return;
       }
-      await route.continue();
+      const response = await route.fetch();
+      const body = await response.json();
+      const items = body.data.items as Array<{ id: number }>;
+      const hero = items.find((item) => item.id === 1005);
+      if (hero) {
+        body.data.items = [hero, ...items.filter((item) => item.id !== 1005)];
+      }
+      await route.fulfill({ response, json: body });
     },
   );
+
+  await loginAs(page);
+  await page.locator('.van-tabbar-item').filter({ hasText: '首页' }).click();
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByRole('button', { name: '报名', exact: true })).toBeVisible();
+
+  const formalQueue = page.locator('.hero-queue__item').first();
+  const confirmedCount = async (): Promise<number> => {
+    const text = await formalQueue.innerText();
+    return Number(text.match(/(\d+)\s*\/\s*(\d+)/)?.[1] ?? 0);
+  };
+  const initialConfirmed = await confirmedCount();
 
   const responsePromise = page.waitForResponse(
     (response) =>
@@ -74,13 +112,13 @@ test('C01 首页：登录球员报名后 CTA 与队列更新', async ({ page }) 
   expect((await responsePromise).ok()).toBe(true);
 
   await expect(page.getByText('刷新失败')).toBeVisible();
-  await page.getByRole('button', { name: '重试刷新' }).click();
+  await expect(page.getByRole('button', { name: '重试刷新' })).toBeVisible();
 
+  await page.getByRole('button', { name: '重试刷新' }).click();
+  await expect(page.getByRole('button', { name: '重试刷新' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
   await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
-  await expect(formalQueue).toContainText('1 / 30');
-  await expect(page.getByRole('button', { name: '重试刷新' })).toHaveCount(0);
-
+  await expect.poll(confirmedCount).toBe(initialConfirmed + 1);
   expect(errors).toEqual([]);
 });
 
@@ -89,7 +127,7 @@ test('C01 首页：加载失败可重试', async ({ page }) => {
   let failed = false;
 
   await page.route(
-    (url) => url.pathname === '/api/v1/c/matches' && url.searchParams.get('scope') === 'upcoming',
+    (url) => url.pathname === '/api/v1/c/matches',
     async (route) => {
       if (!failed) {
         failed = true;
@@ -109,12 +147,12 @@ test('C01 首页：加载失败可重试', async ({ page }) => {
   await expect(page.getByText('服务暂不可用')).toBeVisible();
 
   await page.getByRole('button', { name: '重试' }).click();
-  await expect(page.getByRole('heading', { name: 'B3首页联调赛' })).toBeVisible();
+  await expect(page.locator('.home-hero__teams')).toContainText(/橙队.*兰队/);
 
   expect(errors).toEqual([]);
 });
 
-test('C01 首页：无待进行比赛显示空态', async ({ page }) => {
+test('C01 首页：无比赛显示空态', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 
   await page.route(
@@ -134,7 +172,7 @@ test('C01 首页：无待进行比赛显示空态', async ({ page }) => {
   );
 
   await page.goto('/');
-  await expect(page.getByText('暂无待进行比赛')).toBeVisible();
+  await expect(page.getByText('暂无比赛')).toBeVisible();
   await expect(page.getByRole('button', { name: '去赛程' })).toBeVisible();
 
   expect(errors).toEqual([]);

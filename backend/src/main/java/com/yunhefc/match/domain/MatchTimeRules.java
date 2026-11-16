@@ -10,13 +10,14 @@ import java.time.LocalTime;
 import java.time.ZoneId;
 
 /**
- * 比赛时间规则：时长 2–4 小时，开赛晚于当天 10:00，截止/锁定按开赛当天推导。
+ * 比赛时间规则：时长 2–4 小时，开赛晚于当天 01:00，截止/锁定按开赛当天推导。
  */
 public final class MatchTimeRules {
 
     public static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
-    private static final LocalTime EARLIEST_START = LocalTime.of(10, 0);
+    /** 取消锁定时间；开赛下限由同一常量派生，保证 cancelLock < startAt。 */
+    private static final LocalTime CANCEL_LOCK_TIME = LocalTime.of(1, 0);
     private static final Duration MIN_DURATION = Duration.ofHours(2);
     private static final Duration MAX_DURATION = Duration.ofHours(4);
 
@@ -32,14 +33,14 @@ public final class MatchTimeRules {
             throw violation("开始/结束时间相差必须为 2–4 小时");
         }
         LocalDate matchDay = startAt.atZone(ZONE).toLocalDate();
-        if (!startAt.atZone(ZONE).toLocalTime().isAfter(EARLIEST_START)) {
-            throw violation("开赛时间必须晚于当天 10:00");
+        if (!startAt.atZone(ZONE).toLocalTime().isAfter(CANCEL_LOCK_TIME)) {
+            throw violation("开赛时间必须晚于当天 01:00");
         }
         return new Schedule(
                 startAt,
                 endAt,
                 matchDay.atStartOfDay(ZONE).toInstant(),
-                matchDay.atTime(EARLIEST_START).atZone(ZONE).toInstant());
+                matchDay.atTime(CANCEL_LOCK_TIME).atZone(ZONE).toInstant());
     }
 
     private static BusinessException violation(String message) {

@@ -223,7 +223,7 @@
             : `${Y.confirmed(match).length}/${match.capacity + match.guestCapacity}${Y.waitlisted(match, 'PLAYER').length ? ` <small class="muted">候补 ${Y.waitlisted(match, 'PLAYER').length}/${match.waitlistCapacity ?? Y.state.settings.maxWaitlist}</small>` : ''}`}</td>
           <td><div class="table-actions">
             <a class="btn btn-ghost btn-sm" href="match.html?id=${match.id}">查看</a>
-            ${canEdit && !Y.isTerminalMatch(match) && match.status !== 'POSTPONED' ? `<button class="btn btn-ghost btn-sm" data-match-edit="${match.id}">编辑</button>` : ''}
+            ${canEdit ? `<button class="btn btn-ghost btn-sm" data-match-edit="${match.id}">编辑</button>` : ''}
             ${canEdit && match.status === 'POSTPONED' ? `<button class="btn btn-ghost btn-sm" data-match-reschedule="${match.id}">重新排期</button>` : ''}
             ${canEdit && !Y.isTerminalMatch(match) && match.status !== 'POSTPONED' ? `<button class="btn btn-ghost btn-sm" data-match-postpone="${match.id}">延期</button>` : ''}
             ${canStatus && !Y.isTerminalMatch(match) ? `<button class="btn btn-ghost btn-sm" data-match-cancel="${match.id}">取消</button>` : ''}
@@ -443,10 +443,6 @@
     }
 
     function openMatchModal(existing) {
-      if (existing && Y.isTerminalMatch(existing)) {
-        Y.toast('已取消或已结束的比赛不能编辑');
-        return;
-      }
       const settings = Y.state.settings;
       const editing = Boolean(existing);
       const start = existing ? new Date(existing.start) : new Date();
@@ -536,8 +532,8 @@
         const startDate = new Date(data.get('start'));
         const endDate = new Date(data.get('end'));
         const minutesOfDay = startDate.getHours() * 60 + startDate.getMinutes();
-        if (minutesOfDay <= 10 * 60) {
-          Y.toast('开赛时间必须晚于当天 10:00');
+        if (minutesOfDay <= 1 * 60) {
+          Y.toast('开赛时间必须晚于当天 01:00');
           return;
         }
         if (!(startDate < endDate)) {
@@ -553,7 +549,7 @@
         const lock = new Date(data.get('cancelLock'));
         const expected = Y.defaultDeadlines(startDate);
         if (deadline.getTime() !== new Date(expected.signupDeadline).getTime() || lock.getTime() !== new Date(expected.cancelLock).getTime()) {
-          Y.toast('报名截止必须为开赛当天 0 点，锁定必须为当天 10 点');
+          Y.toast('报名截止必须为开赛当天 0 点，锁定必须为当天 01 点');
           return;
         }
         const nextType = editing ? existing.type : String(data.get('type'));
@@ -625,7 +621,8 @@
           Object.assign(existing, payload);
           Y.save();
           Y.addAudit(Y.currentUser().name, '编辑比赛', payload.title, { before, after: Y.matchSnapshot(existing) });
-          if (before.start !== payload.start || before.venue !== payload.venue) {
+          const terminalOrPostponed = Y.isTerminalMatch(existing) || existing.status === 'POSTPONED';
+          if (!terminalOrPostponed && (before.start !== payload.start || before.venue !== payload.venue)) {
             Y.notifyRegistrants(existing, '比赛信息变更', `「${existing.title}」时间或场地已更新。`);
           }
           Y.toast('比赛已保存');
@@ -664,7 +661,7 @@
         ${dateTimeField('新结束时间', 'end', localInput(end))}
         ${dateTimeField('报名截止', 'signupDeadline', localInput(new Date(defaults.signupDeadline)), true)}
         ${dateTimeField('锁定', 'cancelLock', localInput(new Date(defaults.cancelLock)), true)}
-        <p class="muted small full">报名记录保留；报名截止重算为开赛当天 0 点，锁定重算为当天 10 点；${rescheduling ? '重新排期后回报名中并恢复自动流转。' : '延期后状态为已延期，等待重新排期。'}</p>
+        <p class="muted small full">报名记录保留；报名截止重算为开赛当天 0 点，锁定重算为当天 01 点；${rescheduling ? '重新排期后回报名中并恢复自动流转。' : '延期后状态为已延期，等待重新排期。'}</p>
       </form>`;
       const modal = Y.openModal(rescheduling ? '重新排期' : '延期比赛', body, `<button class="btn btn-primary" id="postpone-submit">${rescheduling ? '确认重新排期' : '确认延期'}</button><button class="btn btn-ghost" data-close-modal>取消</button>`);
       modal.querySelectorAll('[data-dt-open]').forEach((trigger) => {
@@ -696,8 +693,8 @@
           Y.toast('新开始时间必须晚于当前时间');
           return;
         }
-        if (startDate.getHours() * 60 + startDate.getMinutes() <= 10 * 60) {
-          Y.toast('开赛时间必须晚于当天 10:00');
+        if (startDate.getHours() * 60 + startDate.getMinutes() <= 1 * 60) {
+          Y.toast('开赛时间必须晚于当天 01:00');
           return;
         }
         if (!(startDate < endDate)) {

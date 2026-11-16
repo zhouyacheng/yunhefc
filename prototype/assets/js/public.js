@@ -19,18 +19,15 @@
     const host = $('#home-content');
     if (!host) return;
     const upcoming = Y.state.matches
-      .filter((match) => ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'LOCKED', 'IN_PROGRESS', 'POSTPONED'].includes(match.status))
+      .filter((match) => ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'LOCKED', 'IN_PROGRESS', 'POSTPONED'].includes(match.status)
+        && new Date(match.end).getTime() > Date.now())
       .sort((a, b) => new Date(a.start) - new Date(b.start));
-    const next = Y.nextMatch();
+    const byStartDesc = Y.state.matches.slice().sort((a, b) => new Date(b.start) - new Date(a.start));
+    const next = byStartDesc[0] || null;
     const finished = Y.state.matches.filter((match) => match.status === 'FINISHED');
-    const recent = Y.state.matches
-      .slice()
-      .sort((a, b) => new Date(b.start) - new Date(a.start))
-      .slice(0, 4)
-      .filter((match) => match.id !== next?.id)
-      .slice(0, 3);
+    const recent = byStartDesc.slice(1, 4);
     if (!next) {
-      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无待进行比赛</h2><p class="muted">当前没有可报名或进行中的比赛。</p><a class="btn btn-primary" href="matches.html">查看赛程</a></div></section>`;
+      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看赛程</a></div></section>`;
       return;
     }
     const nextConfirmed = Y.confirmed(next, 'PLAYER').length;
@@ -67,7 +64,7 @@
         </div>
         <div class="hero-match card">
           <div class="hero-match-head">
-            <span>下一场</span>
+            <span>最近一场</span>
             <span class="hero-match-tags">
               <span class="badge badge-type">${Y.typeLabel(next.type)}</span>
               <span class="badge ${Y.statusClass(next.status)}">${Y.statusLabel(next.status)}</span>
@@ -78,7 +75,7 @@
             <span class="hero-score">${Y.scoreText(next)}</span>
             <span>${esc(names.away)}</span>
           </div>
-          <div class="hero-meta">${Y.formatDateTime(next.start)} · ${esc(next.venue)}</div>
+          <div class="hero-meta">${Y.formatDateTimeRange(next.start, next.end)} · ${esc(next.venue)}</div>
           ${Y.matchOrdinalLabel(next) ? `<div class="hero-ordinal">${Y.matchOrdinalLabel(next)}</div>` : ''}
           <div class="hero-progress">
             <div class="between"><span>报名队列</span><b>${nextConfirmed}/${nextCapacity}</b></div>
@@ -97,7 +94,7 @@
       </div>
     </section>
     ${recent.length ? `<section class="container section">
-      <div class="section-head"><div><h2>历史赛程</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部赛程 →</a></div>
+      <div class="section-head"><div><h2>最近赛程</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部赛程 →</a></div>
       <div class="match-grid">${recent.map(Y.renderMatchCard).join('')}</div>
     </section>` : ''}
     <section class="container section">
@@ -663,7 +660,7 @@
         const data = new FormData(form);
         const start = new Date(data.get('start'));
         const end = new Date(data.get('end'));
-        if (start.getHours() * 60 + start.getMinutes() <= 10 * 60) { Y.toast('开赛时间必须晚于当天 10:00'); return; }
+        if (start.getHours() * 60 + start.getMinutes() <= 1 * 60) { Y.toast('开赛时间必须晚于当天 01:00'); return; }
         if (!(start < end)) { Y.toast('结束时间必须晚于开始时间'); return; }
         const hours = (end - start) / (60 * 60 * 1000);
         if (hours < 2 || hours > 4) { Y.toast('开始时间与结束时间相差必须为 2–4 小时'); return; }

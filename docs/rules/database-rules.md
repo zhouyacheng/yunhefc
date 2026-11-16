@@ -81,7 +81,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 
 ## 6 审计、时间与保留
 
-1. 时间统一 `DATETIME(3)` UTC；业务边界（报名截止 00:00、锁定 10:00、签到窗口、缺勤 +6h）先在 Asia/Shanghai 推导，再转 UTC。
+1. 时间统一 `DATETIME(3)` UTC；业务边界（报名截止 00:00、锁定 01:00、签到窗口、缺勤 +6h）先在 Asia/Shanghai 推导，再转 UTC。
 2. 业务主表包含 `created_at`；可变表包含 `updated_at`；关联表、子表与事件去重表可使用业务时间字段替代（如 `registered_at`、`recorded_at`、`used_at`、`processed_at`）；关键写操作记录 `created_by/updated_by` 等操作人字段。
 3. 事件修改历史写 `event_history`；审计日志不删除，年度导出 OSS 冷备。
 4. 保留策略：
@@ -154,5 +154,5 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间 UTC、`DATETIME(3)`；业务边界按 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V5 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V6 顺序正确、可重复、无环境硬编码
 - [ ] 未执行生产 DDL、未手工改表

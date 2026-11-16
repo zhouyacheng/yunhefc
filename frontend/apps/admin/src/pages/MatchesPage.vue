@@ -35,7 +35,6 @@ import {
   formatDateTime,
   matchCancellable,
   matchCapacityError,
-  matchEditable,
   matchPostponable,
   matchReschedulable,
   matchScheduleError,
@@ -398,11 +397,6 @@ async function openEdit(row: MatchAdmin): Promise<void> {
   actionBusy.value = `edit:${row.id}`;
   try {
     const detail = await fetchAuthoritative(row.id);
-    if (!matchEditable(detail.status)) {
-      ElMessage.warning('终态或已延期比赛不可编辑；已延期请使用重新排期。');
-      await load();
-      return;
-    }
     resetMatchForm({
       title: detail.title,
       type: detail.type,
@@ -617,11 +611,6 @@ async function submitMatch(): Promise<void> {
       return;
     }
     const detail = await fetchAuthoritative(target.id);
-    if (!matchEditable(detail.status)) {
-      matchDialog.error = '当前状态不可编辑；已延期请使用重新排期。';
-      await load();
-      return;
-    }
     const capacityError = matchCapacityError({
       capacity: matchForm.capacity,
       guestCapacity: matchForm.guestCapacity,
@@ -674,6 +663,16 @@ async function onStatusCommand(row: MatchAdmin, command: number | string): Promi
     return;
   }
   await changeStatus(row, targetStatus);
+}
+
+function onMoreCommand(row: MatchAdmin, command: number | string): void {
+  if (command === 'edit') {
+    void openEdit(row);
+    return;
+  }
+  if (command === 'reschedule') {
+    void openSchedule(row, 'reschedule');
+  }
 }
 
 async function changeStatus(row: MatchAdmin, targetStatus: number): Promise<void> {
@@ -924,28 +923,11 @@ onMounted(loadSeasons);
       <el-table-column
         v-if="canCreate || canEdit || canStatus"
         label="操作"
-        width="220"
+        width="104"
         fixed="right"
       >
         <template #default="{ row }">
           <div class="row-actions">
-            <el-tooltip
-              v-if="canEdit"
-              :disabled="matchEditable(row.status)"
-              content="终态或已延期比赛不可编辑；已延期请使用重新排期"
-            >
-              <span>
-                <el-button
-                  link
-                  type="primary"
-                  size="small"
-                  :disabled="!matchEditable(row.status) || actionBusy !== null"
-                  @click="openEdit(row)"
-                >
-                  编辑
-                </el-button>
-              </span>
-            </el-tooltip>
             <el-dropdown
               v-if="canStatus || canEdit"
               trigger="click"
@@ -968,16 +950,30 @@ onMounted(loadSeasons);
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
-            <el-button
-              v-if="canEdit && matchReschedulable(row.status)"
-              link
-              type="primary"
-              size="small"
-              :disabled="actionBusy !== null"
-              @click="openSchedule(row, 'reschedule')"
+            <el-dropdown
+              v-if="canEdit"
+              trigger="click"
+              placement="bottom-end"
+              @command="onMoreCommand(row, $event)"
             >
-              重新排期
-            </el-button>
+              <el-button link type="primary" size="small" :disabled="actionBusy !== null">
+                更多
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="edit" :disabled="actionBusy !== null">
+                    编辑
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="matchReschedulable(row.status)"
+                    command="reschedule"
+                    :disabled="actionBusy !== null"
+                  >
+                    重新排期
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </template>
       </el-table-column>
@@ -1107,6 +1103,12 @@ onMounted(loadSeasons);
             正式 {{ matchDialog.match.confirmedCount }} 人 / 外挂
             {{ matchDialog.match.guestCount }} 人；名额不得低于已确认人数。
           </span>
+        </el-form-item>
+        <el-form-item
+          v-if="matchDialog.mode === 'edit' && matchDialog.match?.status === MATCH_STATUS_POSTPONED"
+          label="状态"
+        >
+          <span class="muted small">编辑不会改变比赛状态；恢复报名请使用重新排期。</span>
         </el-form-item>
         <el-form-item v-if="matchDialog.mode === 'create'" label="比分">
           <div class="score-inputs">

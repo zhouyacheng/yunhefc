@@ -238,7 +238,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
                     cancel_lock, venue, season, home_team_name, away_team_name, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (2, 'M05签到跨队', 1, NOW(3) + INTERVAL 2 HOUR, NOW(3) + INTERVAL 4 HOUR,
-                    NOW(3), NOW(3) + INTERVAL 10 HOUR, '测试场地', '2099', '橙队', '兰队',
+                    NOW(3), NOW(3) + INTERVAL 1 HOUR, '测试场地', '2099', '橙队', '兰队',
                     2, 1, 30, 999991, 999991, 1)
                 """);
         Long crossTeamId = jdbc.queryForObject(
@@ -297,7 +297,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
         Instant endAt = startAt.plus(Duration.ofHours(2));
         Instant signupDeadline = startAt.atZone(SHANGHAI).toLocalDate()
                 .atStartOfDay(SHANGHAI).toInstant();
-        Instant cancelLock = signupDeadline.plus(Duration.ofHours(10));
+        Instant cancelLock = signupDeadline.plus(Duration.ofHours(1));
         long seasonNo = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(season_match_no), 0) + 1
                 FROM team_match WHERE team_id = 1 AND season = '2099'

@@ -307,6 +307,13 @@ h3 {
   color: #3730a3;
 }
 
+.hero-match .badge-finished {
+  background: #3730a3;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+}
+
 .badge-cancelled {
   background: #f1f5f9;
   color: #64748b;

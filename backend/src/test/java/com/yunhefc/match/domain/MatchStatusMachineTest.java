@@ -14,7 +14,7 @@ import java.util.EnumSet;
 class MatchStatusMachineTest {
 
     private static final Instant SIGNUP_DEADLINE = Instant.parse("2026-03-01T16:00:00Z");
-    private static final Instant CANCEL_LOCK = Instant.parse("2026-03-02T02:00:00Z");
+    private static final Instant CANCEL_LOCK = Instant.parse("2026-03-01T17:00:00Z");
     private static final Instant START_AT = Instant.parse("2026-03-02T12:00:00Z");
     private static final Instant END_AT = Instant.parse("2026-03-02T14:00:00Z");
 
@@ -101,6 +101,8 @@ class MatchStatusMachineTest {
         assertThat(autoTarget(MatchStatus.SIGNUP_OPEN, false, SIGNUP_DEADLINE.minusSeconds(1)))
                 .isEqualTo(MatchStatus.SIGNUP_OPEN);
         assertThat(autoTarget(MatchStatus.SIGNUP_OPEN, false, SIGNUP_DEADLINE))
+                .isEqualTo(MatchStatus.SIGNUP_CLOSED);
+        assertThat(autoTarget(MatchStatus.SIGNUP_CLOSED, false, CANCEL_LOCK.minusMillis(1)))
                 .isEqualTo(MatchStatus.SIGNUP_CLOSED);
         assertThat(autoTarget(MatchStatus.SIGNUP_CLOSED, false, CANCEL_LOCK))
                 .isEqualTo(MatchStatus.LOCKED);

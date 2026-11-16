@@ -85,8 +85,18 @@ async function chooseStatus(page: Page, row: Locator, label: string): Promise<vo
   await page.locator('.el-dropdown-menu__item:visible').filter({ hasText: label }).first().click();
 }
 
-/** 状态下拉不会响应 Escape，需点击表格外区域关闭后再操作下一行。 */
-async function closeStatusMenu(page: Page): Promise<void> {
+async function chooseRowAction(page: Page, row: Locator, label: string): Promise<void> {
+  await row.getByRole('button', { name: '更多' }).click();
+  await page.locator('.el-dropdown-menu__item:visible').filter({ hasText: label }).first().click();
+}
+
+async function openRowMenu(page: Page, row: Locator): Promise<void> {
+  await row.getByRole('button', { name: '更多' }).click();
+  await expect(page.locator('.el-dropdown-menu__item:visible').first()).toBeVisible();
+}
+
+/** 下拉菜单不会响应 Escape，需点击表格外区域关闭后再操作下一行。 */
+async function closeRowMenu(page: Page): Promise<void> {
   await page.locator('.el-table__header').click({ position: { x: 10, y: 10 } });
   await expect(page.locator('.el-dropdown-menu:visible')).toHaveCount(0);
 }
@@ -494,7 +504,7 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await expect(createdRow).toBeVisible();
   await expect(createdRow.getByText('报名中')).toBeVisible();
 
-  await createdRow.getByRole('button', { name: '编辑' }).click();
+  await chooseRowAction(page, createdRow, '编辑');
   const editDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
   await expect(editDialog).toBeVisible();
   await editDialog.getByPlaceholder('例如 橙队VS兰队').fill(`${title}-改`);
@@ -519,8 +529,20 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await postponeDialog.getByRole('button', { name: '确认延期' }).click();
   await expect(matchRow(page, editedTitle).getByText('已延期')).toBeVisible();
 
-  await matchRow(page, editedTitle).getByRole('button', { name: '重新排期' }).click();
-  const rescheduleDialog = page.locator('.el-dialog').filter({ hasText: '重新排期' });
+  // 已延期仍可编辑基本信息，保存后状态保持已延期。
+  await chooseRowAction(page, matchRow(page, editedTitle), '编辑');
+  const postponedEditDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
+  await expect(postponedEditDialog).toBeVisible();
+  await expect(
+    postponedEditDialog.getByText('编辑不会改变比赛状态；恢复报名请使用重新排期。'),
+  ).toBeVisible();
+  await postponedEditDialog.getByPlaceholder('比赛场地').fill('E2E延期球场');
+  await postponedEditDialog.getByRole('button', { name: '保存修改' }).click();
+  await expect(matchRow(page, editedTitle).getByText('E2E延期球场')).toBeVisible();
+  await expect(matchRow(page, editedTitle).getByText('已延期')).toBeVisible();
+
+  await chooseRowAction(page, matchRow(page, editedTitle), '重新排期');
+  const rescheduleDialog = page.locator('.el-dialog').filter({ hasText: '确认重新排期' });
   await expect(rescheduleDialog).toBeVisible();
   const rescheduledStart = futureInstant(12);
   await fillDialogDateTime(rescheduleDialog, '开始时间', rescheduledStart);
@@ -543,11 +565,27 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await messageBox.getByRole('button', { name: '确认取消' }).click();
   await expect(matchRow(page, editedTitle).getByText('已取消')).toBeVisible();
 
+  // 已取消仍可编辑名称，保存后状态保持已取消。
+  await chooseRowAction(page, matchRow(page, editedTitle), '编辑');
+  const cancelledEditDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
+  await expect(cancelledEditDialog).toBeVisible();
+  const cancelledTitle = `${title}-取消后编辑`;
+  await cancelledEditDialog.getByPlaceholder('例如 橙队VS兰队').fill(cancelledTitle);
+  await cancelledEditDialog.getByRole('button', { name: '保存修改' }).click();
+  const cancelledRow = matchRow(page, cancelledTitle);
+  await expect(cancelledRow.getByText('已取消')).toBeVisible();
+
   // 合法集：已结束不可延期、已取消不可再取消，禁用项用 title 说明原因。
   const finishedRow = page
     .locator('.el-table__row')
     .filter({ hasText: '橙队VS兰队' })
     .filter({ hasText: '已结束' });
+  await openRowMenu(page, finishedRow);
+  await expect(
+    page.locator('.el-dropdown-menu__item:visible').filter({ hasText: '编辑' }).first(),
+  ).not.toHaveClass(/is-disabled/);
+  await closeRowMenu(page);
+
   await finishedRow.getByRole('button', { name: '状态' }).click();
   const postponedItem = page
     .locator('.el-dropdown-menu__item:visible')
@@ -555,16 +593,16 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
     .first();
   await expect(postponedItem).toHaveClass(/is-disabled/);
   await expect(postponedItem).toHaveAttribute('title', '当前状态不可延期');
-  await closeStatusMenu(page);
+  await closeRowMenu(page);
 
-  await matchRow(page, editedTitle).getByRole('button', { name: '状态' }).click();
+  await cancelledRow.getByRole('button', { name: '状态' }).click();
   const cancelledItem = page
     .locator('.el-dropdown-menu__item:visible')
     .filter({ hasText: '已取消' })
     .first();
   await expect(cancelledItem).toHaveClass(/is-disabled/);
   await expect(cancelledItem).toHaveAttribute('title', '当前状态不可取消');
-  await closeStatusMenu(page);
+  await closeRowMenu(page);
 
   expect(errors).toEqual([]);
 });
@@ -626,7 +664,7 @@ test('B 端：B02 比赛列表字段与赛季编辑', async ({ page }) => {
   await baselineDialog.getByRole('button', { name: '创建比赛' }).click();
   await expect(matchRow(page, baselineTitle)).toBeVisible();
 
-  await createdRow.getByRole('button', { name: '编辑' }).click();
+  await chooseRowAction(page, createdRow, '编辑');
   const editDialog = page.locator('.el-dialog').filter({ hasText: '编辑比赛' });
   await expect(editDialog).toBeVisible();
   await expect(editDialog.locator('.el-form-item').filter({ hasText: /^场次/ })).toHaveCount(0);
@@ -666,9 +704,9 @@ test('B 端：B02 只读权限不显示写操作', async ({ page }) => {
   await expect(page).toHaveURL(/\/admin\/matches$/);
   await expect(page.getByText('橙队VS兰队').first()).toBeVisible();
   await expect(page.getByRole('button', { name: '新建比赛' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '编辑' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '状态' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '重新排期' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '更多' })).toHaveCount(0);
+  await expect(page.locator('.el-table__header th').filter({ hasText: '操作' })).toHaveCount(0);
   await expect(page.getByRole('menuitem', { name: '比赛管理' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: '报名/考勤' })).toHaveCount(0);
 
@@ -699,14 +737,18 @@ test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
   await page.getByRole('button', { name: '搜索' }).click();
   const wechatRow = page.locator('.el-table__row').filter({ hasText: '测试后卫02' });
   await expect(wechatRow).toContainText('已绑定');
-  await expect(wechatRow.getByRole('button', { name: '解绑微信' })).toBeVisible();
+  await openRowMenu(page, wechatRow);
+  await expect(
+    page.locator('.el-dropdown-menu__item:visible').filter({ hasText: '解绑微信' }),
+  ).toBeVisible();
+  await closeRowMenu(page);
 
   // 1021 无号码，种子区块会复位 region/avatar，保证 E2E 可重复。
   await page.getByPlaceholder('搜索球员姓名').fill('测试待审核01');
   await page.getByRole('button', { name: '搜索' }).click();
   const row = page.locator('.el-table__row').filter({ hasText: '测试待审核01' });
   await expect(row).toBeVisible();
-  await row.getByRole('button', { name: '编辑' }).click();
+  await chooseRowAction(page, row, '编辑');
   const dialog = page.locator('.el-dialog').filter({ hasText: '编辑球员' });
   await expect(dialog).toBeVisible();
 
@@ -769,12 +811,8 @@ test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
   await expect(page).toHaveURL(/\/admin\/players$/);
   await expect(page.getByRole('menuitem', { name: '球员' })).toBeVisible();
   await expect(page.locator('.el-table__row').first()).toBeVisible();
-  await expect(page.getByRole('button', { name: '编辑' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '换绑' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '解绑微信' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '通过' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '转正' })).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '注销' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '更多' })).toHaveCount(0);
+  await expect(page.locator('.el-table__header th').filter({ hasText: '操作' })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

@@ -91,7 +91,7 @@ describe('postponeFormError', () => {
     expect(postponeFormError('2026-11-14T20:00', 'bad')).toBe('请选择开始与结束时间');
   });
 
-  it('accepts a valid 2–4 hour window after 10:00', () => {
+  it('accepts a valid 2–4 hour window after 01:00', () => {
     expect(postponeFormError('2026-11-14T20:00', '2026-11-14T22:00')).toBeNull();
   });
 
@@ -107,9 +107,9 @@ describe('postponeFormError', () => {
     );
   });
 
-  it('rejects a start at or before 10:00 Shanghai', () => {
-    expect(postponeFormError('2026-11-14T10:00', '2026-11-14T12:00')).toBe(
-      '开赛时间必须晚于当天 10:00',
+  it('rejects a start at or before 01:00 Shanghai', () => {
+    expect(postponeFormError('2026-11-14T01:00', '2026-11-14T03:00')).toBe(
+      '开赛时间必须晚于当天 01:00',
     );
   });
 });

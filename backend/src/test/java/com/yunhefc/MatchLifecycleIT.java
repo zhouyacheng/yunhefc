@@ -68,7 +68,7 @@ class MatchLifecycleIT extends IntegrationTestSupport {
             assertThat(Instant.parse(json(result, "$.data.signupDeadline")))
                     .isEqualTo(local("2026-12-20T00:00:00"));
             assertThat(Instant.parse(json(result, "$.data.cancelLock")))
-                    .isEqualTo(local("2026-12-20T10:00:00"));
+                    .isEqualTo(local("2026-12-20T01:00:00"));
             assertThat(jdbc.queryForObject(
                     "SELECT status FROM registration WHERE match_id = ?", Integer.class, matchId)).isZero();
         }
@@ -98,7 +98,7 @@ class MatchLifecycleIT extends IntegrationTestSupport {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40901))
                 .andExpect(jsonPath("$.data.currentVersion").value(0));
-        postpone(admin, matchId, "2026-12-20T09:00:00", "2026-12-20T11:00:00", 0)
+        postpone(admin, matchId, "2026-12-20T00:30:00", "2026-12-20T02:30:00", 0)
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value(42201));
         postpone(admin, matchId, "2026-12-20T19:00:00", "2026-12-20T20:00:00", 0)
@@ -135,7 +135,7 @@ class MatchLifecycleIT extends IntegrationTestSupport {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40901))
                 .andExpect(jsonPath("$.data.currentVersion").value(1));
-        reschedule(admin, matchId, "2026-12-25T09:00:00", "2026-12-25T12:00:00", 1)
+        reschedule(admin, matchId, "2026-12-25T00:30:00", "2026-12-25T02:30:00", 1)
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value(42201));
 
@@ -150,7 +150,7 @@ class MatchLifecycleIT extends IntegrationTestSupport {
         assertThat(Instant.parse(json(result, "$.data.signupDeadline")))
                 .isEqualTo(local("2026-12-25T00:00:00"));
         assertThat(Instant.parse(json(result, "$.data.cancelLock")))
-                .isEqualTo(local("2026-12-25T10:00:00"));
+                .isEqualTo(local("2026-12-25T01:00:00"));
         assertThat(auditStatus(matchId, "MATCH_RESCHEDULE", true)).isEqualTo(5);
         assertThat(auditStatus(matchId, "MATCH_RESCHEDULE", false)).isZero();
 

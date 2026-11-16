@@ -401,7 +401,7 @@ class AttendanceAdminIT extends IntegrationTestSupport {
                     cancel_lock, venue, season, home_team_name, away_team_name, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (2, 'M05考勤跨队', 1, NOW(3) + INTERVAL 2 HOUR, NOW(3) + INTERVAL 4 HOUR,
-                    NOW(3), NOW(3) + INTERVAL 10 HOUR, '测试场地', '2099', '橙队', '兰队',
+                    NOW(3), NOW(3) + INTERVAL 1 HOUR, '测试场地', '2099', '橙队', '兰队',
                     2, 1, 30, ?, ?, 1)
                 """, seasonNo, seasonNo);
         return jdbc.queryForObject(

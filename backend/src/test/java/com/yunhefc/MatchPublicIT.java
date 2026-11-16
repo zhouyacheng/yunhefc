@@ -210,6 +210,35 @@ class MatchPublicIT extends IntegrationTestSupport {
     }
 
     @Test
+    void upcomingExcludesMatchesEndedBeforeNow() throws Exception {
+        Cookie admin = adminLogin("13900000630");
+        Long live = create(admin, matchBody("M03公开待进行", 1, "聚龙足球场", "2099",
+                "2099-01-05T20:00:00"));
+        Long stale = create(admin, matchBody("M03公开过期未结束", 1, "聚龙足球场", "2099",
+                "2099-01-04T20:00:00"));
+        // 模拟手工冻结或自动流转滞后的过期比赛：状态非终态，但结束时间已过。
+        jdbc.update("""
+                UPDATE team_match
+                SET start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR),
+                    end_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR),
+                    signup_deadline = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 HOUR),
+                    cancel_lock = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR),
+                    status = 2, manual_status = 1
+                WHERE id = ?
+                """, stale);
+
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("season", "2099").param("scope", "upcoming"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(live));
+
+        mockMvc.perform(get("/api/v1/c/matches").param("season", "2099"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2));
+    }
+
+    @Test
     void summaryDerivesResultTextAndQueueCounts() throws Exception {
         Cookie admin = adminLogin("13900000602");
         Long win = create(admin, officialBody("M03公开胜", "云河FC", "乙队", 3, 1,

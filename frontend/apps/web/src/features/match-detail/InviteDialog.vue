@@ -241,4 +241,11 @@ function selectAll(event: Event): void {
   color: var(--yh-red-ink);
   font-size: 13px;
 }
+
+@media (max-width: 760px) {
+  .invite-field input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+}
 </style>

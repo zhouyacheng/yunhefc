@@ -23,6 +23,12 @@
       .sort((a, b) => new Date(a.start) - new Date(b.start));
     const next = Y.nextMatch();
     const finished = Y.state.matches.filter((match) => match.status === 'FINISHED');
+    const recent = Y.state.matches
+      .slice()
+      .sort((a, b) => new Date(b.start) - new Date(a.start))
+      .slice(0, 4)
+      .filter((match) => match.id !== next?.id)
+      .slice(0, 3);
     if (!next) {
       host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无待进行比赛</h2><p class="muted">当前没有可报名或进行中的比赛。</p><a class="btn btn-primary" href="matches.html">查看赛程</a></div></section>`;
       return;
@@ -89,10 +95,10 @@
         </div>
       </div>
     </section>
-    <section class="container section">
-      <div class="section-head"><div><h2>近期赛程</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部赛程 →</a></div>
-      <div class="match-grid">${upcoming.slice(0, 3).map(Y.renderMatchCard).join('')}</div>
-    </section>
+    ${recent.length ? `<section class="container section">
+      <div class="section-head"><div><h2>历史赛程</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部赛程 →</a></div>
+      <div class="match-grid">${recent.map(Y.renderMatchCard).join('')}</div>
+    </section>` : ''}
     <section class="container section">
       <div class="section-head"><div><h2>球队火力</h2><p class="muted">二期能力占位，首版不展示数据</p></div><a class="link" href="team.html">查看球队 →</a></div>
       <div class="card"><div class="empty-inline">球队火力将在二期上线。</div></div>

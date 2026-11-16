@@ -503,4 +503,21 @@ onUnmounted(() => {
   gap: 6px;
   font-size: 14px;
 }
+
+@media (max-width: 760px) {
+  .edit-field select {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .position-option {
+    min-height: 44px;
+    padding-right: 8px;
+  }
+
+  .position-option input {
+    width: 20px;
+    height: 20px;
+  }
+}
 </style>

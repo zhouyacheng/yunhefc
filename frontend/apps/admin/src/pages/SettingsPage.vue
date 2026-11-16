@@ -173,21 +173,7 @@ onMounted(load);
 
 <style scoped>
 .page-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
-}
-
-.page-head h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
-}
-
-.page-head p {
-  margin: 0;
-  font-size: 13px;
 }
 
 .settings-form {
@@ -207,13 +193,5 @@ onMounted(load);
   align-items: center;
   gap: 12px;
   margin-top: 16px;
-}
-
-.muted {
-  color: var(--yh-muted);
-}
-
-.small {
-  font-size: 12px;
 }
 </style>

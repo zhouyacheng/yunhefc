@@ -15,10 +15,13 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
 
   await expect(page.getByRole('heading', { name: 'B3首页联调赛' })).toBeVisible();
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
+  // 历史赛程取最近 4 场比赛（不限状态），按时间降序，排除 Hero 后展示 3 场。
+  await expect(page.getByRole('heading', { name: '历史赛程' })).toBeVisible();
   await expect(page.locator('.home-section .match-card')).toHaveCount(3);
+  await expect(page.locator('.home-section .match-card-link[href="/matches/1005"]')).toHaveCount(0);
   await expect(page.locator('.home-section .match-card-link').first()).toHaveAttribute(
     'href',
-    '/matches/1005',
+    '/matches/1001',
   );
   await expect(page.locator('.van-tabbar-item--active')).toContainText('首页');
 

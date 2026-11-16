@@ -520,31 +520,7 @@ onUnmounted(() => {
 
 <style scoped>
 .page-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
-}
-
-.page-head h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
-}
-
-.page-head p {
-  margin: 0;
-  font-size: 13px;
-}
-
-.muted {
-  color: var(--yh-muted);
-}
-
-.table-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
 }
 
 .full-width {
@@ -561,11 +537,5 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   align-items: center;
-}
-
-.dialog-error {
-  margin: 0;
-  color: var(--el-color-danger);
-  font-size: 13px;
 }
 </style>

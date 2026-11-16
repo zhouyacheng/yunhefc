@@ -538,28 +538,6 @@ onMounted(loadMatches);
   gap: 16px;
 }
 
-.page-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.page-head h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
-}
-
-.page-head p {
-  margin: 0;
-  font-size: 13px;
-}
-
-.match-picker {
-  width: 380px;
-  max-width: 100%;
-}
-
 .page-body {
   min-height: 160px;
 }
@@ -575,19 +553,16 @@ onMounted(loadMatches);
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding: 14px 16px;
-  background: var(--yh-surface);
-  border: 1px solid var(--yh-line);
-  border-radius: 12px;
 }
 
 .stat-card span {
   color: var(--yh-muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .stat-card b {
-  font-size: 24px;
+  font-size: 26px;
+  letter-spacing: -0.04em;
   line-height: 1.1;
 }
 
@@ -611,7 +586,8 @@ onMounted(loadMatches);
   padding: 16px;
   background: var(--yh-surface);
   border: 1px solid var(--yh-line);
-  border-radius: 12px;
+  border-radius: var(--yh-radius);
+  box-shadow: var(--yh-shadow-sm);
 }
 
 .roster-head {
@@ -682,39 +658,9 @@ onMounted(loadMatches);
   border-bottom: none;
 }
 
-.empty-inline {
-  padding: 12px 0;
-  color: var(--yh-muted);
-  font-size: 13px;
-}
-
-.hint {
-  margin: 10px 0 0;
-  color: var(--yh-muted);
-  font-size: 12px;
-}
-
-.muted {
-  color: var(--yh-muted);
-}
-
-.small {
-  font-size: 12px;
-}
-
-@media (max-width: 1200px) {
+@media (max-width: 1000px) {
   .roster-grid {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 720px) {
-  .page-head {
-    flex-direction: column;
-  }
-
-  .match-picker {
-    width: 100%;
   }
 }
 </style>

@@ -133,6 +133,20 @@
   border-color: var(--yh-line);
 }
 
+.van-button--plain.van-button--disabled {
+  color: var(--yh-muted);
+  border-color: var(--yh-line);
+  opacity: 1;
+}
+
+.van-button--primary.van-button--disabled:not(.van-button--plain) {
+  color: var(--yh-muted);
+  background: var(--yh-slate-soft);
+  border-color: var(--yh-line);
+  box-shadow: none;
+  opacity: 1;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -400,8 +414,10 @@ textarea {
   gap: 16px;
   align-items: center;
   justify-content: space-between;
-  min-height: 64px;
-  padding: 0 max(var(--yh-page-pad-x), calc((100% - 1180px) / 2 + var(--yh-page-pad-x)));
+  min-height: calc(64px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-right: max(var(--yh-page-pad-x), calc((100% - 1180px) / 2 + var(--yh-page-pad-x)));
+  padding-left: max(var(--yh-page-pad-x), calc((100% - 1180px) / 2 + var(--yh-page-pad-x)));
   color: #ffffff;
   background: rgba(11, 18, 32, 0.94);
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
@@ -670,6 +686,7 @@ textarea {
   margin: 12px 0;
   font-size: 16px;
   font-weight: 600;
+  text-align: center;
 }
 
 .match-card__teams span {
@@ -680,7 +697,7 @@ textarea {
 }
 
 .match-card__teams span:last-child {
-  text-align: right;
+  text-align: center;
 }
 
 .match-card__teams strong {
@@ -692,6 +709,9 @@ textarea {
 }
 
 .match-card__teams .team-name--winner {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
   padding: 2px 8px;
   color: #ffffff;
   background: var(--yh-red);
@@ -762,7 +782,8 @@ textarea {
   justify-content: center;
   min-height: 100vh;
   min-height: 100dvh;
-  padding: 40px var(--yh-page-pad-x);
+  padding: max(40px, calc(env(safe-area-inset-top) + 24px)) var(--yh-page-pad-x)
+    max(40px, env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 20% 20%, rgba(22, 163, 74, 0.12), transparent 30%), var(--yh-bg);
 }
@@ -995,6 +1016,9 @@ textarea {
 }
 
 .match-hero__teams .team-name--winner {
+  justify-self: center;
+  width: fit-content;
+  max-width: 100%;
   padding: 2px 10px;
   color: #ffffff;
   background: var(--yh-red);
@@ -1307,13 +1331,30 @@ textarea {
 }
 
 @media (max-width: 480px) {
-  .timeline-head,
+  .timeline-head {
+    display: none;
+  }
+
   .timeline-row {
-    grid-template-columns: 1fr 58px 1fr;
-    gap: 4px;
+    grid-template-columns: 44px minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+  }
+
+  .timeline-axis {
+    grid-row: 1;
+    grid-column: 1;
+  }
+
+  .timeline-side,
+  .timeline-side--away {
+    grid-row: 1;
+    grid-column: 2;
+    justify-content: flex-start;
   }
 
   .event-card {
+    max-width: none;
     padding: 8px 9px;
     font-size: 12px;
   }
@@ -1820,4 +1861,46 @@ textarea {
   .feature-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* 移动端适配：输入字号避免 iOS 聚焦缩放，触控目标 44px，长文本与安全区收敛。 */
+@media (max-width: 760px) {
+  .van-field__control {
+    font-size: 16px;
+  }
+
+  .schedule-filter select,
+  .schedule-filter input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .schedule-filters__drawer {
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+  }
+
+  .c-user {
+    max-width: 46%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .position-option {
+    min-height: 44px;
+  }
+
+  .event-edit,
+  .invite-close,
+  .status-close {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
+.match-hero__teams span,
+.home-hero__teams span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }

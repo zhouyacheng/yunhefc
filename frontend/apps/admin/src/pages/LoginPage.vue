@@ -3,8 +3,10 @@ import { ERROR_CODES, isApiError } from '@yunhefc/api-client';
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import logoUrl from '../assets/logo.png';
 import { safeRouteRedirect } from '../router';
 import { useSessionStore } from '../stores/session';
+import { webUrl } from '../web-url';
 
 const session = useSessionStore();
 const route = useRoute();
@@ -17,7 +19,6 @@ const errorMessage = ref('');
 const errorCode = ref<number | null>(null);
 
 const noBackendPermission = computed(() => errorCode.value === ERROR_CODES.FORBIDDEN);
-const webUrl = import.meta.env.VITE_WEB_URL ?? (import.meta.env.DEV ? 'http://localhost:5273' : '');
 
 async function submit(): Promise<void> {
   errorMessage.value = '';
@@ -52,8 +53,13 @@ async function submit(): Promise<void> {
 <template>
   <div class="login-page">
     <div class="login-card">
-      <h1>云河FC 管理后台</h1>
-      <p>使用球队管理员账号登录</p>
+      <div class="login-head">
+        <span class="login-logo"><img :src="logoUrl" alt="云河FC" /></span>
+        <div>
+          <h1>云河FC 管理后台</h1>
+          <p>使用球队管理员账号登录</p>
+        </div>
+      </div>
 
       <el-form label-position="top" @submit.prevent="submit">
         <el-form-item label="手机号">

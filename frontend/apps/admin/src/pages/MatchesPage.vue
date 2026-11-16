@@ -142,9 +142,7 @@ const totalCapacity = computed(() => {
   return capacity + guestCapacity;
 });
 const ourSideNeeded = computed(() => matchForm.type === 0 || matchForm.type === 3);
-const matchDialogTitle = computed(() =>
-  matchDialog.mode === 'create' ? '创建比赛' : '编辑比赛',
-);
+const matchDialogTitle = computed(() => (matchDialog.mode === 'create' ? '创建比赛' : '编辑比赛'));
 
 function statusTag(statusCode: number): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
   const tone = matchStatusTone(statusCode);
@@ -213,18 +211,14 @@ function toPickerDate(value: string | null | undefined): Date | null {
   if (!instant) {
     return null;
   }
-  return new Date(
-    instant.getTime() + SHANGHAI_OFFSET_MS + instant.getTimezoneOffset() * 60_000,
-  );
+  return new Date(instant.getTime() + SHANGHAI_OFFSET_MS + instant.getTimezoneOffset() * 60_000);
 }
 
 function fromPickerDate(value: Date | null): Date | null {
   if (!value) {
     return null;
   }
-  return new Date(
-    value.getTime() - SHANGHAI_OFFSET_MS - value.getTimezoneOffset() * 60_000,
-  );
+  return new Date(value.getTime() - SHANGHAI_OFFSET_MS - value.getTimezoneOffset() * 60_000);
 }
 
 async function load(): Promise<void> {
@@ -455,10 +449,7 @@ function validateMatchForm(mode: MatchDialogMode): string | null {
   if (!Number.isInteger(matchForm.waitlistCapacity) || matchForm.waitlistCapacity < 0) {
     return '候补名额不能为负数';
   }
-  if (
-    matchForm.round !== null &&
-    (!Number.isInteger(matchForm.round) || matchForm.round < 0)
-  ) {
+  if (matchForm.round !== null && (!Number.isInteger(matchForm.round) || matchForm.round < 0)) {
     return '轮次必须为非负整数';
   }
   if (
@@ -704,15 +695,11 @@ async function submitCancel(): Promise<void> {
   // 先置位再弹确认框，避免快速双击弹出多个二次确认。
   cancelDialog.submitting = true;
   try {
-    await ElMessageBox.confirm(
-      `确认取消「${target.title}」？取消后全部报名将作废。`,
-      '二次确认',
-      {
-        type: 'warning',
-        confirmButtonText: '确认取消',
-        cancelButtonText: '保留比赛',
-      },
-    );
+    await ElMessageBox.confirm(`确认取消「${target.title}」？取消后全部报名将作废。`, '二次确认', {
+      type: 'warning',
+      confirmButtonText: '确认取消',
+      cancelButtonText: '保留比赛',
+    });
   } catch {
     cancelDialog.submitting = false;
     return;
@@ -805,7 +792,12 @@ onMounted(load);
         </template>
       </el-table-column>
       <el-table-column label="场地" prop="venue" min-width="150" />
-      <el-table-column v-if="canCreate || canEdit || canStatus" label="操作" width="220" fixed="right">
+      <el-table-column
+        v-if="canCreate || canEdit || canStatus"
+        label="操作"
+        width="220"
+        fixed="right"
+      >
         <template #default="{ row }">
           <div class="row-actions">
             <el-tooltip
@@ -886,11 +878,7 @@ onMounted(load);
           />
         </el-form-item>
         <el-form-item label="类型">
-          <el-select
-            v-if="matchDialog.mode === 'create'"
-            v-model="matchForm.type"
-            class="full"
-          >
+          <el-select v-if="matchDialog.mode === 'create'" v-model="matchForm.type" class="full">
             <el-option
               v-for="item in typeOptions"
               :key="item.value"
@@ -938,10 +926,7 @@ onMounted(load);
           <el-input v-model="matchForm.awayTeamName" maxlength="64" placeholder="客队名称" />
         </el-form-item>
         <el-form-item v-if="ourSideNeeded" label="我方主客">
-          <el-radio-group
-            v-model="matchForm.ourSide"
-            :disabled="matchDialog.mode === 'edit'"
-          >
+          <el-radio-group v-model="matchForm.ourSide" :disabled="matchDialog.mode === 'edit'">
             <el-radio :value="0">主队</el-radio>
             <el-radio :value="1">客队</el-radio>
           </el-radio-group>
@@ -1076,11 +1061,7 @@ onMounted(load);
       <p v-if="scheduleDialog.error" class="dialog-error">{{ scheduleDialog.error }}</p>
       <template #footer>
         <el-button @click="scheduleDialog.visible = false">取消</el-button>
-        <el-button
-          type="primary"
-          :loading="scheduleDialog.submitting"
-          @click="submitSchedule"
-        >
+        <el-button type="primary" :loading="scheduleDialog.submitting" @click="submitSchedule">
           {{ scheduleDialog.mode === 'postpone' ? '确认延期' : '确认重新排期' }}
         </el-button>
       </template>
@@ -1108,11 +1089,7 @@ onMounted(load);
       <p v-if="cancelDialog.error" class="dialog-error">{{ cancelDialog.error }}</p>
       <template #footer>
         <el-button @click="cancelDialog.visible = false">返回</el-button>
-        <el-button
-          type="danger"
-          :loading="cancelDialog.submitting"
-          @click="submitCancel"
-        >
+        <el-button type="danger" :loading="cancelDialog.submitting" @click="submitCancel">
           确认取消
         </el-button>
       </template>
@@ -1122,36 +1099,11 @@ onMounted(load);
 
 <style scoped>
 .page-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
 }
 
-.page-head h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
-}
-
-.page-head p {
-  margin: 0;
-  font-size: 13px;
-}
-
-.row-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-
-.row-actions .el-button + .el-button {
-  margin-left: 0;
-}
-
-.full {
-  width: 100%;
+.toolbar {
+  margin-bottom: 16px;
 }
 
 .season-input {
@@ -1162,19 +1114,5 @@ onMounted(load);
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.dialog-error {
-  margin: 8px 0 0;
-  color: var(--el-color-danger);
-  font-size: 12px;
-}
-
-.muted {
-  color: var(--yh-muted);
-}
-
-.small {
-  font-size: 12px;
 }
 </style>

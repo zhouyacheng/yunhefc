@@ -744,25 +744,7 @@ onMounted(() => {
 
 <style scoped>
 .page-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
   margin-bottom: 16px;
-}
-
-.page-head h2 {
-  margin: 0 0 4px;
-  font-size: 20px;
-}
-
-.page-head p {
-  margin: 0;
-  font-size: 13px;
-}
-
-.muted {
-  color: var(--yh-muted);
 }
 
 .roles-layout {
@@ -778,7 +760,8 @@ onMounted(() => {
   padding: 16px;
   background: var(--yh-surface);
   border: 1px solid var(--yh-line);
-  border-radius: 10px;
+  border-radius: var(--yh-radius);
+  box-shadow: var(--yh-shadow-sm);
 }
 
 .role-panel-head,
@@ -828,8 +811,8 @@ onMounted(() => {
 }
 
 .role-item.active {
-  background: var(--el-color-primary-light-9);
-  border-color: var(--el-color-primary);
+  background: var(--yh-green-soft);
+  border-color: var(--yh-green);
 }
 
 .role-name {
@@ -868,7 +851,7 @@ onMounted(() => {
 .permission-group {
   padding: 12px;
   border: 1px solid var(--yh-line);
-  border-radius: 8px;
+  border-radius: var(--yh-radius-sm);
 }
 
 .permission-group h4 {
@@ -901,18 +884,13 @@ onMounted(() => {
   font-size: 11px;
 }
 
-.dialog-error {
-  margin: 0;
-  color: var(--el-color-danger);
-  font-size: 13px;
-}
-
 .user-roles-panel {
   margin-top: 16px;
   padding: 16px;
   background: var(--yh-surface);
   border: 1px solid var(--yh-line);
-  border-radius: 10px;
+  border-radius: var(--yh-radius);
+  box-shadow: var(--yh-shadow-sm);
 }
 
 .user-roles-head h3 {
@@ -935,12 +913,6 @@ onMounted(() => {
 
 .filter-select {
   width: 140px;
-}
-
-.table-footer {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 12px;
 }
 
 .user-role-editor {

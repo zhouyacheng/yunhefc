@@ -73,14 +73,20 @@ async function load(silent = false): Promise<void> {
   now.value = Date.now();
 
   try {
-    const page = await api.get<Page<MatchSummary>>('/matches', {
-      query: { scope: 'upcoming', sort: 'startAt:asc', pageSize: 3 },
-    });
+    const [upcomingPage, historyPage] = await Promise.all([
+      api.get<Page<MatchSummary>>('/matches', {
+        query: { scope: 'upcoming', sort: 'startAt:asc', pageSize: 1 },
+      }),
+      api.get<Page<MatchSummary>>('/matches', {
+        query: { sort: 'startAt:desc', pageSize: 4 },
+      }),
+    ]);
     if (seq !== requestSeq) {
       return;
     }
-    matches.value = page.items;
-    const [first] = page.items;
+    // Hero 取最近一场待进行比赛；历史赛程取最近的 4 场比赛，排除 Hero 后最多展示 3 场。
+    const [first] = upcomingPage.items;
+    matches.value = historyPage.items.filter((match) => match.id !== first?.id).slice(0, 3);
     if (!first) {
       hero.value = null;
       clearRefreshError();
@@ -287,7 +293,7 @@ onUnmounted(() => {
 
       <section v-if="matches.length > 0" class="home-section">
         <div class="card-head">
-          <h2>近期赛程</h2>
+          <h2>历史赛程</h2>
           <RouterLink class="ghost-link" to="/matches">全部赛程 →</RouterLink>
         </div>
 

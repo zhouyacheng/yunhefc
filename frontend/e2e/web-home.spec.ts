@@ -14,7 +14,7 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
   await page.goto('/');
 
   // Hero 取全部比赛里开赛时间最大的一条：种子数据中为 1001。
-  await expect(page.getByRole('heading', { name: '橙队VS兰队' })).toBeVisible();
+  await expect(page.locator('.home-hero__teams')).toContainText(/橙队.*兰队/);
   await expect(page.locator('.home-hero__meta span').first()).toContainText(
     /\d{4}\/\d{2}\/\d{2} \d{2}:\d{2} ~ (?:\d{2}\/\d{2} )?\d{2}:\d{2}/,
   );
@@ -45,7 +45,7 @@ test('C01 首页：登录球员看到最近一场与报名队列', async ({ page
 
   await page.locator('.van-tabbar-item').filter({ hasText: '首页' }).click();
   await expect(page).toHaveURL(/\/$/);
-  await expect(page.getByRole('heading', { name: '橙队VS兰队' })).toBeVisible();
+  await expect(page.locator('.home-hero__teams')).toContainText(/橙队.*兰队/);
   await expect(page.locator('.van-tabbar-item--active')).toContainText('首页');
 
   const formalQueue = page.locator('.hero-queue__item').first();
@@ -83,7 +83,7 @@ test('C01 首页：加载失败可重试', async ({ page }) => {
   await expect(page.getByText('服务暂不可用')).toBeVisible();
 
   await page.getByRole('button', { name: '重试' }).click();
-  await expect(page.getByRole('heading', { name: '橙队VS兰队' })).toBeVisible();
+  await expect(page.locator('.home-hero__teams')).toContainText(/橙队.*兰队/);
 
   expect(errors).toEqual([]);
 });

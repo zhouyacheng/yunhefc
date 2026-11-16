@@ -223,8 +223,6 @@ onUnmounted(() => {
               </Tag>
             </div>
 
-            <h2 class="home-hero__title">{{ hero.title }}</h2>
-
             <div class="home-hero__teams">
               <span :class="{ 'team-name--winner': heroWinner === 0 }">
                 {{ hero.homeTeamName }}

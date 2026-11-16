@@ -116,6 +116,7 @@ public class MatchAdminApplicationService {
             case END_AT -> wrapper.orderBy(true, sort.ascending(), TeamMatch::getEndAt);
             case SEASON -> wrapper.orderBy(true, sort.ascending(), TeamMatch::getSeason);
             case TYPE -> wrapper.orderBy(true, sort.ascending(), TeamMatch::getType);
+            case SEASON_MATCH_NO -> wrapper.orderBy(true, sort.ascending(), TeamMatch::getSeasonMatchNo);
         }
         wrapper.orderByAsc(TeamMatch::getId);
 

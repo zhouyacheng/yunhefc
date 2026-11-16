@@ -101,6 +101,7 @@ final class MatchQueryParsing {
             case "endAt" -> AdminSortField.END_AT;
             case "season" -> AdminSortField.SEASON;
             case "type" -> AdminSortField.TYPE;
+            case "seasonMatchNo" -> AdminSortField.SEASON_MATCH_NO;
             default -> throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
         };
         return new AdminSort(sortField, ascending);
@@ -154,7 +155,8 @@ final class MatchQueryParsing {
         START_AT,
         END_AT,
         SEASON,
-        TYPE
+        TYPE,
+        SEASON_MATCH_NO
     }
 
     record AdminSort(AdminSortField field, boolean ascending) {

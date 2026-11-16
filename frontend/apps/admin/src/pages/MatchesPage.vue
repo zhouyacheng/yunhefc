@@ -292,7 +292,7 @@ async function loadSeasons(): Promise<void> {
     const result = await api.get<ItemsResponse<string>>('/matches/seasons');
     seasons.value = result.items;
   } catch {
-    // 赛季选项失败不阻塞列表；下拉仍可手工输入。
+    // 赛季选项失败不阻塞列表；下拉仅保留「全部赛季」。
   }
 }
 
@@ -336,7 +336,7 @@ function onFilterChange(): void {
 }
 
 function onSortChange({ prop, order }: { prop: string; order: string | null }): void {
-  const fields = ['season', 'startAt', 'endAt', 'type'];
+  const fields = ['season', 'seasonMatchNo', 'startAt', 'endAt', 'type'];
   sort.value = order && fields.includes(prop)
     ? `${prop}:${order === 'ascending' ? 'asc' : 'desc'}`
     : 'startAt:desc';
@@ -585,7 +585,11 @@ async function submitMatch(): Promise<void> {
   const mode = matchDialog.mode;
   const validationError = validateMatchForm(mode);
   if (validationError) {
-    matchDialog.error = validationError;
+    await ElMessageBox.alert(
+      validationError,
+      mode === 'create' ? '无法创建比赛' : '无法保存比赛',
+      { type: 'warning', confirmButtonText: '知道了' },
+    );
     return;
   }
   matchDialog.submitting = true;
@@ -625,7 +629,10 @@ async function submitMatch(): Promise<void> {
       guestCount: detail.guestCount,
     });
     if (capacityError) {
-      matchDialog.error = capacityError;
+      await ElMessageBox.alert(capacityError, '无法保存比赛', {
+        type: 'warning',
+        confirmButtonText: '知道了',
+      });
       return;
     }
     await api.patch<MatchAdmin>(
@@ -858,8 +865,6 @@ onMounted(loadSeasons);
         class="season-filter"
         placeholder="全部赛季"
         filterable
-        allow-create
-        default-first-option
         clearable
         @change="onFilterChange"
       >
@@ -890,7 +895,7 @@ onMounted(loadSeasons);
       @sort-change="onSortChange"
     >
       <el-table-column label="赛季" prop="season" width="90" sortable="custom" />
-      <el-table-column label="场次" width="100">
+      <el-table-column label="场次" prop="seasonMatchNo" width="100" sortable="custom">
         <template #default="{ row }">{{ row.seasonMatchNo }}</template>
       </el-table-column>
       <el-table-column label="比赛" prop="title" min-width="200" />

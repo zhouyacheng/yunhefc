@@ -563,6 +563,18 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].title").value("M03列表已结束"));
 
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("season", "2099").param("sort", "seasonMatchNo:asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].title").value("M03列表报名中"))
+                .andExpect(jsonPath("$.data.items[2].title").value("M03列表已取消"));
+
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("season", "2099").param("sort", "seasonMatchNo:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].title").value("M03列表已取消"))
+                .andExpect(jsonPath("$.data.items[2].title").value("M03列表报名中"));
+
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin).param("sort", "season:asc"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].title").value("M03列表旧赛季"));

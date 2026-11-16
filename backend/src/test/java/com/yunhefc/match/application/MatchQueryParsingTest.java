@@ -97,6 +97,9 @@ class MatchQueryParsingTest {
                 .isEqualTo(MatchQueryParsing.AdminSortField.SEASON);
         assertThat(MatchQueryParsing.adminSort("type:desc").field())
                 .isEqualTo(MatchQueryParsing.AdminSortField.TYPE);
+        assertThat(MatchQueryParsing.adminSort("seasonMatchNo:asc").field())
+                .isEqualTo(MatchQueryParsing.AdminSortField.SEASON_MATCH_NO);
+        assertThat(MatchQueryParsing.adminSort("seasonMatchNo:desc").ascending()).isFalse();
         assertThat(MatchQueryParsing.adminSort("type:asc").ascending()).isTrue();
         assertThat(MatchQueryParsing.adminSort("type:desc").ascending()).isFalse();
     }

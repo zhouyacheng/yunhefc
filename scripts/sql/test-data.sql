@@ -102,6 +102,9 @@ DELETE FROM team_match WHERE title LIKE 'E2E比赛%';
 
 -- 四场测试比赛：1001 锁定（用于分组/阵容），1002 已结束（用于事件/考勤/统计），
 -- 1003 开赛时间随脚本滚动（用于 C 端签到黄金路径），1004 进行中（用于 C 端事件黄金路径）
+-- 1001 场时间随脚本执行滚动，保证 LOCKED 场次始终晚于 1005，首页 Hero 顺序稳定。
+SET @locked_start = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 3 HOUR);
+
 INSERT IGNORE INTO team_match
   (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
    venue, competition, season, round, home_team_name, away_team_name, our_side,
@@ -109,13 +112,22 @@ INSERT IGNORE INTO team_match
    score_home, score_away, season_match_no, total_match_no, version, created_by)
 VALUES
   (1001, @team_id, '橙队VS兰队', 1, '8人制',
-   '2026-11-15 20:00:00', '2026-11-15 22:00:00', '2026-11-15 00:00:00', '2026-11-15 10:00:00',
+   @locked_start, DATE_ADD(@locked_start, INTERVAL 2 HOUR),
+   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),
    '聚龙足球场', NULL, '2026', 1, '橙队', '兰队', NULL,
    2, 1, 30, 4, 2, 1, 0, 0, 1, 1, 0, 1001),
   (1002, @team_id, '橙队VS兰队', 1, '8人制',
    '2026-11-01 20:00:00', '2026-11-01 22:00:00', '2026-11-01 00:00:00', '2026-11-01 10:00:00',
    '聚龙足球场', NULL, '2026', 2, '橙队', '兰队', NULL,
    4, 0, 30, 4, 2, 1, 2, 2, 2, 2, 0, 1001);
+
+-- 重放时 INSERT IGNORE 不更新既有行，单独把 1001 的滚动时间写回。
+UPDATE team_match
+SET start_at = @locked_start,
+    end_at = DATE_ADD(@locked_start, INTERVAL 2 HOUR),
+    signup_deadline = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR),
+    cancel_lock = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 150 MINUTE)
+WHERE id = 1001;
 
 -- 报名：1001 场 19 人（15 正式 + 4 外挂），1002 场 12 人（10 正式 + 2 外挂）
 INSERT IGNORE INTO registration (match_id, player_id, type, status, registered_at)

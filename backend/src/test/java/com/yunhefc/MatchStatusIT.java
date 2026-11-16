@@ -84,6 +84,32 @@ class MatchStatusIT extends IntegrationTestSupport {
     }
 
     @Test
+    void restoringCancelledMatchReAddsSeasonMatchNoToRedisList() throws Exception {
+        Cookie admin = bAdminLogin("13900000730");
+        Long matchId = createMatch(admin, "M03Redis取消恢复", "2026-12-10T20:00:00");
+        int seasonMatchNo = jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, matchId);
+
+        mockMvc.perform(post("/api/v1/b/matches/" + matchId + "/cancel")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"reason\":\"Redis恢复\",\"version\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(6));
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2099", 0, -1))
+                .doesNotContain(String.valueOf(seasonMatchNo));
+
+        changeB(admin, matchId, "{\"status\":0,\"version\":1}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(0));
+
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2099", 0, -1))
+                .contains(String.valueOf(seasonMatchNo));
+    }
+
+    @Test
     void manualStatusDefaultsToTrueAndFalseResumesAutoFlow() throws Exception {
         Cookie admin = bAdminLogin("13900000702");
         Long matchId = createMatch(admin, "M03自动流转开关", "2026-12-10T20:00:00");

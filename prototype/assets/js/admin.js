@@ -152,7 +152,7 @@
             : `<select class="input input-sm" data-match-status="${match.id}">${Y.statusOptions(match).map((option) => `<option value="${option.status}" ${match.status === option.status ? 'selected' : ''} ${option.disabled ? `disabled title="${option.reason}"` : ''}>${Y.statusLabel(option.status)}</option>`).join('')}</select>${match.manualStatus ? ' <small class="muted">手动</small>' : ''}`;
           return `<tr>
           <td>${esc(match.season ?? '—')}</td>
-          <td>${match.round != null ? esc(String(match.round)) : '—'}</td>
+          <td>${match.seasonMatchNo != null ? esc(String(match.seasonMatchNo)) : '—'}</td>
           <td><div class="admin-match-title"><strong>${esc(match.title)}</strong><small>${esc(match.venue)}</small><small>${Y.matchOrdinalLabel(match)}</small></div></td>
           <td><span class="badge badge-type">${Y.typeLabel(match.type)}</span></td>
           <td>${Y.formatDateTime(match.start)}</td>
@@ -378,7 +378,6 @@
       const homeNameValue = existing ? (existing.homeTeamName || fallbackNames.home) : '橙队';
       const awayNameValue = existing ? (existing.awayTeamName || fallbackNames.away) : '兰队';
       const seasonValue = existing && existing.season ? existing.season : String(new Date().getFullYear());
-      const roundValue = existing && existing.round != null ? existing.round : '';
       const sideValue = existing ? existing.ourSide : (Y.inferOurSide(homeNameValue, awayNameValue, type, existing ? existing.title : '') || 'HOME');
       const body = `<form id="match-form" class="form-grid">
         <label class="full">比赛名称<input class="input" name="title" value="${esc(existing ? existing.title : '橙队VS兰队')}" required></label>
@@ -399,7 +398,6 @@
           <option value="AWAY"${sideValue === 'AWAY' ? ' selected' : ''}>我方客队</option>
         </select></label>
         <label>赛季<input class="input" name="season" value="${esc(seasonValue)}" maxlength="4" placeholder="四位年份，默认当前年份"></label>
-        <label>场次<input class="input" type="number" name="round" value="${roundValue}" min="0" placeholder="留空默认同赛季下一场"></label>
         <label>正式名额<input class="input" type="number" name="capacity" value="${existing ? existing.capacity : settings.maxPlayers}" min="1"></label>
         <label>外挂名额<input class="input" type="number" name="guestCapacity" value="${existing ? existing.guestCapacity : (internal ? 0 : settings.maxGuests)}" min="0"></label>
         <label>候补上限<input class="input" type="number" name="waitlistCapacity" value="${existing ? existing.waitlistCapacity ?? settings.maxWaitlist : settings.maxWaitlist}" min="0"></label>
@@ -509,8 +507,6 @@
         const ourSide = nextInternal ? null : (editing ? existing.ourSide : (selectedSide || inferredSide || 'HOME'));
         const derivedOpponent = ourSide === 'AWAY' ? homeTeamName : awayTeamName;
         const opponent = nextInternal ? '' : (derivedOpponent || (editing ? existing.opponent || '' : ''));
-        const roundRaw = String(data.get('round') ?? '').trim();
-        const parsedRound = roundRaw === '' ? null : Number(roundRaw);
         const payload = {
           title,
           type: nextType,
@@ -521,7 +517,6 @@
           venue: String(data.get('venue') || ''),
           competition: nextInternal ? '' : String(data.get('competition') || ''),
           season: seasonValue,
-          round: parsedRound,
           capacity,
           guestCapacity,
           waitlistCapacity,
@@ -552,7 +547,6 @@
             id: 'm' + Date.now(),
             ...payload,
             ...ordinals,
-            round: payload.round ?? ordinals.seasonMatchNo,
             format: '8人制',
             status: 'SIGNUP_OPEN',
             registrations: [],

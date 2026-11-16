@@ -64,7 +64,6 @@ interface MatchFormState {
   venue: string;
   competition: string;
   season: string;
-  round: number | null;
   homeTeamName: string;
   awayTeamName: string;
   ourSide: MatchSide;
@@ -136,8 +135,6 @@ const cancelForm = reactive({ reason: '' });
 
 const actionBusy = ref<string | null>(null);
 let matchSubmitKey: string | null = null;
-const roundTouched = ref(false);
-let seasonSyncSeq = 0;
 
 const totalCapacity = computed(() => {
   const capacity = Number.isFinite(matchForm.capacity) ? matchForm.capacity : 0;
@@ -180,7 +177,6 @@ function defaultMatchForm(): MatchFormState {
     venue: '聚龙足球场',
     competition: '',
     season: currentShanghaiSeason(),
-    round: null,
     homeTeamName: '橙队',
     awayTeamName: '兰队',
     ourSide: 0,
@@ -329,38 +325,6 @@ async function openCreate(): Promise<void> {
   matchDialog.error = '';
   matchSubmitKey = newIdempotencyKey();
   matchDialog.visible = true;
-  roundTouched.value = false;
-  void syncRoundForSeason(matchForm.season);
-}
-
-/** 创建时联动场次：新赛季首场填 1；已有比赛的赛季留空由后端取下一场。 */
-async function syncRoundForSeason(seasonValue: string): Promise<void> {
-  if (matchDialog.mode !== 'create') {
-    return;
-  }
-  const season = seasonValue.trim();
-  if (!/^\d{4}$/.test(season)) {
-    return;
-  }
-  const seq = ++seasonSyncSeq;
-  try {
-    const result = await api.get<Page<MatchAdmin>>('/matches', {
-      query: { season, pageSize: 1 },
-    });
-    if (seq !== seasonSyncSeq || matchDialog.mode !== 'create') {
-      return;
-    }
-    if (matchForm.season.trim() !== season) {
-      return;
-    }
-    if (result.total === 0) {
-      matchForm.round = 1;
-    } else if (!roundTouched.value) {
-      matchForm.round = null;
-    }
-  } catch {
-    // 查看权限或网络异常时保留空白，由后端默认值兜底。
-  }
 }
 
 async function openEdit(row: MatchAdmin): Promise<void> {
@@ -383,7 +347,6 @@ async function openEdit(row: MatchAdmin): Promise<void> {
       venue: detail.venue,
       competition: detail.competition ?? '',
       season: detail.season,
-      round: detail.round ?? null,
       homeTeamName: detail.homeTeamName,
       awayTeamName: detail.awayTeamName,
       ourSide: (detail.ourSide ?? 0) as MatchSide,
@@ -398,7 +361,6 @@ async function openEdit(row: MatchAdmin): Promise<void> {
     matchDialog.match = detail;
     matchDialog.error = '';
     matchDialog.visible = true;
-    roundTouched.value = false;
   } catch (caught) {
     ElMessage.error(describeError(caught, '比赛详情加载失败'));
   } finally {
@@ -486,9 +448,6 @@ function validateMatchForm(mode: MatchDialogMode): string | null {
   if (!Number.isInteger(matchForm.waitlistCapacity) || matchForm.waitlistCapacity < 0) {
     return '候补名额不能为负数';
   }
-  if (matchForm.round !== null && (!Number.isInteger(matchForm.round) || matchForm.round < 0)) {
-    return '场次必须为非负整数';
-  }
   if (
     matchForm.scoreHome !== null &&
     (!Number.isInteger(matchForm.scoreHome) || matchForm.scoreHome < 0)
@@ -516,7 +475,6 @@ function buildCreatePayload(): MatchCreate {
     format: '8人制',
     competition: matchForm.competition.trim() || null,
     season: matchForm.season.trim(),
-    round: matchForm.round ?? null,
     capacity: matchForm.capacity,
     guestCapacity: matchForm.guestCapacity,
     waitlistCapacity: matchForm.waitlistCapacity,
@@ -539,7 +497,6 @@ function buildUpdatePayload(version: number, currentSeason: string): MatchUpdate
     endAt: fromPickerDate(matchForm.endAt)!.toISOString(),
     venue: matchForm.venue.trim(),
     competition: matchForm.competition.trim() || null,
-    round: matchForm.round ?? null,
     homeTeamName: matchForm.homeTeamName.trim(),
     awayTeamName: matchForm.awayTeamName.trim(),
     capacity: matchForm.capacity,
@@ -819,7 +776,7 @@ onMounted(load);
     <el-table v-loading="loading" :data="rows" empty-text="暂无比赛" stripe>
       <el-table-column label="赛季" prop="season" width="90" />
       <el-table-column label="场次" width="100">
-        <template #default="{ row }">{{ row.round ?? '—' }}</template>
+        <template #default="{ row }">{{ row.seasonMatchNo }}</template>
       </el-table-column>
       <el-table-column label="比赛" prop="title" min-width="200" />
       <el-table-column label="类型" width="110">
@@ -992,23 +949,10 @@ onMounted(load);
             class="season-input"
             maxlength="4"
             placeholder="如 2026"
-            @change="syncRoundForSeason(matchForm.season)"
           />
           <span v-if="matchDialog.mode === 'edit'" class="muted small season-hint">
-            改赛季会按新赛季重算赛季场次编号，累计场次编号与场次不变
+            改赛季会按新赛季重算场次编号，累计场次编号不变
           </span>
-        </el-form-item>
-        <el-form-item label="场次">
-          <el-input-number
-            v-model="matchForm.round"
-            :min="0"
-            :max="65535"
-            :precision="0"
-            :value-on-clear="null"
-            controls-position="right"
-            :placeholder="matchDialog.mode === 'create' ? '留空默认同赛季下一场' : '留空表示不填写'"
-            @change="roundTouched = true"
-          />
         </el-form-item>
         <el-form-item label="正式名额">
           <el-input-number

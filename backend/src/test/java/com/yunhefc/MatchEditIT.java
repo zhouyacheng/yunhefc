@@ -310,6 +310,26 @@ class MatchEditIT extends IntegrationTestSupport {
     }
 
     @Test
+    void seasonChangeMovesNumberBetweenRedisLists() throws Exception {
+        Cookie admin = adminLogin("13900000630");
+        Long matchId = createMatch(admin, "M03Redis改赛季", "2026-12-10T20:00:00");
+        int oldNo = jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, matchId);
+        Long target = createMatch(admin, "M03Redis目标赛季", "2092", "2026-12-11T20:00:00");
+        int targetNo = jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, target);
+
+        edit(admin, matchId, "{\"season\":\"2092\",\"version\":0}")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.seasonMatchNo").value(targetNo + 1));
+
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2099", 0, -1))
+                .doesNotContain(String.valueOf(oldNo));
+        assertThat(redisTemplate.opsForList().range("yunhefc:season:2092", 0, -1))
+                .containsExactlyInAnyOrder(String.valueOf(targetNo), String.valueOf(targetNo + 1));
+    }
+
+    @Test
     void sameSeasonUpdateDoesNotRenumber() throws Exception {
         Cookie admin = adminLogin("13900000622");
         Long matchId = createMatch(admin, "M03同赛季", "2026-12-10T20:00:00");

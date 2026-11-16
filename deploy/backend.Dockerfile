@@ -1,14 +1,8 @@
 # 构建上下文为仓库根目录：
 #   docker build -f deploy/backend.Dockerfile -t yunhefc-backend:sha-<7> .
 # CI 先执行 ./mvnw verify，target/ 下得到 boot jar。
-FROM eclipse-temurin:21-jre AS runtime
-
-# curl 仅用于容器内 readiness healthcheck。
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && mkdir -p /app/logs \
-    && chown -R 10001:10001 /app
+# 基础镜像见 deploy/temurin-jre-v1.Dockerfile：预装 curl/nc/netstat/vim，apt 源已切阿里云。
+FROM registry.cn-shanghai.aliyuncs.com/zyc1013/eclipse-temurin:21-jre-v1 AS runtime
 
 COPY --chown=10001:10001 backend/target/*.jar /app/
 # 只允许一个 boot jar；出现 classifier/sources jar 时构建直接失败，避免拷错产物。

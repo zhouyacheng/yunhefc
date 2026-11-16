@@ -940,8 +940,11 @@ async function changeStatus(target: number): Promise<void> {
 async function onStatusSelect(event: Event): Promise<void> {
   const select = event.target as HTMLSelectElement;
   const target = Number(select.value);
-  select.value = '';
-  if (!match.value || !Number.isInteger(target)) {
+  if (!match.value) {
+    return;
+  }
+  select.value = String(match.value.status);
+  if (!Number.isInteger(target)) {
     return;
   }
   if (target === match.value.status) {
@@ -1410,11 +1413,11 @@ onBeforeUnmount(() => {
             :disabled="statusBusy"
             @change="onStatusSelect"
           >
-            <option value="">修改状态</option>
             <option
               v-for="option in statusOptionList"
               :key="option.status"
               :value="option.status"
+              :selected="option.status === match.status"
               :disabled="option.disabled"
               :title="option.reason"
             >

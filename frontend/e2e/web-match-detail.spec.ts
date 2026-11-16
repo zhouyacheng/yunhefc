@@ -343,7 +343,8 @@ test('C03 管理员：状态合法集、延期与取消并恢复', async ({ page
   await page.goto('/matches/1005');
 
   const select = page.getByTestId('status-select');
-  await expect(select.locator('option')).toHaveCount(8);
+  await expect(select.locator('option')).toHaveCount(7);
+  await expect(select.locator('option[value=""]')).toHaveCount(0);
   await expect(select.locator('option[value="5"]')).toHaveJSProperty('disabled', false);
   await expect(select.locator('option[value="6"]')).toHaveJSProperty('disabled', false);
 

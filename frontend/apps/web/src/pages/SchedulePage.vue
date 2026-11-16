@@ -28,6 +28,8 @@ const router = useRouter();
 
 const appliedQuery = ref<ScheduleQuery>(parseScheduleQuery(route.query));
 const form = ref<ScheduleForm>(toScheduleForm(appliedQuery.value));
+/** 最近一次由 URL 决定的表单快照；用于区分用户编辑与程序性回写。 */
+let appliedForm: ScheduleForm = { ...form.value };
 const rows = ref<MatchSummary[]>([]);
 const total = ref(0);
 const loading = ref(true);
@@ -35,7 +37,9 @@ const error = ref('');
 const drawerOpen = ref(false);
 const mobileQuery = window.matchMedia('(max-width: 760px)');
 const isMobile = ref(mobileQuery.matches);
+const AUTO_SEARCH_DELAY = 300;
 let requestSeq = 0;
+let autoSearchTimer: number | undefined;
 
 function syncViewport(event: MediaQueryListEvent): void {
   isMobile.value = event.matches;
@@ -77,26 +81,50 @@ function isSameQuery(current: LocationQuery, next: Record<string, string>): bool
   return keys.every((key) => current[key] === next[key]);
 }
 
-/** URL 是筛选与分页的唯一事实源；值未变化时直接重试当前请求。 */
+/** URL 是筛选与分页的唯一事实源；值未变化时不重复请求。 */
 function navigate(next: ScheduleQuery): void {
   const query = serializeScheduleQuery(next);
   if (isSameQuery(route.query, query)) {
-    void load();
     return;
   }
   void router.replace({ query });
 }
 
-function search(): void {
-  drawerOpen.value = false;
+function sameForm(a: ScheduleForm, b: ScheduleForm): boolean {
+  return (
+    a.type === b.type &&
+    a.venue === b.venue &&
+    a.status === b.status &&
+    a.month === b.month &&
+    a.startDate === b.startDate &&
+    a.endDate === b.endDate
+  );
+}
+
+function cancelAutoSearch(): void {
+  if (autoSearchTimer !== undefined) {
+    window.clearTimeout(autoSearchTimer);
+    autoSearchTimer = undefined;
+  }
+}
+
+/** 条件变更即生效；移动端抽屉保持打开，由遮罩关闭。 */
+function applyFilters(): void {
   navigate(withScheduleFilters(appliedQuery.value, fromScheduleForm(form.value)));
 }
 
+/** 回车立即生效，取消待执行的防抖。 */
+function search(): void {
+  cancelAutoSearch();
+  applyFilters();
+}
+
 function reset(): void {
-  drawerOpen.value = false;
   const next = resetScheduleQuery(appliedQuery.value.pageSize);
+  const nextForm = toScheduleForm(next);
   // URL 已是默认值时 navigate 不会进入 watcher，需同步清空未提交的表单草稿。
-  form.value = toScheduleForm(next);
+  appliedForm = nextForm;
+  form.value = { ...nextForm };
   navigate(next);
 }
 
@@ -111,11 +139,30 @@ function changePageSize(event: Event): void {
 watch(
   () => route.query,
   (raw) => {
+    cancelAutoSearch();
     appliedQuery.value = parseScheduleQuery(raw);
-    form.value = toScheduleForm(appliedQuery.value);
+    const nextForm = toScheduleForm(appliedQuery.value);
+    appliedForm = nextForm;
+    form.value = { ...nextForm };
     void load();
   },
   { immediate: true },
+);
+
+// 只有用户改动草稿才自动搜索；路由回写与重置只更新基线，不触发查询。
+watch(
+  form,
+  () => {
+    cancelAutoSearch();
+    if (sameForm(form.value, appliedForm)) {
+      return;
+    }
+    autoSearchTimer = window.setTimeout(() => {
+      autoSearchTimer = undefined;
+      applyFilters();
+    }, AUTO_SEARCH_DELAY);
+  },
+  { deep: true },
 );
 
 onMounted(() => {

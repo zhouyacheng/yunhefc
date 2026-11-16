@@ -12,10 +12,10 @@ test('C02 赛程：状态筛选写入 URL，刷新后恢复', async ({ page }) =
 
   await page.goto('/matches');
   await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.getByRole('button', { name: '搜索', exact: true })).toHaveCount(0);
 
   await clearMonth(page);
   await page.locator('select[name="status"]').selectOption('4');
-  await page.getByRole('button', { name: '搜索', exact: true }).click();
 
   await expect(page).toHaveURL(/status=4/);
   await expect(page).toHaveURL(/month=all/);
@@ -36,7 +36,6 @@ test('C02 赛程：类型 0 作为有效筛选值', async ({ page }) => {
   await page.goto('/matches');
   await clearMonth(page);
   await page.locator('select[name="type"]').selectOption('0');
-  await page.getByRole('button', { name: '搜索', exact: true }).click();
 
   await expect(page).toHaveURL(/type=0/);
   await expect(page.locator('.match-card')).toHaveCount(1);
@@ -78,6 +77,10 @@ test('C02 赛程：重置清空 URL 与筛选', async ({ page }) => {
   await expect(page.locator('input[name="venue"]')).toHaveValue('');
   await expect(page.getByRole('button', { name: '选择月份' })).toHaveText(/^\d{4}-\d{2}$/);
 
+  // 重置只更新表单草稿，不应在防抖后把预填月份写回 URL。
+  await page.waitForTimeout(500);
+  await expect(page).toHaveURL(/\/matches$/);
+
   expect(errors).toEqual([]);
 });
 
@@ -101,7 +104,6 @@ test('C02 赛程：地点无匹配显示空态与重置入口', async ({ page })
   await page.goto('/matches');
   await clearMonth(page);
   await page.locator('input[name="venue"]').fill('不存在球场');
-  await page.getByRole('button', { name: '搜索', exact: true }).click();
 
   await expect(page).toHaveURL(/venue=/);
   await expect(page.getByText('暂无符合条件的比赛')).toBeVisible();
@@ -119,6 +121,8 @@ test('C02 赛程：默认预填当月但不自动筛选', async ({ page }) => {
 
   await page.goto('/matches');
 
+  // 等待超过自动搜索防抖窗口，确认首屏预填月份不会被自动应用。
+  await page.waitForTimeout(500);
   await expect(page).not.toHaveURL(/month=|startDate=|endDate=/);
   await expect(page.getByRole('button', { name: '选择月份' })).toHaveText(/^\d{4}-\d{2}$/);
   await expect(page.locator('.match-card')).toHaveCount(5);
@@ -131,7 +135,6 @@ test('C02 赛程：清空月份查看全部时间并可刷新恢复', async ({ p
 
   await page.goto('/matches');
   await clearMonth(page);
-  await page.getByRole('button', { name: '搜索', exact: true }).click();
 
   await expect(page).toHaveURL(/month=all/);
   await expect(page.locator('.match-card')).toHaveCount(5);
@@ -172,7 +175,6 @@ test('C02 赛程：自定义时间从 URL 恢复，选月份后清空范围', as
   await page.getByRole('button', { name: '确认', exact: true }).click();
   await expect(page.getByRole('button', { name: '选择自定义时间' })).toHaveText('选择日期范围');
 
-  await page.getByRole('button', { name: '搜索', exact: true }).click();
   await expect(page).toHaveURL(/month=\d{4}-\d{2}/);
   await expect(page).not.toHaveURL(/startDate|endDate/);
 
@@ -194,10 +196,46 @@ test('C02 赛程：Calendar 选择同一天范围并生效', async ({ page }) =>
   await expect(page.getByRole('button', { name: '选择自定义时间' })).toHaveText(/至/);
   await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('全部月份');
 
-  await page.getByRole('button', { name: '搜索', exact: true }).click();
   await expect(page).toHaveURL(/startDate=\d{4}-\d{2}-\d{2}/);
   await expect(page).toHaveURL(/endDate=\d{4}-\d{2}-\d{2}/);
   await expect(page).not.toHaveURL(/month=/);
+
+  expect(errors).toEqual([]);
+});
+
+test('C02 赛程：地点连续输入在防抖窗口内只请求一次', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/matches');
+  await expect(page.locator('.match-card')).toHaveCount(5);
+
+  const requests: string[] = [];
+  page.on('request', (request) => {
+    if (request.url().includes('/api/v1/c/matches?')) {
+      requests.push(request.url());
+    }
+  });
+
+  await page.locator('input[name="venue"]').pressSequentially('聚龙', { delay: 80 });
+  await expect(page).toHaveURL(/venue=/);
+  await page.waitForTimeout(500);
+
+  expect(requests).toHaveLength(1);
+
+  expect(errors).toEqual([]);
+});
+
+test('C02 赛程：地点回车立即生效', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  await page.goto('/matches');
+  await expect(page.locator('.match-card')).toHaveCount(5);
+
+  const venue = page.locator('input[name="venue"]');
+  await venue.fill('聚龙');
+  await venue.press('Enter');
+
+  await expect(page).toHaveURL(/venue=/);
 
   expect(errors).toEqual([]);
 });
@@ -231,10 +269,15 @@ test.describe('C02 赛程移动端', () => {
 
     await clearMonth(page);
     await page.locator('select[name="status"]').selectOption('4');
-    await page.getByRole('button', { name: '搜索', exact: true }).click();
 
     await expect(page).toHaveURL(/status=4/);
     await expect(page.locator('.match-card')).toHaveCount(2);
+    // 条件变更即生效，抽屉保持打开，由遮罩关闭。
+    await expect(page.locator('.schedule-filters__drawer')).toBeVisible();
+
+    // 抽屉占住底部，点遮罩左上角关闭。
+    await page.locator('.van-overlay').click({ position: { x: 10, y: 10 } });
+    await expect(page.locator('.schedule-filters__drawer')).toBeHidden();
 
     expect(errors).toEqual([]);
   });

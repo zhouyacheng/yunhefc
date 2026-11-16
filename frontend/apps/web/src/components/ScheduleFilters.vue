@@ -90,9 +90,8 @@ function clearRange(): void {
   form.value = { ...form.value, startDate: '', endDate: '' };
 }
 
+/** 回车立即生效；其余条件变更由页面监听草稿自动触发。 */
 function search(): void {
-  monthPickerOpen.value = false;
-  calendarOpen.value = false;
   emit('search');
 }
 
@@ -123,6 +122,7 @@ function reset(): void {
         name="venue"
         aria-label="地点"
         placeholder="如：聚龙"
+        @keydown.enter.prevent="search"
       />
     </label>
 
@@ -183,7 +183,6 @@ function reset(): void {
     </div>
 
     <div class="schedule-filter-actions">
-      <Button size="small" type="primary" native-type="submit">搜索</Button>
       <Button size="small" native-type="button" plain @click="reset">重置</Button>
     </div>
   </form>

@@ -186,9 +186,9 @@ onUnmounted(() => {
       <section v-if="hero && cta" class="home-hero">
         <div class="home-hero__inner">
           <div class="home-hero__copy">
-            <p class="eyebrow">YUNHE FC · MATCHDAY</p>
-            <h1>下一场，准时到场</h1>
-            <p>比赛发布、报名候补、赛前签到，一屏看清。</p>
+            <p class="eyebrow">YUNHE FC · 2026</p>
+            <h1>云河FC</h1>
+            <p>一支球队的运营台，也是一群人的比赛日记</p>
             <div class="home-hero__actions">
               <RouterLink to="/matches">
                 <Button type="primary">查看赛程</Button>

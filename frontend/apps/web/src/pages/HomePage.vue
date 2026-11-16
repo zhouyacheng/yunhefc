@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { isApiError, newIdempotencyKey } from '@yunhefc/api-client';
+import { hasBackendPermission } from '@yunhefc/permissions';
 import type { MatchDetail, MatchSummary, Page, Registration } from '@yunhefc/shared';
 import { formatDateTime, matchStatusText, matchTypeText } from '@yunhefc/shared';
 import { Button, Empty, Loading, Tag } from 'vant';
@@ -8,6 +9,7 @@ import { useRouter } from 'vue-router';
 
 import { api } from '../api/client';
 import MatchCard from '../components/MatchCard.vue';
+import { adminUrl, openAdmin } from '../features/admin-handoff/admin-handoff';
 import { homeCta, type HomeCtaResult } from '../features/home/cta';
 import { queuePercent, scoreText, statusTone, winnerSide } from '../features/matches/presentation';
 import { useSessionStore } from '../stores/session';
@@ -23,6 +25,17 @@ const FEATURES = [
 
 const session = useSessionStore();
 const router = useRouter();
+
+/** 后台入口仅对具备任一后台权限的账号显示；与顶部导航入口共用同一套票据跳转。 */
+const canEnterAdmin = computed(
+  () => session.isAuthenticated && hasBackendPermission(session.permissions),
+);
+const adminEntryUrl = computed(() => adminUrl({ path: '/' }));
+
+function onAdminEntry(event: MouseEvent): void {
+  event.preventDefault();
+  void openAdmin({ path: '/' });
+}
 
 const matches = ref<MatchSummary[]>([]);
 const hero = ref<MatchDetail | null>(null);
@@ -196,6 +209,14 @@ onUnmounted(() => {
               <RouterLink to="/team">
                 <Button plain>球队名单</Button>
               </RouterLink>
+              <a
+                v-if="canEnterAdmin"
+                data-testid="hero-admin-entry"
+                :href="adminEntryUrl"
+                @click="onAdminEntry"
+              >
+                <Button type="primary">管理后台</Button>
+              </a>
             </div>
           </div>
 

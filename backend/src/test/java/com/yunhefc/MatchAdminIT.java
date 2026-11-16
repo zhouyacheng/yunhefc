@@ -554,6 +554,26 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].title").value("M03列表报名中"));
 
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("season", "2099").param("sort", "endAt:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].title").value("M03列表已取消"));
+
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("season", "2099").param("sort", "type:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].title").value("M03列表已结束"));
+
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin).param("sort", "season:asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].title").value("M03列表旧赛季"));
+
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("startDate", "2026-12-02").param("endDate", "2026-12-02"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].title").value("M03列表已结束"));
+
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
                         .param("season", "2099").param("pageSize", "20"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(3))
@@ -580,6 +600,18 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("season", "2099").param("sort", "startAt:sideways"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("startDate", "2026-12-02"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("startDate", "2026-12-03").param("endDate", "2026-12-02"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
                         .param("season", "2099").param("scope", "unknown"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
@@ -592,6 +624,51 @@ class MatchAdminIT extends IntegrationTestSupport {
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin).param("season", "26"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
+    void listsDistinctTeamSeasonsForFilterOptions() throws Exception {
+        Cookie admin = adminLogin("13900000508");
+        create(admin, matchBody("M03赛季2099", 1, "2099", "2026-12-01T20:00:00"));
+        create(admin, matchBody("M03赛季2098", 1, "2098", "2026-12-02T20:00:00"));
+        create(admin, matchBody("M03赛季2099重复", 1, "2099", "2026-12-03T20:00:00"));
+
+        jdbc.update("""
+                INSERT INTO team_match (team_id, title, type, start_at, end_at, signup_deadline,
+                    cancel_lock, venue, season, home_team_name, away_team_name, capacity,
+                    season_match_no, total_match_no, created_by, is_deleted)
+                VALUES (1, 'M03赛季空值', 1, '2026-12-04 10:00:00', '2026-12-04 12:00:00',
+                    '2026-12-04 00:00:00', '2026-12-04 10:00:00', '测试场地', '', '橙队', '兰队',
+                    30, 900001, 900001, 1, 0),
+                (1, 'M03赛季已删除', 1, '2026-12-05 10:00:00', '2026-12-05 12:00:00',
+                    '2026-12-05 00:00:00', '2026-12-05 10:00:00', '测试场地', '2097', '橙队', '兰队',
+                    30, 900002, 900002, 1, 1),
+                (2, 'M03赛季他队', 1, '2026-12-06 10:00:00', '2026-12-06 12:00:00',
+                    '2026-12-06 00:00:00', '2026-12-06 10:00:00', '测试场地', '2096', '橙队', '兰队',
+                    30, 900003, 900003, 1, 0)
+                """);
+        for (String title : List.of("M03赛季空值", "M03赛季已删除", "M03赛季他队")) {
+            createdMatchIds.add(jdbc.queryForObject(
+                    "SELECT id FROM team_match WHERE title = ?", Long.class, title));
+        }
+
+        mockMvc.perform(get("/api/v1/b/matches/seasons").cookie(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0]").value("2099"))
+                .andExpect(jsonPath("$.data.items[1]").value("2098"));
+
+        mockMvc.perform(get("/api/v1/b/matches/seasons"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(40101));
+
+        Long viewerRole = insertRole("M03_SEASON_VIEWER", "match:view:any");
+        insertUser("13900000509", 1, viewerRole);
+        Cookie viewer = login("13900000509", "Viewer123!");
+        mockMvc.perform(get("/api/v1/b/matches/seasons").cookie(viewer))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(2));
     }
 
     private String matchBody(String title, int type, String season, String startAt) {

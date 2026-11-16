@@ -76,4 +76,44 @@ class MatchQueryParsingTest {
         assertThat(range.startInstant()).isEqualTo(Instant.parse("2099-05-31T16:00:00Z"));
         assertThat(range.endExclusiveInstant()).isEqualTo(Instant.parse("2099-06-01T16:00:00Z"));
     }
+
+    @Test
+    void defaultsAdminSortToStartAtDescending() {
+        MatchQueryParsing.AdminSort sort = MatchQueryParsing.adminSort(null);
+
+        assertThat(sort.field()).isEqualTo(MatchQueryParsing.AdminSortField.START_AT);
+        assertThat(sort.ascending()).isFalse();
+        assertThat(MatchQueryParsing.adminSort("  ").field())
+                .isEqualTo(MatchQueryParsing.AdminSortField.START_AT);
+    }
+
+    @Test
+    void parsesWhitelistedAdminSortFields() {
+        assertThat(MatchQueryParsing.adminSort("startAt:asc").field())
+                .isEqualTo(MatchQueryParsing.AdminSortField.START_AT);
+        assertThat(MatchQueryParsing.adminSort("endAt:desc").field())
+                .isEqualTo(MatchQueryParsing.AdminSortField.END_AT);
+        assertThat(MatchQueryParsing.adminSort("season:asc").field())
+                .isEqualTo(MatchQueryParsing.AdminSortField.SEASON);
+        assertThat(MatchQueryParsing.adminSort("type:desc").field())
+                .isEqualTo(MatchQueryParsing.AdminSortField.TYPE);
+        assertThat(MatchQueryParsing.adminSort("type:asc").ascending()).isTrue();
+        assertThat(MatchQueryParsing.adminSort("type:desc").ascending()).isFalse();
+    }
+
+    @Test
+    void rejectsInvalidAdminSort() {
+        assertThatThrownBy(() -> MatchQueryParsing.adminSort("name:asc"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("排序参数不合法");
+        assertThatThrownBy(() -> MatchQueryParsing.adminSort("startAt:sideways"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("排序参数不合法");
+        assertThatThrownBy(() -> MatchQueryParsing.adminSort("startAt"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("排序参数不合法");
+        assertThatThrownBy(() -> MatchQueryParsing.adminSort(":asc"))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("排序参数不合法");
+    }
 }

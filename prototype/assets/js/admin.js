@@ -42,6 +42,8 @@
     let playerPageSize = 10;
     let matchPage = 1;
     let matchPageSize = 10;
+    let matchFilters = { status: 'ALL', type: 'ALL', season: '', start: '', end: '' };
+    let matchSort = 'startAt:desc';
     let auditPage = 1;
     let auditPageSize = 10;
     let auditFilters = { actor: '', action: '', target: '' };
@@ -134,18 +136,75 @@
     }
 
     /* ---------------- Matches ---------------- */
+    const MATCH_STATUS_CODES = ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'LOCKED', 'IN_PROGRESS', 'FINISHED', 'POSTPONED', 'CANCELLED'];
+
+    function matchDateValue(iso) {
+      const date = new Date(iso);
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function matchSortMark(field) {
+      const [sortField, direction] = matchSort.split(':');
+      if (sortField !== field) return '';
+      return direction === 'asc' ? ' ↑' : ' ↓';
+    }
+
+    function visibleMatches() {
+      const list = (Y.state.matches || []).filter((match) => {
+        if (matchFilters.status !== 'ALL' && match.status !== matchFilters.status) return false;
+        if (matchFilters.type !== 'ALL' && Number(match.type) !== Number(matchFilters.type)) return false;
+        if (matchFilters.season && String(match.season || '') !== matchFilters.season) return false;
+        const dateValue = matchDateValue(match.start);
+        if (matchFilters.start && dateValue < matchFilters.start) return false;
+        if (matchFilters.end && dateValue > matchFilters.end) return false;
+        return true;
+      });
+      const [field, direction] = matchSort.split(':');
+      const factor = direction === 'asc' ? 1 : -1;
+      const valueOf = (match) => {
+        if (field === 'startAt') return new Date(match.start).getTime();
+        if (field === 'endAt') return new Date(match.end).getTime();
+        if (field === 'type') return Number(match.type);
+        return String(match.season || '');
+      };
+      return list.slice().sort((a, b) => {
+        const left = valueOf(a);
+        const right = valueOf(b);
+        if (left < right) return -factor;
+        if (left > right) return factor;
+        return Number(a.id) - Number(b.id);
+      });
+    }
+
     function renderMatches(host) {
-      const list = Y.matchesByStartDesc();
+      const list = visibleMatches();
       const paged = Y.paginate(list, matchPage, matchPageSize);
       matchPage = paged.page;
       const canEdit = Y.hasPermission('match:edit:any');
       const canStatus = Y.hasPermission('match:status:any');
+      const statusOptionsHtml = ['ALL', ...MATCH_STATUS_CODES]
+        .map((code) => `<option value="${code}"${matchFilters.status === code ? ' selected' : ''}>${code === 'ALL' ? '全部状态' : Y.statusLabel(code)}</option>`)
+        .join('');
+      const typeOptionsHtml = ['ALL', '0', '1', '2', '3']
+        .map((code) => `<option value="${code}"${matchFilters.type === code ? ' selected' : ''}>${code === 'ALL' ? '全部类型' : Y.typeLabel(Number(code))}</option>`)
+        .join('');
+      const seasonValues = [...new Set((Y.state.matches || [])
+        .map((match) => String(match.season || ''))
+        .filter(Boolean))].sort().reverse();
       host.innerHTML = `<div class="admin-section-head">
         <div><h1>比赛管理</h1><p class="muted">创建比赛、配置名额、变更状态。</p></div>
         ${Y.hasPermission('match:create:any') ? '<button class="btn btn-primary" data-action="create-match">+ 创建比赛</button>' : ''}
       </div>
+      <form class="schedule-filters" data-match-filter-form>
+        <label class="filter-field"><span>状态</span><select class="input input-sm" data-match-filter="status">${statusOptionsHtml}</select></label>
+        <label class="filter-field"><span>类型</span><select class="input input-sm" data-match-filter="type">${typeOptionsHtml}</select></label>
+        <label class="filter-field"><span>赛季</span><input class="input input-sm" list="match-season-options" maxlength="4" placeholder="全部赛季" data-match-filter="season" value="${esc(matchFilters.season)}"><datalist id="match-season-options">${seasonValues.map((season) => `<option value="${esc(season)}"></option>`).join('')}</datalist></label>
+        <label class="filter-field"><span>开始日期</span><input class="input input-sm" type="date" data-match-filter="start" value="${esc(matchFilters.start)}"></label>
+        <label class="filter-field"><span>结束日期</span><input class="input input-sm" type="date" data-match-filter="end" value="${esc(matchFilters.end)}"></label>
+        <button type="button" class="btn btn-ghost btn-sm" data-match-reset>清空条件</button>
+      </form>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>赛季</th><th>场次</th><th>比赛</th><th>类型</th><th>比赛开始时间</th><th>比赛结束时间</th><th>状态</th><th>报名</th><th>操作</th></tr></thead>
+        <thead><tr><th class="sortable" data-match-sort="season">赛季${matchSortMark('season')}</th><th>场次</th><th>比赛</th><th class="sortable" data-match-sort="type">类型${matchSortMark('type')}</th><th class="sortable" data-match-sort="startAt">开始时间${matchSortMark('startAt')}</th><th class="sortable" data-match-sort="endAt">结束时间${matchSortMark('endAt')}</th><th>状态</th><th>报名</th><th>操作</th></tr></thead>
         <tbody>${paged.items.map((match) => {
           const statusControl = !canStatus
             ? `<span class="badge">${Y.statusLabel(match.status)}</span>`
@@ -175,6 +234,34 @@
         }).join('')}</tbody>
       </table></div>
       ${Y.paginationHtml(paged.page, paged.totalPages, paged.total, matchPageSize)}`;
+      $('[data-match-filter-form]', host).addEventListener('submit', (event) => event.preventDefault());
+      $('[data-match-reset]', host).addEventListener('click', () => {
+        matchFilters = { status: 'ALL', type: 'ALL', season: '', start: '', end: '' };
+        matchSort = 'startAt:desc';
+        matchPage = 1;
+        render();
+      });
+      $$('[data-match-filter]', host).forEach((control) => {
+        control.addEventListener('change', () => {
+          matchFilters = {
+            ...matchFilters,
+            [control.dataset.matchFilter]: control.value.trim(),
+          };
+          matchPage = 1;
+          render();
+        });
+      });
+      $$('[data-match-sort]', host).forEach((header) => {
+        header.addEventListener('click', () => {
+          const field = header.dataset.matchSort;
+          const [currentField, currentDirection] = matchSort.split(':');
+          matchSort = currentField === field
+            ? `${field}:${currentDirection === 'asc' ? 'desc' : 'asc'}`
+            : `${field}:asc`;
+          matchPage = 1;
+          render();
+        });
+      });
       $$('[data-page]', host).forEach((button) => {
         button.addEventListener('click', () => {
           matchPage = Number(button.dataset.page);

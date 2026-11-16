@@ -47,6 +47,7 @@ import {
   matchStatusTone,
   matchTypeText,
 } from '@yunhefc/shared';
+import type { TableInstance } from 'element-plus';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -55,6 +56,10 @@ import { useSessionStore } from '../stores/session';
 
 type MatchDialogMode = 'create' | 'edit';
 type ScheduleDialogMode = 'postpone' | 'reschedule';
+
+interface ItemsResponse<T> {
+  items: T[];
+}
 
 interface MatchFormState {
   title: string;
@@ -89,23 +94,43 @@ const canEdit = computed(() => hasPermission(session.permissions, MATCH_EDIT_ANY
 const canStatus = computed(() => hasPermission(session.permissions, MATCH_STATUS_ANY));
 const canViewSettings = computed(() => hasPermission(session.permissions, SETTINGS_VIEW_ANY));
 
-const statusOptions = Object.entries(MATCH_STATUS_TEXT).map(([value, text]) => ({
-  value: String(value),
-  text,
-}));
-const typeOptions = Object.entries(MATCH_TYPE_TEXT).map(([value, text]) => ({
-  value: Number(value) as MatchType,
-  text,
-}));
+const statusOptions = [
+  { value: '', text: '全部状态' },
+  ...Object.entries(MATCH_STATUS_TEXT).map(([value, text]) => ({
+    value: String(value),
+    text,
+  })),
+];
+const typeOptions = [
+  { value: '', text: '全部类型' },
+  ...Object.entries(MATCH_TYPE_TEXT).map(([value, text]) => ({
+    value: String(value),
+    text,
+  })),
+];
 
 const rows = ref<MatchAdmin[]>([]);
 const total = ref(0);
 const page = ref(1);
 const pageSize = ref(10);
-const status = ref<string | undefined>(undefined);
+const status = ref<string>('');
+const type = ref<string>('');
+const season = ref('');
+const seasons = ref<string[]>([]);
+const dateRange = ref<[string, string] | null>(null);
+const sort = ref('startAt:desc');
+const tableRef = ref<TableInstance>();
 const loading = ref(false);
 const error = ref('');
 let requestSeq = 0;
+
+const hasActiveFilters = computed(() =>
+  status.value !== ''
+  || type.value !== ''
+  || season.value !== ''
+  || dateRange.value !== null
+  || sort.value !== 'startAt:desc',
+);
 
 const matchDialog = reactive({
   visible: false,
@@ -227,12 +252,22 @@ async function load(): Promise<void> {
   try {
     const query: QueryParams = {
       scope: 'all',
-      sort: 'startAt:desc',
+      sort: sort.value,
       page: page.value,
       pageSize: pageSize.value,
     };
-    if (status.value !== undefined && status.value !== '') {
+    if (status.value !== '') {
       query.status = Number(status.value);
+    }
+    if (type.value !== '') {
+      query.type = Number(type.value);
+    }
+    if (season.value !== '') {
+      query.season = season.value;
+    }
+    if (dateRange.value) {
+      query.startDate = dateRange.value[0];
+      query.endDate = dateRange.value[1];
     }
     const result = await api.get<Page<MatchAdmin>>('/matches', { query });
     if (seq !== requestSeq) {
@@ -249,6 +284,15 @@ async function load(): Promise<void> {
     if (seq === requestSeq) {
       loading.value = false;
     }
+  }
+}
+
+async function loadSeasons(): Promise<void> {
+  try {
+    const result = await api.get<ItemsResponse<string>>('/matches/seasons');
+    seasons.value = result.items;
+  } catch {
+    // 赛季选项失败不阻塞列表；下拉仍可手工输入。
   }
 }
 
@@ -286,8 +330,28 @@ async function reportWriteError(
   }
 }
 
-function onStatusChange(): void {
+function onFilterChange(): void {
   page.value = 1;
+  void load();
+}
+
+function onSortChange({ prop, order }: { prop: string; order: string | null }): void {
+  const fields = ['season', 'startAt', 'endAt', 'type'];
+  sort.value = order && fields.includes(prop)
+    ? `${prop}:${order === 'ascending' ? 'asc' : 'desc'}`
+    : 'startAt:desc';
+  page.value = 1;
+  void load();
+}
+
+function resetFilters(): void {
+  status.value = '';
+  type.value = '';
+  season.value = '';
+  dateRange.value = null;
+  sort.value = 'startAt:desc';
+  page.value = 1;
+  tableRef.value?.clearSort();
   void load();
 }
 
@@ -533,10 +597,14 @@ async function submitMatch(): Promise<void> {
       await api.post<MatchAdmin>('/matches', buildCreatePayload(), { idempotencyKey });
       matchSubmitKey = null;
       matchDialog.visible = false;
-      status.value = undefined;
+      status.value = '';
+      type.value = '';
+      season.value = '';
+      dateRange.value = null;
       page.value = 1;
       ElMessage.success('比赛已创建');
       await load();
+      void loadSeasons();
       return;
     }
 
@@ -732,6 +800,7 @@ async function submitCancel(): Promise<void> {
 }
 
 onMounted(load);
+onMounted(loadSeasons);
 </script>
 
 <template>
@@ -761,7 +830,7 @@ onMounted(load);
         class="status-filter"
         placeholder="全部状态"
         clearable
-        @change="onStatusChange"
+        @change="onFilterChange"
       >
         <el-option
           v-for="option in statusOptions"
@@ -770,22 +839,68 @@ onMounted(load);
           :value="option.value"
         />
       </el-select>
-      <el-button :loading="loading" @click="load">刷新</el-button>
+      <el-select
+        v-model="type"
+        class="type-filter"
+        placeholder="全部类型"
+        clearable
+        @change="onFilterChange"
+      >
+        <el-option
+          v-for="option in typeOptions"
+          :key="option.value"
+          :label="option.text"
+          :value="option.value"
+        />
+      </el-select>
+      <el-select
+        v-model="season"
+        class="season-filter"
+        placeholder="全部赛季"
+        filterable
+        allow-create
+        default-first-option
+        clearable
+        @change="onFilterChange"
+      >
+        <el-option label="全部赛季" value="" />
+        <el-option v-for="option in seasons" :key="option" :label="option" :value="option" />
+      </el-select>
+      <el-date-picker
+        v-model="dateRange"
+        class="date-filter"
+        type="daterange"
+        value-format="YYYY-MM-DD"
+        range-separator="至"
+        start-placeholder="开始日期"
+        end-placeholder="结束日期"
+        clearable
+        @change="onFilterChange"
+      />
+      <el-button :disabled="!hasActiveFilters" @click="resetFilters">清空条件</el-button>
     </div>
 
-    <el-table v-loading="loading" :data="rows" empty-text="暂无比赛" stripe>
-      <el-table-column label="赛季" prop="season" width="90" />
+    <el-table
+      ref="tableRef"
+      v-loading="loading"
+      :data="rows"
+      empty-text="暂无比赛"
+      stripe
+      :default-sort="{ prop: 'startAt', order: 'descending' }"
+      @sort-change="onSortChange"
+    >
+      <el-table-column label="赛季" prop="season" width="90" sortable="custom" />
       <el-table-column label="场次" width="100">
         <template #default="{ row }">{{ row.seasonMatchNo }}</template>
       </el-table-column>
       <el-table-column label="比赛" prop="title" min-width="200" />
-      <el-table-column label="类型" width="110">
+      <el-table-column label="类型" prop="type" width="110" sortable="custom">
         <template #default="{ row }">{{ matchTypeText(row.type) }}</template>
       </el-table-column>
-      <el-table-column label="比赛开始时间" min-width="170">
+      <el-table-column label="开始时间" prop="startAt" min-width="170" sortable="custom">
         <template #default="{ row }">{{ formatDateTime(row.startAt) }}</template>
       </el-table-column>
-      <el-table-column label="比赛结束时间" min-width="170">
+      <el-table-column label="结束时间" prop="endAt" min-width="170" sortable="custom">
         <template #default="{ row }">{{ formatDateTime(row.endAt) }}</template>
       </el-table-column>
       <el-table-column label="状态" width="110">
@@ -1102,7 +1217,20 @@ onMounted(load);
 }
 
 .toolbar {
+  flex-wrap: wrap;
   margin-bottom: 16px;
+}
+
+.type-filter {
+  width: 140px;
+}
+
+.season-filter {
+  width: 140px;
+}
+
+.date-filter {
+  width: 280px;
 }
 
 .season-input {

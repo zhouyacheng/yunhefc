@@ -93,22 +93,29 @@ public class MatchAdminApplicationService {
         MatchType type = MatchQueryParsing.type(query.type());
         String season = MatchQueryParsing.seasonFilter(query.season());
         String scope = MatchQueryParsing.scope(query.scope());
-        boolean ascending = MatchQueryParsing.ascending(query.sort());
+        MatchQueryParsing.DateRange dateRange =
+                MatchQueryParsing.dateRange(query.startDate(), query.endDate());
+        MatchQueryParsing.AdminSort sort = MatchQueryParsing.adminSort(query.sort());
 
         LambdaQueryWrapper<TeamMatch> wrapper = new LambdaQueryWrapper<TeamMatch>()
                 .eq(TeamMatch::getTeamId, teamId)
                 .eq(status != null, TeamMatch::getStatus, status)
                 .eq(type != null, TeamMatch::getType, type)
                 .eq(season != null, TeamMatch::getSeason, season);
+        if (dateRange != null) {
+            wrapper.ge(TeamMatch::getStartAt, dateRange.startInstant())
+                    .lt(TeamMatch::getStartAt, dateRange.endExclusiveInstant());
+        }
         if (MatchQueryParsing.SCOPE_UPCOMING.equals(scope)) {
             wrapper.notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
         } else if (MatchQueryParsing.SCOPE_HISTORY.equals(scope)) {
             wrapper.in(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
         }
-        if (ascending) {
-            wrapper.orderByAsc(TeamMatch::getStartAt);
-        } else {
-            wrapper.orderByDesc(TeamMatch::getStartAt);
+        switch (sort.field()) {
+            case START_AT -> wrapper.orderBy(true, sort.ascending(), TeamMatch::getStartAt);
+            case END_AT -> wrapper.orderBy(true, sort.ascending(), TeamMatch::getEndAt);
+            case SEASON -> wrapper.orderBy(true, sort.ascending(), TeamMatch::getSeason);
+            case TYPE -> wrapper.orderBy(true, sort.ascending(), TeamMatch::getType);
         }
         wrapper.orderByAsc(TeamMatch::getId);
 
@@ -120,6 +127,11 @@ public class MatchAdminApplicationService {
                         counts.getOrDefault(match.getId(), RegistrationQueueCounts.EMPTY)))
                 .toList();
         return PageResponse.of(items, result.getTotal(), page, pageSize);
+    }
+
+    @Transactional(readOnly = true)
+    public List<String> seasons() {
+        return teamMatchMapper.selectSeasons(CurrentUser.principal().teamId());
     }
 
     @Transactional(readOnly = true)

@@ -24,6 +24,15 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
             """)
     Long maxSeasonMatchNo(@Param("teamId") Long teamId, @Param("season") String season);
 
+    // 管理端赛季筛选项：仅本队未删除且非空的赛季。
+    @Select("""
+            SELECT DISTINCT season FROM team_match
+            WHERE team_id = #{teamId} AND is_deleted = 0
+              AND season IS NOT NULL AND season <> ''
+            ORDER BY season DESC
+            """)
+    List<String> selectSeasons(@Param("teamId") Long teamId);
+
     // 重建 Redis 列表用：只取仍在赛程中的场次号（不含已取消）。
     @Select("""
             SELECT season_match_no FROM team_match

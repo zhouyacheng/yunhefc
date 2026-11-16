@@ -177,7 +177,7 @@
 
     host.innerHTML = `<div class="container section">
       <div class="page-head">
-        <div><span class="eyebrow">MATCHDAY</span><h1>赛程</h1><p class="muted">按比赛类型、地点、状态、月份、自定义时间筛选；胜队名称以红色高亮</p></div>
+        <div><span class="eyebrow">MATCHDAY</span><h1>赛程</h1><p class="muted">按比赛类型、地点、状态、月份、自定义时间筛选，条件变更即生效；胜队名称以红色高亮</p></div>
       </div>
       <form class="schedule-filters" data-filter-form>
         <label class="filter-field"><span>比赛类型</span><select class="input input-sm" data-filter="type"><option value="ALL">全部</option>${types.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select></label>
@@ -186,7 +186,6 @@
         <label class="filter-field"><span>月份</span><input class="input input-sm" type="month" data-filter="month"></label>
         <label class="filter-field"><span>自定义时间（起）</span><input class="input input-sm" type="date" data-filter="startDate"></label>
         <label class="filter-field"><span>自定义时间（止）</span><input class="input input-sm" type="date" data-filter="endDate"></label>
-        <button class="btn btn-primary btn-sm" type="submit" data-search-filters>搜索</button>
         <button class="btn btn-ghost btn-sm" type="button" data-reset-filters>重置</button>
       </form>
       <div class="match-grid" data-match-grid></div>
@@ -253,12 +252,22 @@
       paint();
     }
 
-    $('[data-filter-form]', host).addEventListener('submit', (event) => {
-      event.preventDefault();
+    let applyTimer = null;
+
+    // 条件变更即生效：把表单草稿合入实际过滤条件并回到第 1 页。
+    function applyFilters() {
+      if (applyTimer !== null) {
+        window.clearTimeout(applyTimer);
+        applyTimer = null;
+      }
       Object.keys(form).forEach((key) => {
         form[key] = $(`[data-filter="${key}"]`, host).value;
       });
       Object.assign(applied, form);
+      // 清空月份表示全部时间，与正式实现的 month=all 等价。
+      if (!applied.month) {
+        applied.month = 'ALL';
+      }
       if (applied.startDate && applied.endDate) {
         // 自定义时间优先，与月份互斥。
         applied.month = 'ALL';
@@ -268,8 +277,37 @@
       }
       page = 1;
       paint();
+    }
+
+    // 地点/日期输入防抖，避免逐字符重绘。
+    function scheduleApply() {
+      if (applyTimer !== null) {
+        window.clearTimeout(applyTimer);
+      }
+      applyTimer = window.setTimeout(() => {
+        applyTimer = null;
+        applyFilters();
+      }, 300);
+    }
+
+    $('[data-filter-form]', host).addEventListener('submit', (event) => {
+      event.preventDefault();
+      applyFilters();
+    });
+    $('[data-filter-form]', host).addEventListener('input', scheduleApply);
+    $('[data-filter-form]', host).addEventListener('change', scheduleApply);
+    // 地点回车立即生效，不等防抖。
+    $('[data-filter="venue"]', host).addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        applyFilters();
+      }
     });
     $('[data-reset-filters]', host).addEventListener('click', () => {
+      if (applyTimer !== null) {
+        window.clearTimeout(applyTimer);
+        applyTimer = null;
+      }
       Object.assign(applied, emptyApplied());
       Object.assign(form, emptyApplied(), { month: currentMonth() });
       page = 1;

@@ -1,6 +1,8 @@
 package com.yunhefc.auth.controller;
 
+import com.yunhefc.auth.application.AdminHandoffService;
 import com.yunhefc.auth.application.AuthService;
+import com.yunhefc.auth.dto.AuthDtos.AdminTicketResponse;
 import com.yunhefc.auth.dto.AuthDtos.AuthResponse;
 import com.yunhefc.auth.dto.AuthDtos.AuthResult;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
@@ -37,6 +39,7 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final AdminHandoffService adminHandoffService;
     private final AuthSessionService authSessionService;
     private final RedisRateLimiter rateLimiter;
     private final LoginRateLimitProperties loginRateLimit;
@@ -70,6 +73,13 @@ public class AuthController {
                 loginRateLimit.maxAttempts(), loginRateLimit.window());
         AuthResult result = authService.login(request, false);
         return ApiResponse.ok(authResponse(result, SessionKeys.C_USER_ID, servletRequest, response));
+    }
+
+    @PostMapping("/auth/admin-ticket")
+    public ApiResponse<AdminTicketResponse> adminTicket() {
+        AdminHandoffService.IssuedTicket issued =
+                adminHandoffService.issue(CurrentUser.principal().userId());
+        return ApiResponse.ok(new AdminTicketResponse(issued.ticket(), issued.ttl().toSeconds()));
     }
 
     @PostMapping("/auth/logout")

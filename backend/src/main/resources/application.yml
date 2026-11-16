@@ -81,6 +81,7 @@ yunhefc:
   session:
     c-ttl: 7d
     b-ttl: 2h
+    handoff-ttl: 60s
     cookie-domain: ${SESSION_COOKIE_DOMAIN:}
     cookie-secure: ${SESSION_COOKIE_SECURE:false}
     same-site: Lax

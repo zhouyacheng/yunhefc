@@ -436,12 +436,15 @@ test('C03 管理员：B03 链接、返回重载与真实递补', async ({ page }
   expect(bLogin.ok()).toBe(true);
   const bLoginBody = (await bLogin.json()) as { data: { csrfToken: string } };
 
-  await page.route(/\/admin\/registrations\?match=1002$/, (route) =>
+  await page.route(/\/admin\/registrations\?match=1002/, (route) =>
     route.fulfill({ status: 200, contentType: 'text/html', body: '<html>admin</html>' }),
   );
 
   await adminLink.click();
-  await expect(page).toHaveURL(/localhost:5274\/admin\/registrations\?match=1002$/);
+  // 静态 stub 不执行票据兑换，因此 URL 会保留一次性票据 fragment。
+  await expect(page).toHaveURL(
+    /localhost:5274\/admin\/registrations\?match=1002(#ticket=[A-Za-z0-9_-]+)?$/,
+  );
   errors.length = 0;
 
   const deleteResponse = await page.request.delete(`/api/v1/b/registrations/${target?.id ?? 0}`, {

@@ -1345,3 +1345,11 @@ test('B 端：B11 比赛邀请未选比赛时阻止提交', async ({ page }) => 
     [],
   );
 });
+
+test('无效交接票据回到登录页并提示', async ({ page }) => {
+  await page.goto('/admin/#ticket=invalid');
+
+  await expect(page).toHaveURL(/\/admin\/login\?redirect=/);
+  await expect(page.getByText('自动登录已失效，请重新登录')).toBeVisible();
+  await expect(page.getByPlaceholder('请输入手机号')).toBeVisible();
+});

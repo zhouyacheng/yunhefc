@@ -5,6 +5,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 import AdminShell from '../components/AdminShell.vue';
 import { useSessionStore } from '../stores/session';
+import { readTicket, stripTicket } from './handoff';
 
 const appBase = import.meta.env.BASE_URL;
 const loginPath = `${appBase}login`;
@@ -93,6 +94,30 @@ export const router = createRouter({
 
 router.beforeEach(async (to) => {
   const session = useSessionStore();
+
+  const ticket = readTicket(to.hash);
+  if (ticket) {
+    let exchanged = false;
+    try {
+      await session.exchangeTicket(ticket);
+      exchanged = true;
+    } catch {
+      await session.ensureLoaded().catch(() => undefined);
+    }
+
+    const cleaned = stripTicket({ path: to.path, query: to.query, hash: to.hash });
+    if (!exchanged && !session.isAuthenticated) {
+      return {
+        name: 'login',
+        query: {
+          redirect: toBrowserPath(router.resolve(cleaned).fullPath),
+          handoff: 'failed',
+        },
+        replace: true,
+      };
+    }
+    return { ...cleaned, replace: true };
+  }
 
   if (to.name === 'login') {
     // 登录页不做会话探测，避免未登录时必然产生的 401。

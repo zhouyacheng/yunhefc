@@ -211,7 +211,8 @@ class ProdStartupValidatorTest {
     }
 
     private SessionProperties session(boolean secure, String domain) {
-        return new SessionProperties(Duration.ofDays(7), Duration.ofHours(2), domain, secure, "Lax");
+        return new SessionProperties(Duration.ofDays(7), Duration.ofHours(2), Duration.ofSeconds(60),
+                domain, secure, "Lax");
     }
 
     private CorsProperties corsOfExampleDomain() {

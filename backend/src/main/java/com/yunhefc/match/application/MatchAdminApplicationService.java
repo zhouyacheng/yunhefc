@@ -64,9 +64,10 @@ public class MatchAdminApplicationService {
     public MatchAdminView create(MatchCreateRequest request) {
         Long teamId = CurrentUser.principal().teamId();
         TeamMatch prepared = prepare(teamId, request);
+        Integer requestedRound = request.round();
         for (int attempt = 1; attempt <= CREATE_ATTEMPTS; attempt++) {
             try {
-                return transactionTemplate.execute(status -> persist(teamId, prepared));
+                return transactionTemplate.execute(status -> persist(teamId, prepared, requestedRound));
             } catch (DuplicateKeyException | DeadlockLoserDataAccessException
                      | CannotAcquireLockException ex) {
                 if (attempt == CREATE_ATTEMPTS) {
@@ -131,9 +132,23 @@ public class MatchAdminApplicationService {
         return toView(match, counts(matchId));
     }
 
-    @Transactional
     public MatchAdminView update(Long matchId, MatchUpdateRequest request) {
         rejectUnknownFields(request);
+        for (int attempt = 1; attempt <= CREATE_ATTEMPTS; attempt++) {
+            try {
+                return transactionTemplate.execute(status -> updateOnce(matchId, request));
+            } catch (DuplicateKeyException | DeadlockLoserDataAccessException
+                     | CannotAcquireLockException ex) {
+                if (attempt == CREATE_ATTEMPTS) {
+                    throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "场次编号冲突，请重试");
+                }
+                sleepBeforeRetry();
+            }
+        }
+        throw new IllegalStateException("unreachable");
+    }
+
+    private MatchAdminView updateOnce(Long matchId, MatchUpdateRequest request) {
         Long teamId = CurrentUser.principal().teamId();
         // 行锁：与报名域名额锁串行化，并保证后续版本/容量判断读到最新已提交数据。
         TeamMatch match = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
@@ -148,7 +163,7 @@ public class MatchAdminApplicationService {
         }
 
         Map<String, Object> before = MatchAuditSnapshot.of(match);
-        applyChanges(match, request);
+        applyChanges(teamId, match, request);
 
         int updated = teamMatchMapper.update(null, new LambdaUpdateWrapper<TeamMatch>()
                 .eq(TeamMatch::getId, matchId)
@@ -163,6 +178,8 @@ public class MatchAdminApplicationService {
                 .set(TeamMatch::getCancelLock, match.getCancelLock())
                 .set(TeamMatch::getVenue, match.getVenue())
                 .set(TeamMatch::getCompetition, match.getCompetition())
+                .set(TeamMatch::getSeason, match.getSeason())
+                .set(TeamMatch::getSeasonMatchNo, match.getSeasonMatchNo())
                 .set(TeamMatch::getRound, match.getRound())
                 .set(TeamMatch::getHomeTeamName, match.getHomeTeamName())
                 .set(TeamMatch::getAwayTeamName, match.getAwayTeamName())
@@ -420,7 +437,7 @@ public class MatchAdminApplicationService {
                 || status == MatchStatus.POSTPONED;
     }
 
-    private void applyChanges(TeamMatch match, MatchUpdateRequest request) {
+    private void applyChanges(Long teamId, TeamMatch match, MatchUpdateRequest request) {
         if (request.getTitle() != null) {
             match.setTitle(requiredText(request.getTitle(), "title", "比赛名称"));
         }
@@ -438,6 +455,13 @@ public class MatchAdminApplicationService {
         }
         if (request.hasRound()) {
             match.setRound(request.getRound());
+        }
+        if (request.hasSeason()) {
+            String season = seasonForUpdate(request.getSeason());
+            if (!season.equals(match.getSeason())) {
+                match.setSeason(season);
+                match.setSeasonMatchNo((int) (teamMatchMapper.maxSeasonMatchNo(teamId, season) + 1));
+            }
         }
         if (request.getIncludeGuests() != null) {
             match.setIncludeGuests(request.getIncludeGuests());
@@ -470,6 +494,20 @@ public class MatchAdminApplicationService {
                 }
                 match.setGuestCapacity(request.getGuestCapacity());
             }
+        }
+    }
+
+    private String seasonForUpdate(String requested) {
+        String season = MatchQueryParsing.normalize(requested);
+        if (season == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "赛季不能为空",
+                    Map.of("details", Map.of("season", "赛季不能为空")));
+        }
+        try {
+            return MatchQueryParsing.validSeason(season);
+        } catch (BusinessException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "赛季必须为四位年份",
+                    Map.of("details", Map.of("season", "赛季必须为四位年份")));
         }
     }
 
@@ -566,9 +604,11 @@ public class MatchAdminApplicationService {
         return match;
     }
 
-    private MatchAdminView persist(Long teamId, TeamMatch match) {
+    private MatchAdminView persist(Long teamId, TeamMatch match, Integer requestedRound) {
         match.setId(null);
-        match.setSeasonMatchNo((int) (teamMatchMapper.maxSeasonMatchNo(teamId, match.getSeason()) + 1));
+        int seasonMatchNo = (int) (teamMatchMapper.maxSeasonMatchNo(teamId, match.getSeason()) + 1);
+        match.setSeasonMatchNo(seasonMatchNo);
+        match.setRound(requestedRound == null ? seasonMatchNo : requestedRound);
         match.setTotalMatchNo((int) (teamMatchMapper.maxTotalMatchNo(teamId) + 1));
         teamMatchMapper.insert(match);
         TeamMatch saved = teamMatchMapper.selectById(match.getId());

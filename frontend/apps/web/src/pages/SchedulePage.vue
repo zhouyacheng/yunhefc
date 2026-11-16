@@ -2,7 +2,7 @@
 import { isApiError } from '@yunhefc/api-client';
 import type { MatchSummary, Page } from '@yunhefc/shared';
 import { Button, Empty, Loading, Pagination, Popup } from 'vant';
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import type { LocationQuery } from 'vue-router';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -43,15 +43,6 @@ function syncViewport(event: MediaQueryListEvent): void {
     drawerOpen.value = false;
   }
 }
-
-const yearOptions = computed(() => {
-  const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 6 }, (_, index) => String(currentYear - index));
-  if (appliedQuery.value.season && !years.includes(appliedQuery.value.season)) {
-    years.push(appliedQuery.value.season);
-  }
-  return years;
-});
 
 async function load(): Promise<void> {
   const seq = ++requestSeq;
@@ -154,25 +145,14 @@ onBeforeUnmount(() => {
       筛选
     </Button>
 
-    <ScheduleFilters
-      v-else
-      v-model="form"
-      :year-options="yearOptions"
-      @search="search"
-      @reset="reset"
-    />
+    <ScheduleFilters v-else v-model="form" @search="search" @reset="reset" />
 
     <Popup v-if="isMobile" v-model:show="drawerOpen" position="bottom" round>
       <div class="schedule-filters__drawer">
         <div class="card-head">
           <h2>筛选</h2>
         </div>
-        <ScheduleFilters
-          v-model="form"
-          :year-options="yearOptions"
-          @search="search"
-          @reset="reset"
-        />
+        <ScheduleFilters v-model="form" @search="search" @reset="reset" />
       </div>
     </Popup>
 

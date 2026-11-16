@@ -26,6 +26,7 @@ import {
   matchReschedulable,
   matchScheduleError,
   matchScorePairError,
+  matchSeasonEditError,
   matchSeasonError,
   matchStatusText,
   matchStatusTone,
@@ -199,6 +200,12 @@ describe('match management rules', () => {
     expect(matchSeasonError('')).toBeNull();
     expect(matchSeasonError('26')).toBe('赛季必须为四位年份');
     expect(matchSeasonError('20266')).toBe('赛季必须为四位年份');
+    expect(matchSeasonEditError('2026')).toBeNull();
+    expect(matchSeasonEditError('')).toBe('请输入赛季');
+    expect(matchSeasonEditError('   ')).toBe('请输入赛季');
+    expect(matchSeasonEditError(null)).toBe('请输入赛季');
+    expect(matchSeasonEditError('26')).toBe('赛季必须为四位年份');
+    expect(matchSeasonEditError('20266')).toBe('赛季必须为四位年份');
     expect(matchScorePairError(1, 0)).toBeNull();
     expect(matchScorePairError(null, null)).toBeNull();
     expect(matchScorePairError(1, null)).toBe('比分必须成对填写');

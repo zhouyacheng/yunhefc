@@ -78,6 +78,37 @@ class MatchPublicIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].id").value(juneFirst));
 
         mockMvc.perform(get("/api/v1/c/matches")
+                        .param("startDate", "2099-06-01").param("endDate", "2099-06-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(juneFirst));
+
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("startDate", "2099-06-01").param("endDate", "2099-06-15"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items[0].id").value(juneLater))
+                .andExpect(jsonPath("$.data.items[1].id").value(juneFirst));
+
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("startDate", "2099-06-16").param("endDate", "2099-07-31"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(july));
+
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("season", "2098")
+                        .param("startDate", "2099-06-01").param("endDate", "2099-06-30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("month", "2099-07")
+                        .param("startDate", "2099-06-01").param("endDate", "2099-06-30"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+
+        mockMvc.perform(get("/api/v1/c/matches")
                         .param("season", "2099").param("type", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(2))
@@ -129,6 +160,16 @@ class MatchPublicIT extends IntegrationTestSupport {
 
         expectBadRequest("/api/v1/c/matches", "month", "2099/06");
         expectBadRequest("/api/v1/c/matches", "month", "2099-13");
+        expectBadRequest("/api/v1/c/matches", "month", "all");
+        expectBadRequest("/api/v1/c/matches", "startDate", "2099-06-01");
+        expectBadRequest("/api/v1/c/matches", "endDate", "2099-06-01");
+        expectBadRequest("/api/v1/c/matches", "startDate", "2099/06/01");
+        expectBadRequest("/api/v1/c/matches", "startDate", "2099-13-01");
+        expectBadRequest("/api/v1/c/matches", "startDate", "2099-02-30");
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("startDate", "2099-06-15").param("endDate", "2099-06-01"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
         expectBadRequest("/api/v1/c/matches", "pageSize", "101");
         expectBadRequest("/api/v1/c/matches", "pageSize", "0");
         expectBadRequest("/api/v1/c/matches", "page", "0");

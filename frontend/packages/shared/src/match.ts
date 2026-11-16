@@ -114,7 +114,7 @@ export interface MatchCreate {
   scoreAway?: number;
 }
 
-/** MAT-05 请求体；赛季/类型/我方主客不可改。 */
+/** MAT-05 请求体；类型/我方主客不可改；赛季可改（P-43）。 */
 export interface MatchUpdate {
   title?: string;
   startAt?: string;
@@ -122,6 +122,7 @@ export interface MatchUpdate {
   venue?: string;
   competition?: string | null;
   round?: number | null;
+  season?: string;
   homeTeamName?: string;
   awayTeamName?: string;
   capacity?: number;
@@ -497,6 +498,14 @@ export function matchSeasonError(season: string | null | undefined): string | nu
     return null;
   }
   return /^\d{4}$/.test(season) ? null : '赛季必须为四位年份';
+}
+
+/** 编辑比赛时赛季不可清空（创建允许留空默认当前年份）。 */
+export function matchSeasonEditError(season: string | null | undefined): string | null {
+  if (!season || !season.trim()) {
+    return '请输入赛季';
+  }
+  return matchSeasonError(season.trim());
 }
 
 export function matchScorePairError(

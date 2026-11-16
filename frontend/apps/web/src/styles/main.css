@@ -602,6 +602,47 @@ textarea {
   background: var(--yh-slate-soft);
 }
 
+.schedule-range {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.schedule-range__trigger {
+  flex: 1;
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 9px;
+  overflow: hidden;
+  color: var(--yh-ink);
+  font-size: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--yh-surface);
+  border: 1px solid var(--yh-line);
+  border-radius: 9px;
+}
+
+.schedule-range__trigger:focus {
+  border-color: var(--yh-green);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.14);
+}
+
+.schedule-range__clear {
+  flex: none;
+  padding: 6px 2px;
+  color: var(--yh-muted);
+  font-size: 12px;
+  background: none;
+  border: 0;
+}
+
+.schedule-range__clear:hover {
+  color: var(--yh-ink);
+}
+
 .schedule-filter-actions {
   display: flex;
   gap: 6px;
@@ -1682,6 +1723,10 @@ textarea {
   line-height: 1.7;
 }
 
+.home-hero__copy .eyebrow {
+  color: var(--yh-gold);
+}
+
 .home-hero__actions {
   display: flex;
   flex-wrap: wrap;
@@ -1873,6 +1918,16 @@ textarea {
   .schedule-filter input {
     min-height: 44px;
     font-size: 16px;
+  }
+
+  .schedule-range__trigger {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .schedule-range__clear {
+    min-height: 44px;
+    font-size: 14px;
   }
 
   .schedule-filters__drawer {

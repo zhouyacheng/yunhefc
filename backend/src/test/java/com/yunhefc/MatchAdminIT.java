@@ -80,6 +80,11 @@ class MatchAdminIT extends IntegrationTestSupport {
         createdMatchIds.add(matchId);
 
         assertThat(matchId).isPositive();
+        Integer round = com.jayway.jsonpath.JsonPath.read(
+                result.getResponse().getContentAsString(), "$.data.round");
+        Integer seasonMatchNo = com.jayway.jsonpath.JsonPath.read(
+                result.getResponse().getContentAsString(), "$.data.seasonMatchNo");
+        assertThat(round).isEqualTo(seasonMatchNo);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM outbox_event WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ? "
                         + "AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'MATCH_CREATE'",
@@ -108,6 +113,43 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .atStartOfDay(ZONE).toInstant());
         assertThat(cancelLock).isEqualTo(startAt.atZone(ZONE).toLocalDate()
                 .atTime(10, 0).atZone(ZONE).toInstant());
+    }
+
+    @Test
+    void createKeepsExplicitRound() throws Exception {
+        Cookie admin = adminLogin("13900000521");
+        MvcResult result = mockMvc.perform(post("/api/v1/b/matches")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title":"M03显式场次","type":1,"season":"2096","round":7,
+                                 "startAt":"%s","endAt":"%s","venue":"聚龙足球场",
+                                 "homeTeamName":"橙队","awayTeamName":"兰队"}
+                                """.formatted(local("2026-12-20T20:00:00"),
+                                local("2026-12-20T22:00:00"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.round").value(7))
+                .andReturn();
+        createdMatchIds.add(id(result));
+    }
+
+    @Test
+    void createDefaultsRoundToFirstForNewSeason() throws Exception {
+        Cookie admin = adminLogin("13900000522");
+        MvcResult result = mockMvc.perform(post("/api/v1/b/matches")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(matchBody("M03新赛季首场", 1, "2091", "2026-12-22T20:00:00")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.season").value("2091"))
+                .andExpect(jsonPath("$.data.seasonMatchNo").value(1))
+                .andExpect(jsonPath("$.data.round").value(1))
+                .andReturn();
+        createdMatchIds.add(id(result));
     }
 
     @Test
@@ -228,6 +270,7 @@ class MatchAdminIT extends IntegrationTestSupport {
             List<Long> ids = new ArrayList<>();
             List<Integer> totalNumbers = new ArrayList<>();
             List<Integer> seasonNumbers = new ArrayList<>();
+            List<Integer> rounds = new ArrayList<>();
             for (java.util.concurrent.Future<MvcResult> future : futures) {
                 MvcResult result = future.get(30, java.util.concurrent.TimeUnit.SECONDS);
                 String json = result.getResponse().getContentAsString();
@@ -236,6 +279,7 @@ class MatchAdminIT extends IntegrationTestSupport {
                 createdMatchIds.add(matchId);
                 totalNumbers.add((Integer) com.jayway.jsonpath.JsonPath.read(json, "$.data.totalMatchNo"));
                 seasonNumbers.add((Integer) com.jayway.jsonpath.JsonPath.read(json, "$.data.seasonMatchNo"));
+                rounds.add((Integer) com.jayway.jsonpath.JsonPath.read(json, "$.data.round"));
             }
 
             assertThat(ids).doesNotHaveDuplicates();
@@ -247,6 +291,7 @@ class MatchAdminIT extends IntegrationTestSupport {
                     .containsExactlyInAnyOrderElementsOf(
                             java.util.stream.IntStream.rangeClosed(startSeason + 1, startSeason + parallel)
                                     .boxed().toList());
+            assertThat(rounds).containsExactlyElementsOf(seasonNumbers);
         } finally {
             pool.shutdownNow();
         }

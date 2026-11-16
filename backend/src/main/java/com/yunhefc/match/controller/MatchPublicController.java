@@ -36,12 +36,14 @@ public class MatchPublicController {
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String season,
             @RequestParam(required = false) String month,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String scope,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         return ApiResponse.ok(matchPublicService.list(new MatchPublicQuery(
-                type, venue, status, season, month, scope, sort, page, pageSize)));
+                type, venue, status, season, month, startDate, endDate, scope, sort, page, pageSize)));
     }
 
     @GetMapping("/{id}")

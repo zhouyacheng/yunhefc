@@ -37,6 +37,8 @@ public final class MatchDtos {
             Integer status,
             String season,
             String month,
+            String startDate,
+            String endDate,
             String scope,
             String sort,
             long page,
@@ -85,8 +87,8 @@ public final class MatchDtos {
     }
 
     /**
-     * 编辑比赛仅允许赛程字段；赛季/类型/我方主客/比分等由 {@link JsonAnySetter} 收集后拒绝。
-     * `round`、`competition` 可为空，用显式 null 清空，故单独记录字段是否出现。
+     * 编辑比赛仅允许赛程字段；类型/我方主客/比分等由 {@link JsonAnySetter} 收集后拒绝。
+     * 赛季可改（P-43），但不可为空；`round`、`competition` 可为空，用显式 null 清空，故单独记录字段是否出现。
      */
     @Getter
     @Setter
@@ -104,6 +106,8 @@ public final class MatchDtos {
 
         @Size(max = 64)
         private String competition;
+
+        private String season;
 
         @Min(0)
         @Max(65535)
@@ -151,6 +155,12 @@ public final class MatchDtos {
             this.round = round;
         }
 
+        @JsonProperty("season")
+        public void setSeason(String season) {
+            presentFields.add("season");
+            this.season = season;
+        }
+
         @JsonIgnore
         public boolean hasCompetition() {
             return presentFields.contains("competition");
@@ -159,6 +169,11 @@ public final class MatchDtos {
         @JsonIgnore
         public boolean hasRound() {
             return presentFields.contains("round");
+        }
+
+        @JsonIgnore
+        public boolean hasSeason() {
+            return presentFields.contains("season");
         }
 
         @JsonAnySetter

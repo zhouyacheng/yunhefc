@@ -62,6 +62,8 @@ public class MatchPublicApplicationService {
         String scope = MatchQueryParsing.scope(query.scope());
         boolean ascending = MatchQueryParsing.ascending(query.sort());
         YearMonth month = month(query.month());
+        MatchQueryParsing.DateRange dateRange =
+                MatchQueryParsing.dateRange(query.startDate(), query.endDate());
 
         LambdaQueryWrapper<TeamMatch> wrapper = new LambdaQueryWrapper<TeamMatch>()
                 .eq(TeamMatch::getTeamId, teamReadPort.currentTeamId())
@@ -77,6 +79,10 @@ public class MatchPublicApplicationService {
         if (month != null) {
             wrapper.ge(TeamMatch::getStartAt, monthStart(month))
                     .lt(TeamMatch::getStartAt, monthStart(month.plusMonths(1)));
+        }
+        if (dateRange != null) {
+            wrapper.ge(TeamMatch::getStartAt, dateRange.startInstant())
+                    .lt(TeamMatch::getStartAt, dateRange.endExclusiveInstant());
         }
         if (ascending) {
             wrapper.orderByAsc(TeamMatch::getStartAt);

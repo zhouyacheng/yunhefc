@@ -145,15 +145,18 @@
         ${Y.hasPermission('match:create:any') ? '<button class="btn btn-primary" data-action="create-match">+ 创建比赛</button>' : ''}
       </div>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>比赛</th><th>类型</th><th>时间</th><th>状态</th><th>报名</th><th>操作</th></tr></thead>
+        <thead><tr><th>赛季</th><th>场次</th><th>比赛</th><th>类型</th><th>比赛开始时间</th><th>比赛结束时间</th><th>状态</th><th>报名</th><th>操作</th></tr></thead>
         <tbody>${paged.items.map((match) => {
           const statusControl = !canStatus
             ? `<span class="badge">${Y.statusLabel(match.status)}</span>`
             : `<select class="input input-sm" data-match-status="${match.id}">${Y.statusOptions(match).map((option) => `<option value="${option.status}" ${match.status === option.status ? 'selected' : ''} ${option.disabled ? `disabled title="${option.reason}"` : ''}>${Y.statusLabel(option.status)}</option>`).join('')}</select>${match.manualStatus ? ' <small class="muted">手动</small>' : ''}`;
           return `<tr>
+          <td>${esc(match.season ?? '—')}</td>
+          <td>${match.round != null ? esc(String(match.round)) : '—'}</td>
           <td><div class="admin-match-title"><strong>${esc(match.title)}</strong><small>${esc(match.venue)}</small><small>${Y.matchOrdinalLabel(match)}</small></div></td>
           <td><span class="badge badge-type">${Y.typeLabel(match.type)}</span></td>
           <td>${Y.formatDateTime(match.start)}</td>
+          <td>${Y.formatDateTime(match.end)}</td>
           <td>${statusControl}</td>
           <td>${match.status === 'CANCELLED'
             ? `${Y.confirmed(match).length} 条（已作废）`
@@ -375,7 +378,7 @@
       const homeNameValue = existing ? (existing.homeTeamName || fallbackNames.home) : '橙队';
       const awayNameValue = existing ? (existing.awayTeamName || fallbackNames.away) : '兰队';
       const seasonValue = existing && existing.season ? existing.season : String(new Date().getFullYear());
-      const roundValue = existing && existing.round ? existing.round : '';
+      const roundValue = existing && existing.round != null ? existing.round : '';
       const sideValue = existing ? existing.ourSide : (Y.inferOurSide(homeNameValue, awayNameValue, type, existing ? existing.title : '') || 'HOME');
       const body = `<form id="match-form" class="form-grid">
         <label class="full">比赛名称<input class="input" name="title" value="${esc(existing ? existing.title : '橙队VS兰队')}" required></label>
@@ -395,8 +398,8 @@
           <option value="HOME"${sideValue === 'HOME' ? ' selected' : ''}>我方主队</option>
           <option value="AWAY"${sideValue === 'AWAY' ? ' selected' : ''}>我方客队</option>
         </select></label>
-        <label>赛季<input class="input" name="season" value="${esc(seasonValue)}" maxlength="4" placeholder="可选，默认当前年份"${editing ? ' disabled' : ''}></label>
-        <label>轮次<input class="input" type="number" name="round" value="${roundValue}" min="1"></label>
+        <label>赛季<input class="input" name="season" value="${esc(seasonValue)}" maxlength="4" placeholder="四位年份，默认当前年份"></label>
+        <label>场次<input class="input" type="number" name="round" value="${roundValue}" min="0" placeholder="留空默认同赛季下一场"></label>
         <label>正式名额<input class="input" type="number" name="capacity" value="${existing ? existing.capacity : settings.maxPlayers}" min="1"></label>
         <label>外挂名额<input class="input" type="number" name="guestCapacity" value="${existing ? existing.guestCapacity : (internal ? 0 : settings.maxGuests)}" min="0"></label>
         <label>候补上限<input class="input" type="number" name="waitlistCapacity" value="${existing ? existing.waitlistCapacity ?? settings.maxWaitlist : settings.maxWaitlist}" min="0"></label>
@@ -474,8 +477,9 @@
         const awayTeamName = String(data.get('awayTeamName') || '').trim()
           || (editing ? (existing.awayTeamName || fallbackNames.away) : '');
         const title = String(data.get('title')).trim();
-        const seasonValue = editing ? existing.season : (String(data.get('season') || '').trim() || String(new Date().getFullYear()));
-        if (!editing && !/^\d{4}$/.test(seasonValue)) {
+        const seasonRaw = String(data.get('season') || '').trim();
+        const seasonValue = seasonRaw || (editing ? '' : String(new Date().getFullYear()));
+        if (!/^\d{4}$/.test(seasonValue)) {
           Y.toast('赛季须为四位年份');
           return;
         }
@@ -505,6 +509,8 @@
         const ourSide = nextInternal ? null : (editing ? existing.ourSide : (selectedSide || inferredSide || 'HOME'));
         const derivedOpponent = ourSide === 'AWAY' ? homeTeamName : awayTeamName;
         const opponent = nextInternal ? '' : (derivedOpponent || (editing ? existing.opponent || '' : ''));
+        const roundRaw = String(data.get('round') ?? '').trim();
+        const parsedRound = roundRaw === '' ? null : Number(roundRaw);
         const payload = {
           title,
           type: nextType,
@@ -515,7 +521,7 @@
           venue: String(data.get('venue') || ''),
           competition: nextInternal ? '' : String(data.get('competition') || ''),
           season: seasonValue,
-          round: nextInternal ? null : Number(data.get('round')) || null,
+          round: parsedRound,
           capacity,
           guestCapacity,
           waitlistCapacity,
@@ -529,6 +535,10 @@
         };
         if (editing) {
           const before = Y.matchSnapshot(existing);
+          if (payload.season !== existing.season) {
+            const others = Y.state.matches.filter((match) => match.id !== existing.id);
+            existing.seasonMatchNo = Y.nextOrdinals(others, payload.season, payload.start).seasonMatchNo;
+          }
           Object.assign(existing, payload);
           Y.save();
           Y.addAudit(Y.currentUser().name, '编辑比赛', payload.title, { before, after: Y.matchSnapshot(existing) });
@@ -542,6 +552,7 @@
             id: 'm' + Date.now(),
             ...payload,
             ...ordinals,
+            round: payload.round ?? ordinals.seasonMatchNo,
             format: '8人制',
             status: 'SIGNUP_OPEN',
             registrations: [],

@@ -676,6 +676,16 @@ async function onStatusCommand(row: MatchAdmin, command: number | string): Promi
   await changeStatus(row, targetStatus);
 }
 
+function onMoreCommand(row: MatchAdmin, command: number | string): void {
+  if (command === 'edit') {
+    void openEdit(row);
+    return;
+  }
+  if (command === 'reschedule') {
+    void openSchedule(row, 'reschedule');
+  }
+}
+
 async function changeStatus(row: MatchAdmin, targetStatus: number): Promise<void> {
   if (!canStatus.value || actionBusy.value !== null) {
     return;
@@ -924,28 +934,11 @@ onMounted(loadSeasons);
       <el-table-column
         v-if="canCreate || canEdit || canStatus"
         label="操作"
-        width="220"
+        width="104"
         fixed="right"
       >
         <template #default="{ row }">
           <div class="row-actions">
-            <el-tooltip
-              v-if="canEdit"
-              :disabled="matchEditable(row.status)"
-              content="终态或已延期比赛不可编辑；已延期请使用重新排期"
-            >
-              <span>
-                <el-button
-                  link
-                  type="primary"
-                  size="small"
-                  :disabled="!matchEditable(row.status) || actionBusy !== null"
-                  @click="openEdit(row)"
-                >
-                  编辑
-                </el-button>
-              </span>
-            </el-tooltip>
             <el-dropdown
               v-if="canStatus || canEdit"
               trigger="click"
@@ -968,16 +961,38 @@ onMounted(loadSeasons);
                 </el-dropdown-menu>
               </template>
             </el-dropdown>
-            <el-button
-              v-if="canEdit && matchReschedulable(row.status)"
-              link
-              type="primary"
-              size="small"
-              :disabled="actionBusy !== null"
-              @click="openSchedule(row, 'reschedule')"
+            <el-dropdown
+              v-if="canEdit"
+              trigger="click"
+              placement="bottom-end"
+              @command="onMoreCommand(row, $event)"
             >
-              重新排期
-            </el-button>
+              <el-button link type="primary" size="small" :disabled="actionBusy !== null">
+                更多
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item
+                    command="edit"
+                    :disabled="!matchEditable(row.status) || actionBusy !== null"
+                    :title="
+                      matchEditable(row.status)
+                        ? undefined
+                        : '终态或已延期比赛不可编辑；已延期请使用重新排期'
+                    "
+                  >
+                    编辑
+                  </el-dropdown-item>
+                  <el-dropdown-item
+                    v-if="matchReschedulable(row.status)"
+                    command="reschedule"
+                    :disabled="actionBusy !== null"
+                  >
+                    重新排期
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
           </div>
         </template>
       </el-table-column>

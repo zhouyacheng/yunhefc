@@ -27,6 +27,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.Instant;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -47,6 +48,7 @@ public class MatchPublicApplicationService {
     private final TeamReadPort teamReadPort;
     private final RegistrationReadPort registrationReadPort;
     private final EventScoreReadPort eventScoreReadPort;
+    private final Clock clock;
 
     @Transactional(readOnly = true)
     public PageResponse<MatchSummary> list(MatchPublicQuery query) {
@@ -72,7 +74,9 @@ public class MatchPublicApplicationService {
                 .eq(season != null, TeamMatch::getSeason, season)
                 .like(venue != null, TeamMatch::getVenue, venue);
         if (MatchQueryParsing.SCOPE_UPCOMING.equals(scope)) {
-            wrapper.notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
+            // 状态机是主口径；再加时间下限，避免手工冻结或自动流转滞后的过期比赛占用待进行列表。
+            wrapper.notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED)
+                    .gt(TeamMatch::getEndAt, Instant.now(clock));
         } else if (MatchQueryParsing.SCOPE_HISTORY.equals(scope)) {
             wrapper.in(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
         }

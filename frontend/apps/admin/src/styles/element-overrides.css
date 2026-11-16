@@ -375,6 +375,16 @@
   color: var(--yh-ink);
 }
 
+.el-dropdown-menu__item.row-action--danger:not(.is-disabled) {
+  color: var(--yh-red-ink);
+}
+
+.el-dropdown-menu__item.row-action--danger:not(.is-disabled):hover,
+.el-dropdown-menu__item.row-action--danger:not(.is-disabled):focus {
+  background: var(--yh-red-soft);
+  color: var(--yh-red-ink);
+}
+
 .el-empty {
   padding: 32px 0;
 }

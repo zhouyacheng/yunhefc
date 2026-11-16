@@ -107,7 +107,9 @@ public class MatchAdminApplicationService {
                     .lt(TeamMatch::getStartAt, dateRange.endExclusiveInstant());
         }
         if (MatchQueryParsing.SCOPE_UPCOMING.equals(scope)) {
-            wrapper.notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
+            // 与 MAT-02 同口径：状态未结束且未取消，且结束时间未过。
+            wrapper.notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED)
+                    .gt(TeamMatch::getEndAt, Instant.now(clock));
         } else if (MatchQueryParsing.SCOPE_HISTORY.equals(scope)) {
             wrapper.in(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
         }

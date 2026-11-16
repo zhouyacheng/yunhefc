@@ -512,10 +512,10 @@ class MatchAdminIT extends IntegrationTestSupport {
     void listFiltersScopeSortsAndPaginates() throws Exception {
         Cookie admin = adminLogin("13900000503");
 
-        MvcResult open = create(admin, matchBody("M03列表报名中", 1, "2099", "2026-12-01T20:00:00"));
-        MvcResult finished = create(admin, matchBody("M03列表已结束", 2, "2099", "2026-12-02T20:00:00"));
-        MvcResult cancelled = create(admin, matchBody("M03列表已取消", 1, "2099", "2026-12-03T20:00:00"));
-        create(admin, matchBody("M03列表旧赛季", 1, "2098", "2026-12-04T20:00:00"));
+        MvcResult open = create(admin, matchBody("M03列表报名中", 1, "2099", "2099-12-01T20:00:00"));
+        MvcResult finished = create(admin, matchBody("M03列表已结束", 2, "2099", "2099-12-02T20:00:00"));
+        MvcResult cancelled = create(admin, matchBody("M03列表已取消", 1, "2099", "2099-12-03T20:00:00"));
+        create(admin, matchBody("M03列表旧赛季", 1, "2098", "2099-12-04T20:00:00"));
         jdbc.update("UPDATE team_match SET status = 4 WHERE id = ?", id(finished));
         jdbc.update("UPDATE team_match SET status = 6 WHERE id = ?", id(cancelled));
 
@@ -580,7 +580,7 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].title").value("M03列表旧赛季"));
 
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
-                        .param("startDate", "2026-12-02").param("endDate", "2026-12-02"))
+                        .param("startDate", "2099-12-02").param("endDate", "2099-12-02"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].title").value("M03列表已结束"));
@@ -620,7 +620,7 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
-                        .param("startDate", "2026-12-03").param("endDate", "2026-12-02"))
+                        .param("startDate", "2099-12-03").param("endDate", "2099-12-02"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
@@ -636,6 +636,33 @@ class MatchAdminIT extends IntegrationTestSupport {
         mockMvc.perform(get("/api/v1/b/matches").cookie(admin).param("season", "26"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
+    void upcomingScopeExcludesMatchesEndedBeforeNow() throws Exception {
+        Cookie admin = adminLogin("13900000540");
+        MvcResult live = create(admin, matchBody("M03列表待进行", 1, "2099", "2099-01-05T20:00:00"));
+        MvcResult stale = create(admin, matchBody("M03列表过期未结束", 1, "2099", "2099-01-04T20:00:00"));
+        // 模拟手工冻结或自动流转滞后的过期比赛：状态非终态，但结束时间已过。
+        jdbc.update("""
+                UPDATE team_match
+                SET start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR),
+                    end_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR),
+                    signup_deadline = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 HOUR),
+                    cancel_lock = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR),
+                    status = 2, manual_status = 1
+                WHERE id = ?
+                """, id(stale));
+
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin)
+                        .param("season", "2099").param("scope", "upcoming"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(id(live)));
+
+        mockMvc.perform(get("/api/v1/b/matches").cookie(admin).param("season", "2099"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2));
     }
 
     @Test

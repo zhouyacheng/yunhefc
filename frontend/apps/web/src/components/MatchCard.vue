@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { MatchSummary } from '@yunhefc/shared';
-import { formatDate, formatDateTime, matchStatusText, matchTypeText } from '@yunhefc/shared';
+import { formatDate, formatDateTimeRange, matchStatusText, matchTypeText } from '@yunhefc/shared';
 import { Tag } from 'vant';
 import { computed } from 'vue';
 
@@ -33,7 +33,7 @@ const winner = computed(() => winnerSide(props.match));
 
     <div class="match-card__meta muted small">
       <span>{{ matchTypeText(match.type) }}</span>
-      <span>{{ formatDateTime(match.startAt) }}</span>
+      <span>{{ formatDateTimeRange(match.startAt, match.endAt) }}</span>
       <span>{{ match.venue }}</span>
     </div>
 

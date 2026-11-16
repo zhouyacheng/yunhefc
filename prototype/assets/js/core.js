@@ -589,6 +589,21 @@
     return `${formatDate(iso)} ${weekday(iso)} ${formatTime(iso)}`;
   }
 
+  function formatDateTimeRange(start, end) {
+    if (!start || !end) return formatDateTime(start);
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+      return formatDateTime(start);
+    }
+    const sameDay =
+      startDate.getFullYear() === endDate.getFullYear()
+      && startDate.getMonth() === endDate.getMonth()
+      && startDate.getDate() === endDate.getDate();
+    const endText = sameDay ? formatTime(end) : `${formatDate(end)} ${formatTime(end)}`;
+    return `${formatDateTime(start)} ~ ${endText}`;
+  }
+
   function formatRelative(iso) {
     const diff = new Date(iso).getTime() - Date.now();
     const days = Math.round(diff / 86400000);
@@ -923,7 +938,7 @@
     const result = resultOf(match);
     return `<a class="match-card" href="match.html?id=${match.id}">
       <div class="match-card-top">
-        <span class="muted">${formatDateTime(match.start)}</span>
+        <span class="muted">${formatDateTimeRange(match.start, match.end)}</span>
         <span class="match-top-right">
           ${result.label !== '—' ? `<span class="result ${result.cls}">${result.label}</span>` : ''}
           ${matchOrdinalLabel(match) ? `<span class="match-ordinal">${matchOrdinalLabel(match)}</span>` : ''}
@@ -998,6 +1013,7 @@
     formatDate,
     formatTime,
     formatDateTime,
+    formatDateTimeRange,
     formatRelative,
     positionLabel,
     positionShort,

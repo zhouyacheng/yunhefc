@@ -2276,6 +2276,16 @@ h3 {
   background: var(--surface-soft);
 }
 
+.data-table th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.data-table th.sortable:hover {
+  color: var(--ink);
+}
+
 .data-table tr:last-child td {
   border-bottom: none;
 }

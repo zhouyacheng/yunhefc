@@ -1,6 +1,7 @@
 package com.yunhefc.match.controller;
 
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.api.ItemsResponse;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import com.yunhefc.match.application.MatchAdminApplicationService;
@@ -23,6 +24,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/v1/b/matches")
 @RequiredArgsConstructor
@@ -43,12 +46,20 @@ public class MatchAdminController {
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer type,
             @RequestParam(required = false) String season,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String scope,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         return ApiResponse.ok(matchAdminService.list(
-                new MatchAdminQuery(status, type, season, scope, sort, page, pageSize)));
+                new MatchAdminQuery(status, type, season, startDate, endDate, scope, sort, page, pageSize)));
+    }
+
+    @GetMapping("/seasons")
+    @PreAuthorize("hasAuthority('match:view:any')")
+    public ApiResponse<ItemsResponse<String>> seasons() {
+        return ApiResponse.ok(new ItemsResponse<>(matchAdminService.seasons()));
     }
 
     @GetMapping("/{id}")

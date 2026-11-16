@@ -78,6 +78,34 @@ final class MatchQueryParsing {
         throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
     }
 
+    /**
+     * 管理端列表排序解析：缺省按开始时间倒序，仅接受四个白名单字段。
+     */
+    static AdminSort adminSort(String requested) {
+        String sort = normalize(requested);
+        if (sort == null) {
+            return new AdminSort(AdminSortField.START_AT, false);
+        }
+        int separator = sort.indexOf(':');
+        if (separator <= 0 || separator == sort.length() - 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
+        }
+        String field = sort.substring(0, separator);
+        boolean ascending = switch (sort.substring(separator + 1)) {
+            case "asc" -> true;
+            case "desc" -> false;
+            default -> throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
+        };
+        AdminSortField sortField = switch (field) {
+            case "startAt" -> AdminSortField.START_AT;
+            case "endAt" -> AdminSortField.END_AT;
+            case "season" -> AdminSortField.SEASON;
+            case "type" -> AdminSortField.TYPE;
+            default -> throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
+        };
+        return new AdminSort(sortField, ascending);
+    }
+
     static String validSeason(String season) {
         if (!season.matches("\\d{4}")) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "赛季必须为四位年份");
@@ -120,6 +148,16 @@ final class MatchQueryParsing {
                     "日期范围需在 2000-01-01 至 2100-12-31");
         }
         return date;
+    }
+
+    enum AdminSortField {
+        START_AT,
+        END_AT,
+        SEASON,
+        TYPE
+    }
+
+    record AdminSort(AdminSortField field, boolean ascending) {
     }
 
     record DateRange(LocalDate start, LocalDate end) {

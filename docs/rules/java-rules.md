@@ -194,7 +194,7 @@ com.yunhefc.<domain>/
 
 ## 12. Redis 与缓存
 
-- Key 统一带业务前缀与环境前缀，例如 `yunhefc:{env}:permission:{userId}`。
+- Key 统一带业务前缀，不使用环境前缀；例如 `yunhefc:auth:sms:{purpose}:{phone}`、`yunhefc:season:{season}`。本地与生产使用独立 Redis 实例，不靠 key 前缀隔离环境；未来若共用实例需先评审。
 - 会话、权限缓存、限流、名额锁、幂等键、Kafka 消费标记按架构约定使用；Redis 不作为事实源。
 - 分布式锁必须设置 TTL、唯一 value，并在 `finally` 中校验 value 后释放。
 - 缓存读取失败可降级到数据库；不得因缓存故障阻塞主流程。

@@ -3,6 +3,7 @@ export * from './audit';
 export * from './auth';
 export * from './avatar';
 export * from './base-path';
+export * from './chunk-reload';
 export * from './format';
 export * from './invite';
 export * from './lineup';

@@ -7,7 +7,35 @@ import type { MatchApiClient, MatchCatalogPage, MatchCatalogSource, MatchFilters
 export const MATCH_PAGE_SIZE = 10;
 export const INTERNAL_FETCH_SIZE = 100;
 
-function buildListQuery(filters: MatchFilters, page: number, pageSize: number): QueryParams {
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+interface QueryOptions {
+  /** MAT-02 支持单月 month；MAT-09 只能换算成 startDate/endDate。 */
+  useMonth: boolean;
+}
+
+function normalizedMonthRange(range: [string, string] | null): [string, string] | null {
+  const start = range?.[0];
+  const end = range?.[1];
+  if (!start || !end || !MONTH_PATTERN.test(start) || !MONTH_PATTERN.test(end)) {
+    return null;
+  }
+  return start <= end ? [start, end] : [end, start];
+}
+
+/** 当月最后一天；Date.UTC 的 0 号日即上月末，闰年由 Date 处理。 */
+function monthEndDate(month: string): string {
+  const [year, monthNo] = month.split('-').map(Number) as [number, number];
+  const day = new Date(Date.UTC(year, monthNo, 0)).getUTCDate();
+  return `${month}-${String(day).padStart(2, '0')}`;
+}
+
+function buildListQuery(
+  filters: MatchFilters,
+  page: number,
+  pageSize: number,
+  options: QueryOptions,
+): QueryParams {
   const query: QueryParams = {
     scope: 'all',
     sort: 'startAt:desc',
@@ -20,9 +48,14 @@ function buildListQuery(filters: MatchFilters, page: number, pageSize: number): 
   if (filters.status !== '') {
     query.status = filters.status;
   }
-  if (filters.dateRange?.[0] && filters.dateRange[1]) {
-    query.startDate = filters.dateRange[0];
-    query.endDate = filters.dateRange[1];
+  const range = normalizedMonthRange(filters.monthRange);
+  if (range) {
+    if (options.useMonth && range[0] === range[1]) {
+      query.month = range[0];
+    } else {
+      query.startDate = `${range[0]}-01`;
+      query.endDate = monthEndDate(range[1]);
+    }
   }
   return query;
 }
@@ -32,9 +65,10 @@ async function fetchPage(
   filters: MatchFilters,
   page: number,
   pageSize: number,
+  options: QueryOptions,
 ): Promise<Page<MatchSummary>> {
   return client.get<Page<MatchSummary>>('/matches', {
-    query: buildListQuery(filters, page, pageSize),
+    query: buildListQuery(filters, page, pageSize, options),
   });
 }
 
@@ -64,16 +98,16 @@ async function fetchSeasons(client: MatchApiClient): Promise<string[]> {
 }
 
 /** 服务端分页：public 非 internalOnly 与 admin 共用。 */
-function createServerSource(client: MatchApiClient): MatchCatalogSource {
+function createServerSource(client: MatchApiClient, options: QueryOptions): MatchCatalogSource {
   return {
     async list(filters, page): Promise<MatchCatalogPage> {
       let requested = Math.max(1, Math.trunc(page));
-      let result = await fetchPage(client, filters, requested, MATCH_PAGE_SIZE);
+      let result = await fetchPage(client, filters, requested, MATCH_PAGE_SIZE, options);
       const lastPage = Math.max(1, result.totalPages);
       if (requested > lastPage) {
         requested = lastPage;
         if (result.totalPages > 0) {
-          result = await fetchPage(client, filters, lastPage, MATCH_PAGE_SIZE);
+          result = await fetchPage(client, filters, lastPage, MATCH_PAGE_SIZE, options);
         }
       }
       return {
@@ -104,7 +138,7 @@ function createInternalSnapshotSource(client: MatchApiClient): MatchCatalogSourc
     if (!force && key === cacheKey) {
       return;
     }
-    const result = await fetchPage(client, filters, 1, INTERNAL_FETCH_SIZE);
+    const result = await fetchPage(client, filters, 1, INTERNAL_FETCH_SIZE, { useMonth: true });
     snapshot = result.items.filter((match) => isInternalMatchType(match.type));
     truncated = result.total > result.items.length;
     cacheKey = key;
@@ -135,9 +169,11 @@ export function createPublicMatchSource(
   client: MatchApiClient,
   options: { internalOnly?: boolean } = {},
 ): MatchCatalogSource {
-  return options.internalOnly ? createInternalSnapshotSource(client) : createServerSource(client);
+  return options.internalOnly
+    ? createInternalSnapshotSource(client)
+    : createServerSource(client, { useMonth: true });
 }
 
 export function createAdminMatchSource(client: MatchApiClient): MatchCatalogSource {
-  return createServerSource(client);
+  return createServerSource(client, { useMonth: false });
 }

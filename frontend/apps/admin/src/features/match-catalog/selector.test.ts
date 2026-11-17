@@ -91,24 +91,18 @@ describe('groupMatches', () => {
     ]);
   });
 
-  it('选中项不在当前页时置顶且不重复', () => {
+  it('选中项不在当前页时不出现在选项', () => {
     const selected = match(9, '2025');
     const groups = groupMatches([match(1, '2026')], selected);
-    expect(groups[0]).toEqual({
-      key: 'pinned-9',
-      label: '当前选择 · 2025 赛季',
-      items: [selected],
-    });
-    expect(groups.map((group) => group.key)).toEqual(['pinned-9', 'season-2026']);
-    expect(new Set(groups.map((group) => group.key)).size).toBe(groups.length);
-    expect(groups.flatMap((group) => group.items).filter((item) => item.id === 9)).toHaveLength(1);
+    expect(groups.map((group) => group.key)).toEqual(['season-2026']);
+    expect(groups.flatMap((group) => group.items).some((item) => item.id === 9)).toBe(false);
   });
 
-  it('选中项在当前页时不置顶', () => {
+  it('选中项在当前页时从选项中排除', () => {
     const selected = match(1, '2026');
     const groups = groupMatches([selected, match(2, '2026')], selected);
     expect(groups).toHaveLength(1);
     expect(groups[0]?.key).toBe('season-2026');
-    expect(groups[0]?.items).toHaveLength(2);
+    expect(groups[0]?.items.map((item) => item.id)).toEqual([2]);
   });
 });

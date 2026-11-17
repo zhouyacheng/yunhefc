@@ -6,6 +6,13 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { api, publicApi } from '../api/client';
 import {
+  buildMonthRange,
+  formatMonthRange,
+  monthText,
+  parseMonthRange,
+  remapMonthRange,
+} from '../features/match-catalog/month-range';
+import {
   currentShanghaiSeason,
   groupMatches,
   mergeSeasons,
@@ -16,7 +23,7 @@ import {
   createPublicMatchSource,
   INTERNAL_FETCH_SIZE,
 } from '../features/match-catalog/sources';
-import type { MatchCatalogPage } from '../features/match-catalog/types';
+import type { MatchCatalogPage, MatchFilters } from '../features/match-catalog/types';
 import { useMatchCatalog } from '../features/match-catalog/useMatchCatalog';
 
 const props = withDefaults(
@@ -54,7 +61,7 @@ const catalog = useMatchCatalog(source, {
   onLoaded: handleLoaded,
   onError: (message) => emit('load-error', message),
 });
-const { season, dateRange, status, page, items, total, totalPages, truncated, loading, seasons } =
+const { season, monthRange, status, page, items, total, totalPages, truncated, loading, seasons } =
   catalog;
 
 const seasonOptions = computed(() =>
@@ -62,7 +69,48 @@ const seasonOptions = computed(() =>
 );
 const optionGroups = computed(() => groupMatches(items.value, selectedMatch.value));
 
+const monthOpen = ref(false);
+const pendingStart = ref<number | null>(null);
+const hoverMonth = ref<number | null>(null);
+const months = Array.from({ length: 12 }, (_, index) => index + 1);
+
+const monthDisabled = computed(() => season.value === '');
+const rangeParts = computed(() => parseMonthRange(monthRange.value));
+const previewRange = computed(() => {
+  if (pendingStart.value !== null) {
+    const hover = hoverMonth.value ?? pendingStart.value;
+    return {
+      start: Math.min(pendingStart.value, hover),
+      end: Math.max(pendingStart.value, hover),
+    };
+  }
+  return rangeParts.value;
+});
+const monthLabel = computed(() =>
+  monthDisabled.value
+    ? '全部赛季不筛选月份'
+    : formatMonthRange(monthRange.value) || '开始月份 至 结束月份',
+);
+
+function isMonthInRange(month: number): boolean {
+  const range = previewRange.value;
+  return range ? month >= range.start && month <= range.end : false;
+}
+
+function isMonthEdge(month: number): boolean {
+  if (pendingStart.value !== null) {
+    return month === pendingStart.value;
+  }
+  const parts = rangeParts.value;
+  return parts ? month === parts.start || month === parts.end : false;
+}
+
 watch(loading, (value) => emit('update:loading', value), { immediate: true });
+
+watch(monthOpen, () => {
+  pendingStart.value = null;
+  hoverMonth.value = null;
+});
 
 function parseMatchId(value: unknown): number | null {
   const raw = Array.isArray(value) ? value[0] : value;
@@ -127,8 +175,54 @@ function onSelect(id: number | null): void {
   }
 }
 
-function onFilterChange(): void {
-  void catalog.setFilters();
+function onFilterChange(next: Partial<MatchFilters> = {}): void {
+  if ('season' in next) {
+    monthOpen.value = false;
+    pendingStart.value = null;
+    hoverMonth.value = null;
+    next = {
+      ...next,
+      monthRange:
+        next.season === '' || next.season === undefined
+          ? null
+          : remapMonthRange(monthRange.value, next.season),
+    };
+  }
+  void catalog.setFilters(next);
+}
+
+function toggleMonthPanel(): void {
+  if (monthDisabled.value) {
+    return;
+  }
+  monthOpen.value = !monthOpen.value;
+}
+
+function pickMonth(month: number): void {
+  if (monthDisabled.value) {
+    return;
+  }
+  if (pendingStart.value === null) {
+    pendingStart.value = month;
+    return;
+  }
+  const range = buildMonthRange(season.value, pendingStart.value, month);
+  pendingStart.value = null;
+  hoverMonth.value = null;
+  monthOpen.value = false;
+  if (range) {
+    onFilterChange({ monthRange: range });
+  }
+}
+
+function clearMonthRange(): void {
+  if (monthDisabled.value) {
+    return;
+  }
+  monthOpen.value = false;
+  pendingStart.value = null;
+  hoverMonth.value = null;
+  onFilterChange({ monthRange: null });
 }
 
 function changePage(delta: number): void {
@@ -136,7 +230,7 @@ function changePage(delta: number): void {
 }
 
 function resetFilters(): void {
-  void catalog.setFilters({ season: currentSeason, dateRange: null, status: '' });
+  onFilterChange({ season: currentSeason, monthRange: null, status: '' });
 }
 
 async function resolveRequested(id: number): Promise<void> {
@@ -243,9 +337,20 @@ defineExpose({ reload, updateSummary });
           :label="optionLabel(match)"
         />
       </el-option-group>
+      <template #label="{ label }">
+        <span class="match-picker-label">
+          {{ selectedMatch ? optionLabel(selectedMatch) : label }}
+        </span>
+      </template>
       <template #empty>
         <p class="picker-empty">
-          {{ internalOnly ? '当前筛选下暂无队内赛/训练赛' : '当前筛选下暂无比赛' }}
+          {{
+            items.length > 0
+              ? '没有其他比赛'
+              : internalOnly
+                ? '当前筛选下暂无队内赛/训练赛'
+                : '当前筛选下暂无比赛'
+          }}
         </p>
       </template>
       <template #footer>
@@ -262,12 +367,16 @@ defineExpose({ reload, updateSummary });
           </div>
         </div>
         <p v-if="truncated" class="picker-hint muted small">
-          仅加载最近 {{ INTERNAL_FETCH_SIZE }} 场，请用赛季/日期缩小范围。
+          仅加载最近 {{ INTERNAL_FETCH_SIZE }} 场，请用赛季/月份缩小范围。
         </p>
       </template>
     </el-select>
 
-    <el-select v-model="season" class="season-filter" @change="onFilterChange">
+    <el-select
+      :model-value="season"
+      class="season-filter"
+      @change="onFilterChange({ season: $event })"
+    >
       <el-option label="全部赛季" value="" />
       <el-option
         v-for="value in seasonOptions"
@@ -277,23 +386,80 @@ defineExpose({ reload, updateSummary });
       />
     </el-select>
 
-    <el-date-picker
-      v-model="dateRange"
-      class="date-filter"
-      type="daterange"
-      value-format="YYYY-MM-DD"
-      range-separator="至"
-      start-placeholder="开始日期"
-      end-placeholder="结束日期"
-      clearable
-      @change="onFilterChange"
-    />
+    <el-popover
+      v-model:visible="monthOpen"
+      trigger="click"
+      placement="bottom-start"
+      :width="252"
+      :disabled="monthDisabled"
+      popper-class="month-range-popper"
+    >
+      <template #reference>
+        <div
+          class="month-filter"
+          :class="{ 'is-disabled': monthDisabled }"
+          role="button"
+          :tabindex="monthDisabled ? -1 : 0"
+          :aria-disabled="monthDisabled"
+          aria-haspopup="dialog"
+          :aria-expanded="monthOpen"
+          :title="monthDisabled ? '全部赛季不筛选月份' : undefined"
+          @keydown.enter.prevent="toggleMonthPanel"
+          @keydown.space.prevent="toggleMonthPanel"
+        >
+          <svg
+            class="month-filter__icon"
+            viewBox="0 0 1024 1024"
+            width="14"
+            height="14"
+            aria-hidden="true"
+          >
+            <path
+              fill="currentColor"
+              d="M128 384v512h768V192H768v32a32 32 0 1 1-64 0v-32H320v32a32 32 0 0 1-64 0v-32H128v128h768v64zm192-256h384V96a32 32 0 1 1 64 0v32h160a32 32 0 0 1 32 32v768a32 32 0 0 1-32 32H96a32 32 0 0 1-32-32V160a32 32 0 0 1 32-32h160V96a32 32 0 0 1 64 0zm-32 384h64a32 32 0 0 1 0 64h-64a32 32 0 0 1 0-64m0 192h64a32 32 0 1 1 0 64h-64a32 32 0 1 1 0-64m192-192h64a32 32 0 0 1 0 64h-64a32 32 0 0 1 0-64m0 192h64a32 32 0 1 1 0 64h-64a32 32 0 1 1 0-64m192-192h64a32 32 0 1 1 0 64h-64a32 32 0 1 1 0-64m0 192h64a32 32 0 1 1 0 64h-64a32 32 0 1 1 0-64"
+            />
+          </svg>
+          <span
+            class="month-filter__value"
+            :class="{ 'is-placeholder': !monthRange && !monthDisabled }"
+          >
+            {{ monthLabel }}
+          </span>
+          <span
+            v-if="monthRange && !monthDisabled"
+            class="month-filter__clear"
+            role="button"
+            tabindex="0"
+            aria-label="清除月份"
+            @click.stop="clearMonthRange"
+            @keydown.enter.stop.prevent="clearMonthRange"
+          >
+            ×
+          </span>
+        </div>
+      </template>
+      <div class="month-panel" role="dialog" aria-label="选择月份范围">
+        <button
+          v-for="month in months"
+          :key="month"
+          type="button"
+          class="month-panel__cell"
+          :class="{ 'is-in-range': isMonthInRange(month), 'is-edge': isMonthEdge(month) }"
+          :aria-pressed="isMonthInRange(month)"
+          @click="pickMonth(month)"
+          @mouseenter="hoverMonth = month"
+          @mouseleave="hoverMonth = null"
+        >
+          {{ monthText(month) }}
+        </button>
+      </div>
+    </el-popover>
 
     <el-select
-      v-model="status"
+      :model-value="status"
       class="status-filter"
       placeholder="全部状态"
-      @change="onFilterChange"
+      @change="onFilterChange({ status: $event })"
     >
       <el-option label="全部状态" value="" />
       <el-option
@@ -323,8 +489,65 @@ defineExpose({ reload, updateSummary });
   width: 150px;
 }
 
-.date-filter {
+.month-filter {
   width: 280px;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--el-border-color);
+  border-radius: 9px;
+  background: var(--el-fill-color-blank);
+  color: var(--el-text-color-regular);
+  font-size: 14px;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.month-filter:focus-visible {
+  outline: 2px solid var(--el-color-primary);
+  outline-offset: 1px;
+}
+
+.month-filter.is-disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.month-filter__icon {
+  flex: none;
+  color: var(--el-text-color-secondary);
+}
+
+.month-filter__value {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.month-filter__value.is-placeholder {
+  color: var(--el-text-color-placeholder);
+}
+
+.month-filter__clear {
+  flex: none;
+  color: var(--el-text-color-secondary);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.month-filter__clear:hover {
+  color: var(--el-text-color-primary);
+}
+
+.match-picker-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .picker-empty {
@@ -362,8 +585,48 @@ defineExpose({ reload, updateSummary });
 
 @media (max-width: 1000px) {
   .match-picker,
-  .date-filter {
+  .month-filter {
     width: 100%;
   }
+}
+</style>
+
+<style>
+/* el-popover 内容 teleport 到 body，scoped 样式匹配不到。 */
+.month-range-popper.el-popper {
+  padding: 0;
+}
+
+.month-range-popper .month-panel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 252px;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.month-range-popper .month-panel__cell {
+  height: 36px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--el-text-color-regular);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.month-range-popper .month-panel__cell:hover {
+  background: var(--el-color-primary-light-9);
+}
+
+.month-range-popper .month-panel__cell.is-in-range {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+}
+
+.month-range-popper .month-panel__cell.is-edge {
+  background: var(--el-color-primary);
+  color: #fff;
 }
 </style>

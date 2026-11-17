@@ -7,7 +7,7 @@ import type { MatchCatalogPage, MatchCatalogSource, MatchFilters } from './types
 
 export interface MatchCatalog {
   season: Ref<string>;
-  dateRange: Ref<[string, string] | null>;
+  monthRange: Ref<[string, string] | null>;
   status: Ref<MatchStatus | ''>;
   page: Ref<number>;
   items: Ref<MatchSummary[]>;
@@ -40,7 +40,7 @@ export function useMatchCatalog(
   options: UseMatchCatalogOptions = {},
 ): MatchCatalog {
   const season = ref(options.initialSeason ?? currentShanghaiSeason());
-  const dateRange = ref<[string, string] | null>(null);
+  const monthRange = ref<[string, string] | null>(null);
   const status = ref<MatchStatus | ''>('');
   const page = ref(1);
   const items = ref<MatchSummary[]>([]);
@@ -54,7 +54,7 @@ export function useMatchCatalog(
   let disposed = false;
 
   function snapshot(): MatchFilters {
-    return { season: season.value, dateRange: dateRange.value, status: status.value };
+    return { season: season.value, monthRange: monthRange.value, status: status.value };
   }
 
   async function load(force = false): Promise<MatchCatalogPage | null> {
@@ -92,8 +92,8 @@ export function useMatchCatalog(
     if ('season' in next && next.season !== undefined) {
       season.value = next.season;
     }
-    if ('dateRange' in next) {
-      dateRange.value = next.dateRange ?? null;
+    if ('monthRange' in next) {
+      monthRange.value = next.monthRange ?? null;
     }
     if ('status' in next && next.status !== undefined) {
       status.value = next.status;
@@ -146,7 +146,7 @@ export function useMatchCatalog(
 
   return {
     season,
-    dateRange,
+    monthRange,
     status,
     page,
     items,

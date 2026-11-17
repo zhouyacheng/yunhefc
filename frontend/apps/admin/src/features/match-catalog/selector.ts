@@ -29,7 +29,7 @@ export function optionLabel(match: MatchSummary): string {
 }
 
 /**
- * 当前页选项按赛季分组；选中项不在当前页时置顶到“当前选择”组。
+ * 当前页选项按赛季分组；当前已选比赛不出现在下拉选项中。
  * 组顺序沿用 items 的首次出现顺序，不额外重排。
  */
 export function groupMatches(
@@ -37,16 +37,12 @@ export function groupMatches(
   selected: MatchSummary | null,
 ): MatchOptionGroup[] {
   const groups: MatchOptionGroup[] = [];
-  if (selected && !items.some((match) => match.id === selected.id)) {
-    groups.push({
-      key: `pinned-${selected.id}`,
-      label: `当前选择 · ${seasonLabel(selected.season)}`,
-      items: [selected],
-    });
-  }
-
+  const selectedId = selected?.id ?? null;
   const bySeason = new Map<string, MatchSummary[]>();
   for (const match of items) {
+    if (match.id === selectedId) {
+      continue;
+    }
     const key = match.season || '';
     const list = bySeason.get(key) ?? [];
     list.push(match);
@@ -55,7 +51,7 @@ export function groupMatches(
   for (const [value, list] of bySeason.entries()) {
     groups.push({
       key: `season-${value || 'none'}`,
-      label: value ? `${value} 赛季` : '未分配赛季',
+      label: seasonLabel(value),
       items: list,
     });
   }

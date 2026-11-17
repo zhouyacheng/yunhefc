@@ -86,7 +86,7 @@ function callAt(
   const call = list.mock.calls[index] as
     [MatchFilters, number, { force?: boolean } | undefined] | undefined;
   return {
-    filters: call?.[0] ?? { season: '', dateRange: null, status: '' },
+    filters: call?.[0] ?? { season: '', monthRange: null, status: '' },
     page: call?.[1] ?? 0,
     options: call?.[2],
   };
@@ -131,7 +131,7 @@ describe('useMatchCatalog', () => {
     scope.stop();
   });
 
-  it('setFilters 回到第 1 页，并能清空 dateRange/status', async () => {
+  it('setFilters 回到第 1 页，并能清空 monthRange/status', async () => {
     const fake = createFakeSource();
     fake.list.mockImplementation(async (_filters: MatchFilters, page: number) =>
       pageResult([match(page)], 25, page, 10),
@@ -148,8 +148,14 @@ describe('useMatchCatalog', () => {
       filters: { status: 1 },
     });
 
-    await catalog.setFilters({ dateRange: null, status: '' });
-    expect(callAt(fake.list, 3).filters).toMatchObject({ dateRange: null, status: '' });
+    await catalog.setFilters({ monthRange: ['2026-01', '2026-02'], status: '' });
+    expect(callAt(fake.list, 3).filters).toMatchObject({
+      monthRange: ['2026-01', '2026-02'],
+      status: '',
+    });
+
+    await catalog.setFilters({ monthRange: null, status: '' });
+    expect(callAt(fake.list, 4).filters).toMatchObject({ monthRange: null, status: '' });
     scope.stop();
   });
 

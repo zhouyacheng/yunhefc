@@ -4,7 +4,8 @@ import type { MatchStatus, MatchSummary } from '@yunhefc/shared';
 /** 空串 season = 全部赛季；空串 status = 全部状态。 */
 export interface MatchFilters {
   season: string;
-  dateRange: [string, string] | null;
+  /** YYYY-MM 成对；null = 全部月份。 */
+  monthRange: [string, string] | null;
   status: MatchStatus | '';
 }
 

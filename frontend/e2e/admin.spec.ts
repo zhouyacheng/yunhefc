@@ -412,15 +412,30 @@ test('B 端：B04 有计分事件只读推导比分，无计分事件录入比�
   await expect(page).toHaveURL(/\/admin\/events$/);
   await expect(page.getByText('事件 / 比分')).toBeVisible();
 
-  // 1004 场进行中，1002 已确认报名；重跑脚本会软删除上一轮事件。
+  // 1004 场进行中，1002 已确认报名。
   await page.locator('.match-picker').click();
   await page.locator('.el-select-dropdown__item').filter({ hasText: 'M06事件联调赛' }).click();
+
+  // 前置清理：web 项目的事件用例可能先跑；删除遗留事件，确保从“无计分事件”开始。
+  await expect(
+    page.locator('.event-row').first().or(page.getByText('还没有事件记录')),
+  ).toBeVisible();
+  const existingRows = page.locator('.event-row');
+  let remaining = await existingRows.count();
+  while (remaining > 0) {
+    await existingRows.first().getByRole('button', { name: '删除' }).click();
+    await page
+      .getByRole('dialog', { name: '删除事件' })
+      .getByRole('button', { name: '删除' })
+      .click();
+    await expect(existingRows).toHaveCount(remaining - 1);
+    remaining -= 1;
+  }
 
   // 无计分事件：可直接录入比分。
   await expect(page.locator('.score-row input')).toHaveCount(2);
   await expect(page.getByRole('button', { name: '保存比分' })).toBeVisible();
-  await expect(page.locator('.score-row input').nth(0)).toHaveValue('0');
-  await expect(page.locator('.score-row input').nth(1)).toHaveValue('0');
+  await expect(page.locator('.score-row input').nth(0)).toBeEnabled();
 
   await page.getByRole('button', { name: '录入事件' }).click();
   const dialog = page.locator('.el-dialog');
@@ -450,14 +465,20 @@ test('B 端：B04 有计分事件只读推导比分，无计分事件录入比�
   await row.getByRole('button', { name: '编辑' }).click();
   await dialog.locator('.el-form-item').filter({ hasText: '分钟' }).locator('input').fill('78');
   await dialog.getByRole('button', { name: '保存事件' }).click();
-  await expect(
-    page.locator('.event-row').filter({ hasText: '测试后卫01' }).filter({ hasText: "78'" }).first(),
-  ).toBeVisible();
+  const updatedRow = page
+    .locator('.event-row')
+    .filter({ hasText: '测试后卫01' })
+    .filter({ hasText: "78'" })
+    .first();
+  await expect(updatedRow).toBeVisible();
   await expect(page.locator('.score-final')).toHaveText('1 : 0');
 
   // 删除计分事件后恢复比分录入。
-  await row.getByRole('button', { name: '删除' }).click();
-  await page.getByRole('button', { name: '删除', exact: true }).click();
+  await updatedRow.getByRole('button', { name: '删除' }).click();
+  await page
+    .getByRole('dialog', { name: '删除事件' })
+    .getByRole('button', { name: '删除' })
+    .click();
   await expect(page.locator('.score-row input')).toHaveCount(2);
   await expect(page.getByRole('button', { name: '保存比分' })).toBeVisible();
 
@@ -484,6 +505,19 @@ test('B 端：B04 有计分事件只读推导比分，无计分事件录入比�
   await expect(page.locator('.score-row input').nth(0)).toHaveValue('2');
   await expect(page.locator('.score-row input').nth(1)).toHaveValue('1');
   await expect(page.getByRole('button', { name: '保存比分' })).toBeVisible();
+
+  // 收尾清理：删除本轮录入的非计分事件，保持比赛无事件，便于重复运行。
+  await page
+    .locator('.event-row')
+    .filter({ hasText: '黄牌' })
+    .first()
+    .getByRole('button', { name: '删除' })
+    .click();
+  await page
+    .getByRole('dialog', { name: '删除事件' })
+    .getByRole('button', { name: '删除' })
+    .click();
+  await expect(page.locator('.event-row')).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

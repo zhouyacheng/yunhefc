@@ -379,10 +379,10 @@
           </div>
           <div class="match-meta-grid">
             <span>📅 ${Y.formatMatchDay(match.start)}</span>
-            <span>⏱ ${Y.formatTime(match.start)}–${Y.formatTime(match.end)}</span>
+            <span>🕐 ${Y.formatTime(match.start)}–${Y.formatTime(match.end)}</span>
             <span>⏰ 报名截止 ${Y.formatDateTime(match.signupDeadline)}</span>
             <span>🔒 报名锁定 ${Y.formatDateTime(match.cancelLock)}</span>
-            ${Y.matchOrdinalLabel(match) ? `<span>🏁 ${Y.matchOrdinalLabel(match)}</span>` : ''}
+            ${Y.matchOrdinalLabel(match) ? `<span>⚽ ${Y.matchOrdinalLabel(match)}</span>` : ''}
             <span>📍 ${esc(match.venue)}</span>
           </div>
           <div class="match-hero-actions">
@@ -893,10 +893,26 @@ render();
       <div class="card">
         <span class="badge badge-type">${invite.type === 'TEAM' ? '入队邀请' : '比赛邀请'}</span>
         <h1>${invite.type === 'TEAM' ? '加入云河FC' : '云河FC 比赛邀请'}</h1>
-        <p class="muted">邀请人：${esc(invite.inviter || '—')} · 有效期至 ${Y.formatDateTime(invite.expiresAt)}</p>
         ${invite.type === 'TEAM'
-          ? '<p>接受后将直接加入球队（免审核）。已有账号也可使用此链接完成入队。</p>'
-          : (match ? `<p>${esc(match.title)} · ${Y.formatDateTime(match.start)} · ${esc(match.venue)}</p><p class="muted">比赛邀请只引导报名，不改变账号状态。</p>` : '')}
+          ? `<p class="muted">邀请人：${esc(invite.inviter || '—')} · 有效期至 ${Y.formatDateTime(invite.expiresAt)}</p>
+            <p>接受后将直接加入球队（免审核）。已有账号也可使用此链接完成入队。</p>`
+          : (match
+            ? `<p>${esc(match.title)}</p>
+              <div class="invite-hero">
+                <p class="invite-hero__date">📅 ${Y.formatMatchDay(match.start)}</p>
+                <p class="invite-hero__time">🕐 ${Y.formatTime(match.start)}–${Y.formatTime(match.end)}</p>
+              </div>
+              <div class="invite-facts">
+                <div class="invite-fact"><span>⏰ 报名截止</span><strong>${Y.formatDateTime(match.signupDeadline)}</strong></div>
+                <div class="invite-fact"><span>🔒 报名锁定</span><strong>${Y.formatDateTime(match.cancelLock)}</strong></div>
+                <div class="invite-fact"><span>⚽ 赛季场次</span><strong>${Y.matchOrdinalLabel(match) || '—'}</strong></div>
+                <div class="invite-fact"><span>📍 场地</span><strong>${esc(match.venue)}</strong></div>
+                <div class="invite-fact"><span>🎫 名额</span><strong>${Y.confirmed(match, 'PLAYER').length} / ${Number(match.capacity) || 0}</strong></div>
+                <div class="invite-fact"><span>🤝 邀请人</span><strong>${esc(invite.inviter || '—')}</strong></div>
+                <div class="invite-fact"><span>⏳ 有效期至</span><strong>${Y.formatDateTime(invite.expiresAt)}</strong></div>
+              </div>
+              <p class="muted">比赛邀请只引导报名，不改变账号状态。</p>`
+            : '')}
         <div class="hero-actions">${action}</div>
       </div>
     </section>`;

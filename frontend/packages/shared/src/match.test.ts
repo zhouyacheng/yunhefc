@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { capacityDefaults, DEFAULT_CAPACITY_DEFAULTS, matchStatusCommandOptions } from './index';
+import {
+  capacityDefaults,
+  DEFAULT_CAPACITY_DEFAULTS,
+  matchStatusCommandOptions,
+  seasonMatchText,
+} from './index';
 
 describe('capacityDefaults', () => {
   it('maps SET-01 registration limits to the create form', () => {
@@ -135,5 +140,18 @@ describe('matchStatusCommandOptions', () => {
         );
       }
     }
+  });
+});
+
+describe('seasonMatchText', () => {
+  it('renders season and cumulative match numbers', () => {
+    expect(seasonMatchText({ season: '2026', seasonMatchNo: 5, totalMatchNo: 5 })).toBe(
+      '2026赛季第5场（累计5场）',
+    );
+  });
+
+  it('returns empty text when the match is unavailable', () => {
+    expect(seasonMatchText(null)).toBe('');
+    expect(seasonMatchText(undefined)).toBe('');
   });
 });

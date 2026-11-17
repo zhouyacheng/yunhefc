@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { ERROR_CODES, isApiError } from '@yunhefc/api-client';
 import type { MatchDetail } from '@yunhefc/shared';
-import { formatDateTime, inviteTypeText } from '@yunhefc/shared';
+import {
+  formatDateTime,
+  formatDateWithYear,
+  formatTimeRange,
+  inviteTypeText,
+  seasonMatchText,
+} from '@yunhefc/shared';
 import { Button, Loading, Tag } from 'vant';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -47,6 +53,9 @@ const matchTitle = computed(() => invite.value?.match?.title ?? matchDetail.valu
 const matchStartAt = computed(
   () => invite.value?.match?.startAt ?? matchDetail.value?.startAt ?? undefined,
 );
+const matchEndAt = computed(
+  () => invite.value?.match?.endAt ?? matchDetail.value?.endAt ?? undefined,
+);
 const matchVenue = computed(() => invite.value?.match?.venue ?? matchDetail.value?.venue ?? '待定');
 const matchHintText = computed(() => {
   const hint = matchInviteHint(matchDetail.value, Date.now());
@@ -68,7 +77,7 @@ async function loadMatch(matchId: number, seq: number): Promise<void> {
       matchDetail.value = detail;
     }
   } catch {
-    // 名额只是补充信息；失败时保留 INV-01 的时间与地点。
+    // 名额、报名截止/锁定与赛季场次只是补充信息；失败时保留 INV-01 的时间与地点。
   }
 }
 
@@ -246,17 +255,49 @@ watch(token, () => void load(), { immediate: true });
             <h2>{{ matchTitle }}</h2>
             <Tag class="status-tag status-tag--type">{{ inviteTypeText(invite.type) }}</Tag>
           </div>
-          <p class="muted">时间：{{ formatDateTime(matchStartAt) }}</p>
-          <p class="muted">地点：{{ matchVenue }}</p>
-          <p class="muted">
-            名额：{{
-              matchDetail ? `${matchDetail.confirmedCount} / ${matchDetail.capacity}` : '—'
-            }}
-          </p>
-          <p v-if="matchHintText" class="muted">{{ matchHintText }}</p>
-          <p class="muted">邀请人 {{ invite.inviter?.name ?? '未知' }}</p>
-          <p class="muted">有效期至 {{ formatDateTime(invite.expiresAt) }}</p>
-          <p class="muted">剩余次数：{{ remainingUsesText(invite) }}</p>
+          <div class="invite-hero">
+            <p class="invite-hero__date">📅 {{ formatDateWithYear(matchStartAt) }}</p>
+            <p class="invite-hero__time">🕐 {{ formatTimeRange(matchStartAt, matchEndAt) }}</p>
+          </div>
+
+          <div class="invite-facts" data-testid="invite-facts">
+            <div class="invite-fact">
+              <span>⏰ 报名截止</span>
+              <strong>{{ formatDateTime(matchDetail?.signupDeadline) }}</strong>
+            </div>
+            <div class="invite-fact">
+              <span>🔒 报名锁定</span>
+              <strong>{{ formatDateTime(matchDetail?.cancelLock) }}</strong>
+            </div>
+            <div class="invite-fact">
+              <span>⚽ 赛季场次</span>
+              <strong>{{ seasonMatchText(matchDetail) || '—' }}</strong>
+            </div>
+            <div class="invite-fact">
+              <span>📍 场地</span>
+              <strong>{{ matchVenue }}</strong>
+            </div>
+            <div class="invite-fact">
+              <span>🎫 名额</span>
+              <strong>
+                {{ matchDetail ? `${matchDetail.confirmedCount} / ${matchDetail.capacity}` : '—' }}
+              </strong>
+            </div>
+            <div class="invite-fact">
+              <span>🤝 邀请人</span>
+              <strong>{{ invite.inviter?.name ?? '未知' }}</strong>
+            </div>
+            <div class="invite-fact">
+              <span>⏳ 有效期至</span>
+              <strong>{{ formatDateTime(invite.expiresAt) }}</strong>
+            </div>
+            <div class="invite-fact">
+              <span>🔁 剩余次数</span>
+              <strong>{{ remainingUsesText(invite) }}</strong>
+            </div>
+          </div>
+
+          <p v-if="matchHintText" class="invite-hint">⚠ {{ matchHintText }}</p>
           <p v-if="actionError" class="action-error">{{ actionError }}</p>
 
           <div class="invite-actions">
@@ -289,6 +330,54 @@ watch(token, () => void load(), { immediate: true });
 .invite-landing {
   width: min(560px, 100%);
   margin: 0 auto;
+}
+
+.invite-hero {
+  padding: 2px 0 16px;
+}
+
+.invite-hero__date {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.invite-hero__time {
+  margin: 4px 0 0;
+  color: var(--yh-muted);
+  font-size: 15px;
+}
+
+.invite-facts {
+  border-top: 1px solid var(--yh-line);
+}
+
+.invite-fact {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--yh-line);
+  font-size: 15px;
+}
+
+.invite-fact span {
+  color: var(--yh-muted);
+  white-space: nowrap;
+}
+
+.invite-fact strong {
+  font-weight: 500;
+  text-align: right;
+}
+
+.invite-hint {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--yh-radius-sm);
+  background: var(--yh-amber-soft);
+  color: var(--yh-amber-ink);
+  font-size: 14px;
 }
 
 .invite-actions {

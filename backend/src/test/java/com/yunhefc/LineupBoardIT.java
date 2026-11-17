@@ -21,7 +21,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -529,8 +528,8 @@ class LineupBoardIT extends IntegrationTestSupport {
                     manual_status, capacity, include_guests, season_match_no, total_match_no,
                     created_by)
                 VALUES (1, ?, ?, ?, ?, ?, ?, '测试场地', '2099', ?, ?, ?, ?, 1, 30, ?, ?, ?, 1)
-                """, title, type, Timestamp.valueOf(startAt), Timestamp.valueOf(endAt),
-                Timestamp.valueOf(signupDeadline), Timestamp.valueOf(cancelLock),
+                """, title, type, startAt, endAt,
+                signupDeadline, cancelLock,
                 type == 0 ? "云河FC" : "橙队", type == 0 ? "对手队" : "兰队",
                 ourSide, status, includeGuests, seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);

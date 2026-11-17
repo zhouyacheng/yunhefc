@@ -15,7 +15,6 @@ import org.quartz.TriggerKey;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -313,8 +312,8 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, ?, 30, ?, ?, 1)
                 """,
-                title, Timestamp.valueOf(startAt), Timestamp.valueOf(endAt),
-                Timestamp.valueOf(signupDeadline), Timestamp.valueOf(cancelLock),
+                title, startAt, endAt,
+                signupDeadline, cancelLock,
                 status, manualStatus ? 1 : 0, matchNo, matchNo);
         Long matchId = jdbc.queryForObject(
                 "SELECT id FROM team_match WHERE title = ?", Long.class, title);

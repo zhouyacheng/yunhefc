@@ -25,7 +25,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -323,7 +322,7 @@ class NotificationIT extends IntegrationTestSupport {
                 INSERT INTO notification (user_id, type, title, body, ref_type, ref_id, read_at, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, userId, type.code(), title, body, refType, refId,
-                readAt == null ? null : Timestamp.valueOf(readAt), Timestamp.valueOf(createdAt));
+                readAt == null ? null : readAt, createdAt);
         return jdbc.queryForObject("SELECT MAX(id) FROM notification WHERE user_id = ?", Long.class, userId);
     }
 

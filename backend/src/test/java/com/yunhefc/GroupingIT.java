@@ -511,8 +511,8 @@ class GroupingIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.savedAt").exists());
         assertThat(jdbc.queryForObject(
-                "SELECT saved_at FROM match_grouping WHERE match_id = ?", Timestamp.class, matchId))
-                .isAfter(Timestamp.valueOf("2020-01-01 00:00:00"));
+                "SELECT saved_at FROM match_grouping WHERE match_id = ?", LocalDateTime.class, matchId))
+                .isAfter(LocalDateTime.of(2020, 1, 1, 0, 0));
         assertThat(auditCount("grouping.save")).isEqualTo(3);
 
         Long noGrouping = createMatch("M08保存无分组", 1, 2, 1, SEASON);
@@ -769,8 +769,8 @@ class GroupingIT extends IntegrationTestSupport {
                     season_match_no, total_match_no, created_by)
                 VALUES (1, ?, ?, ?, ?, ?, ?, '测试场地', ?, '橙队', '兰队', ?, ?, 1, 30, 4, 2, ?,
                         ?, ?, 1)
-                """, title, type, Timestamp.valueOf(start), Timestamp.valueOf(end),
-                Timestamp.valueOf(signupDeadline), Timestamp.valueOf(cancelLock), season,
+                """, title, type, start, end,
+                signupDeadline, cancelLock, season,
                 type == 1 || type == 2 ? null : 0, status, includeGuests, seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

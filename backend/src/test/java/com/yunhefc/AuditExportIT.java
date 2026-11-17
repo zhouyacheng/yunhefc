@@ -26,7 +26,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
@@ -199,7 +198,7 @@ class AuditExportIT extends IntegrationTestSupport {
                     target_id, before_json, after_json, request_id, ip, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, teamId, actorUserId, actorName, action, targetType, targetId,
-                before, after, requestId, ip, Timestamp.valueOf(createdAt));
+                before, after, requestId, ip, createdAt);
         return jdbc.queryForObject("SELECT id FROM audit_log WHERE request_id = ?", Long.class, requestId);
     }
 }

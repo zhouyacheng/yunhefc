@@ -387,10 +387,10 @@ class AttendanceAdminIT extends IntegrationTestSupport {
                     cancel_lock, venue, season, home_team_name, away_team_name, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, 1, 30, ?, ?, 1)
-                """, title, java.sql.Timestamp.valueOf(startAt),
-                java.sql.Timestamp.valueOf(startAt.plus(2, ChronoUnit.HOURS)),
-                java.sql.Timestamp.valueOf(startAt.minus(1, ChronoUnit.DAYS)),
-                java.sql.Timestamp.valueOf(startAt.minus(4, ChronoUnit.HOURS)),
+                """, title, startAt,
+                startAt.plus(2, ChronoUnit.HOURS),
+                startAt.minus(1, ChronoUnit.DAYS),
+                startAt.minus(4, ChronoUnit.HOURS),
                 status, seasonNo, seasonNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

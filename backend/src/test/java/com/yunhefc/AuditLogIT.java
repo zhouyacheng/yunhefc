@@ -13,7 +13,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import com.yunhefc.common.time.ShanghaiTime;
 
@@ -222,7 +221,7 @@ class AuditLogIT extends IntegrationTestSupport {
                     target_id, before_json, after_json, request_id, ip, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, teamId, actorUserId, actorName, action, targetType, targetId,
-                before, after, requestId, ip, Timestamp.valueOf(createdAt));
+                before, after, requestId, ip, createdAt);
         return jdbc.queryForObject("SELECT id FROM audit_log WHERE request_id = ?", Long.class, requestId);
     }
 

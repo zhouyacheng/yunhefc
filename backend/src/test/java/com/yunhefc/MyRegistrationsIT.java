@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -173,7 +172,7 @@ class MyRegistrationsIT extends IntegrationTestSupport {
             jdbc.update("""
                     INSERT INTO registration (match_id, player_id, type, status, registered_at)
                     VALUES (?, ?, 1, 0, ?)
-                    """, matchId, playerPk, Timestamp.valueOf(LocalDateTime.of(2099, 8, day, 12, 0)));
+                    """, matchId, playerPk, LocalDateTime.of(2099, 8, day, 12, 0));
             firstMatch = firstMatch == null ? matchId : firstMatch;
             lastMatch = matchId;
         }

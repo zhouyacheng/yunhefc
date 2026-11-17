@@ -31,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -285,8 +284,8 @@ class StatsRollupIT extends IntegrationTestSupport {
                     cancel_lock, venue, season, home_team_name, away_team_name, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', ?, '橙队', '兰队', ?, 1, 30, ?, ?, 1)
-                """, title, Timestamp.valueOf(startAt), Timestamp.valueOf(endAt),
-                Timestamp.valueOf(signupDeadline), Timestamp.valueOf(cancelLock), season, status,
+                """, title, startAt, endAt,
+                signupDeadline, cancelLock, season, status,
                 seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

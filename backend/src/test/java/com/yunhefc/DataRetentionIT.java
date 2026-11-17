@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -159,7 +158,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         LocalDateTime old = NOW.minus(91, ChronoUnit.DAYS);
         List<Object[]> rows = new ArrayList<>();
         for (int i = 0; i < 2500; i++) {
-            rows.add(new Object[]{901000L + i, Timestamp.valueOf(old)});
+            rows.add(new Object[]{901000L + i, old});
         }
         jdbc.batchUpdate("""
                 INSERT INTO notification (id, user_id, type, title, body, created_at)
@@ -202,7 +201,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         jdbc.update("""
                 INSERT INTO notification (id, user_id, type, title, body, created_at, is_deleted)
                 VALUES (?, 999901, 9, 'retention', 'retention', ?, ?)
-                """, id, Timestamp.valueOf(createdAt), isDeleted);
+                """, id, createdAt, isDeleted);
     }
 
     private boolean notificationExists(Long id) {
@@ -214,8 +213,8 @@ class DataRetentionIT extends IntegrationTestSupport {
                 INSERT INTO invite_link (id, team_id, type, token_hash, inviter_user_id,
                     expires_at, status, revoked_at)
                 VALUES (?, 1, 0, ?, 999901, ?, ?, ?)
-                """, id, String.format("%064d", id), Timestamp.valueOf(expiresAt), status,
-                revokedAt == null ? null : Timestamp.valueOf(revokedAt));
+                """, id, String.format("%064d", id), expiresAt, status,
+                revokedAt == null ? null : revokedAt);
     }
 
     private boolean inviteExists(Long id) {
@@ -235,8 +234,8 @@ class DataRetentionIT extends IntegrationTestSupport {
                 INSERT INTO outbox_event (event_id, aggregate_type, aggregate_id, event_type,
                     payload_json, status, attempts, created_at, sent_at)
                 VALUES (?, 'USER', 1, 'AUDIT_RECORDED', '{}', ?, 0, ?, ?)
-                """, eventId, status, Timestamp.valueOf(createdAt),
-                sentAt == null ? null : Timestamp.valueOf(sentAt));
+                """, eventId, status, createdAt,
+                sentAt == null ? null : sentAt);
     }
 
     private boolean outboxExists(String eventId) {
@@ -248,7 +247,7 @@ class DataRetentionIT extends IntegrationTestSupport {
                 INSERT INTO consumed_event (consumer_group, event_id, topic, partition_no,
                     offset_no, processed_at)
                 VALUES ('retention-test', ?, 'retention-topic', 0, ?, ?)
-                """, eventId, offset, Timestamp.valueOf(processedAt));
+                """, eventId, offset, processedAt);
     }
 
     private boolean consumedExists(String eventId) {
@@ -259,7 +258,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         jdbc.update("""
                 INSERT INTO idempotency_key (user_id, endpoint, idem_key, request_hash, expires_at)
                 VALUES (999901, 'RETENTION', ?, REPEAT('a', 64), ?)
-                """, idemKey, Timestamp.valueOf(expiresAt));
+                """, idemKey, expiresAt);
     }
 
     private boolean idempotencyExists(String idemKey) {

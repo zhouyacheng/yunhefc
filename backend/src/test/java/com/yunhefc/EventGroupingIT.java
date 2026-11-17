@@ -18,7 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -328,8 +327,8 @@ class EventGroupingIT extends IntegrationTestSupport {
                     created_by)
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', NULL, ?,
                         1, 30, ?, ?, ?, 1)
-                """, title, Timestamp.valueOf(startAt), Timestamp.valueOf(endAt),
-                Timestamp.valueOf(signupDeadline), Timestamp.valueOf(cancelLock), status,
+                """, title, startAt, endAt,
+                signupDeadline, cancelLock, status,
                 includeGuests, seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

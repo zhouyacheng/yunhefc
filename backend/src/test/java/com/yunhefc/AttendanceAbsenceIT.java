@@ -14,7 +14,6 @@ import org.quartz.TriggerKey;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
-import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
@@ -211,12 +210,12 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, 1, 30, ?, ?, ?,
                     1)
                 """, title,
-                Timestamp.valueOf(endAt.minus(2, ChronoUnit.HOURS)),
-                Timestamp.valueOf(endAt),
-                Timestamp.valueOf(endAt.minus(10, ChronoUnit.HOURS)),
-                Timestamp.valueOf(endAt.minus(4, ChronoUnit.HOURS)),
+                endAt.minus(2, ChronoUnit.HOURS),
+                endAt,
+                endAt.minus(10, ChronoUnit.HOURS),
+                endAt.minus(4, ChronoUnit.HOURS),
                 status, matchNo, matchNo,
-                statusUpdatedAt == null ? null : Timestamp.valueOf(statusUpdatedAt));
+                statusUpdatedAt == null ? null : statusUpdatedAt);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }
 }

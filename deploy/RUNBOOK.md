@@ -272,6 +272,8 @@ SET NEXT_FIRE_TIME = UNIX_TIMESTAMP(NOW(3)) * 1000,
 WHERE TRIGGER_NAME = 'auditExportTrigger' AND TRIGGER_GROUP = 'yunhefc';
 ```
 
+`UNIX_TIMESTAMP(NOW(3))` 是 epoch 语义，与会话时区无关；本段不需要 `SET time_zone`。
+
 4. Quartz JDBC 下一轮取任务时会读到新的触发时间；确认 OSS 对象存在且大小非 0 后，把 `AUDIT_EXPORT_ENABLED` 恢复为 `false` 并再次 `compose_current up -d --no-deps --force-recreate backend`。
 
 ### 3.5 FAILED Outbox 处理
@@ -306,9 +308,10 @@ WHERE id = <id>;
 compose_current logs --since 48h backend 2>&1 | grep 'retention cleanup'
 ```
 
-确认失败原因后可按相同窗口手工分批补删（每批 1000，循环到 0）：
+确认失败原因后可按相同窗口手工分批补删（每批 1000，循环到 0）。手工 SQL 必须先固定会话时区，不要依赖 CLI/RDS 默认：
 
 ```sql
+SET time_zone = '+08:00';
 DELETE FROM notification WHERE created_at < NOW(3) - INTERVAL 90 DAY LIMIT 1000;
 DELETE FROM outbox_event WHERE status = 1 AND sent_at < NOW(3) - INTERVAL 7 DAY LIMIT 1000;
 DELETE FROM outbox_event WHERE status = 2 AND created_at < NOW(3) - INTERVAL 7 DAY LIMIT 1000;
@@ -319,6 +322,7 @@ DELETE FROM idempotency_key WHERE expires_at < NOW(3) LIMIT 1000;
 邀请必须先删 `invite_use` 再删 `invite_link`（同一事务，每批 1000）：
 
 ```sql
+SET time_zone = '+08:00';
 START TRANSACTION;
 DELETE iu FROM invite_use iu
 JOIN invite_link il ON il.id = iu.invite_id

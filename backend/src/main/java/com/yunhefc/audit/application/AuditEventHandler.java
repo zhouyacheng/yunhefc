@@ -39,18 +39,22 @@ public class AuditEventHandler {
             }
             Map<String, Object> payload = objectMapper.readValue(event.payload(), new TypeReference<>() {
             });
-            AuditLog log = new AuditLog();
-            log.setTeamId(asLong(payload.get("teamId")));
-            log.setActorUserId(asLong(payload.get("actorUserId")));
-            log.setActorName(asString(payload.get("actorName")));
-            log.setAction(String.valueOf(payload.get("action")));
-            log.setTargetType(String.valueOf(payload.get("targetType")));
-            log.setTargetId(asLong(payload.get("targetId")));
-            log.setBeforeJson(asString(payload.get("beforeJson")));
-            log.setAfterJson(asString(payload.get("afterJson")));
-            log.setRequestId(asString(payload.get("requestId")));
-            log.setIp(asString(payload.get("ip")));
-            auditLogMapper.insert(log);
+            AuditLog auditLog = new AuditLog();
+            auditLog.setTeamId(asLong(payload.get("teamId")));
+            auditLog.setActorUserId(asLong(payload.get("actorUserId")));
+            auditLog.setActorName(asString(payload.get("actorName")));
+            auditLog.setAction(String.valueOf(payload.get("action")));
+            auditLog.setTargetType(String.valueOf(payload.get("targetType")));
+            auditLog.setTargetId(asLong(payload.get("targetId")));
+            auditLog.setBeforeJson(asString(payload.get("beforeJson")));
+            auditLog.setAfterJson(asString(payload.get("afterJson")));
+            auditLog.setRequestId(asString(payload.get("requestId")));
+            auditLog.setIp(asString(payload.get("ip")));
+            auditLogMapper.insert(auditLog);
+            log.info("audit event processed, eventId={}, action={}, targetType={}, targetId={}, "
+                            + "actorUserId={}, topic={}, partition={}, offset={}",
+                    event.eventId(), auditLog.getAction(), auditLog.getTargetType(),
+                    auditLog.getTargetId(), auditLog.getActorUserId(), topic, partition, offset);
         } catch (Exception ex) {
             log.error("audit event handling failed, topic={}, partition={}, offset={}",
                     topic, partition, offset, ex);

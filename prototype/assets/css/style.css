@@ -1429,12 +1429,6 @@ h3 {
   letter-spacing: 0.08em;
 }
 
-.team-more {
-  display: flex;
-  justify-content: center;
-  margin-top: 16px;
-}
-
 .pagination {
   display: flex;
   align-items: center;

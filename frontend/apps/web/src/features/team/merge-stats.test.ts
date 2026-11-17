@@ -4,11 +4,8 @@ import { describe, expect, it } from 'vitest';
 import {
   avatarInitial,
   avatarSrc,
-  canExpandGroup,
-  GROUP_PREVIEW_SIZE,
   groupByPosition,
   mergeTeamStats,
-  visibleGroupPlayers,
   type TeamPlayer,
 } from './merge-stats';
 
@@ -83,52 +80,6 @@ describe('groupByPosition', () => {
 
     expect(groups.map((group) => group.position)).toEqual([3, 2, 0]);
     expect(groups[1]?.players.map((item) => item.id)).toEqual([11, 13]);
-  });
-});
-
-describe('visibleGroupPlayers', () => {
-  const group = {
-    position: 2,
-    players: mergeTeamStats(
-      Array.from({ length: 12 }, (_, index) => player({ id: index + 1, position: 2 })),
-      [],
-    ),
-  };
-
-  it('previews the first 10 players by default', () => {
-    expect(visibleGroupPlayers(group, false)).toHaveLength(GROUP_PREVIEW_SIZE);
-    expect(visibleGroupPlayers(group, false)[9]?.id).toBe(10);
-  });
-
-  it('shows the whole group when expanded', () => {
-    expect(visibleGroupPlayers(group, true)).toHaveLength(12);
-  });
-});
-
-describe('canExpandGroup', () => {
-  function groupOf(size: number) {
-    return {
-      position: 2,
-      players: mergeTeamStats(
-        Array.from({ length: size }, (_, index) => player({ id: index + 1, position: 2 })),
-        [],
-      ),
-    };
-  }
-
-  it('always expands groups longer than the preview size', () => {
-    expect(canExpandGroup(groupOf(12), { fullLoaded: true, truncated: false })).toBe(true);
-    expect(canExpandGroup(groupOf(12), { fullLoaded: false, truncated: true })).toBe(true);
-  });
-
-  it('expands a group at the preview limit only while the roster is truncated', () => {
-    expect(canExpandGroup(groupOf(10), { fullLoaded: false, truncated: true })).toBe(true);
-    expect(canExpandGroup(groupOf(10), { fullLoaded: false, truncated: false })).toBe(false);
-    expect(canExpandGroup(groupOf(10), { fullLoaded: true, truncated: true })).toBe(false);
-  });
-
-  it('never expands a complete group shorter than the preview size', () => {
-    expect(canExpandGroup(groupOf(4), { fullLoaded: false, truncated: true })).toBe(false);
   });
 });
 

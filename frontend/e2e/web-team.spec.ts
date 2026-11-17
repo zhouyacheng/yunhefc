@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import { collectConsoleErrors } from './support';
 
-test('C04 球队：四组名单、展开更多与公开字段', async ({ page }) => {
+test('C04 球队：四组名单、全量展示与公开字段', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const rosterRequests: string[] = [];
   const statsRequests: string[] = [];
@@ -26,25 +26,17 @@ test('C04 球队：四组名单、展开更多与公开字段', async ({ page })
   await expect(titles.nth(2)).toContainText('后卫');
   await expect(titles.nth(3)).toContainText('门将');
 
-  // 种子中场共 12 人：预览阶段人数未知，显示 10+；默认 10 人，展开后出现剩余球员。
+  // 种子中场共 12 人：首屏一次取全量，直接展示全部球员，无展开/收起入口。
   const midfield = page.locator('.team-group').nth(1);
-  await expect(titles.nth(1)).toContainText('10+ 人');
-  await expect(midfield.locator('.player-card')).toHaveCount(10);
-  await expect(midfield.getByText('测试中场11')).toHaveCount(0);
-
-  await midfield.getByRole('button', { name: '展开更多' }).click();
-  await expect(midfield.locator('.player-card')).toHaveCount(12);
   await expect(titles.nth(1)).toContainText('12 人');
+  await expect(midfield.locator('.player-card')).toHaveCount(12);
   await expect(midfield.getByText('测试中场11')).toBeVisible();
-  await expect(midfield.getByRole('button', { name: '收起' })).toBeVisible();
+  await expect(midfield.getByRole('button', { name: '展开更多' })).toHaveCount(0);
+  await expect(midfield.getByRole('button', { name: '收起' })).toHaveCount(0);
 
-  await midfield.getByRole('button', { name: '收起' }).click();
-  await expect(midfield.locator('.player-card')).toHaveCount(10);
-
-  // 首屏 limit=10，首次展开 all=true，收起不再请求。
-  expect(rosterRequests).toHaveLength(2);
-  expect(rosterRequests[0]).toContain('limit=10');
-  expect(rosterRequests[1]).toContain('all=true');
+  // 名单只请求一次且为全量。
+  expect(rosterRequests).toHaveLength(1);
+  expect(rosterRequests[0]).toContain('all=true');
   expect(statsRequests).toHaveLength(1);
 
   // 公开字段范围：不含手机号（含脱敏格式），不含外挂球员，含本赛季统计。

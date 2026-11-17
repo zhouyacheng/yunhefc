@@ -784,7 +784,6 @@ render();
   function initTeam() {
     const host = $('#team-content');
     if (!host) return;
-    let showAll = false;
     const formal = Y.state.players.filter((player) => player.type === 'PLAYER' && player.status === 'ACTIVE');
     const positionOrder = ['FORWARD', 'MIDFIELDER', 'DEFENDER', 'GOALKEEPER'];
 
@@ -796,29 +795,17 @@ render();
           .filter((player) => player.position === position)
           .sort((a, b) => (Number(b.appearances) || 0) - (Number(a.appearances) || 0) || (Number(a.jersey) || 0) - (Number(b.jersey) || 0))
       })).filter((group) => group.players.length);
-      const hasMore = groups.some((group) => group.players.length > 10);
       host.innerHTML = `<div class="container section">
         <div class="page-head">
           <div><span class="eyebrow">SQUAD</span><h1>球队</h1><p class="muted">${formal.length} 名正式球员 · 按位置分组 · 组内出场降序 → 号码升序</p></div>
           <span class="badge badge-open">本赛季数据 · 最多延迟 10 分钟</span>
         </div>
-        ${groups.length ? groups.map((group) => {
-          const list = showAll ? group.players : group.players.slice(0, 10);
-          return `<section class="team-position">
+        ${groups.length ? groups.map((group) => `<section class="team-position">
             <div class="section-head"><div><h2>${group.label}</h2><p class="muted">${group.players.length} 人</p></div></div>
-            <div class="player-grid">${list.map(playerCard).join('')}</div>
-          </section>`;
-        }).join('') : '<div class="empty-state"><p>暂无正式球员</p></div>'}
-        ${hasMore ? `<div class="team-more"><button class="btn btn-ghost btn-sm" data-team-more>${showAll ? '收起' : '显示全部'}</button></div>` : ''}
+            <div class="player-grid">${group.players.map(playerCard).join('')}</div>
+          </section>`).join('') : '<div class="empty-state"><p>暂无正式球员</p></div>'}
         <p class="muted small">公开字段：姓名、号码、位置、地区、头像、星级；手机号、考勤、账本、战术不公开。外挂球员默认不进入球队页。</p>
       </div>`;
-      const more = $('[data-team-more]', host);
-      if (more) {
-        more.addEventListener('click', () => {
-          showAll = !showAll;
-          render();
-        });
-      }
     }
 
     render();

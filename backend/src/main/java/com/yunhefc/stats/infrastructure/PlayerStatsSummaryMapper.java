@@ -20,6 +20,14 @@ public interface PlayerStatsSummaryMapper extends BaseMapper<PlayerStatsSummary>
             """)
     List<Long> selectPlayerIds(@Param("teamId") Long teamId, @Param("season") String season);
 
+    @Select("""
+            SELECT DISTINCT season
+            FROM player_stats_summary
+            WHERE team_id = #{teamId} AND is_deleted = 0
+            ORDER BY season
+            """)
+    List<String> selectSeasons(@Param("teamId") Long teamId);
+
     /**
      * 按 (team_id, player_id, season) 批量覆盖；重复执行结果一致。
      */

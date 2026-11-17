@@ -61,6 +61,13 @@ public class MatchReadAdapter implements MatchReadPort {
     }
 
     @Override
+    public List<MatchSnapshot> findRollupMatches(Long teamId) {
+        return teamMatchMapper.selectRollupMatches(teamId, MatchStatus.CANCELLED.code()).stream()
+                .map(MatchReadAdapter::toSnapshot)
+                .toList();
+    }
+
+    @Override
     public int countFinishedInSeason(Long teamId, String season) {
         return (int) findSeasonMatches(teamId, season).stream()
                 .filter(MatchSnapshot::finished)

@@ -1,5 +1,6 @@
 package com.yunhefc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -13,9 +14,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
@@ -30,6 +33,7 @@ class MatchPublicIT extends IntegrationTestSupport {
     void cleanup() {
         for (Long matchId : createdMatchIds) {
             jdbc.update("DELETE FROM registration WHERE match_id = ?", matchId);
+            jdbc.update("DELETE FROM match_event WHERE match_id = ?", matchId);
             jdbc.update("DELETE FROM team_match WHERE id = ?", matchId);
         }
         for (Long userId : createdUserIds) {
@@ -37,6 +41,28 @@ class MatchPublicIT extends IntegrationTestSupport {
             jdbc.update("DELETE FROM user_role WHERE user_id = ?", userId);
             jdbc.update("DELETE FROM app_user WHERE id = ?", userId);
         }
+    }
+
+    @Test
+    void publicSeasonsUseEffectiveSeasonAndAlwaysIncludeCurrentYear() throws Exception {
+        insertRawMatch(1L, "M03赛季明确", "2098", "2098-06-01 10:00:00", 980101);
+        // UTC 2096-12-31 16:30 = 上海 2097-01-01 00:30，空 season 按开赛年份归入 2097。
+        insertRawMatch(1L, "M03赛季空回退", "", "2096-12-31 16:30:00", 980102);
+        Long deleted = insertRawMatch(1L, "M03赛季伪删除", "2095", "2095-06-01 10:00:00", 980103);
+        jdbc.update("UPDATE team_match SET is_deleted = 1 WHERE id = ?", deleted);
+        insertRawMatch(2L, "M03赛季他队", "2094", "2094-06-01 10:00:00", 980104);
+
+        MvcResult result = mockMvc.perform(get("/api/v1/c/matches/seasons"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andReturn();
+        List<String> items = com.jayway.jsonpath.JsonPath.read(
+                result.getResponse().getContentAsString(), "$.data.items");
+        assertThat(items)
+                .contains("2098", "2097", String.valueOf(LocalDate.now(ZONE).getYear()))
+                .doesNotContain("2095", "2094");
+        assertThat(items).isSortedAccordingTo(Comparator.reverseOrder());
+        assertThat(items.stream().filter("2098"::equals).count()).isEqualTo(1);
     }
 
     @Test
@@ -274,7 +300,7 @@ class MatchPublicIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.resultText").value("平"));
         mockMvc.perform(get("/api/v1/c/matches/" + internal))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.resultText").value("0:0"))
+                .andExpect(jsonPath("$.data.resultText").value((Object) null))
                 .andExpect(jsonPath("$.data.ourSide").value((Object) null));
         mockMvc.perform(get("/api/v1/c/matches/" + noScore))
                 .andExpect(status().isOk())
@@ -309,6 +335,62 @@ class MatchPublicIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.confirmedCount").value(0))
                 .andExpect(jsonPath("$.data.guestCount").value(0))
                 .andExpect(jsonPath("$.data.waitlistCount").value(0));
+    }
+
+    @Test
+    void summaryUsesScoringEventsOverStoredScore() throws Exception {
+        Cookie admin = adminLogin("13900000616");
+        Long matchId = create(admin, officialBody("M03公开推导优先", "云河FC", "乙队", 3, 0,
+                "2099-08-09T20:00:00"));
+        jdbc.update("UPDATE team_match SET status = 4 WHERE id = ?", matchId);
+        jdbc.update("""
+                INSERT INTO match_event (match_id, team, type, player_id, minute, half, penalty, created_by)
+                VALUES (?, 1, 0, NULL, 10, 0, 0, 1)
+                """, matchId);
+
+        mockMvc.perform(get("/api/v1/c/matches/" + matchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scoreHome").value(0))
+                .andExpect(jsonPath("$.data.scoreAway").value(1))
+                .andExpect(jsonPath("$.data.resultText").value("负"))
+                .andExpect(jsonPath("$.data.derivedScore.scoreHome").value(0))
+                .andExpect(jsonPath("$.data.derivedScore.scoreAway").value(1));
+
+        mockMvc.perform(get("/api/v1/c/matches")
+                        .param("season", "2099").param("type", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].id").value(matchId))
+                .andExpect(jsonPath("$.data.items[0].scoreHome").value(0))
+                .andExpect(jsonPath("$.data.items[0].scoreAway").value(1))
+                .andExpect(jsonPath("$.data.items[0].resultText").value("负"));
+
+        jdbc.update("""
+                INSERT INTO match_event (match_id, team, type, player_id, minute, half, penalty, created_by)
+                VALUES (?, 0, 3, NULL, 20, 0, 0, 1)
+                """, matchId);
+        mockMvc.perform(get("/api/v1/c/matches/" + matchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scoreHome").value(0))
+                .andExpect(jsonPath("$.data.scoreAway").value(1));
+    }
+
+    @Test
+    void summaryFallsBackToStoredScoreForNonScoringEvents() throws Exception {
+        Cookie admin = adminLogin("13900000617");
+        Long matchId = create(admin, officialBody("M03公开非计分兜底", "云河FC", "乙队", 2, 1,
+                "2099-08-10T20:00:00"));
+        jdbc.update("UPDATE team_match SET status = 4 WHERE id = ?", matchId);
+        jdbc.update("""
+                INSERT INTO match_event (match_id, team, type, player_id, minute, half, penalty, created_by)
+                VALUES (?, 0, 3, NULL, 20, 0, 0, 1)
+                """, matchId);
+
+        mockMvc.perform(get("/api/v1/c/matches/" + matchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scoreHome").value(2))
+                .andExpect(jsonPath("$.data.scoreAway").value(1))
+                .andExpect(jsonPath("$.data.resultText").value("胜"))
+                .andExpect(jsonPath("$.data.derivedScore").value((Object) null));
     }
 
     @Test
@@ -425,6 +507,23 @@ class MatchPublicIT extends IntegrationTestSupport {
                 local(startAt == null ? "2099-08-01T22:00:00"
                         : LocalDateTime.parse(startAt).plusHours(2).toString()),
                 home, away, scoreHome, scoreAway);
+    }
+
+    private Long insertRawMatch(Long teamId, String title, String season,
+                                String startAt, int seasonMatchNo) {
+        LocalDateTime start = LocalDateTime.parse(startAt.replace(' ', 'T'));
+        jdbc.update("""
+                INSERT INTO team_match (team_id, title, type, start_at, end_at, signup_deadline,
+                    cancel_lock, venue, season, home_team_name, away_team_name, capacity,
+                    season_match_no, total_match_no, created_by)
+                VALUES (?, ?, 1, ?, ?, ?, ?, '测试场地', ?, '橙队', '兰队', 30, ?, ?, 1)
+                """, teamId, title, start, start.plusHours(2),
+                start.toLocalDate().atStartOfDay(), start.toLocalDate().atStartOfDay().plusHours(1),
+                season, seasonMatchNo, seasonMatchNo);
+        Long matchId = jdbc.queryForObject(
+                "SELECT id FROM team_match WHERE title = ?", Long.class, title);
+        createdMatchIds.add(matchId);
+        return matchId;
     }
 
     private Long create(Cookie admin, String body) throws Exception {

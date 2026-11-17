@@ -29,11 +29,16 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * C 端公开赛程与比赛详情；匿名可读，登录用户额外返回本人报名。
@@ -43,6 +48,7 @@ import java.util.Map;
 public class MatchPublicApplicationService {
 
     private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM");
+    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final TeamMatchMapper teamMatchMapper;
     private final TeamReadPort teamReadPort;
@@ -96,12 +102,29 @@ public class MatchPublicApplicationService {
         wrapper.orderByAsc(TeamMatch::getId);
 
         Page<TeamMatch> result = teamMatchMapper.selectPage(new Page<>(page, pageSize), wrapper);
-        Map<Long, RegistrationQueueCounts> counts = registrationReadPort.queueCounts(
-                result.getRecords().stream().map(TeamMatch::getId).toList());
+        List<Long> matchIds = result.getRecords().stream().map(TeamMatch::getId).toList();
+        Map<Long, RegistrationQueueCounts> counts = registrationReadPort.queueCounts(matchIds);
+        Map<Long, DerivedScoreSnapshot> derivedScores = eventScoreReadPort.findDerivedScores(matchIds);
         List<MatchSummary> items = result.getRecords().stream()
-                .map(match -> toSummary(match, counts.getOrDefault(match.getId(), RegistrationQueueCounts.EMPTY)))
+                .map(match -> toSummary(match,
+                        counts.getOrDefault(match.getId(), RegistrationQueueCounts.EMPTY),
+                        derivedScores.get(match.getId())))
                 .toList();
         return PageResponse.of(items, result.getTotal(), page, pageSize);
+    }
+
+    /**
+     * C 端赛季筛选：本队有效比赛赛季 ∪ 当前年份，倒序。
+     */
+    @Transactional(readOnly = true)
+    public List<String> seasons() {
+        Set<String> seasons = new HashSet<>(
+                teamMatchMapper.selectEffectiveSeasons(teamReadPort.currentTeamId()));
+        seasons.add(String.valueOf(LocalDate.now(clock.withZone(BUSINESS_ZONE)).getYear()));
+        return seasons.stream()
+                .filter(season -> season.matches("\\d{4}"))
+                .sorted(Comparator.reverseOrder())
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -114,9 +137,7 @@ public class MatchPublicApplicationService {
         }
         RegistrationQueueCounts counts = registrationReadPort.queueCounts(List.of(matchId))
                 .getOrDefault(matchId, RegistrationQueueCounts.EMPTY);
-        DerivedScore derivedScore = eventScoreReadPort.findDerivedScore(matchId)
-                .map(MatchPublicApplicationService::toDerivedScore)
-                .orElse(null);
+        DerivedScoreSnapshot derivedScore = eventScoreReadPort.findDerivedScore(matchId).orElse(null);
         return toDetail(match, counts, derivedScore, myRegistration(matchId));
     }
 
@@ -140,8 +161,9 @@ public class MatchPublicApplicationService {
                 registration.active());
     }
 
-    private MatchSummary toSummary(TeamMatch match, RegistrationQueueCounts counts) {
-        MatchSummarySnapshot summary = MatchSummaryMapping.toSummary(match);
+    private MatchSummary toSummary(TeamMatch match, RegistrationQueueCounts counts,
+                                   DerivedScoreSnapshot derived) {
+        MatchSummarySnapshot summary = MatchSummaryMapping.toSummary(match, derived);
         return new MatchSummary(
                 summary.id(),
                 summary.title(),
@@ -169,12 +191,12 @@ public class MatchPublicApplicationService {
     }
 
     private static DerivedScore toDerivedScore(DerivedScoreSnapshot score) {
-        return new DerivedScore(score.scoreHome(), score.scoreAway());
+        return score == null ? null : new DerivedScore(score.scoreHome(), score.scoreAway());
     }
 
     private MatchDetail toDetail(TeamMatch match, RegistrationQueueCounts counts,
-                                 DerivedScore derivedScore, RegistrationView mine) {
-        MatchSummarySnapshot summary = MatchSummaryMapping.toSummary(match);
+                                 DerivedScoreSnapshot derived, RegistrationView mine) {
+        MatchSummarySnapshot summary = MatchSummaryMapping.toSummary(match, derived);
         return new MatchDetail(
                 summary.id(),
                 summary.title(),
@@ -207,7 +229,7 @@ public class MatchPublicApplicationService {
                 match.getGuestCapacity(),
                 match.getWaitlistCapacity(),
                 match.getVersion(),
-                derivedScore,
+                toDerivedScore(derived),
                 mine);
     }
 

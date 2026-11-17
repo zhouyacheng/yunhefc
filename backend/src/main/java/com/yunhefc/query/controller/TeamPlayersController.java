@@ -18,8 +18,9 @@ public class TeamPlayersController {
 
     @GetMapping
     public ApiResponse<TeamPlayersView> list(
+            @RequestParam(required = false) String season,
             @RequestParam(defaultValue = "10") Integer limit,
             @RequestParam(defaultValue = "false") boolean all) {
-        return ApiResponse.ok(teamPlayersService.list(limit, all));
+        return ApiResponse.ok(teamPlayersService.list(season, limit, all));
     }
 }

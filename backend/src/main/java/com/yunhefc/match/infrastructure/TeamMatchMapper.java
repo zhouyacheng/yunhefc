@@ -110,6 +110,28 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
                                         @Param("season") String season,
                                         @Param("cancelled") int cancelled);
 
+    // 统计汇总候选：本队全部未取消比赛，赛季为空的行由应用层按开赛年份归属。
+    @Select("""
+            SELECT id, team_id, title, type, our_side, start_at, end_at, signup_deadline,
+                   cancel_lock, capacity, guest_capacity, waitlist_capacity, venue, status,
+                   home_team_name, away_team_name, status_updated_at, season
+            FROM team_match
+            WHERE team_id = #{teamId} AND is_deleted = 0 AND status <> #{cancelled}
+            ORDER BY id
+            """)
+    List<TeamMatch> selectRollupMatches(@Param("teamId") Long teamId,
+                                        @Param("cancelled") int cancelled);
+
+    // 有效赛季：空 season 按开赛时间的 Asia/Shanghai 年份归属（start_at 存 UTC）。
+    @Select("""
+            SELECT DISTINCT COALESCE(NULLIF(season, ''),
+                   DATE_FORMAT(DATE_ADD(start_at, INTERVAL 8 HOUR), '%Y')) AS season
+            FROM team_match
+            WHERE team_id = #{teamId} AND is_deleted = 0
+            ORDER BY season DESC
+            """)
+    List<String> selectEffectiveSeasons(@Param("teamId") Long teamId);
+
     // 按主键 + 当前状态 + 版本条件更新：任务重复执行或与他人并发修改时不产生副作用。
     @Update("""
             UPDATE team_match

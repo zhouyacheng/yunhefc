@@ -149,6 +149,40 @@ class TeamPageIT extends IntegrationTestSupport {
     }
 
     @Test
+    void teamPlayersSortsAndLimitsBySelectedSeason() throws Exception {
+        Long first = formalPlayer("13900000691", "M02赛季前锋甲", 5, 3, 3);
+        Long second = formalPlayer("13900000692", "M02赛季前锋乙", 6, 3, 3);
+        insertStats(first, season(), 9, 3, 1);
+        insertStats(second, season(), 1, 0, 0);
+        insertStats(first, "2025", 1, 0, 0);
+        insertStats(second, "2025", 9, 5, 4);
+
+        mockMvc.perform(get("/api/v1/c/team/players"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02赛季前锋甲"))
+                .andExpect(jsonPath("$.data.items[0].appearances").value(9))
+                .andExpect(jsonPath("$.data.items[1].name").value("M02赛季前锋乙"));
+
+        mockMvc.perform(get("/api/v1/c/team/players").param("season", "2025"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02赛季前锋乙"))
+                .andExpect(jsonPath("$.data.items[0].appearances").value(9))
+                .andExpect(jsonPath("$.data.items[1].name").value("M02赛季前锋甲"))
+                .andExpect(jsonPath("$.data.items[1].appearances").value(1));
+
+        // limit 在赛季排序之后生效。
+        mockMvc.perform(get("/api/v1/c/team/players")
+                        .param("season", "2025").param("limit", "1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].name").value("M02赛季前锋乙"));
+
+        mockMvc.perform(get("/api/v1/c/team/players").param("season", "26"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
     void teamStatsReturnsCurrentSeasonAndZeroFillsMissingSummaryRows() throws Exception {
         Long withStats = formalPlayer("13900000661", "M02统计甲", 8, 3, 4);
         insertStats(withStats, season(), 6, 3, 2);

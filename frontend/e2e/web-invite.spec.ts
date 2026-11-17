@@ -43,7 +43,8 @@ test('C07：球员接受比赛邀请后进入比赛详情', async ({ page }) => 
   await expect(card).toContainText('B3首页联调赛');
 
   await expect(card).toContainText(/\d{4}\/\d{2}\/\d{2} 周[一二三四五六日]/);
-  await expect(card).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
+  // 跨天时 formatTimeRange 会补结束日期（22:00–12/02 02:00），种子时间随执行时刻滚动，需兼容两种形态。
+  await expect(card).toContainText(/\d{2}:\d{2}–(\d{2}\/\d{2} )?\d{2}:\d{2}/);
 
   const facts = card.getByTestId('invite-facts');
   await expect(facts).toContainText('报名截止');

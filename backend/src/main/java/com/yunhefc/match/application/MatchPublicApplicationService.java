@@ -22,6 +22,7 @@ import com.yunhefc.match.dto.MatchDtos.DerivedScore;
 import com.yunhefc.match.dto.MatchDtos.MatchDetail;
 import com.yunhefc.match.dto.MatchDtos.MatchPublicQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchSummary;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.match.dto.MatchDtos.RegistrationView;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
@@ -31,7 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Comparator;
@@ -48,7 +48,6 @@ import java.util.Set;
 public class MatchPublicApplicationService {
 
     private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM");
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final TeamMatchMapper teamMatchMapper;
     private final TeamReadPort teamReadPort;
@@ -119,7 +118,7 @@ public class MatchPublicApplicationService {
     public List<String> seasons() {
         Set<String> seasons = new HashSet<>(
                 teamMatchMapper.selectEffectiveSeasons(teamReadPort.currentTeamId()));
-        seasons.add(String.valueOf(LocalDate.now(BUSINESS_ZONE).getYear()));
+        seasons.add(String.valueOf(LocalDate.now(ShanghaiTime.ZONE).getYear()));
         return seasons.stream()
                 .filter(season -> season.matches("\\d{4}"))
                 .sorted(Comparator.reverseOrder())

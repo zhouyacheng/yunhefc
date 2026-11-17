@@ -2,6 +2,7 @@ package com.yunhefc.audit.application;
 
 import com.yunhefc.audit.domain.AuditLog;
 import com.yunhefc.audit.infrastructure.AuditExportProperties;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.infra.storage.OssGateway;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -10,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -20,8 +20,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AuditExportApplicationService {
 
-    static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
-
     private static final Logger log = LoggerFactory.getLogger(AuditExportApplicationService.class);
 
     private final AuditLogApplicationService auditLogApplicationService;
@@ -30,7 +28,7 @@ public class AuditExportApplicationService {
     private final AuditExportProperties properties;
 
     public void exportPreviousYear() {
-        exportPreviousYear(LocalDate.now(ZONE));
+        exportPreviousYear(LocalDate.now(ShanghaiTime.ZONE));
     }
 
     public void exportPreviousYear(LocalDate today) {

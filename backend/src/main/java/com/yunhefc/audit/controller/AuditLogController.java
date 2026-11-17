@@ -37,11 +37,11 @@ public class AuditLogController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         AuditLogQuery query = new AuditLogQuery(
-                actor, action, targetType, targetId, instant(from), instant(to), page, pageSize);
+                actor, action, targetType, targetId, parseTime(from), parseTime(to), page, pageSize);
         return ApiResponse.ok(auditLogService.list(query));
     }
 
-    private static LocalDateTime instant(String value) {
+    private static LocalDateTime parseTime(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }

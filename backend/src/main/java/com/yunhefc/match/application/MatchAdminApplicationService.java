@@ -657,7 +657,7 @@ public class MatchAdminApplicationService {
     private String season(String requested) {
         String season = MatchQueryParsing.normalize(requested);
         if (season == null) {
-            return String.valueOf(LocalDate.now(MatchTimeRules.ZONE).getYear());
+            return String.valueOf(LocalDate.now(ShanghaiTime.ZONE).getYear());
         }
         return MatchQueryParsing.validSeason(season);
     }

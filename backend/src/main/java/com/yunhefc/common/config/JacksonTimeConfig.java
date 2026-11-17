@@ -16,7 +16,8 @@ import java.time.LocalDateTime;
 
 /**
  * 全局 LocalDateTime 按 Asia/Shanghai +08:00 输出；请求兼容 Z、偏移与本地时间。
- * 同时服务 Web、outbox 载荷、审计快照/导出、统计缓存与幂等回放。
+ * 服务 Web、outbox 载荷、审计快照、统计缓存与幂等回放；审计导出的 createdAt
+ * 由 AuditExportSerializer 显式格式化，保持冷备格式独立。
  */
 @Configuration
 public class JacksonTimeConfig {
@@ -41,8 +42,12 @@ public class JacksonTimeConfig {
         public LocalDateTime deserialize(JsonParser parser, DeserializationContext context)
                 throws IOException {
             String value = parser.getText();
-            if (value == null || value.isBlank()) {
+            if (value == null) {
                 return null;
+            }
+            if (value.isBlank()) {
+                throw context.weirdStringException(value, LocalDateTime.class,
+                        "expected ISO-8601 datetime");
             }
             try {
                 return ShanghaiTime.parseLenient(value);

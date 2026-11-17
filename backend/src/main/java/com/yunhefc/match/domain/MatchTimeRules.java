@@ -7,14 +7,11 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
 
 /**
  * 比赛时间规则：时长 2–4 小时，开赛晚于当天 01:00，截止/锁定按开赛当天推导。
  */
 public final class MatchTimeRules {
-
-    public static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
     /** 取消锁定时间；开赛下限由同一常量派生，保证 cancelLock < startAt。 */
     private static final LocalTime CANCEL_LOCK_TIME = LocalTime.of(1, 0);

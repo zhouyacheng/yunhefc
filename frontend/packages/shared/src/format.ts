@@ -47,7 +47,7 @@ const monthDayFormatter = new Intl.DateTimeFormat('zh-CN', {
   day: '2-digit',
 });
 
-/** 接口返回 UTC，展示统一按 Asia/Shanghai。 */
+/** 接口返回 ISO-8601（含 +08:00 偏移），展示统一按 Asia/Shanghai。 */
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) {
     return '—';

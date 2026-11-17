@@ -100,6 +100,8 @@ jobs:
       mysql:
         image: mysql:8.4
         env:
+          # GitHub Actions service 不支持传 mysqld 参数；用 TZ 让 server time_zone=SYSTEM 落到 +08:00。
+          TZ: Asia/Shanghai
           MYSQL_ROOT_PASSWORD: root
           MYSQL_DATABASE: yunhefc
           MYSQL_USER: yunhefc

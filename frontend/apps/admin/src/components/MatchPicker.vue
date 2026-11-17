@@ -15,6 +15,7 @@ import {
 import {
   currentShanghaiSeason,
   groupMatches,
+  matchFitsFilters,
   mergeSeasons,
   optionLabel,
 } from '../features/match-catalog/selector';
@@ -50,6 +51,8 @@ const router = useRouter();
 const currentSeason = currentShanghaiSeason();
 const selectedMatch = ref<MatchSummary | null>(null);
 let selectionSeq = 0;
+/** 筛选触发的 load 需要按结果校正选中；只由 handleLoaded 消费。 */
+let reconcileOnLoad = false;
 /** 自己写 URL 时记录的 id，避免 route watch 回环。 */
 const selfWrittenIds = new Set<number>();
 
@@ -125,11 +128,33 @@ function parseMatchId(value: unknown): number | null {
 }
 
 function handleLoaded(result: MatchCatalogPage): void {
+  const reconcile = reconcileOnLoad;
+  reconcileOnLoad = false;
   const selected = selectedMatch.value;
   if (selected) {
     const refreshed = result.items.find((match) => match.id === selected.id);
     if (refreshed) {
       selectedMatch.value = refreshed;
+    }
+    if (!reconcile) {
+      return;
+    }
+    const current = selectedMatch.value;
+    const fits = current
+      ? matchFitsFilters(current, {
+          season: season.value,
+          monthRange: monthRange.value,
+          status: status.value,
+        })
+      : false;
+    if (fits) {
+      return;
+    }
+    const first = result.items[0] ?? null;
+    selectionSeq += 1;
+    commitSelection(first, first !== null);
+    if (!first) {
+      clearMatchQuery();
     }
     return;
   }
@@ -163,6 +188,15 @@ function writeMatchQuery(id: number): void {
   });
 }
 
+function clearMatchQuery(): void {
+  if (!('match' in route.query)) {
+    return;
+  }
+  const query = { ...route.query };
+  delete query.match;
+  void router.replace({ query }).catch(() => undefined);
+}
+
 function onSelect(id: number | null): void {
   if (id === null) {
     return;
@@ -175,7 +209,7 @@ function onSelect(id: number | null): void {
   }
 }
 
-function onFilterChange(next: Partial<MatchFilters> = {}): void {
+async function onFilterChange(next: Partial<MatchFilters> = {}): Promise<void> {
   if ('season' in next) {
     monthOpen.value = false;
     pendingStart.value = null;
@@ -188,7 +222,8 @@ function onFilterChange(next: Partial<MatchFilters> = {}): void {
           : remapMonthRange(monthRange.value, next.season),
     };
   }
-  void catalog.setFilters(next);
+  reconcileOnLoad = true;
+  await catalog.setFilters(next);
 }
 
 function toggleMonthPanel(): void {
@@ -275,7 +310,7 @@ watch(
       // 侧栏同一路由会清空 query；保留当前选择，不清空页面内容。
       return;
     }
-    if (selfWrittenIds.delete(id)) {
+    if (selfWrittenIds.delete(id) && id === selectedMatch.value?.id) {
       return;
     }
     if (id !== selectedMatch.value?.id) {

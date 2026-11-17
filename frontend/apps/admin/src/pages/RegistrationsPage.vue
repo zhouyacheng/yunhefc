@@ -17,15 +17,15 @@ import {
   MATCH_STATUS_CANCELLED,
   MATCH_STATUS_FINISHED,
   MATCH_STATUS_POSTPONED,
-  MATCH_STATUS_TEXT,
   REGISTRATION_STATUS_TEXT,
   formatDateTime,
   positionText,
 } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref } from 'vue';
 
 import { api, publicApi } from '../api/client';
+import MatchPicker from '../components/MatchPicker.vue';
 import { useSessionStore } from '../stores/session';
 
 interface RosterGroup {
@@ -45,11 +45,12 @@ interface RegistrationsMatch extends MatchSummary {
 
 const session = useSessionStore();
 
-const matches = ref<RegistrationsMatch[]>([]);
+const pickerRef = ref<InstanceType<typeof MatchPicker> | null>(null);
+const selectedMatch = ref<RegistrationsMatch | null>(null);
 const selectedMatchId = ref<number | null>(null);
 const registrations = ref<RegistrationRow[]>([]);
 const attendance = ref<AttendanceRow[]>([]);
-const loadingMatches = ref(false);
+const loadingMatches = ref(true);
 const loadingRoster = ref(false);
 const error = ref('');
 const actionBusy = ref<string | null>(null);
@@ -60,9 +61,6 @@ const tempPlayerId = ref<number | null>(null);
 const tempLoading = ref(false);
 const tempSubmitting = ref(false);
 
-const selectedMatch = computed(
-  () => matches.value.find((match) => match.id === selectedMatchId.value) ?? null,
-);
 const matchStatus = computed(() => selectedMatch.value?.status ?? null);
 const postponedOrCancelled = computed(
   () =>
@@ -143,34 +141,14 @@ async function loadMatchCapacity(matchId: number | null): Promise<void> {
   }
   try {
     const detail = await publicApi.get<MatchDetail>(`/matches/${matchId}`);
-    const target = matches.value.find((match) => match.id === matchId);
-    if (target) {
+    const target = selectedMatch.value;
+    if (target && target.id === matchId) {
       target.capacity = detail.capacity;
       target.guestCapacity = detail.guestCapacity;
       target.waitlistCapacity = detail.waitlistCapacity;
     }
   } catch {
     // 容量只是统计辅助信息；失败时按未知展示。
-  }
-}
-
-async function loadMatches(): Promise<void> {
-  loadingMatches.value = true;
-  error.value = '';
-  try {
-    // 比赛选择器读公开赛程：attendance:view:any 的只读用户不一定有 match:view:any。
-    const result = await publicApi.get<Page<MatchSummary>>('/matches', {
-      query: { scope: 'all', sort: 'startAt:desc', page: 1, pageSize: 100 },
-    });
-    matches.value = result.items;
-    if (!matches.value.some((match) => match.id === selectedMatchId.value)) {
-      selectedMatchId.value = matches.value[0]?.id ?? null;
-    }
-    await Promise.all([loadMatchCapacity(selectedMatchId.value), loadRoster()]);
-  } catch (caught) {
-    error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
-  } finally {
-    loadingMatches.value = false;
   }
 }
 
@@ -210,8 +188,15 @@ async function loadRoster(): Promise<void> {
   }
 }
 
-function onMatchChange(): void {
-  void Promise.all([loadMatchCapacity(selectedMatchId.value), loadRoster()]);
+function onMatchChange(match: MatchSummary | null): void {
+  error.value = '';
+  selectedMatch.value = match;
+  if (!match) {
+    registrations.value = [];
+    attendance.value = [];
+    return;
+  }
+  void Promise.all([loadMatchCapacity(match.id), loadRoster()]);
 }
 
 async function mark(row: RegistrationRow, status: number): Promise<void> {
@@ -317,8 +302,6 @@ async function submitTemp(): Promise<void> {
     tempSubmitting.value = false;
   }
 }
-
-onMounted(loadMatches);
 </script>
 
 <template>
@@ -328,22 +311,15 @@ onMounted(loadMatches);
         <h2>报名 / 考勤</h2>
         <p class="muted">移除已确认报名会自动递补；临时到场不占名额。</p>
       </div>
-      <el-select
-        v-if="matches.length"
-        v-model="selectedMatchId"
-        class="match-picker"
-        filterable
-        placeholder="选择比赛"
-        @change="onMatchChange"
-      >
-        <el-option
-          v-for="match in matches"
-          :key="match.id"
-          :value="match.id"
-          :label="`${match.title} · ${formatDateTime(match.startAt)} · ${MATCH_STATUS_TEXT[match.status]}`"
-        />
-      </el-select>
     </div>
+
+    <MatchPicker
+      ref="pickerRef"
+      v-model="selectedMatchId"
+      @change="onMatchChange"
+      @update:loading="loadingMatches = $event"
+      @load-error="error = $event"
+    />
 
     <el-alert
       v-if="error"
@@ -353,11 +329,14 @@ onMounted(loadMatches);
       :closable="false"
       show-icon
     >
-      <el-button size="small" @click="loadMatches">重试</el-button>
+      <el-button size="small" @click="pickerRef?.reload()">重试</el-button>
     </el-alert>
 
-    <div v-loading="loadingMatches" class="page-body">
-      <el-empty v-if="!loadingMatches && !matches.length" description="暂无比赛，请先创建比赛">
+    <div v-loading="loadingRoster" class="page-body">
+      <el-empty
+        v-if="!loadingMatches && !selectedMatch"
+        description="当前筛选下暂无比赛，试试调整赛季/日期/状态"
+      >
         <RouterLink to="/matches">
           <el-button type="primary">去比赛管理</el-button>
         </RouterLink>

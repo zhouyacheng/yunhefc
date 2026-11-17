@@ -24,7 +24,6 @@ import type {
 } from '@yunhefc/shared';
 import {
   MATCH_STATUS_TEXT,
-  formatDateTime,
   isInternalMatchType,
   isOpponentLineupSide,
   lineupEditable,
@@ -32,9 +31,9 @@ import {
 } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
-import { useRoute } from 'vue-router';
 
-import { api, publicApi } from '../api/client';
+import { api } from '../api/client';
+import MatchPicker from '../components/MatchPicker.vue';
 import { useSessionStore } from '../stores/session';
 
 interface PlayerLike {
@@ -45,10 +44,10 @@ interface PlayerLike {
   positionLabel?: string | null;
 }
 
-const route = useRoute();
 const session = useSessionStore();
 
-const matches = ref<MatchSummary[]>([]);
+const pickerRef = ref<InstanceType<typeof MatchPicker> | null>(null);
+const selectedMatch = ref<MatchSummary | null>(null);
 const selectedMatchId = ref<number | null>(null);
 const side = ref<LineupSide>(0);
 const lineup = ref<LineupAdmin | null>(null);
@@ -56,7 +55,7 @@ const roster = ref<RegistrationRow[]>([]);
 const grouping = ref<GroupingAdmin | null>(null);
 const templates = ref<FormationTemplate[]>([]);
 
-const loadingMatches = ref(false);
+const loadingMatches = ref(true);
 const loadingLineup = ref(false);
 const loadingRoster = ref(false);
 const loadingGrouping = ref(false);
@@ -79,9 +78,6 @@ const canView = computed(() => hasPermission(session.permissions, LINEUP_VIEW_AN
 const canEdit = computed(() => hasPermission(session.permissions, LINEUP_EDIT_ANY));
 const canViewGrouping = computed(() => hasPermission(session.permissions, GROUPING_VIEW_ANY));
 
-const selectedMatch = computed(
-  () => matches.value.find((match) => match.id === selectedMatchId.value) ?? null,
-);
 const internalMatch = computed(() => isInternalMatchType(selectedMatch.value?.type));
 const opponent = computed(() => isOpponentLineupSide(selectedMatch.value, side.value));
 const savedGrouping = computed(() =>
@@ -299,36 +295,6 @@ function slotSummary(template: FormationTemplate): string {
 
 // ---------------------------------------------------------------- loading
 
-async function loadMatches(): Promise<void> {
-  loadingMatches.value = true;
-  pageError.value = '';
-  try {
-    const result = await publicApi.get<Page<MatchSummary>>('/matches', {
-      query: { scope: 'all', sort: 'startAt:desc', page: 1, pageSize: 100 },
-    });
-    matches.value = result.items;
-    const requested = Number(route.query.match);
-    if (Number.isInteger(requested) && !matches.value.some((match) => match.id === requested)) {
-      try {
-        const detail = await publicApi.get<MatchSummary>(`/matches/${requested}`);
-        matches.value = [detail, ...matches.value];
-      } catch {
-        // 深链目标不存在时回退到列表首场。
-      }
-    }
-    if (!matches.value.some((match) => match.id === selectedMatchId.value)) {
-      selectedMatchId.value = matches.value.some((match) => match.id === requested)
-        ? requested
-        : (matches.value[0]?.id ?? null);
-    }
-    await refreshSelected();
-  } catch (caught) {
-    pageError.value = isApiError(caught) ? caught.message : '比赛列表加载失败，请稍后重试';
-  } finally {
-    loadingMatches.value = false;
-  }
-}
-
 function defaultSide(match: MatchSummary): LineupSide {
   if (isInternalMatchType(match.type)) {
     return 0;
@@ -350,7 +316,7 @@ async function refreshSelected(): Promise<void> {
   if (matchId === null) {
     return;
   }
-  const match = matches.value.find((item) => item.id === matchId);
+  const match = selectedMatch.value;
   if (match) {
     side.value = defaultSide(match);
   }
@@ -367,7 +333,9 @@ async function refreshSelected(): Promise<void> {
   }
 }
 
-function onMatchChange(): void {
+function onMatchChange(match: MatchSummary | null): void {
+  pageError.value = '';
+  selectedMatch.value = match;
   void refreshSelected();
 }
 
@@ -844,9 +812,7 @@ async function removeTemplate(template: FormationTemplate): Promise<void> {
   }
 }
 
-onMounted(async () => {
-  await Promise.all([loadMatches(), loadTemplates()]);
-});
+onMounted(loadTemplates);
 </script>
 
 <template>
@@ -856,27 +822,21 @@ onMounted(async () => {
         <h2>阵容</h2>
         <p class="muted">选择比赛与主客队后排阵；队内/训练赛按已保存分组切队。</p>
       </div>
-      <div class="head-actions">
-        <el-select
-          v-if="matches.length"
-          v-model="selectedMatchId"
-          class="match-picker"
-          filterable
-          placeholder="选择比赛"
-          @change="onMatchChange"
-        >
-          <el-option
-            v-for="match in matches"
-            :key="match.id"
-            :value="match.id"
-            :label="`${match.title} · ${formatDateTime(match.startAt)} · ${MATCH_STATUS_TEXT[match.status]}`"
-          />
-        </el-select>
+    </div>
+
+    <MatchPicker
+      ref="pickerRef"
+      v-model="selectedMatchId"
+      @change="onMatchChange"
+      @update:loading="loadingMatches = $event"
+      @load-error="pageError = $event"
+    >
+      <template #actions>
         <el-button :disabled="loadingMatches || loadingLineup" @click="refreshSelected">
           刷新
         </el-button>
-      </div>
-    </div>
+      </template>
+    </MatchPicker>
 
     <el-alert
       v-if="!canView"
@@ -886,11 +846,14 @@ onMounted(async () => {
       title="当前账号没有查看阵容权限。"
     />
     <el-alert v-else-if="pageError" type="error" :title="pageError" :closable="false" show-icon>
-      <el-button size="small" @click="loadMatches">重试</el-button>
+      <el-button size="small" @click="pickerRef?.reload()">重试</el-button>
     </el-alert>
 
-    <div v-if="canView" v-loading="loadingMatches" class="board-body">
-      <el-empty v-if="!loadingMatches && !matches.length" description="暂无比赛，请先创建比赛">
+    <div v-if="canView" v-loading="loadingLineup || loadingRoster" class="board-body">
+      <el-empty
+        v-if="!loadingMatches && !selectedMatch"
+        description="当前筛选下暂无比赛，试试调整赛季/日期/状态"
+      >
         <RouterLink to="/matches">
           <el-button type="primary">去比赛管理</el-button>
         </RouterLink>

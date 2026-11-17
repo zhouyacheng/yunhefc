@@ -30,7 +30,7 @@ SPRING_PROFILES_ACTIVE=dev \
 ./mvnw spring-boot:run
 ```
 
-`AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS=1000` 是跑 E2E 所需的：套件按同一账号多次登录，默认 10 次/分钟会触发 429。
+`AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS=1000` 是跑 E2E 所需的：套件按同一账号多次登录，默认 50 次/分钟会触发 429。
 
 测试数据（含两场比赛，账号 1001/1002 的密码为 `Passw0rd!`）。在仓库根目录执行：
 

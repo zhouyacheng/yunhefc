@@ -23,7 +23,7 @@ public class RegistrationController {
 
     @PostMapping
     @PreAuthorize("hasAuthority('registration:create:own')")
-    @RateLimited(key = "registration", limit = 10, windowSeconds = 60)
+    @RateLimited(key = "registration", limit = 50, windowSeconds = 60)
     @Idempotent("REG-01")
     public ApiResponse<RegistrationResponse> register(@PathVariable Long matchId) {
         return ApiResponse.ok(

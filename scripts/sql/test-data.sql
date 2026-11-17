@@ -28,7 +28,7 @@ SET @admin_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code 
 
 -- 账号：1001-1015 正式，1016-1020 外挂
 -- 1001（ADMIN）、1002（PLAYER）、1022（ADMIN）与 1023（PLAYER）写入测试密码 Passw0rd!，供 dev profile + Playwright 冒烟登录；1016 的密码由 B4 区块追加；其余账号保留 NULL。
--- 1022 为 B07/B08/B09/B10 共用管理员，1023 为 B 端只读用例专用球员，分摊 AUTH-15 每手机号 10 次/分钟限流。
+-- 1022 为 B07/B08/B09/B10 共用管理员，1023 为 B 端只读用例专用球员，分摊 AUTH-15 每手机号 50 次/分钟限流。
 INSERT INTO app_user (id, phone, password_hash, openid, status)
 VALUES
   (1001, '13910000001', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1),

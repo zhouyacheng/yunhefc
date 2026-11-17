@@ -10,6 +10,6 @@ import java.time.Duration;
 @Validated
 @ConfigurationProperties(prefix = "yunhefc.auth.login-rate-limit")
 public record LoginRateLimitProperties(
-        @DefaultValue("10") @Min(1) int maxAttempts,
+        @DefaultValue("50") @Min(1) int maxAttempts,
         @DefaultValue("1m") Duration window) {
 }

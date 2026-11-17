@@ -3,6 +3,7 @@ package com.yunhefc.match.application;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.contracts.event.EventScoreReadPort;
 import com.yunhefc.contracts.match.MatchScoreChange;
 import com.yunhefc.contracts.match.MatchScoreSnapshot;
 import com.yunhefc.match.domain.MatchStatus;
@@ -15,13 +16,14 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Map;
 
 /**
- * EVT-05 存储比分写入：锁比赛行后校验状态与版本，与赛程编辑共用同一 version。
+ * EVT-05 兜底比分写入：锁比赛行后校验状态、版本与计分事件，与赛程编辑共用同一 version。
  */
 @Service
 @RequiredArgsConstructor
 public class MatchScoreApplicationService {
 
     private final TeamMatchMapper teamMatchMapper;
+    private final EventScoreReadPort eventScoreReadPort;
 
     @Transactional
     public MatchScoreChange updateScore(Long matchId, Long teamId, Integer scoreHome,
@@ -34,6 +36,11 @@ public class MatchScoreApplicationService {
         if (version != match.getVersion()) {
             throw new BusinessException(ErrorCode.VERSION_CONFLICT, "比赛已被他人修改，请刷新后重试",
                     Map.of("currentVersion", match.getVersion()));
+        }
+        // 与事件写共用比赛行锁，锁内判定计分事件，避免“检查后并发插入进球/乌龙”的竞态。
+        if (eventScoreReadPort.findDerivedScore(matchId).isPresent()) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "该比赛已有进球或乌龙事件，最终比分按事件推导；请调整或删除计分事件后再修改兜底比分");
         }
 
         MatchScoreSnapshot before = snapshot(match);

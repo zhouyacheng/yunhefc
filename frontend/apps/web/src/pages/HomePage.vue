@@ -92,7 +92,7 @@ async function load(silent = false): Promise<void> {
     if (seq !== requestSeq) {
       return;
     }
-    // Hero 取全部比赛里开赛时间最大的一条；最近赛程取其后 3 场，不重复展示 Hero。
+    // Hero 取全部比赛里开赛时间最大的一条；最近比赛取其后 3 场，不重复展示 Hero。
     const [first] = page.items;
     matches.value = page.items.filter((match) => match.id !== first?.id).slice(0, 3);
     if (!first) {
@@ -199,7 +199,7 @@ onUnmounted(() => {
             <p>一支球队的运营台，也是一群人的比赛日记</p>
             <div class="home-hero__actions">
               <RouterLink to="/matches">
-                <Button type="primary">查看赛程</Button>
+                <Button type="primary">查看比赛</Button>
               </RouterLink>
               <RouterLink to="/team">
                 <Button plain>球队名单</Button>
@@ -301,14 +301,14 @@ onUnmounted(() => {
         <Empty description="暂无比赛" />
         <p class="muted small">还没有比赛记录，等管理员排期后这里会显示最近一场。</p>
         <RouterLink to="/matches">
-          <Button size="small" type="primary">去赛程</Button>
+          <Button size="small" type="primary">去比赛</Button>
         </RouterLink>
       </div>
 
       <section v-if="matches.length > 0" class="home-section">
         <div class="card-head">
-          <h2>最近赛程</h2>
-          <RouterLink class="ghost-link" to="/matches">全部赛程 →</RouterLink>
+          <h2>最近比赛</h2>
+          <RouterLink class="ghost-link" to="/matches">全部比赛 →</RouterLink>
         </div>
 
         <div class="match-list">

@@ -1,4 +1,4 @@
-import type { MatchSummary } from '@yunhefc/shared';
+import type { DerivedScore, MatchSummary } from '@yunhefc/shared';
 
 export type StatusTone =
   'open' | 'closed' | 'locked' | 'live' | 'finished' | 'postponed' | 'cancelled';
@@ -65,6 +65,14 @@ export function queuePercent(used: number, capacity: number): number {
     return 0;
   }
   return Math.max(0, Math.min(100, Math.round((used / capacity) * 100)));
+}
+
+/** 有事件推导值时优先展示推导值，否则使用服务端返回的最终比分。 */
+export function resolveDisplayedScore(
+  match: Pick<MatchSummary, 'scoreHome' | 'scoreAway'> | null | undefined,
+  derived: Pick<DerivedScore, 'scoreHome' | 'scoreAway'> | null | undefined,
+): Pick<MatchSummary, 'scoreHome' | 'scoreAway'> | null {
+  return derived ?? match ?? null;
 }
 
 export function scoreText(score: Pick<MatchSummary, 'scoreHome' | 'scoreAway'>): string {

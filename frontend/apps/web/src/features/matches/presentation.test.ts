@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { queuePercent, resultTone, scoreText, statusTone, winnerSide } from './presentation';
+import {
+  queuePercent,
+  resolveDisplayedScore,
+  resultTone,
+  scoreText,
+  statusTone,
+  winnerSide,
+} from './presentation';
 
 describe('statusTone', () => {
   it('maps match statuses to prototype badge tones', () => {
@@ -42,6 +49,25 @@ describe('queuePercent', () => {
     expect(queuePercent(15, 30)).toBe(50);
     expect(queuePercent(40, 30)).toBe(100);
     expect(queuePercent(3, 0)).toBe(0);
+  });
+});
+
+describe('resolveDisplayedScore', () => {
+  it('prefers the event derived score when present', () => {
+    expect(
+      resolveDisplayedScore({ scoreHome: 3, scoreAway: 2 }, { scoreHome: 1, scoreAway: 0 }),
+    ).toEqual({ scoreHome: 1, scoreAway: 0 });
+  });
+
+  it('falls back to the server final score without a derived score', () => {
+    expect(resolveDisplayedScore({ scoreHome: 3, scoreAway: 2 }, null)).toEqual({
+      scoreHome: 3,
+      scoreAway: 2,
+    });
+  });
+
+  it('returns null when both sources are missing', () => {
+    expect(resolveDisplayedScore(null, undefined)).toBeNull();
   });
 });
 

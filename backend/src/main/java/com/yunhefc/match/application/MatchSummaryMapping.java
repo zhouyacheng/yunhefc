@@ -1,5 +1,6 @@
 package com.yunhefc.match.application;
 
+import com.yunhefc.contracts.event.DerivedScoreSnapshot;
 import com.yunhefc.contracts.match.MatchSummarySnapshot;
 import com.yunhefc.match.domain.MatchStatus;
 import com.yunhefc.match.domain.OurSide;
@@ -13,7 +14,21 @@ final class MatchSummaryMapping {
     private MatchSummaryMapping() {
     }
 
-    static MatchSummarySnapshot toSummary(TeamMatch match) {
+    /**
+     * 有效比分：存在计分事件时取事件推导值，否则取 team_match 兜底比分。
+     */
+    record ResolvedScore(Integer scoreHome, Integer scoreAway) {
+    }
+
+    static ResolvedScore resolveScore(TeamMatch match, DerivedScoreSnapshot derived) {
+        if (derived != null) {
+            return new ResolvedScore(derived.scoreHome(), derived.scoreAway());
+        }
+        return new ResolvedScore(match.getScoreHome(), match.getScoreAway());
+    }
+
+    static MatchSummarySnapshot toSummary(TeamMatch match, DerivedScoreSnapshot derived) {
+        ResolvedScore score = resolveScore(match, derived);
         return new MatchSummarySnapshot(
                 match.getId(),
                 match.getTeamId(),
@@ -29,9 +44,9 @@ final class MatchSummaryMapping {
                 match.getAwayTeamName(),
                 sideCode(match),
                 sideLabel(match),
-                match.getScoreHome(),
-                match.getScoreAway(),
-                resultText(match),
+                score.scoreHome(),
+                score.scoreAway(),
+                resultText(match, score),
                 match.getStatus().code(),
                 match.getStatus().label(),
                 match.getTotalMatchNo(),
@@ -39,20 +54,20 @@ final class MatchSummaryMapping {
     }
 
     /**
-     * 仅已结束比赛给出结果：对外按我方视角胜/负/平，队内/训练给出比分文本；无比分时为 null。
+     * 仅已结束的对外比赛给出结果：按我方视角胜/负/平；队内/训练与无比分时为 null。
      */
-    static String resultText(TeamMatch match) {
+    private static String resultText(TeamMatch match, ResolvedScore score) {
         if (match.getStatus() != MatchStatus.FINISHED) {
             return null;
         }
-        Integer home = match.getScoreHome();
-        Integer away = match.getScoreAway();
+        Integer home = score.scoreHome();
+        Integer away = score.scoreAway();
         if (home == null || away == null) {
             return null;
         }
         OurSide side = match.getOurSide();
         if (side == null) {
-            return home + ":" + away;
+            return null;
         }
         int ours = side == OurSide.HOME ? home : away;
         int theirs = side == OurSide.HOME ? away : home;

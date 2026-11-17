@@ -13,7 +13,7 @@ import java.util.TimeZone;
 @Configuration
 public class StatsRollupQuartzConfig {
 
-    private static final String EVERY_TEN_MINUTES = "0 */10 * * * ?";
+    private static final String EVERY_MINUTE = "0 * * * * ?";
 
     @Bean
     JobDetail statsRollupJobDetail() {
@@ -28,7 +28,7 @@ public class StatsRollupQuartzConfig {
         return TriggerBuilder.newTrigger()
                 .forJob(statsRollupJobDetail)
                 .withIdentity("statsRollupTrigger", "yunhefc")
-                .withSchedule(CronScheduleBuilder.cronSchedule(EVERY_TEN_MINUTES)
+                .withSchedule(CronScheduleBuilder.cronSchedule(EVERY_MINUTE)
                         .inTimeZone(TimeZone.getTimeZone("Asia/Shanghai"))
                         .withMisfireHandlingInstructionDoNothing())
                 .build();

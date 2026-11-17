@@ -1,6 +1,7 @@
 package com.yunhefc.match.controller;
 
 import com.yunhefc.common.api.ApiResponse;
+import com.yunhefc.common.api.ItemsResponse;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import com.yunhefc.match.application.MatchAdminApplicationService;
@@ -44,6 +45,11 @@ public class MatchPublicController {
             @RequestParam(defaultValue = "10") long pageSize) {
         return ApiResponse.ok(matchPublicService.list(new MatchPublicQuery(
                 type, venue, status, season, month, startDate, endDate, scope, sort, page, pageSize)));
+    }
+
+    @GetMapping("/seasons")
+    public ApiResponse<ItemsResponse<String>> seasons() {
+        return ApiResponse.ok(new ItemsResponse<>(matchPublicService.seasons()));
     }
 
     @GetMapping("/{id}")

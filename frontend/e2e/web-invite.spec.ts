@@ -41,8 +41,18 @@ test('C07：球员接受比赛邀请后进入比赛详情', async ({ page }) => 
   const card = page.getByTestId('invite-match');
   await expect(card).toContainText('比赛邀请');
   await expect(card).toContainText('B3首页联调赛');
-  await expect(card).toContainText('地点：聚龙足球场');
-  await expect(card).toContainText('名额：');
+
+  await expect(card).toContainText(/\d{4}\/\d{2}\/\d{2} 周[一二三四五六日]/);
+  await expect(card).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
+
+  const facts = card.getByTestId('invite-facts');
+  await expect(facts).toContainText('报名截止');
+  await expect(facts).toContainText('报名锁定');
+  await expect(facts).toContainText('赛季第5场（累计5场）');
+  await expect(facts).toContainText('聚龙足球场');
+  await expect(facts).toContainText('名额');
+  await expect(facts).toContainText('有效期至');
+  await expect(facts).toContainText('剩余次数');
 
   await page.getByRole('button', { name: '去比赛' }).click();
   await expect(page).toHaveURL(/\/matches\/1005$/);

@@ -78,6 +78,8 @@ class EventCoreIT extends IntegrationTestSupport {
 
         mockMvc.perform(get("/api/v1/c/matches/" + matchId))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scoreHome").value(1))
+                .andExpect(jsonPath("$.data.scoreAway").value(1))
                 .andExpect(jsonPath("$.data.derivedScore.scoreHome").value(1))
                 .andExpect(jsonPath("$.data.derivedScore.scoreAway").value(1));
 

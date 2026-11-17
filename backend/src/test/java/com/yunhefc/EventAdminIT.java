@@ -161,11 +161,15 @@ class EventAdminIT extends IntegrationTestSupport {
                 Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002710");
         register(matchId, playerId, 0);
+        jdbc.update("UPDATE team_match SET score_home = 2, score_away = 1 WHERE id = ?", matchId);
         Long eventId = insertEvent(matchId, 0, 0, playerId, null, null, null, 12, 0, false);
 
         mockMvc.perform(get("/api/v1/c/matches/" + matchId + "/events"))
                 .andExpect(jsonPath("$.data.derivedScore.scoreHome").value(1))
                 .andExpect(jsonPath("$.data.derivedScore.scoreAway").value(0));
+        mockMvc.perform(get("/api/v1/c/matches/" + matchId))
+                .andExpect(jsonPath("$.data.scoreHome").value(1))
+                .andExpect(jsonPath("$.data.scoreAway").value(0));
 
         adminDelete(admin, eventId, """
                 {"version":0}
@@ -181,7 +185,9 @@ class EventAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.derivedScore").value(nullValue()));
         mockMvc.perform(get("/api/v1/c/matches/" + matchId))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.derivedScore").value(nullValue()));
+                .andExpect(jsonPath("$.data.derivedScore").value(nullValue()))
+                .andExpect(jsonPath("$.data.scoreHome").value(2))
+                .andExpect(jsonPath("$.data.scoreAway").value(1));
 
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM match_event
@@ -236,13 +242,10 @@ class EventAdminIT extends IntegrationTestSupport {
     }
 
     @Test
-    void scoreIsStoredIndependentlyAndReturnsDerivedScore() throws Exception {
-        Cookie admin = adminLogin("13900002712", "管理员比分");
-        Long matchId = insertMatch("M06存储比分", 1, null, 3,
+    void fallbackScoreIsEditableWithoutScoringEvents() throws Exception {
+        Cookie admin = adminLogin("13900002712", "管理员兜底比分");
+        Long matchId = insertMatch("M06兜底比分", 1, null, 3,
                 Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
-        Long playerId = playerId("13900002712");
-        register(matchId, playerId, 0);
-        insertEvent(matchId, 0, 0, playerId, null, null, null, 12, 0, false);
 
         adminScore(admin, matchId, """
                 {"scoreHome":3,"scoreAway":2,"version":0}
@@ -250,8 +253,7 @@ class EventAdminIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.score.scoreHome").value(3))
                 .andExpect(jsonPath("$.data.score.scoreAway").value(2))
-                .andExpect(jsonPath("$.data.score.derived.scoreHome").value(1))
-                .andExpect(jsonPath("$.data.score.derived.scoreAway").value(0));
+                .andExpect(jsonPath("$.data.score.derived").value(nullValue()));
 
         assertThat(jdbc.queryForObject(
                 "SELECT score_home FROM team_match WHERE id = ?", Integer.class, matchId)).isEqualTo(3);
@@ -265,14 +267,69 @@ class EventAdminIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.scoreHome").value(3))
                 .andExpect(jsonPath("$.data.scoreAway").value(2))
-                .andExpect(jsonPath("$.data.derivedScore.scoreHome").value(1))
-                .andExpect(jsonPath("$.data.derivedScore.scoreAway").value(0));
+                .andExpect(jsonPath("$.data.derivedScore").value(nullValue()));
 
         adminScore(admin, matchId, """
                 {"scoreHome":1,"scoreAway":1,"version":0}
                 """)
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40901));
+    }
+
+    @Test
+    void scoringEventsBlockFallbackScoreUpdate() throws Exception {
+        Cookie admin = adminLogin("13900002714", "管理员计分事件");
+        Long matchId = insertMatch("M06计分事件比分", 1, null, 3,
+                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+        Long playerId = playerId("13900002714");
+        register(matchId, playerId, 0);
+        insertEvent(matchId, 0, 0, playerId, null, null, null, 12, 0, false);
+
+        adminScore(admin, matchId, """
+                {"scoreHome":3,"scoreAway":2,"version":0}
+                """)
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value(42201));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT score_home FROM team_match WHERE id = ?", Integer.class, matchId)).isNull();
+        assertThat(jdbc.queryForObject(
+                "SELECT version FROM team_match WHERE id = ?", Integer.class, matchId)).isZero();
+        assertThat(auditCount("SCORE_UPDATE")).isZero();
+
+        mockMvc.perform(get("/api/v1/c/matches/" + matchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scoreHome").value(1))
+                .andExpect(jsonPath("$.data.scoreAway").value(0))
+                .andExpect(jsonPath("$.data.derivedScore.scoreHome").value(1))
+                .andExpect(jsonPath("$.data.derivedScore.scoreAway").value(0));
+    }
+
+    @Test
+    void nonScoringEventsDoNotBlockFallbackScore() throws Exception {
+        Cookie admin = adminLogin("13900002715", "管理员非计分事件");
+        Long matchId = insertMatch("M06非计分事件", 1, null, 3,
+                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+        Long playerId = playerId("13900002715");
+        register(matchId, playerId, 0);
+        insertEvent(matchId, 0, 3, playerId, null, null, null, 12, 0, false);
+
+        mockMvc.perform(get("/api/v1/c/matches/" + matchId + "/events"))
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.derivedScore").value(nullValue()));
+
+        adminScore(admin, matchId, """
+                {"scoreHome":3,"scoreAway":2,"version":0}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.score.scoreHome").value(3))
+                .andExpect(jsonPath("$.data.score.scoreAway").value(2));
+
+        mockMvc.perform(get("/api/v1/c/matches/" + matchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scoreHome").value(3))
+                .andExpect(jsonPath("$.data.scoreAway").value(2))
+                .andExpect(jsonPath("$.data.derivedScore").value(nullValue()));
     }
 
     @Test

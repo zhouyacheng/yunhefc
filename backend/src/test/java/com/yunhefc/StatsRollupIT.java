@@ -2,6 +2,7 @@ package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -13,6 +14,7 @@ import com.yunhefc.contracts.attendance.AttendanceReadPort;
 import com.yunhefc.stats.application.PlayerStatsRow;
 import com.yunhefc.stats.application.StatsQueryService;
 import com.yunhefc.stats.application.StatsRollupApplicationService;
+import com.yunhefc.stats.application.StatsSummaryWriter;
 import com.yunhefc.stats.infrastructure.StatsRollupJob;
 import org.junit.jupiter.api.Test;
 import org.quartz.CronTrigger;
@@ -54,6 +56,9 @@ class StatsRollupIT extends IntegrationTestSupport {
     @MockitoSpyBean
     private AttendanceReadPort attendanceReadPort;
 
+    @MockitoSpyBean
+    private StatsSummaryWriter summaryWriter;
+
     @Test
     void rollsUpCurrentSeasonAttendanceAndEventsAndIsIdempotent() throws Exception {
         String season = currentSeason();
@@ -92,7 +97,43 @@ class StatsRollupIT extends IntegrationTestSupport {
         assertStats(third, season, 0, 1, 0);
         assertThat(statsRows(season, fourth)).isZero();
         assertThat(statsRowCount(season)).isEqualTo(3);
-        assertThat(statsRowCount(previousSeason())).isZero();
+
+        // 历史赛季同样汇总，取消比赛不计入任何赛季。
+        assertStats(first, previousSeason(), 1, 1, 0);
+        assertThat(statsRowCount(previousSeason())).isEqualTo(1);
+        assertThat(redisTemplate.keys("yunhefc:stats:*")).hasSize(2);
+    }
+
+    @Test
+    void zerosResidualSummaryForSeasonWithoutMatches() throws Exception {
+        String stale = "2001";
+        Long player = insertPlayer("13900006605", "汇总残留球员");
+        insertStats(player, stale, 9, 8, 7);
+
+        runJob();
+
+        assertStats(player, stale, 0, 0, 0);
+    }
+
+    @Test
+    void isolatesSeasonWriteFailureAndKeepsOtherSeasonsFresh() throws Exception {
+        String previous = previousSeason();
+        Long player = insertPlayer("13900006606", "汇总隔离球员");
+        insertStats(player, previous, 9, 8, 7);
+        Instant start = Instant.now().minus(Duration.ofHours(3));
+        Long currentMatch = insertMatch("stats隔离本季", currentSeason(), 4, start);
+        Long previousMatch = insertMatch("stats隔离上季", previous, 4, start);
+        attendance(currentMatch, player, 0);
+        attendance(previousMatch, player, 0);
+
+        doThrow(new IllegalStateException("season write failed"))
+                .when(summaryWriter).replace(argThat(rows -> rows.stream()
+                        .anyMatch(row -> previous.equals(row.getSeason()))), any());
+
+        runJob();
+
+        assertStats(player, previous, 9, 8, 7);
+        assertStats(player, currentSeason(), 1, 0, 0);
     }
 
     @Test
@@ -138,7 +179,7 @@ class StatsRollupIT extends IntegrationTestSupport {
         assertThat(grouped.get(player).appearances()).isEqualTo(1);
         assertThat(grouped.get(player).goals()).isEqualTo(1);
 
-        // 汇总表被直接改写后，STA-01 仍命中缓存（允许最多 10 分钟延迟）。
+        // 汇总表被直接改写后，STA-01 仍命中缓存（允许最多 1 分钟延迟）。
         jdbc.update("""
                 UPDATE player_stats_summary SET appearances = 0, goals = 0, assists = 0
                 WHERE team_id = 1 AND player_id = ? AND season = ?
@@ -149,14 +190,14 @@ class StatsRollupIT extends IntegrationTestSupport {
     }
 
     @Test
-    void quartzJobIsRegisteredEveryTenMinutes() {
+    void quartzJobIsRegisteredEveryMinute() {
         JobDetail detail = context.getBean("statsRollupJobDetail", JobDetail.class);
         assertThat(detail.getJobClass()).isEqualTo(StatsRollupJob.class);
         assertThat(detail.getKey()).isEqualTo(JobKey.jobKey("statsRollupJob", "yunhefc"));
 
         Trigger trigger = context.getBean("statsRollupTrigger", Trigger.class);
         assertThat(trigger).isInstanceOf(CronTrigger.class);
-        assertThat(((CronTrigger) trigger).getCronExpression()).isEqualTo("0 */10 * * * ?");
+        assertThat(((CronTrigger) trigger).getCronExpression()).isEqualTo("0 * * * * ?");
         assertThat(trigger.getKey())
                 .isEqualTo(TriggerKey.triggerKey("statsRollupTrigger", "yunhefc"));
         assertThat(trigger.getJobKey()).isEqualTo(detail.getKey());

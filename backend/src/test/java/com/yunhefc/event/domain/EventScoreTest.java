@@ -30,6 +30,17 @@ class EventScoreTest {
         assertThat(score.scoreAway()).isZero();
     }
 
+    @Test
+    void onlyGoalOrOwnGoalCountsAsScoringEvent() {
+        assertThat(EventScore.hasScoringEvent(List.of(event(EventTeam.HOME, EventType.GOAL)))).isTrue();
+        assertThat(EventScore.hasScoringEvent(List.of(event(EventTeam.AWAY, EventType.OWN_GOAL)))).isTrue();
+        assertThat(EventScore.hasScoringEvent(List.of(
+                event(EventTeam.HOME, EventType.YELLOW_CARD),
+                event(EventTeam.AWAY, EventType.RED_CARD),
+                event(EventTeam.HOME, EventType.SUBSTITUTION)))).isFalse();
+        assertThat(EventScore.hasScoringEvent(List.of())).isFalse();
+    }
+
     private static MatchEvent event(EventTeam team, EventType type) {
         MatchEvent event = new MatchEvent();
         event.setTeam(team);

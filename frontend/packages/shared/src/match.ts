@@ -13,7 +13,7 @@ export function isInternalMatchType(type: MatchType | null | undefined): boolean
   return type === 1 || type === 2;
 }
 
-/** 05 §4 MatchSummary。 */
+/** 05 §4 MatchSummary；scoreHome/scoreAway 为最终比分（有计分事件取推导值，否则取兜底值）。 */
 export interface MatchSummary {
   id: number;
   title: string;
@@ -40,6 +40,7 @@ export interface MatchSummary {
   waitlistCount: number;
 }
 
+/** 计分事件（进球/乌龙）推导比分；无计分事件时为 null。 */
 export interface DerivedScore {
   scoreHome: number | null;
   scoreAway: number | null;
@@ -55,7 +56,7 @@ export interface MatchDetail extends MatchSummary {
   guestCapacity: number;
   waitlistCapacity: number;
   version: number;
-  derivedScore: DerivedScore;
+  derivedScore?: DerivedScore | null;
   myRegistration?: Registration | null;
 }
 
@@ -78,10 +79,10 @@ export type MatchAdmin = Omit<MatchDetail, 'derivedScore' | 'myRegistration'> & 
 export interface Score {
   scoreHome: number | null;
   scoreAway: number | null;
-  derived?: DerivedScore;
+  derived?: DerivedScore | null;
 }
 
-/** EVT-05 存储比分修正；与赛程编辑共用比赛 version。 */
+/** EVT-05 兜底比分修正；仅无计分事件时允许，与赛程编辑共用比赛 version。 */
 export interface ScoreUpdate {
   scoreHome: number;
   scoreAway: number;
@@ -229,7 +230,7 @@ export interface MatchEvent {
   version: number;
 }
 
-/** EVT-01 事件时间线；无有效事件时 derivedScore 为 null。 */
+/** EVT-01 事件时间线；无有效进球/乌龙事件时 derivedScore 为 null（非计分事件仍出现在 items）。 */
 export interface EventTimeline {
   items: MatchEvent[];
   derivedScore?: DerivedScore | null;
@@ -387,6 +388,16 @@ export function matchTypeText(code: number | null | undefined): string {
 
 export function matchStatusText(code: number | null | undefined): string {
   return code === null || code === undefined ? '' : (MATCH_STATUS_TEXT[code as MatchStatus] ?? '');
+}
+
+/** 赛程场次文案：2026赛季第5场（累计5场）；比赛缺失时返回空串。 */
+export function seasonMatchText(
+  match: Pick<MatchSummary, 'season' | 'seasonMatchNo' | 'totalMatchNo'> | null | undefined,
+): string {
+  if (!match) {
+    return '';
+  }
+  return `${match.season}赛季第${match.seasonMatchNo}场（累计${match.totalMatchNo}场）`;
 }
 
 const MIN_MATCH_DURATION_MS = 2 * 60 * 60 * 1000;

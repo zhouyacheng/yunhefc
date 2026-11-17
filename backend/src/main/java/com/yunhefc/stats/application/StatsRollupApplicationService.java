@@ -1,7 +1,9 @@
 package com.yunhefc.stats.application;
 
 import com.yunhefc.contracts.attendance.AttendanceReadPort;
+import com.yunhefc.contracts.attendance.AttendanceSnapshot;
 import com.yunhefc.contracts.event.EventStatsReadPort;
+import com.yunhefc.contracts.event.EventStatsSnapshot;
 import com.yunhefc.contracts.match.MatchReadPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
@@ -12,22 +14,30 @@ import com.yunhefc.stats.domain.PlayerTally;
 import com.yunhefc.stats.domain.StatsAggregator;
 import com.yunhefc.stats.infrastructure.StatsCache;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 /**
- * 本赛季全量重算：按球员覆盖写汇总表并刷新 Redis 缓存；计算完成前不触碰旧结果。
+ * 球队全部赛季全量重算：逐赛季覆盖写汇总表并刷新 Redis 缓存。
  */
 @Service
 @RequiredArgsConstructor
 public class StatsRollupApplicationService {
+
+    private static final Logger log = LoggerFactory.getLogger(StatsRollupApplicationService.class);
 
     private final MatchReadPort matchReadPort;
     private final AttendanceReadPort attendanceReadPort;
@@ -40,37 +50,71 @@ public class StatsRollupApplicationService {
     private final StatsQueryService statsQueryService;
     private final Clock clock;
 
-    public RollupResult rollUpCurrentSeason() {
+    /**
+     * 按有效赛季分组重算。单赛季写入失败只保留该赛季旧值，不影响其他赛季。
+     */
+    public List<RollupResult> rollUpAllSeasons() {
         Long teamId = teamReadPort.currentTeamId();
-        String season = statsQueryService.currentSeason();
-        List<MatchSnapshot> matches = matchReadPort.findSeasonMatches(teamId, season);
+        List<MatchSnapshot> matches = matchReadPort.findRollupMatches(teamId);
+        Map<String, List<MatchSnapshot>> matchesBySeason = matches.stream()
+                .filter(match -> match.effectiveSeason() != null)
+                .collect(Collectors.groupingBy(MatchSnapshot::effectiveSeason));
+
+        // 汇总表已有赛季用于把比赛删除/改赛季后的残留行归零；当前年份保证无比赛也有缓存。
+        Set<String> seasons = new TreeSet<>(Comparator.reverseOrder());
+        seasons.addAll(matchesBySeason.keySet());
+        seasons.addAll(summaryReader.seasons(teamId));
+        seasons.add(statsQueryService.currentSeason());
+
         List<Long> matchIds = matches.stream().map(MatchSnapshot::id).toList();
+        List<AttendanceSnapshot> attendance = attendanceReadPort.findByMatchIds(matchIds);
+        List<EventStatsSnapshot> events = eventStatsReadPort.findByMatchIds(matchIds);
 
-        Map<Long, PlayerTally> tallies = StatsAggregator.tally(matches,
-                attendanceReadPort.findByMatchIds(matchIds),
-                eventStatsReadPort.findByMatchIds(matchIds));
+        Map<String, Map<Long, PlayerTally>> talliesBySeason = new LinkedHashMap<>();
+        Map<String, Set<Long>> existingBySeason = new LinkedHashMap<>();
+        Set<Long> candidates = new HashSet<>();
+        for (String season : seasons) {
+            Map<Long, PlayerTally> tallies = StatsAggregator.tally(
+                    matchesBySeason.getOrDefault(season, List.of()), attendance, events);
+            Set<Long> existing = new HashSet<>(summaryReader.playerIds(teamId, season));
+            talliesBySeason.put(season, tallies);
+            existingBySeason.put(season, existing);
+            candidates.addAll(tallies.keySet());
+            candidates.addAll(existing);
+        }
 
-        // 已迁移/已删除球员仍保留历史行；只覆盖本队现存球员，且把已归零的旧行写回 0。
-        Set<Long> candidates = new HashSet<>(tallies.keySet());
-        candidates.addAll(summaryReader.playerIds(teamId, season));
+        // 只覆盖本队现存球员；已迁移/已删除球员的历史行保留原值。
         Set<Long> teamPlayerIds = playerReadPort.findByIds(teamId, candidates).stream()
                 .map(PlayerSnapshot::id)
                 .collect(Collectors.toSet());
 
         Instant now = Instant.now(clock);
-        List<PlayerStatsSummary> summaries = teamPlayerIds.stream()
-                .sorted()
-                .map(playerId -> summary(teamId, season, playerId,
-                        tallies.getOrDefault(playerId, PlayerTally.ZERO)))
-                .toList();
-        summaryWriter.replace(summaries, now);
-
-        // 缓存只在汇总表事务提交后刷新，避免回滚后缓存领先于数据库。
-        List<PlayerStatsRow> rows = summaries.stream()
-                .map(summary -> PlayerStatsRow.of(summary, now))
-                .toList();
-        statsCache.write(teamId, season, rows);
-        return new RollupResult(teamId, season, matches.size(), rows.size());
+        List<RollupResult> results = new ArrayList<>();
+        for (String season : seasons) {
+            Map<Long, PlayerTally> tallies = talliesBySeason.get(season);
+            Set<Long> candidateIds = new HashSet<>(tallies.keySet());
+            candidateIds.addAll(existingBySeason.get(season));
+            List<PlayerStatsSummary> summaries = candidateIds.stream()
+                    .filter(teamPlayerIds::contains)
+                    .sorted()
+                    .map(playerId -> summary(teamId, season, playerId,
+                            tallies.getOrDefault(playerId, PlayerTally.ZERO)))
+                    .toList();
+            try {
+                summaryWriter.replace(summaries, now);
+            } catch (RuntimeException ex) {
+                log.error("stats rollup failed, season={}, previous summary retained", season, ex);
+                continue;
+            }
+            // 缓存只在汇总表事务提交后刷新，避免回滚后缓存领先于数据库。
+            List<PlayerStatsRow> rows = summaries.stream()
+                    .map(summary -> PlayerStatsRow.of(summary, now))
+                    .toList();
+            statsCache.write(teamId, season, rows);
+            results.add(new RollupResult(teamId, season,
+                    matchesBySeason.getOrDefault(season, List.of()).size(), rows.size()));
+        }
+        return results;
     }
 
     private static PlayerStatsSummary summary(Long teamId, String season, Long playerId,

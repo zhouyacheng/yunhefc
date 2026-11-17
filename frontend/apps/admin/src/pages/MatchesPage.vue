@@ -123,12 +123,13 @@ const loading = ref(false);
 const error = ref('');
 let requestSeq = 0;
 
-const hasActiveFilters = computed(() =>
-  status.value !== ''
-  || type.value !== ''
-  || season.value !== ''
-  || dateRange.value !== null
-  || sort.value !== 'startAt:desc',
+const hasActiveFilters = computed(
+  () =>
+    status.value !== '' ||
+    type.value !== '' ||
+    season.value !== '' ||
+    dateRange.value !== null ||
+    sort.value !== 'startAt:desc',
 );
 
 const matchDialog = reactive({
@@ -336,9 +337,10 @@ function onFilterChange(): void {
 
 function onSortChange({ prop, order }: { prop: string; order: string | null }): void {
   const fields = ['season', 'seasonMatchNo', 'startAt', 'endAt', 'type'];
-  sort.value = order && fields.includes(prop)
-    ? `${prop}:${order === 'ascending' ? 'asc' : 'desc'}`
-    : 'startAt:desc';
+  sort.value =
+    order && fields.includes(prop)
+      ? `${prop}:${order === 'ascending' ? 'asc' : 'desc'}`
+      : 'startAt:desc';
   page.value = 1;
   void load();
 }
@@ -579,11 +581,10 @@ async function submitMatch(): Promise<void> {
   const mode = matchDialog.mode;
   const validationError = validateMatchForm(mode);
   if (validationError) {
-    await ElMessageBox.alert(
-      validationError,
-      mode === 'create' ? '无法创建比赛' : '无法保存比赛',
-      { type: 'warning', confirmButtonText: '知道了' },
-    );
+    await ElMessageBox.alert(validationError, mode === 'create' ? '无法创建比赛' : '无法保存比赛', {
+      type: 'warning',
+      confirmButtonText: '知道了',
+    });
     return;
   }
   matchDialog.submitting = true;
@@ -1132,7 +1133,9 @@ onMounted(loadSeasons);
           </div>
         </el-form-item>
         <el-form-item v-else label="比分">
-          <span class="muted small">比分请到事件/比分页录入；编辑不会改动比分。</span>
+          <span class="muted small"
+            >比分请到事件/比分页录入；有进球/乌龙事件时按事件推导；编辑不会改动比分。</span
+          >
         </el-form-item>
       </el-form>
       <p v-if="matchDialog.error" class="dialog-error">{{ matchDialog.error }}</p>

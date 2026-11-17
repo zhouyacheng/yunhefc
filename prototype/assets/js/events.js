@@ -224,6 +224,10 @@
     return goalRank(a) - goalRank(b);
   }
 
+  function hasScoringEvents(match) {
+    return activeEvents(match).some((event) => event.type === 'GOAL' || event.type === 'OWN_GOAL');
+  }
+
   function derivedScore(match) {
     let home = 0;
     let away = 0;
@@ -442,5 +446,5 @@
     });
   }
 
-  Object.assign(Y, { activeEvents, sanitizeEvent, validateEvent, addEvent, updateEvent, deleteEvent, eventEditWindowEndsAt, canEditEvent, halfLabel, eventTimeLabel, compareEvents, derivedScore, renderEventTimeline , openEventModal });
+  Object.assign(Y, { activeEvents, sanitizeEvent, validateEvent, addEvent, updateEvent, deleteEvent, eventEditWindowEndsAt, canEditEvent, halfLabel, eventTimeLabel, compareEvents, hasScoringEvents, derivedScore, renderEventTimeline , openEventModal });
 })();

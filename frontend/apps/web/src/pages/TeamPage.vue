@@ -3,76 +3,71 @@ import { isApiError } from '@yunhefc/api-client';
 import type { PlayerStats, TeamStats } from '@yunhefc/shared';
 import { positionText } from '@yunhefc/shared';
 import { Button, Empty, Loading } from 'vant';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
 import {
   avatarInitial,
   avatarSrc,
-  canExpandGroup,
-  GROUP_PREVIEW_SIZE,
   groupByPosition,
   mergeTeamStats,
-  visibleGroupPlayers,
   type TeamPlayer,
   type TeamPlayersView,
-  type TeamPositionGroup,
 } from '../features/team/merge-stats';
+import { mergeSeasonOptions, parseTeamSeason, serializeTeamSeason } from '../features/team/query';
 
+const route = useRoute();
+const router = useRouter();
+
+const season = ref(parseTeamSeason(route.query.season));
+const seasonOptions = ref(mergeSeasonOptions([], season.value));
 const roster = ref<TeamPlayer[]>([]);
 const stats = ref<PlayerStats[]>([]);
-const total = ref(0);
 const loading = ref(true);
 const error = ref('');
-const expandError = ref('');
-const expandErrorPosition = ref<number | null>(null);
-const expandingPosition = ref<number | null>(null);
-const fullLoaded = ref(false);
-const expandedPositions = ref<number[]>([]);
 const failedAvatars = ref<number[]>([]);
 let requestSeq = 0;
 
 const groups = computed(() => groupByPosition(mergeTeamStats(roster.value, stats.value)));
-const truncated = computed(() => roster.value.length < total.value);
 
 async function load(): Promise<void> {
   const seq = ++requestSeq;
+  const requestedSeason = season.value;
   loading.value = true;
   error.value = '';
-  expandError.value = '';
-  expandErrorPosition.value = null;
-  expandedPositions.value = [];
-  fullLoaded.value = false;
   failedAvatars.value = [];
+  stats.value = [];
 
   // 统计允许延迟：不参与首屏等待，缺失时降级为 PLR-01 出场数与「—」。
   const statsRequest = api
-    .get<TeamStats>('/team/stats', { redirectOnUnauthorized: false })
+    .get<TeamStats>('/team/stats', {
+      query: { season: requestedSeason },
+      redirectOnUnauthorized: false,
+    })
     .catch(() => null);
 
   try {
     const players = await api.get<TeamPlayersView>('/team/players', {
-      query: { limit: GROUP_PREVIEW_SIZE },
+      query: { all: true, season: requestedSeason },
       redirectOnUnauthorized: false,
     });
-    if (seq !== requestSeq) {
+    if (seq !== requestSeq || requestedSeason !== season.value) {
       return;
     }
     roster.value = players.items;
-    total.value = players.total;
     loading.value = false;
     void statsRequest.then((view) => {
-      if (seq === requestSeq && view) {
+      if (seq === requestSeq && requestedSeason === season.value && view) {
         stats.value = view.items;
       }
     });
   } catch (caught) {
-    if (seq !== requestSeq) {
+    if (seq !== requestSeq || requestedSeason !== season.value) {
       return;
     }
     roster.value = [];
     stats.value = [];
-    total.value = 0;
     error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
   } finally {
     if (seq === requestSeq) {
@@ -81,58 +76,38 @@ async function load(): Promise<void> {
   }
 }
 
-/** 首次展开取全量名单并缓存；后续展开/收起只做本地切片。 */
-async function loadAll(position: number): Promise<boolean> {
-  expandingPosition.value = position;
-  expandError.value = '';
-  expandErrorPosition.value = null;
+async function loadSeasonOptions(): Promise<void> {
   try {
-    const players = await api.get<TeamPlayersView>('/team/players', {
-      query: { all: true },
+    const result = await api.get<{ items: string[] }>('/matches/seasons', {
       redirectOnUnauthorized: false,
     });
-    roster.value = players.items;
-    total.value = players.total;
-    fullLoaded.value = true;
-    // 全量响应会重新签头像 URL，允许之前失败的占位重新尝试。
-    failedAvatars.value = [];
-    return true;
-  } catch (caught) {
-    expandError.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
-    expandErrorPosition.value = position;
-    return false;
-  } finally {
-    expandingPosition.value = null;
+    seasonOptions.value = mergeSeasonOptions(result.items, season.value);
+  } catch {
+    // 选项失败不阻塞名单与统计；至少保留当前年份与已选赛季。
+    seasonOptions.value = mergeSeasonOptions([], season.value);
   }
 }
 
-async function toggleGroup(position: number): Promise<void> {
-  if (expandingPosition.value !== null) {
+function changeSeason(event: Event): void {
+  const next = (event.target as HTMLSelectElement).value;
+  if (next === season.value) {
     return;
   }
-  if (expandedPositions.value.includes(position)) {
-    expandedPositions.value = expandedPositions.value.filter((item) => item !== position);
-    return;
-  }
-  if (!fullLoaded.value && !(await loadAll(position))) {
-    return;
-  }
-  expandedPositions.value = [...expandedPositions.value, position];
+  void router.replace({ query: serializeTeamSeason(next) });
 }
 
-function isExpanded(position: number): boolean {
-  return expandedPositions.value.includes(position);
-}
-
-function canToggle(group: TeamPositionGroup): boolean {
-  return canExpandGroup(group, { fullLoaded: fullLoaded.value, truncated: truncated.value });
-}
-
-/** 预览阶段只知每组至多 10 人，用「10+」避免把截断值当成真实人数。 */
-function groupCount(group: TeamPositionGroup): string {
-  const maybeMore = canToggle(group) && !isExpanded(group.position) && !fullLoaded.value;
-  return `${group.players.length}${maybeMore ? '+' : ''}`;
-}
+watch(
+  () => route.query.season,
+  (raw) => {
+    const next = parseTeamSeason(raw);
+    season.value = next;
+    if (!seasonOptions.value.includes(next)) {
+      seasonOptions.value = mergeSeasonOptions(seasonOptions.value, next);
+    }
+    void load();
+  },
+  { immediate: true },
+);
 
 function skillStars(skill: number): string {
   const filled = Math.max(0, Math.min(5, skill));
@@ -150,16 +125,25 @@ function showAvatar(player: TeamPlayer): boolean {
 }
 
 onMounted(() => {
-  void load();
+  void loadSeasonOptions();
 });
 </script>
 
 <template>
   <section class="page">
-    <header class="page-head">
-      <p class="eyebrow">SQUAD</p>
-      <h1>球队</h1>
-      <p class="muted">云河FC · 球员名单与本赛季数据</p>
+    <header class="page-head team-head">
+      <div>
+        <p class="eyebrow">SQUAD</p>
+        <h1>球队</h1>
+      </div>
+      <label class="team-season">
+        <span>赛季</span>
+        <select aria-label="赛季" :value="season" @change="changeSeason">
+          <option v-for="option in seasonOptions" :key="option" :value="option">
+            {{ option }}
+          </option>
+        </select>
+      </label>
     </header>
 
     <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>
@@ -179,16 +163,12 @@ onMounted(() => {
           <div class="team-group__head">
             <h2 class="team-group__title">
               <span>{{ positionText(group.position) }}</span>
-              <span class="muted small">{{ groupCount(group) }} 人</span>
+              <span class="muted small">{{ group.players.length }} 人</span>
             </h2>
           </div>
 
           <div class="team-roster">
-            <article
-              v-for="player in visibleGroupPlayers(group, isExpanded(group.position))"
-              :key="player.id"
-              class="player-card"
-            >
+            <article v-for="player in group.players" :key="player.id" class="player-card">
               <div class="player-card__top">
                 <img
                   v-if="showAvatar(player)"
@@ -223,22 +203,6 @@ onMounted(() => {
               </div>
             </article>
           </div>
-
-          <p v-if="expandErrorPosition === group.position" class="muted small">
-            {{ expandError }}
-          </p>
-
-          <Button
-            v-if="canToggle(group)"
-            class="team-group__toggle"
-            size="mini"
-            type="primary"
-            plain
-            :loading="expandingPosition === group.position"
-            @click="toggleGroup(group.position)"
-          >
-            {{ isExpanded(group.position) ? '收起' : '展开更多' }}
-          </Button>
         </section>
       </div>
     </template>
@@ -246,6 +210,40 @@ onMounted(() => {
 </template>
 
 <style scoped>
+.team-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.team-season {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--yh-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.team-season select {
+  min-width: 132px;
+  min-height: 34px;
+  padding: 6px 9px;
+  color: var(--yh-ink);
+  font-size: 13px;
+  background: var(--yh-surface);
+  border: 1px solid var(--yh-line);
+  border-radius: 9px;
+}
+
+.team-season select:focus {
+  border-color: var(--yh-green);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.14);
+}
+
 .team-groups {
   display: flex;
   flex-direction: column;
@@ -352,10 +350,6 @@ onMounted(() => {
   margin-top: auto;
   color: var(--yh-muted);
   border-top: 1px dashed var(--yh-line);
-}
-
-.team-group__toggle {
-  margin-top: 12px;
 }
 
 @media (max-width: 1000px) {

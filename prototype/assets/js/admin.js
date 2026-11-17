@@ -880,21 +880,25 @@
       const names = Y.teamNames(match);
       const events = Y.activeEvents(match).slice().sort(Y.compareEvents);
       const derived = Y.derivedScore(match);
+      const hasScoring = Y.hasScoringEvents(match);
       const readOnly = ['CANCELLED', 'POSTPONED'].includes(match.status);
+      const scoreEditor = hasScoring
+        ? `<div class="score-editor"><strong>${esc(names.home)} ${derived.home} : ${derived.away} ${esc(names.away)}</strong></div>
+           <p class="muted small">已按进球/乌龙事件推导最终比分；如需修改，请编辑或删除计分事件。</p>`
+        : `<div class="score-editor">
+            <label>${esc(names.home)}<input class="input" type="number" min="0" data-score="home" value="${match.score.home ?? 0}"${readOnly ? ' disabled' : ''}></label>
+            <span>:</span>
+            <label>${esc(names.away)}<input class="input" type="number" min="0" data-score="away" value="${match.score.away ?? 0}"${readOnly ? ' disabled' : ''}></label>
+            <button class="btn btn-primary btn-sm" data-action="save-score"${readOnly ? ' disabled' : ''}>保存比分</button>
+          </div>`;
       host.innerHTML = `<div class="admin-section-head">
-        <div><h1>事件 / 比分</h1><p class="muted">比分与事件独立录入，不一致只提示。</p></div>
+        <div><h1>事件 / 比分</h1><p class="muted">有进球/乌龙事件时比分按事件推导；无计分事件时可录入比分。</p></div>
         ${matchPicker(match.id, 'data-match-picker')}
       </div>
       <div class="events-admin-grid">
         <section class="admin-form-card">
           <h3>比分</h3>
-          <div class="score-editor">
-            <label>${esc(names.home)}<input class="input" type="number" min="0" data-score="home" value="${match.score.home ?? 0}"${readOnly ? ' disabled' : ''}></label>
-            <span>:</span>
-            <label>${esc(names.away)}<input class="input" type="number" min="0" data-score="away" value="${match.score.away ?? 0}"${readOnly ? ' disabled' : ''}></label>
-            <button class="btn btn-primary btn-sm" data-action="save-score"${readOnly ? ' disabled' : ''}>保存</button>
-          </div>
-          <p class="muted small">事件推导：${derived.ours} - ${derived.opponent}；对方进球未记录时会有差异。</p>
+          ${scoreEditor}
           ${Y.eventEntryOpen(match) ? '<button class="btn btn-ghost btn-sm" data-action="add-event">+ 录入事件</button>' : '<p class="muted small">仅进行中或已结束的比赛可录入事件。</p>'}
         </section>
         <section class="admin-form-card">
@@ -907,9 +911,14 @@
         selectedMatchId = event.target.value;
         render();
       });
-      $('[data-action="save-score"]', host).addEventListener('click', () => {
+      const saveScoreButton = $('[data-action="save-score"]', host);
+      if (saveScoreButton) saveScoreButton.addEventListener('click', () => {
         if (readOnly) {
           Y.toast('已取消或已延期的比赛不能修改比分');
+          return;
+        }
+        if (Y.hasScoringEvents(match)) {
+          Y.toast('已有进球/乌龙事件，最终比分按事件推导');
           return;
         }
         const home = $('[data-score="home"]', host).value;
@@ -918,9 +927,7 @@
         match.score.away = away === '' ? null : Number(away);
         Y.save();
         Y.addAudit(Y.currentUser().name, '修改比分', `${match.title} ${match.score.home ?? '-'}-${match.score.away ?? '-'}`);
-        const currentDerived = Y.derivedScore(match);
-        const mismatch = Number(match.score.home ?? 0) !== currentDerived.home || Number(match.score.away ?? 0) !== currentDerived.away;
-        Y.toast(mismatch ? '比分已保存；与事件推导不一致' : '比分已保存');
+        Y.toast('比分已保存');
         render();
       });
       const addEventButton = $('[data-action="add-event"]', host);

@@ -589,6 +589,14 @@
     return `${formatDate(iso)} ${weekday(iso)} ${formatTime(iso)}`;
   }
 
+  function formatMatchDay(iso) {
+    const date = new Date(iso);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day} ${weekday(iso)}`;
+  }
+
   function formatDateTimeRange(start, end) {
     if (!start || !end) return formatDateTime(start);
     const startDate = new Date(start);
@@ -726,33 +734,47 @@
       : { home: '云河FC', away: match.opponent };
   }
 
+  function effectiveScore(match) {
+    const scoring = window.YHFC && typeof window.YHFC.hasScoringEvents === 'function'
+      ? window.YHFC.hasScoringEvents(match)
+      : false;
+    if (scoring) {
+      const derived = window.YHFC.derivedScore(match);
+      return { home: derived.home, away: derived.away };
+    }
+    return { home: match.score.home, away: match.score.away };
+  }
+
   function winnerName(match) {
-    if (match.status !== 'FINISHED' || match.score.home == null || match.score.away == null) return null;
-    if (match.score.home > match.score.away) return teamNames(match).home;
-    if (match.score.home < match.score.away) return teamNames(match).away;
+    const score = effectiveScore(match);
+    if (match.status !== 'FINISHED' || score.home == null || score.away == null) return null;
+    if (score.home > score.away) return teamNames(match).home;
+    if (score.home < score.away) return teamNames(match).away;
     return null;
   }
 
   function resultOf(match) {
-    if (match.status !== 'FINISHED' || match.score.home == null || match.score.away == null) {
+    const score = effectiveScore(match);
+    if (match.status !== 'FINISHED' || score.home == null || score.away == null) {
       return { label: '—', cls: '' };
     }
     if (match.type === 'INTERNAL') {
       const names = teamNames(match);
-      if (match.score.home > match.score.away) return { label: `${names.home} 胜`, cls: 'result-win' };
-      if (match.score.home < match.score.away) return { label: `${names.away} 胜`, cls: 'result-win' };
+      if (score.home > score.away) return { label: `${names.home} 胜`, cls: 'result-win' };
+      if (score.home < score.away) return { label: `${names.away} 胜`, cls: 'result-win' };
       return { label: '平', cls: 'result-draw' };
     }
-    const ourScore = match.ourSide === 'AWAY' ? match.score.away : match.score.home;
-    const otherScore = match.ourSide === 'AWAY' ? match.score.home : match.score.away;
+    const ourScore = match.ourSide === 'AWAY' ? score.away : score.home;
+    const otherScore = match.ourSide === 'AWAY' ? score.home : score.away;
     if (ourScore > otherScore) return { label: '胜', cls: 'result-win' };
     if (ourScore < otherScore) return { label: '负', cls: 'result-loss' };
     return { label: '平', cls: 'result-draw' };
   }
 
   function scoreText(match) {
-    if (match.score.home == null || match.score.away == null) return 'VS';
-    return `${match.score.home} - ${match.score.away}`;
+    const score = effectiveScore(match);
+    if (score.home == null || score.away == null) return 'VS';
+    return `${score.home} - ${score.away}`;
   }
 
   function avatar(player, size) {
@@ -874,7 +896,7 @@
         </a>
         <nav class="nav">
           <a class="${active === 'home' ? 'active' : ''}" href="index.html">首页</a>
-          <a class="${active === 'matches' ? 'active' : ''}" href="matches.html">赛程</a>
+          <a class="${active === 'matches' ? 'active' : ''}" href="matches.html">比赛</a>
           <a class="${active === 'team' ? 'active' : ''}" href="team.html">球队</a>
           ${canAccessAdmin(user) ? `<a class="${active === 'admin' ? 'active' : ''}" href="admin.html">管理后台</a>` : ''}
         </nav>
@@ -1013,6 +1035,7 @@
     formatDate,
     formatTime,
     formatDateTime,
+    formatMatchDay,
     formatDateTimeRange,
     formatRelative,
     positionLabel,
@@ -1039,6 +1062,7 @@
     STATUS_RANK,
     roleLabel,
     teamNames,
+    effectiveScore,
     winnerName,
     resultOf,
     scoreText,

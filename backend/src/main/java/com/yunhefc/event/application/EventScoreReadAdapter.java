@@ -8,8 +8,11 @@ import com.yunhefc.event.infrastructure.MatchEventMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -19,11 +22,20 @@ public class EventScoreReadAdapter implements EventScoreReadPort {
 
     @Override
     public Optional<DerivedScoreSnapshot> findDerivedScore(Long matchId) {
-        List<MatchEvent> events = matchEventMapper.selectActiveByMatch(matchId);
-        if (events.isEmpty()) {
-            return Optional.empty();
+        return Optional.ofNullable(findDerivedScores(List.of(matchId)).get(matchId));
+    }
+
+    @Override
+    public Map<Long, DerivedScoreSnapshot> findDerivedScores(Collection<Long> matchIds) {
+        if (matchIds == null || matchIds.isEmpty()) {
+            return Map.of();
         }
-        EventScore score = EventScore.from(events);
-        return Optional.of(new DerivedScoreSnapshot(score.scoreHome(), score.scoreAway()));
+        return matchEventMapper.selectScoringByMatchIds(matchIds).stream()
+                .collect(Collectors.groupingBy(MatchEvent::getMatchId))
+                .entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, entry -> {
+                    EventScore score = EventScore.from(entry.getValue());
+                    return new DerivedScoreSnapshot(score.scoreHome(), score.scoreAway());
+                }));
     }
 }

@@ -31,6 +31,7 @@ class MatchAdminIT extends IntegrationTestSupport {
     @AfterEach
     void cleanup() {
         for (Long matchId : createdMatchIds) {
+            jdbc.update("DELETE FROM match_event WHERE match_id = ?", matchId);
             jdbc.update("DELETE FROM team_match WHERE id = ?", matchId);
         }
         for (Long userId : createdUserIds) {
@@ -340,6 +341,36 @@ class MatchAdminIT extends IntegrationTestSupport {
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    @Test
+    void adminListAndDetailExposeEffectiveScore() throws Exception {
+        Cookie admin = adminLogin("13900000520");
+        MvcResult created = create(admin, """
+                {"title":"M03管理端有效比分","type":0,"season":"2099","startAt":"%s","endAt":"%s",
+                 "venue":"聚龙足球场","homeTeamName":"云河FC","awayTeamName":"乙队",
+                 "scoreHome":3,"scoreAway":0}
+                """.formatted(local("2099-11-01T20:00:00"), local("2099-11-01T22:00:00")));
+        Long matchId = id(created);
+        jdbc.update("""
+                INSERT INTO match_event (match_id, team, type, player_id, minute, half, penalty, created_by)
+                VALUES (?, 1, 0, NULL, 10, 0, 0, 1)
+                """, matchId);
+
+        mockMvc.perform(get("/api/v1/b/matches/" + matchId).cookie(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scoreHome").value(0))
+                .andExpect(jsonPath("$.data.scoreAway").value(1));
+
+        mockMvc.perform(get("/api/v1/b/matches")
+                        .cookie(admin)
+                        .param("season", "2099")
+                        .param("pageSize", "100"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[?(@.id == %d)].scoreHome".formatted(matchId))
+                        .value(org.hamcrest.Matchers.hasItem(0)))
+                .andExpect(jsonPath("$.data.items[?(@.id == %d)].scoreAway".formatted(matchId))
+                        .value(org.hamcrest.Matchers.hasItem(1)));
     }
 
     @Test

@@ -2,6 +2,8 @@ package com.yunhefc.stats.infrastructure;
 
 import com.yunhefc.stats.application.RollupResult;
 import com.yunhefc.stats.application.StatsRollupApplicationService;
+
+import java.util.List;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.JobExecutionContext;
 import org.slf4j.Logger;
@@ -24,9 +26,11 @@ public class StatsRollupJob extends QuartzJobBean {
     @Override
     protected void executeInternal(JobExecutionContext context) {
         try {
-            RollupResult result = rollupService.rollUpCurrentSeason();
-            log.debug("stats rollup finished, teamId={}, season={}, matches={}, players={}",
-                    result.teamId(), result.season(), result.matchCount(), result.playerCount());
+            List<RollupResult> results = rollupService.rollUpAllSeasons();
+            int matches = results.stream().mapToInt(RollupResult::matchCount).sum();
+            int players = results.stream().mapToInt(RollupResult::playerCount).sum();
+            log.debug("stats rollup finished, teamId={}, seasons={}, matches={}, players={}",
+                    results.isEmpty() ? null : results.get(0).teamId(), results.size(), matches, players);
         } catch (RuntimeException ex) {
             // 失败只告警不抛出：保留上一次汇总结果，下一轮继续全量重试。
             log.error("stats rollup failed, previous summary retained", ex);

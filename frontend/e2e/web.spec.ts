@@ -86,6 +86,12 @@ test('C 端：录入进球后时间线与推导比分更新', async ({ page }) =
   await expect(page.locator('.event-card').first()).toContainText('测试后卫01');
   await expect(page.locator('.match-hero__teams strong')).toHaveText('1 : 0');
 
+  // 列表同样使用事件推导的最终比分，而不是独立存储比分。
+  await page.goto('/matches');
+  await expect(
+    page.locator('.match-card-link[href="/matches/1004"] .match-card__teams strong'),
+  ).toHaveText('1 : 0');
+
   expect(errors).toEqual([]);
 });
 

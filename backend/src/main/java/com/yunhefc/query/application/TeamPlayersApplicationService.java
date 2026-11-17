@@ -37,10 +37,10 @@ public class TeamPlayersApplicationService {
     private final AvatarUrlSigner avatarUrlSigner;
 
     @Transactional(readOnly = true)
-    public TeamPlayersView list(Integer limit, boolean all) {
+    public TeamPlayersView list(String requestedSeason, Integer limit, boolean all) {
         int perGroup = all ? Integer.MAX_VALUE : validateLimit(limit);
         Long teamId = teamReadPort.currentTeamId();
-        String season = statsQueryService.currentSeason();
+        String season = statsQueryService.resolveSeason(requestedSeason);
         List<RosterStats> roster = statsQueryService.rosterStats(teamId, season);
 
         Comparator<RosterStats> order = Comparator

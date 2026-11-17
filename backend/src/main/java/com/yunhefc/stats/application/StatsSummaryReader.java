@@ -32,4 +32,12 @@ public class StatsSummaryReader {
     public List<Long> playerIds(Long teamId, String season) {
         return statsMapper.selectPlayerIds(teamId, season);
     }
+
+    /**
+     * 汇总表已有赛季：用于清理由比赛删除/改赛季留下的残留行。
+     */
+    @Transactional(readOnly = true)
+    public List<String> seasons(Long teamId) {
+        return statsMapper.selectSeasons(teamId);
+    }
 }

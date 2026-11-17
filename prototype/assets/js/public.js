@@ -27,7 +27,7 @@
     const finished = Y.state.matches.filter((match) => match.status === 'FINISHED');
     const recent = byStartDesc.slice(1, 4);
     if (!next) {
-      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看赛程</a></div></section>`;
+      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看比赛</a></div></section>`;
       return;
     }
     const nextConfirmed = Y.confirmed(next, 'PLAYER').length;
@@ -56,7 +56,7 @@
           <h1>云河FC</h1>
           <p>一支球队的运营台，也是一群人的比赛日记。</p>
           <div class="hero-actions">
-            <a class="btn btn-primary" href="matches.html">查看赛程</a>
+            <a class="btn btn-primary" href="matches.html">查看比赛</a>
             <button class="btn btn-ghost" data-signup-next${ctaDisabled ? ' disabled' : ''}>${cta}</button>
             ${Y.canAccessAdmin(user) ? '<a class="btn btn-primary" href="admin.html">管理后台</a>' : ''}
           </div>
@@ -94,7 +94,7 @@
       </div>
     </section>
     ${recent.length ? `<section class="container section">
-      <div class="section-head"><div><h2>最近赛程</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部赛程 →</a></div>
+      <div class="section-head"><div><h2>最近比赛</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部比赛 →</a></div>
       <div class="match-grid">${recent.map(Y.renderMatchCard).join('')}</div>
     </section>` : ''}
     <section class="container section">
@@ -175,7 +175,7 @@
 
     host.innerHTML = `<div class="container section">
       <div class="page-head">
-        <div><span class="eyebrow">MATCHDAY</span><h1>赛程</h1><p class="muted">按比赛类型、地点、状态、月份、自定义时间筛选，条件变更即生效；胜队名称以红色高亮</p></div>
+        <div><span class="eyebrow">MATCHDAY</span><h1>比赛</h1><p class="muted">按比赛类型、地点、状态、月份、自定义时间筛选，条件变更即生效；胜队名称以红色高亮</p></div>
       </div>
       <form class="schedule-filters" data-filter-form>
         <label class="filter-field"><span>比赛类型</span><select class="input input-sm" data-filter="type"><option value="ALL">全部</option>${types.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select></label>
@@ -340,10 +340,6 @@
     let lineupSide = Y.ourLineupSide(match);
 
     function detailScoreText() {
-      if (Y.activeEvents(match).length) {
-        const derived = Y.derivedScore(match);
-        return `${derived.home} - ${derived.away}`;
-      }
       return Y.scoreText(match);
     }
 
@@ -382,11 +378,12 @@
             <div class="score-team ${winner === names.away ? 'winner' : ''}">${esc(names.away)}</div>
           </div>
           <div class="match-meta-grid">
-            <span>📅 ${Y.formatDateTime(match.start)}</span>
+            <span>📅 ${Y.formatMatchDay(match.start)}</span>
+            <span>🕐 ${Y.formatTime(match.start)}–${Y.formatTime(match.end)}</span>
+            <span>⏰ 报名截止 ${Y.formatDateTime(match.signupDeadline)}</span>
+            <span>🔒 报名锁定 ${Y.formatDateTime(match.cancelLock)}</span>
+            ${Y.matchOrdinalLabel(match) ? `<span>⚽ ${Y.matchOrdinalLabel(match)}</span>` : ''}
             <span>📍 ${esc(match.venue)}</span>
-            <span>⏱ ${Y.formatTime(match.start)}–${Y.formatTime(match.end)}</span>
-            <span>🏆 ${esc(match.competition || '—')}${match.round ? ` · 第 ${match.round} 轮` : ''}</span>
-            ${Y.matchOrdinalLabel(match) ? `<span>🏁 ${Y.matchOrdinalLabel(match)}</span>` : ''}
           </div>
           <div class="match-hero-actions">
             <button class="btn btn-ghost btn-sm" data-action="share">分享比赛</button>
@@ -553,7 +550,7 @@
             <div><b>${cards}</b><span>牌</span></div>
             <div><b>${subs}</b><span>换人</span></div>
           </div>
-          ${match.status === 'FINISHED' ? `<p class="muted small">比分 ${Y.scoreText(match)}</p>` : ''}
+          ${match.status === 'FINISHED' ? `<p class="muted small">最终比分 ${Y.scoreText(match)}</p>` : ''}
         </section>
         <section class="card">
           ${actions ? `<div class="event-actions">${actions}</div>` : ''}
@@ -784,9 +781,39 @@ render();
   function initTeam() {
     const host = $('#team-content');
     if (!host) return;
-    let showAll = false;
     const formal = Y.state.players.filter((player) => player.type === 'PLAYER' && player.status === 'ACTIVE');
     const positionOrder = ['FORWARD', 'MIDFIELDER', 'DEFENDER', 'GOALKEEPER'];
+    const currentSeason = String(new Date().getFullYear());
+    const requested = new URLSearchParams(location.search).get('season') || '';
+    let season = /^\d{4}$/.test(requested) ? requested : currentSeason;
+
+    function seasonOptions() {
+      const seasons = new Set([currentSeason, season]);
+      (Y.state.teamSeasons || []).forEach((item) => {
+        if (/^\d{4}$/.test(item)) seasons.add(item);
+      });
+      (Y.state.matches || []).forEach((match) => {
+        if (match.season) seasons.add(match.season);
+        else if (match.startAt) seasons.add(String(new Date(match.startAt).getFullYear()));
+      });
+      return Array.from(seasons).sort().reverse();
+    }
+
+    function statsFor(player) {
+      const row = ((Y.state.teamSeasonStats || {})[season] || {})[player.id];
+      if (row) return row;
+      if (season === currentSeason) {
+        return { appearances: player.appearances, goals: player.goals, assists: player.assists };
+      }
+      return { appearances: 0, goals: 0, assists: 0 };
+    }
+
+    function syncUrl() {
+      const url = new URL(location.href);
+      if (season === currentSeason) url.searchParams.delete('season');
+      else url.searchParams.set('season', season);
+      history.replaceState(null, '', url);
+    }
 
     function render() {
       const groups = positionOrder.map((position) => ({
@@ -794,28 +821,28 @@ render();
         label: Y.positionLabel(position),
         players: formal
           .filter((player) => player.position === position)
-          .sort((a, b) => (Number(b.appearances) || 0) - (Number(a.appearances) || 0) || (Number(a.jersey) || 0) - (Number(b.jersey) || 0))
+          .sort((a, b) => (Number(statsFor(b).appearances) || 0) - (Number(statsFor(a).appearances) || 0) || (Number(a.jersey) || 0) - (Number(b.jersey) || 0))
       })).filter((group) => group.players.length);
-      const hasMore = groups.some((group) => group.players.length > 10);
       host.innerHTML = `<div class="container section">
         <div class="page-head">
-          <div><span class="eyebrow">SQUAD</span><h1>球队</h1><p class="muted">${formal.length} 名正式球员 · 按位置分组 · 组内出场降序 → 号码升序</p></div>
-          <span class="badge badge-open">本赛季数据 · 最多延迟 10 分钟</span>
+          <div><span class="eyebrow">SQUAD</span><h1>球队</h1><p class="muted">${formal.length} 名正式球员 · 按位置分组 · 组内${season}赛季出场降序 → 号码升序</p></div>
+          <div class="team-season">
+            <label class="muted small" for="team-season">赛季</label>
+            <select id="team-season" aria-label="赛季">${seasonOptions().map((item) => `<option value="${item}"${item === season ? ' selected' : ''}>${item}</option>`).join('')}</select>
+            <span class="badge badge-open">${season} 赛季数据 · 最多延迟 1 分钟</span>
+          </div>
         </div>
-        ${groups.length ? groups.map((group) => {
-          const list = showAll ? group.players : group.players.slice(0, 10);
-          return `<section class="team-position">
+        ${groups.length ? groups.map((group) => `<section class="team-position">
             <div class="section-head"><div><h2>${group.label}</h2><p class="muted">${group.players.length} 人</p></div></div>
-            <div class="player-grid">${list.map(playerCard).join('')}</div>
-          </section>`;
-        }).join('') : '<div class="empty-state"><p>暂无正式球员</p></div>'}
-        ${hasMore ? `<div class="team-more"><button class="btn btn-ghost btn-sm" data-team-more>${showAll ? '收起' : '显示全部'}</button></div>` : ''}
+            <div class="player-grid">${group.players.map((player) => playerCard(player, statsFor(player))).join('')}</div>
+          </section>`).join('') : '<div class="empty-state"><p>暂无正式球员</p></div>'}
         <p class="muted small">公开字段：姓名、号码、位置、地区、头像、星级；手机号、考勤、账本、战术不公开。外挂球员默认不进入球队页。</p>
       </div>`;
-      const more = $('[data-team-more]', host);
-      if (more) {
-        more.addEventListener('click', () => {
-          showAll = !showAll;
+      const select = $('#team-season', host);
+      if (select) {
+        select.addEventListener('change', () => {
+          season = select.value;
+          syncUrl();
           render();
         });
       }
@@ -824,16 +851,17 @@ render();
     render();
   }
 
-  function playerCard(player) {
+  function playerCard(player, stats) {
+    const row = stats || player;
     return `<article class="player-card">
       <div class="player-card-top">${Y.avatar(player, 'md')}<span class="jersey">#${player.jersey}</span></div>
       <h3>${esc(player.name)}</h3>
       <p class="muted">${esc(player.region || '—')} · ${Y.positionLabel(player.position)}</p>
       <div class="player-stars">${Y.stars(player.skill)}</div>
       <div class="player-stats">
-        <span><b>${player.appearances}</b><small>出场</small></span>
-        <span><b>${player.goals}</b><small>进球</small></span>
-        <span><b>${player.assists}</b><small>助攻</small></span>
+        <span><b>${Number(row.appearances) || 0}</b><small>出场</small></span>
+        <span><b>${Number(row.goals) || 0}</b><small>进球</small></span>
+        <span><b>${Number(row.assists) || 0}</b><small>助攻</small></span>
       </div>
     </article>`;
   }
@@ -865,10 +893,26 @@ render();
       <div class="card">
         <span class="badge badge-type">${invite.type === 'TEAM' ? '入队邀请' : '比赛邀请'}</span>
         <h1>${invite.type === 'TEAM' ? '加入云河FC' : '云河FC 比赛邀请'}</h1>
-        <p class="muted">邀请人：${esc(invite.inviter || '—')} · 有效期至 ${Y.formatDateTime(invite.expiresAt)}</p>
         ${invite.type === 'TEAM'
-          ? '<p>接受后将直接加入球队（免审核）。已有账号也可使用此链接完成入队。</p>'
-          : (match ? `<p>${esc(match.title)} · ${Y.formatDateTime(match.start)} · ${esc(match.venue)}</p><p class="muted">比赛邀请只引导报名，不改变账号状态。</p>` : '')}
+          ? `<p class="muted">邀请人：${esc(invite.inviter || '—')} · 有效期至 ${Y.formatDateTime(invite.expiresAt)}</p>
+            <p>接受后将直接加入球队（免审核）。已有账号也可使用此链接完成入队。</p>`
+          : (match
+            ? `<p>${esc(match.title)}</p>
+              <div class="invite-hero">
+                <p class="invite-hero__date">📅 ${Y.formatMatchDay(match.start)}</p>
+                <p class="invite-hero__time">🕐 ${Y.formatTime(match.start)}–${Y.formatTime(match.end)}</p>
+              </div>
+              <div class="invite-facts">
+                <div class="invite-fact"><span>⏰ 报名截止</span><strong>${Y.formatDateTime(match.signupDeadline)}</strong></div>
+                <div class="invite-fact"><span>🔒 报名锁定</span><strong>${Y.formatDateTime(match.cancelLock)}</strong></div>
+                <div class="invite-fact"><span>⚽ 赛季场次</span><strong>${Y.matchOrdinalLabel(match) || '—'}</strong></div>
+                <div class="invite-fact"><span>📍 场地</span><strong>${esc(match.venue)}</strong></div>
+                <div class="invite-fact"><span>🎫 名额</span><strong>${Y.confirmed(match, 'PLAYER').length} / ${Number(match.capacity) || 0}</strong></div>
+                <div class="invite-fact"><span>🤝 邀请人</span><strong>${esc(invite.inviter || '—')}</strong></div>
+                <div class="invite-fact"><span>⏳ 有效期至</span><strong>${Y.formatDateTime(invite.expiresAt)}</strong></div>
+              </div>
+              <p class="muted">比赛邀请只引导报名，不改变账号状态。</p>`
+            : '')}
         <div class="hero-actions">${action}</div>
       </div>
     </section>`;

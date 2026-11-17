@@ -577,9 +577,24 @@
     groupingAssistWeight: 25
   };
 
+  // 球队页赛季筛选演示：2025 赛季用一组与当前赛季不同的出场/进球/助攻。
+  const teamSeasons = ['2025'];
+  const teamSeasonStats = {
+    '2025': {
+      4: { appearances: 2, goals: 0, assists: 0 },
+      10: { appearances: 3, goals: 1, assists: 0 },
+      15: { appearances: 15, goals: 7, assists: 1 },
+      22: { appearances: 12, goals: 0, assists: 0 },
+      26: { appearances: 8, goals: 2, assists: 3 },
+      29: { appearances: 5, goals: 4, assists: 1 }
+    }
+  };
+
   window.YHFC_DATA = {
     players,
     matches,
+    teamSeasons,
+    teamSeasonStats,
     formations,
     permissions,
     roles,

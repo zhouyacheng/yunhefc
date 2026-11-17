@@ -1,5 +1,7 @@
 package com.yunhefc.stats.application;
 
+import com.yunhefc.common.error.BusinessException;
+import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.player.PlayerPublicSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.stats.infrastructure.StatsCache;
@@ -13,15 +15,17 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
- * 统计只读接口：球队页与分组读取汇总结果，允许最多 10 分钟延迟。
+ * 统计只读接口：球队页与分组读取汇总结果，允许最多 1 分钟延迟。
  */
 @Service
 @RequiredArgsConstructor
 public class StatsQueryService {
 
     private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
+    private static final Pattern SEASON_PATTERN = Pattern.compile("\\d{4}");
 
     private final StatsSummaryReader summaryReader;
     private final PlayerReadPort playerReadPort;
@@ -33,6 +37,20 @@ public class StatsQueryService {
      */
     public String currentSeason() {
         return String.valueOf(LocalDate.now(clock.withZone(BUSINESS_ZONE)).getYear());
+    }
+
+    /**
+     * 请求赛季：缺省取当前赛季，显式值必须为四位年份。
+     */
+    public String resolveSeason(String requestedSeason) {
+        if (requestedSeason == null || requestedSeason.isBlank()) {
+            return currentSeason();
+        }
+        String season = requestedSeason.trim();
+        if (!SEASON_PATTERN.matcher(season).matches()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "season 必须为四位年份");
+        }
+        return season;
     }
 
     /**

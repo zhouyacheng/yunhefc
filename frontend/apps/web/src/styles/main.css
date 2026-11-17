@@ -1041,7 +1041,7 @@ textarea {
   align-items: center;
 }
 
-.match-hero__top .muted:last-child {
+.match-hero__top .status-tag {
   margin-left: auto;
 }
 
@@ -1077,8 +1077,13 @@ textarea {
 .match-hero__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 14px;
+  gap: 10px 22px;
   font-size: 13px;
+  line-height: 1.6;
+}
+
+.match-hero__meta > span {
+  white-space: nowrap;
 }
 
 .match-hero__result {

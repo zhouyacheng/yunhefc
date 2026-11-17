@@ -187,6 +187,42 @@ test('B 端：比赛选择器默认当前赛季、下拉分页与深链刷新', 
   expect(requestUrl.searchParams.get('page')).toBe('1');
 
   await expect(page.locator('.season-filter')).toContainText(`${currentYear} 赛季`);
+  await expect(page.locator('.month-filter')).toBeVisible();
+
+  // 自定义月份面板：没有年份，只有 12 个月；1月–3月换算为日期范围。
+  const monthRequest = page.waitForRequest(
+    (request) =>
+      request.url().includes('/api/v1/c/matches?') &&
+      request.url().includes(`startDate=${currentYear}-01-01`) &&
+      request.url().includes(`endDate=${currentYear}-03-31`),
+  );
+  await page.locator('.month-filter').click();
+  const monthPopper = page.locator('.month-range-popper:visible');
+  await expect(monthPopper).toBeVisible();
+  await expect(monthPopper.getByRole('button')).toHaveCount(12);
+  await expect(monthPopper).not.toContainText('年');
+  await monthPopper.getByRole('button', { name: '1月', exact: true }).click();
+  await monthPopper.getByRole('button', { name: '3月', exact: true }).click();
+  await monthRequest;
+  await expect(page.locator('.month-filter')).toContainText('1月 至 3月');
+
+  // 全部赛季：清空并禁用月份筛选。
+  await page.locator('.season-filter').click();
+  await page
+    .locator('.el-select__popper:visible .el-select-dropdown__item')
+    .filter({ hasText: '全部赛季' })
+    .click();
+  await expect(page.locator('.month-filter')).toHaveClass(/is-disabled/);
+  await expect(page.locator('.month-filter')).toContainText('全部赛季不筛选月份');
+
+  // 切回当前赛季：恢复可用且月份为空。
+  await page.locator('.season-filter').click();
+  await page
+    .locator('.el-select__popper:visible .el-select-dropdown__item')
+    .filter({ hasText: `${currentYear} 赛季` })
+    .click();
+  await expect(page.locator('.month-filter')).not.toHaveClass(/is-disabled/);
+  await expect(page.locator('.month-filter')).toContainText('开始月份 至 结束月份');
 
   await pickMatch(page, '橙队VS兰队', '已锁定');
   await expect(page).toHaveURL(/[?&]match=\d+/);
@@ -267,10 +303,11 @@ test('B 端：比赛选择器下拉翻页并保留当前选中', async ({ page }
   await expect(
     popper.locator('.el-select-dropdown__item').filter({ hasText: 'E2E翻页赛9010' }),
   ).toBeVisible();
-  // 当前选中项不在第 2 页时仍保留在“当前选择”组。
+  // 当前选中项不出现在下拉选项；触发框仍显示它。
   await expect(
     popper.locator('.el-select-dropdown__item').filter({ hasText: 'E2E翻页赛9000' }),
-  ).toBeVisible();
+  ).toHaveCount(0);
+  await expect(page.locator('.match-picker')).toContainText('E2E翻页赛9000');
 
   await popper.locator('.el-select-dropdown__item').filter({ hasText: 'E2E翻页赛9010' }).click();
   await expect(page.locator('.match-picker')).toContainText('E2E翻页赛9010');

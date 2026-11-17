@@ -12,6 +12,8 @@ const session = useSessionStore();
 const route = useRoute();
 const router = useRouter();
 
+const copyrightYears = `2026-${new Date().getFullYear()}`;
+
 const navItems = computed(() =>
   ADMIN_SECTIONS.filter((section) => session.sections.includes(section)).map((section) => ({
     section,
@@ -70,6 +72,13 @@ async function onCommand(command: string): Promise<void> {
       <el-main class="admin-main">
         <RouterView />
       </el-main>
+
+      <el-footer class="admin-footer">
+        <p class="admin-footer__copyright">© {{ copyrightYears }} 云河FC All Rights Reserved</p>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+          苏ICP备2026090382号
+        </a>
+      </el-footer>
     </el-container>
   </el-container>
 </template>

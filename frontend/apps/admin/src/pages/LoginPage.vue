@@ -12,6 +12,8 @@ const session = useSessionStore();
 const route = useRoute();
 const router = useRouter();
 
+const copyrightYears = `2026-${new Date().getFullYear()}`;
+
 const phone = ref('');
 const password = ref('');
 const submitting = ref(false);
@@ -102,5 +104,12 @@ async function submit(): Promise<void> {
         </el-button>
       </el-form>
     </div>
+
+    <footer class="admin-footer">
+      <p class="admin-footer__copyright">© {{ copyrightYears }} 云河FC All Rights Reserved</p>
+      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+        苏ICP备2026090382号
+      </a>
+    </footer>
   </div>
 </template>

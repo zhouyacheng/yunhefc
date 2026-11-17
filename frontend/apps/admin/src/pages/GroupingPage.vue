@@ -21,24 +21,23 @@ import {
   MATCH_STATUS_TEXT,
   formatDateTime,
   groupingTeamName,
-  isInternalMatchType,
   positionText,
 } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, h, onMounted, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, h, ref, watch } from 'vue';
 
-import { api, publicApi } from '../api/client';
+import { api } from '../api/client';
+import MatchPicker from '../components/MatchPicker.vue';
 import { useSessionStore } from '../stores/session';
 
-const route = useRoute();
 const session = useSessionStore();
 
-const matches = ref<MatchSummary[]>([]);
+const pickerRef = ref<InstanceType<typeof MatchPicker> | null>(null);
+const selectedMatch = ref<MatchSummary | null>(null);
 const selectedMatchId = ref<number | null>(null);
 const grouping = ref<GroupingAdmin | null>(null);
 const roster = ref<RegistrationRow[]>([]);
-const loadingMatches = ref(false);
+const loadingMatches = ref(true);
 const loadingGrouping = ref(false);
 const loadingRoster = ref(false);
 const generating = ref(false);
@@ -51,9 +50,6 @@ const groupingError = ref('');
 const rosterError = ref('');
 const actionError = ref('');
 
-const selectedMatch = computed(
-  () => matches.value.find((match) => match.id === selectedMatchId.value) ?? null,
-);
 const hasGrouping = computed(() =>
   Boolean(grouping.value && (grouping.value.teams.A.length || grouping.value.teams.B.length)),
 );
@@ -222,39 +218,6 @@ function rosterBadge(row: RegistrationRow): {
   return { label: '不参与', type: 'info' };
 }
 
-async function loadMatches(): Promise<void> {
-  loadingMatches.value = true;
-  error.value = '';
-  try {
-    // 比赛选择器读公开赛程：grouping:view:any 的只读用户不一定有 match:view:any。
-    const result = await publicApi.get<Page<MatchSummary>>('/matches', {
-      query: { scope: 'all', sort: 'startAt:desc', page: 1, pageSize: 100 },
-    });
-    matches.value = result.items.filter((match) => isInternalMatchType(match.type));
-    const requested = Number(route.query.match);
-    if (Number.isInteger(requested) && !matches.value.some((match) => match.id === requested)) {
-      try {
-        const detail = await publicApi.get<MatchSummary>(`/matches/${requested}`);
-        if (isInternalMatchType(detail.type)) {
-          matches.value = [detail, ...matches.value];
-        }
-      } catch {
-        // 深链目标不存在或无权查看时回退到列表首场。
-      }
-    }
-    if (!matches.value.some((match) => match.id === selectedMatchId.value)) {
-      selectedMatchId.value = matches.value.some((match) => match.id === requested)
-        ? requested
-        : (matches.value[0]?.id ?? null);
-    }
-    await refreshSelected();
-  } catch (caught) {
-    error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
-  } finally {
-    loadingMatches.value = false;
-  }
-}
-
 async function refreshSelected(): Promise<void> {
   const matchId = selectedMatchId.value;
   grouping.value = null;
@@ -268,7 +231,9 @@ async function refreshSelected(): Promise<void> {
   await Promise.all([loadGrouping(matchId), loadRoster(matchId)]);
 }
 
-function onMatchChange(): void {
+function onMatchChange(match: MatchSummary | null): void {
+  error.value = '';
+  selectedMatch.value = match;
   void refreshSelected();
 }
 
@@ -360,7 +325,7 @@ async function generate(confirm = false): Promise<void> {
     }
     const message = isApiError(caught) ? caught.message : '生成分组失败';
     if (isApiError(caught) && caught.code === ERROR_CODES.MATCH_STATE_CONFLICT) {
-      await loadMatches();
+      await pickerRef.value?.reload();
     }
     // 放在刷新之后，避免 refreshSelected 清空错误提示。
     actionError.value = message;
@@ -518,8 +483,8 @@ async function handleGroupingError(caught: unknown): Promise<void> {
   }
   if (isApiError(caught) && caught.code === ERROR_CODES.MATCH_STATE_CONFLICT) {
     const message = caught.message;
-    await loadMatches();
-    // loadMatches 经 refreshSelected 清空提示，因此在刷新后回填。
+    await pickerRef.value?.reload();
+    // reload 经 refreshSelected 清空提示，因此在刷新后回填。
     actionError.value = message;
     return;
   }
@@ -642,8 +607,6 @@ function retryGrouping(): void {
     void loadGrouping(selectedMatchId.value);
   }
 }
-
-onMounted(loadMatches);
 </script>
 
 <template>
@@ -653,22 +616,16 @@ onMounted(loadMatches);
         <h2>队内分组</h2>
         <p class="muted">仅队内赛/训练赛且已锁定；生成含随机因子，可多次重新生成。</p>
       </div>
-      <el-select
-        v-if="matches.length"
-        v-model="selectedMatchId"
-        class="match-picker"
-        filterable
-        placeholder="选择比赛"
-        @change="onMatchChange"
-      >
-        <el-option
-          v-for="match in matches"
-          :key="match.id"
-          :value="match.id"
-          :label="`${match.title} · ${formatDateTime(match.startAt)} · ${MATCH_STATUS_TEXT[match.status]}`"
-        />
-      </el-select>
     </div>
+
+    <MatchPicker
+      ref="pickerRef"
+      v-model="selectedMatchId"
+      internal-only
+      @change="onMatchChange"
+      @update:loading="loadingMatches = $event"
+      @load-error="error = $event"
+    />
 
     <el-alert
       v-if="error"
@@ -678,14 +635,11 @@ onMounted(loadMatches);
       :closable="false"
       show-icon
     >
-      <el-button size="small" @click="loadMatches">重试</el-button>
+      <el-button size="small" @click="pickerRef?.reload()">重试</el-button>
     </el-alert>
 
-    <div v-loading="loadingMatches" class="page-body">
-      <el-empty
-        v-if="!loadingMatches && !matches.length"
-        description="暂无队内赛/训练赛，请先创建比赛"
-      >
+    <div v-loading="loadingGrouping || loadingRoster" class="page-body">
+      <el-empty v-if="!loadingMatches && !selectedMatch" description="当前筛选下暂无队内赛/训练赛">
         <RouterLink to="/matches">
           <el-button type="primary">去比赛管理</el-button>
         </RouterLink>

@@ -12,6 +12,7 @@ import type {
   EventUpdate,
   MatchAdmin,
   MatchEvent,
+  MatchSummary,
   Page,
   RegistrationRow,
   ScoreResponse,
@@ -24,22 +25,21 @@ import {
   MATCH_STATUS_TEXT,
   eventHalfText,
   eventTypeText,
-  formatDateTime,
   positionText,
 } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, onMounted, reactive, ref } from 'vue';
-import { useRoute } from 'vue-router';
+import { computed, reactive, ref } from 'vue';
 
 import { api, publicApi } from '../api/client';
+import MatchPicker from '../components/MatchPicker.vue';
 import { useSessionStore } from '../stores/session';
 
-const route = useRoute();
 const session = useSessionStore();
 
-const matches = ref<MatchAdmin[]>([]);
+const pickerRef = ref<InstanceType<typeof MatchPicker> | null>(null);
+const selectedMatch = ref<MatchAdmin | null>(null);
 const selectedMatchId = ref<number | null>(null);
-const loadingMatches = ref(false);
+const loadingMatches = ref(true);
 const error = ref('');
 
 const events = ref<MatchEvent[]>([]);
@@ -76,9 +76,6 @@ const form = reactive({
 
 const canEdit = computed(() => hasPermission(session.permissions, EVENT_EDIT_ANY));
 const canDelete = computed(() => hasPermission(session.permissions, EVENT_DELETE_ANY));
-const selectedMatch = computed(
-  () => matches.value.find((match) => match.id === selectedMatchId.value) ?? null,
-);
 const readOnly = computed(
   () =>
     selectedMatch.value?.status === MATCH_STATUS_CANCELLED ||
@@ -170,47 +167,11 @@ async function refreshSelectedMatchSummary(): Promise<void> {
     if (matchId !== selectedMatchId.value) {
       return;
     }
-    const index = matches.value.findIndex((match) => match.id === matchId);
-    if (index >= 0) {
-      matches.value[index] = detail;
-    }
+    selectedMatch.value = detail;
+    pickerRef.value?.updateSummary(detail);
     syncScoreInputs();
   } catch {
     // 摘要刷新失败不阻断时间线；下次切换或保存时会重新拉取。
-  }
-}
-
-async function loadMatches(): Promise<void> {
-  loadingMatches.value = true;
-  error.value = '';
-  try {
-    const result = await api.get<Page<MatchAdmin>>('/matches', {
-      query: { scope: 'all', sort: 'startAt:desc', page: 1, pageSize: 100 },
-    });
-    matches.value = result.items;
-    const requested = Number(route.query.match);
-    if (Number.isInteger(requested) && !matches.value.some((match) => match.id === requested)) {
-      // C03 深链可能指向第一页之外的旧比赛，按 id 补取，避免静默落到最新一场。
-      try {
-        const detail = await api.get<MatchAdmin>(`/matches/${requested}`);
-        matches.value = [detail, ...matches.value];
-      } catch {
-        // 不存在或无权查看时回退到列表首场。
-      }
-    }
-    if (
-      selectedMatchId.value === null ||
-      !matches.value.some((match) => match.id === selectedMatchId.value)
-    ) {
-      selectedMatchId.value = matches.value.some((match) => match.id === requested)
-        ? requested
-        : (matches.value[0]?.id ?? null);
-    }
-    await refreshSelected();
-  } catch (caught) {
-    error.value = isApiError(caught) ? caught.message : '加载失败，请稍后重试';
-  } finally {
-    loadingMatches.value = false;
   }
 }
 
@@ -225,7 +186,9 @@ async function refreshSelected(): Promise<void> {
   await Promise.all([loadTimeline(), loadRoster()]);
 }
 
-function onMatchChange(): void {
+function onMatchChange(match: MatchSummary | null): void {
+  error.value = '';
+  selectedMatch.value = match as MatchAdmin | null;
   void refreshSelected();
 }
 
@@ -325,7 +288,7 @@ async function saveScore(): Promise<void> {
     if (isApiError(caught) && caught.code === ERROR_CODES.BUSINESS_RULE_VIOLATION) {
       await Promise.all([refreshSelectedMatchSummary(), loadTimeline()]);
     } else if (needsRefresh(caught)) {
-      await loadMatches();
+      await pickerRef.value?.reload();
     }
   } finally {
     scoreSaving.value = false;
@@ -453,7 +416,7 @@ async function submitEvent(): Promise<void> {
     } else if (needsRefresh(caught)) {
       dialogVisible.value = false;
       ElMessage.error(isApiError(caught) ? caught.message : '状态或版本已变更，请重试');
-      await loadMatches();
+      await pickerRef.value?.reload();
     } else {
       eventFormError.value = isApiError(caught) ? caught.message : '事件保存失败，请稍后重试';
     }
@@ -490,7 +453,7 @@ async function deleteEvent(event: MatchEvent): Promise<void> {
   } catch (caught) {
     ElMessage.error(isApiError(caught) ? caught.message : '删除失败');
     if (needsRefresh(caught)) {
-      await loadMatches();
+      await pickerRef.value?.reload();
     }
   } finally {
     if (actionBusy.value === key) {
@@ -498,8 +461,6 @@ async function deleteEvent(event: MatchEvent): Promise<void> {
     }
   }
 }
-
-onMounted(loadMatches);
 </script>
 
 <template>
@@ -511,22 +472,16 @@ onMounted(loadMatches);
           有进球/乌龙事件时比分按事件推导；无计分事件时可录入比分。已取消/已延期比赛只读。
         </p>
       </div>
-      <el-select
-        v-if="matches.length"
-        v-model="selectedMatchId"
-        class="match-picker"
-        filterable
-        placeholder="选择比赛"
-        @change="onMatchChange"
-      >
-        <el-option
-          v-for="match in matches"
-          :key="match.id"
-          :value="match.id"
-          :label="`${match.title} · ${formatDateTime(match.startAt)} · ${MATCH_STATUS_TEXT[match.status]}`"
-        />
-      </el-select>
     </div>
+
+    <MatchPicker
+      ref="pickerRef"
+      v-model="selectedMatchId"
+      source="admin"
+      @change="onMatchChange"
+      @update:loading="loadingMatches = $event"
+      @load-error="error = $event"
+    />
 
     <el-alert
       v-if="error"
@@ -536,11 +491,14 @@ onMounted(loadMatches);
       :closable="false"
       show-icon
     >
-      <el-button size="small" @click="loadMatches">重试</el-button>
+      <el-button size="small" @click="pickerRef?.reload()">重试</el-button>
     </el-alert>
 
-    <div v-loading="loadingMatches" class="page-body">
-      <el-empty v-if="!loadingMatches && !matches.length" description="暂无比赛，请先创建比赛">
+    <div v-loading="loadingTimeline || loadingRoster" class="page-body">
+      <el-empty
+        v-if="!loadingMatches && !selectedMatch"
+        description="当前筛选下暂无比赛，试试调整赛季/日期/状态"
+      >
         <RouterLink to="/matches">
           <el-button type="primary">去比赛管理</el-button>
         </RouterLink>

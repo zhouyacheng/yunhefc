@@ -894,6 +894,7 @@ onMounted(loadSeasons);
       :default-sort="{ prop: 'startAt', order: 'descending' }"
       @sort-change="onSortChange"
     >
+      <el-table-column label="ID" prop="id" width="80" />
       <el-table-column label="赛季" prop="season" width="90" sortable="custom" />
       <el-table-column label="场次" prop="seasonMatchNo" width="100" sortable="custom">
         <template #default="{ row }">{{ row.seasonMatchNo }}</template>

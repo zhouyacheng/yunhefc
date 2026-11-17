@@ -23,7 +23,7 @@ interface TabEntry {
 
 const TABS: readonly TabEntry[] = [
   { name: 'home', path: '/', icon: 'home-o', label: '首页', exact: true },
-  { name: 'matches', path: '/matches', icon: 'calendar-o', label: '赛程' },
+  { name: 'matches', path: '/matches', icon: 'calendar-o', label: '比赛' },
   { name: 'team', path: '/team', icon: 'friends-o', label: '球队' },
   { name: 'profile', path: '/profile', icon: 'user-o', label: '我的', badge: true },
 ];

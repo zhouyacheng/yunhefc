@@ -874,7 +874,7 @@
         </a>
         <nav class="nav">
           <a class="${active === 'home' ? 'active' : ''}" href="index.html">首页</a>
-          <a class="${active === 'matches' ? 'active' : ''}" href="matches.html">赛程</a>
+          <a class="${active === 'matches' ? 'active' : ''}" href="matches.html">比赛</a>
           <a class="${active === 'team' ? 'active' : ''}" href="team.html">球队</a>
           ${canAccessAdmin(user) ? `<a class="${active === 'admin' ? 'active' : ''}" href="admin.html">管理后台</a>` : ''}
         </nav>

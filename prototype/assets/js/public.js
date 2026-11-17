@@ -27,7 +27,7 @@
     const finished = Y.state.matches.filter((match) => match.status === 'FINISHED');
     const recent = byStartDesc.slice(1, 4);
     if (!next) {
-      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看赛程</a></div></section>`;
+      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看比赛</a></div></section>`;
       return;
     }
     const nextConfirmed = Y.confirmed(next, 'PLAYER').length;
@@ -56,7 +56,7 @@
           <h1>云河FC</h1>
           <p>一支球队的运营台，也是一群人的比赛日记。</p>
           <div class="hero-actions">
-            <a class="btn btn-primary" href="matches.html">查看赛程</a>
+            <a class="btn btn-primary" href="matches.html">查看比赛</a>
             <button class="btn btn-ghost" data-signup-next${ctaDisabled ? ' disabled' : ''}>${cta}</button>
             ${Y.canAccessAdmin(user) ? '<a class="btn btn-primary" href="admin.html">管理后台</a>' : ''}
           </div>
@@ -94,7 +94,7 @@
       </div>
     </section>
     ${recent.length ? `<section class="container section">
-      <div class="section-head"><div><h2>最近赛程</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部赛程 →</a></div>
+      <div class="section-head"><div><h2>最近比赛</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部比赛 →</a></div>
       <div class="match-grid">${recent.map(Y.renderMatchCard).join('')}</div>
     </section>` : ''}
     <section class="container section">
@@ -175,7 +175,7 @@
 
     host.innerHTML = `<div class="container section">
       <div class="page-head">
-        <div><span class="eyebrow">MATCHDAY</span><h1>赛程</h1><p class="muted">按比赛类型、地点、状态、月份、自定义时间筛选，条件变更即生效；胜队名称以红色高亮</p></div>
+        <div><span class="eyebrow">MATCHDAY</span><h1>比赛</h1><p class="muted">按比赛类型、地点、状态、月份、自定义时间筛选，条件变更即生效；胜队名称以红色高亮</p></div>
       </div>
       <form class="schedule-filters" data-filter-form>
         <label class="filter-field"><span>比赛类型</span><select class="input input-sm" data-filter="type"><option value="ALL">全部</option>${types.map(([value, label]) => `<option value="${value}">${label}</option>`).join('')}</select></label>

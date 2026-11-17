@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
   <section class="page">
     <header class="page-head">
       <p class="eyebrow">MATCHDAY</p>
-      <h1>赛程</h1>
+      <h1>比赛</h1>
       <p class="muted">共 {{ total }} 场比赛 · 按开赛时间降序</p>
     </header>
 

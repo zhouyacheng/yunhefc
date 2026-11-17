@@ -19,8 +19,8 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
     /\d{4}\/\d{2}\/\d{2} \d{2}:\d{2} ~ (?:\d{2}\/\d{2} )?\d{2}:\d{2}/,
   );
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
-  // 最近赛程取 Hero 之后的 3 场：1003、1005、1004。
-  await expect(page.getByRole('heading', { name: '最近赛程' })).toBeVisible();
+  // 最近比赛取 Hero 之后的 3 场：1003、1005、1004。
+  await expect(page.getByRole('heading', { name: '最近比赛' })).toBeVisible();
   await expect(page.locator('.home-section .match-card')).toHaveCount(3);
   await expect(page.locator('.home-section .match-card-link[href="/matches/1001"]')).toHaveCount(0);
   await expect(page.locator('.home-section .match-card-link').first()).toHaveAttribute(
@@ -41,7 +41,7 @@ test('C01 首页：登录球员看到最近一场与报名队列', async ({ page
   const errors = collectConsoleErrors(page);
   await loginAs(page);
 
-  await expect(page.locator('.van-tabbar-item--active')).toContainText('赛程');
+  await expect(page.locator('.van-tabbar-item--active')).toContainText('比赛');
 
   await page.locator('.van-tabbar-item').filter({ hasText: '首页' }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -173,7 +173,7 @@ test('C01 首页：无比赛显示空态', async ({ page }) => {
 
   await page.goto('/');
   await expect(page.getByText('暂无比赛')).toBeVisible();
-  await expect(page.getByRole('button', { name: '去赛程' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '去比赛' })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

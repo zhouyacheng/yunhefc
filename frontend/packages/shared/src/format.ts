@@ -22,6 +22,18 @@ const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
   hourCycle: 'h23',
 });
 
+const yearDateFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+const weekdayFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  weekday: 'short',
+});
+
 const dayKeyFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Shanghai',
   year: 'numeric',
@@ -50,6 +62,45 @@ export function formatDate(value: string | null | undefined): string {
   }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : dateFormatter.format(date);
+}
+
+/** 带年份与星期：2026/12/02 周三。 */
+export function formatDateWithYear(value: string | null | undefined): string {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return `${yearDateFormatter.format(date)} ${weekdayFormatter.format(date)}`;
+}
+
+/** 比赛时段：同日 19:30–21:30；跨天 22:00–12/02 02:00。 */
+export function formatTimeRange(
+  startAt: string | null | undefined,
+  endAt: string | null | undefined,
+): string {
+  if (!startAt) {
+    return '—';
+  }
+  const start = new Date(startAt);
+  if (Number.isNaN(start.getTime())) {
+    return '—';
+  }
+  const startText = timeFormatter.format(start);
+  if (!endAt) {
+    return startText;
+  }
+  const end = new Date(endAt);
+  if (Number.isNaN(end.getTime()) || end.getTime() < start.getTime()) {
+    return startText;
+  }
+  const endText = timeFormatter.format(end);
+  if (dayKeyFormatter.format(start) === dayKeyFormatter.format(end)) {
+    return `${startText}–${endText}`;
+  }
+  return `${startText}–${monthDayFormatter.format(end)} ${endText}`;
 }
 
 /** 同日：YYYY/MM/DD HH:mm ~ HH:mm；跨天：YYYY/MM/DD HH:mm ~ MM/DD HH:mm。 */

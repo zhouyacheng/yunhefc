@@ -7,6 +7,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import logoUrl from '../assets/logo.png';
 import { api } from '../api/client';
+import SiteFooter from '../components/SiteFooter.vue';
 import {
   authErrorMessage,
   isInviteUsable,
@@ -560,6 +561,8 @@ function selectPosition(action: { code?: number }): void {
 
       <p class="login-footnote muted">换绑手机号请联系管理员</p>
     </div>
+
+    <SiteFooter />
 
     <ActionSheet
       v-model:show="showPosition"

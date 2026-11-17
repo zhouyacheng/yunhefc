@@ -8,6 +8,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import logoUrl from '../assets/logo.png';
 import { api } from '../api/client';
+import SiteFooter from '../components/SiteFooter.vue';
 import {
   authErrorMessage,
   queryString,
@@ -270,6 +271,8 @@ function selectPosition(action: { code?: number }): void {
         使用手机号登录
       </RouterLink>
     </div>
+
+    <SiteFooter />
 
     <ActionSheet
       v-model:show="showPosition"

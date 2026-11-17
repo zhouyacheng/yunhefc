@@ -9,6 +9,7 @@ import { useNotificationPolling } from '../composables/useNotificationPolling';
 import { adminUrl, openAdmin } from '../features/admin-handoff/admin-handoff';
 import { useSessionStore } from '../stores/session';
 import { hasSessionHint } from '../stores/session-hint';
+import SiteFooter from './SiteFooter.vue';
 
 type TabName = 'home' | 'matches' | 'team' | 'profile';
 
@@ -115,6 +116,8 @@ onMounted(() => {
     <main class="c-main">
       <RouterView />
     </main>
+
+    <SiteFooter />
 
     <Tabbar :model-value="activeTab" fixed placeholder @change="onTabChange">
       <TabbarItem

@@ -35,16 +35,16 @@ const groups = computed<RosterGroupView[]>(() => [
   },
   {
     key: 'waitlist',
-    title: '候补（正式）',
+    title: '候补',
     entries: props.sections.formalWaitlist,
     empty: '暂无候补',
     testid: 'roster-waitlist',
   },
   {
     key: 'guest',
-    title: '外挂球员',
+    title: '外挂',
     entries: props.sections.guestConfirmed,
-    empty: '暂无外挂球员报名',
+    empty: '暂无外挂报名',
     testid: 'roster-guest',
   },
 ]);
@@ -141,7 +141,6 @@ function attendanceText(entry: RosterEntry): string {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-top: 12px;
 }
 
 .roster-toolbar {

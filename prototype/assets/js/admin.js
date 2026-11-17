@@ -68,9 +68,18 @@
     let section = sections.includes(params.get('section')) ? params.get('section') : sections[0];
 
     function matchPicker(selectedId, attr) {
-      return `<select class="input input-sm" ${attr}>${Y.matchesByStartDesc()
-        .map((match) => `<option value="${match.id}" ${match.id === selectedId ? 'selected' : ''}>${esc(match.title)} · ${Y.formatDate(match.start)}</option>`)
-        .join('')}</select>`;
+      const groups = new Map();
+      for (const match of Y.matchesByStartDesc()) {
+        const season = match.season || '未分配';
+        if (!groups.has(season)) groups.set(season, []);
+        groups.get(season).push(match);
+      }
+      const options = [...groups]
+        .map(([season, matches]) => `<optgroup label="${esc(season)} 赛季">${matches
+          .map((match) => `<option value="${match.id}" ${match.id === selectedId ? 'selected' : ''}>${esc(match.title)} · ${Y.formatDate(match.start)}</option>`)
+          .join('')}</optgroup>`)
+        .join('');
+      return `<select class="input input-sm" ${attr}>${options}</select>`;
     }
 
     function render() {

@@ -22,6 +22,16 @@ async function loginAdmin(
   await expect(page).toHaveURL(landing);
 }
 
+/** 比赛下拉新增赛季/状态筛选后，隐藏 popper 里也有选项；只匹配可见下拉。 */
+async function pickMatch(page: Page, ...texts: string[]): Promise<void> {
+  await page.locator('.match-picker').click();
+  let option = page.locator('.el-select__popper:visible .el-select-dropdown__item');
+  for (const text of texts) {
+    option = option.filter({ hasText: text });
+  }
+  await option.first().click();
+}
+
 const shanghaiInputFormatter = new Intl.DateTimeFormat('sv-SE', {
   timeZone: 'Asia/Shanghai',
   year: 'numeric',
@@ -150,12 +160,8 @@ test('B 端：B03 选择比赛并标记考勤', async ({ page }) => {
   await expect(page.getByText('正式球员').first()).toBeVisible();
 
   // 1001 场为“橙队VS兰队 · 已锁定”，含 19 名确认报名球员。
-  await page.locator('.match-picker').click();
-  await page
-    .locator('.el-select-dropdown__item')
-    .filter({ hasText: '橙队VS兰队' })
-    .filter({ hasText: '已锁定' })
-    .click();
+  await pickMatch(page, '橙队VS兰队', '已锁定');
+  await expect(page).toHaveURL(/[?&]match=\d+/);
 
   const row = page.locator('.roster-row').filter({ hasText: '测试门将01' });
   await expect(row).toBeVisible();
@@ -164,6 +170,111 @@ test('B 端：B03 选择比赛并标记考勤', async ({ page }) => {
   await expect(row.locator('.attendance-state')).toContainText('管理员');
 
   expect(errors).toEqual([]);
+});
+
+test('B 端：比赛选择器默认当前赛季、下拉分页与深链刷新', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page);
+
+  const currentYear = String(new Date(Date.now() + 8 * 60 * 60 * 1000).getUTCFullYear());
+  const listRequest = page.waitForRequest(
+    (request) =>
+      request.url().includes('/api/v1/c/matches?') && request.url().includes('pageSize=10'),
+  );
+  await page.goto('/admin/registrations');
+  const requestUrl = new URL((await listRequest).url());
+  expect(requestUrl.searchParams.get('season')).toBe(currentYear);
+  expect(requestUrl.searchParams.get('page')).toBe('1');
+
+  await expect(page.locator('.season-filter')).toContainText(`${currentYear} 赛季`);
+
+  await pickMatch(page, '橙队VS兰队', '已锁定');
+  await expect(page).toHaveURL(/[?&]match=\d+/);
+
+  // 深链：刷新后仍停在刚选的比赛。
+  await page.reload();
+  await expect(page.locator('.roster-row').filter({ hasText: '测试门将01' })).toBeVisible();
+
+  await page.locator('.match-picker').click();
+  await expect(page.locator('.el-select__popper:visible .picker-footer')).toContainText(
+    /共 \d+ 场/,
+  );
+  await expect(page.locator('.el-select__popper:visible .picker-footer')).toContainText(
+    /\d+ \/ \d+/,
+  );
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：比赛选择器下拉翻页并保留当前选中', async ({ page }) => {
+  await loginAdmin(page);
+
+  const totalMatches = 25;
+  const mockMatch = (id: number) => ({
+    id,
+    title: `E2E翻页赛${id}`,
+    type: 1,
+    typeLabel: '队内赛',
+    startAt: new Date(
+      Date.UTC(2026, 10, 20, 12, 0, 0) - (id - 9000) * 60 * 60 * 1000,
+    ).toISOString(),
+    endAt: new Date(Date.UTC(2026, 10, 20, 14, 0, 0) - (id - 9000) * 60 * 60 * 1000).toISOString(),
+    venue: 'E2E球场',
+    season: '2026',
+    homeTeamName: '橙队',
+    awayTeamName: '兰队',
+    status: 2,
+    statusLabel: '已锁定',
+    totalMatchNo: id,
+    seasonMatchNo: id,
+    confirmedCount: 0,
+    guestCount: 0,
+    waitlistCount: 0,
+  });
+
+  await page.route('**/api/v1/c/matches?**', async (route) => {
+    const url = new URL(route.request().url());
+    const pageNo = Number(url.searchParams.get('page') ?? '1');
+    const pageSize = Number(url.searchParams.get('pageSize') ?? '10');
+    const all = Array.from({ length: totalMatches }, (_, index) => mockMatch(9000 + index));
+    const start = (pageNo - 1) * pageSize;
+    await route.fulfill({
+      json: {
+        code: 0,
+        message: 'ok',
+        requestId: 'e2e-picker',
+        data: {
+          items: all.slice(start, start + pageSize),
+          total: totalMatches,
+          page: pageNo,
+          pageSize,
+          totalPages: Math.ceil(totalMatches / pageSize),
+        },
+      },
+    });
+  });
+
+  await page.goto('/admin/registrations');
+  await expect(page.locator('.match-picker')).toContainText('E2E翻页赛9000');
+
+  await page.locator('.match-picker').click();
+  const popper = page.locator('.el-select__popper:visible');
+  await expect(popper.locator('.picker-footer')).toContainText('共 25 场');
+  await expect(popper.locator('.picker-footer')).toContainText('1 / 3');
+
+  await popper.getByRole('button', { name: '下一页' }).click();
+  await expect(popper.locator('.picker-footer')).toContainText('2 / 3');
+  await expect(
+    popper.locator('.el-select-dropdown__item').filter({ hasText: 'E2E翻页赛9010' }),
+  ).toBeVisible();
+  // 当前选中项不在第 2 页时仍保留在“当前选择”组。
+  await expect(
+    popper.locator('.el-select-dropdown__item').filter({ hasText: 'E2E翻页赛9000' }),
+  ).toBeVisible();
+
+  await popper.locator('.el-select-dropdown__item').filter({ hasText: 'E2E翻页赛9010' }).click();
+  await expect(page.locator('.match-picker')).toContainText('E2E翻页赛9010');
+  await expect(page).toHaveURL(/[?&]match=9010/);
 });
 
 test('B 端：B06 生成分组并展示 A/B', async ({ page }) => {
@@ -179,12 +290,7 @@ test('B 端：B06 生成分组并展示 A/B', async ({ page }) => {
   await expect(page).toHaveURL(/\/admin\/grouping$/);
 
   // 1001 场为已锁定队内赛，种子数据已生成 10 A / 9 B。
-  await page.locator('.match-picker').click();
-  await page
-    .locator('.el-select-dropdown__item')
-    .filter({ hasText: '橙队VS兰队' })
-    .filter({ hasText: '已锁定' })
-    .click();
+  await pickMatch(page, '橙队VS兰队', '已锁定');
 
   await expect(page.locator('.group-admin-column')).toHaveCount(2);
   await expect(page.getByText('测试门将01').first()).toBeVisible();
@@ -213,12 +319,7 @@ test('B 端：B06 调整 → 保存 → 清除 → 重新生成', async ({ page 
   await expect(page).toHaveURL(/\/admin\/matches$/);
 
   await page.goto('/admin/grouping');
-  await page.locator('.match-picker').click();
-  await page
-    .locator('.el-select-dropdown__item')
-    .filter({ hasText: '橙队VS兰队' })
-    .filter({ hasText: '已锁定' })
-    .click();
+  await pickMatch(page, '橙队VS兰队', '已锁定');
 
   // 等分组与名单请求落定，避免在空态过渡中误判「尚未生成分组」。
   await expect(page.locator('.el-loading-mask')).toHaveCount(0);
@@ -322,12 +423,7 @@ test('B 端：B05 选阵型并排满 8 人首发后保存，C03 只读查看', a
 
   await page.goto('/admin/lineup');
   await expect(page).toHaveURL(/\/admin\/lineup$/);
-  await page.locator('.match-picker').click();
-  await page
-    .locator('.el-select-dropdown__item')
-    .filter({ hasText: '橙队VS兰队' })
-    .filter({ hasText: '已锁定' })
-    .click();
+  await pickMatch(page, '橙队VS兰队', '已锁定');
   await expect(page.locator('.pitch')).toBeVisible();
 
   await page.locator('.formation-picker').click();
@@ -386,12 +482,7 @@ test('B 端：只读球员可查看分组但不能生成', async ({ page }) => {
 
   await page.goto('/admin/grouping');
   await expect(page).toHaveURL(/\/admin\/grouping$/);
-  await page.locator('.match-picker').click();
-  await page
-    .locator('.el-select-dropdown__item')
-    .filter({ hasText: '橙队VS兰队' })
-    .filter({ hasText: '已锁定' })
-    .click();
+  await pickMatch(page, '橙队VS兰队', '已锁定');
 
   await expect(page.locator('.group-admin-column')).toHaveCount(2);
   await expect(page.getByRole('button', { name: /生成分组|重新生成/ })).toBeDisabled();
@@ -413,8 +504,7 @@ test('B 端：B04 有计分事件只读推导比分，无计分事件录入比�
   await expect(page.getByText('事件 / 比分')).toBeVisible();
 
   // 1004 场进行中，1002 已确认报名。
-  await page.locator('.match-picker').click();
-  await page.locator('.el-select-dropdown__item').filter({ hasText: 'M06事件联调赛' }).click();
+  await pickMatch(page, 'M06事件联调赛');
 
   // 前置清理：web 项目的事件用例可能先跑；删除遗留事件，确保从“无计分事件”开始。
   await expect(

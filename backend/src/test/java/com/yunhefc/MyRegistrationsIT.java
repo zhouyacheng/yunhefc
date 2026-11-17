@@ -34,6 +34,7 @@ class MyRegistrationsIT extends IntegrationTestSupport {
     void cleanup() {
         for (Long matchId : createdMatchIds) {
             jdbc.update("DELETE FROM registration WHERE match_id = ?", matchId);
+            jdbc.update("DELETE FROM match_event WHERE match_id = ?", matchId);
             jdbc.update("DELETE FROM team_match WHERE id = ?", matchId);
         }
         for (Long userId : createdUserIds) {
@@ -41,6 +42,28 @@ class MyRegistrationsIT extends IntegrationTestSupport {
             jdbc.update("DELETE FROM user_role WHERE user_id = ?", userId);
             jdbc.update("DELETE FROM app_user WHERE id = ?", userId);
         }
+    }
+
+    @Test
+    void historySummaryUsesEffectiveScoreFromScoringEvents() throws Exception {
+        Cookie admin = bAdminLogin("13900001103");
+        Cookie player = playerLogin("13900001104", "我的报名比分");
+        Long matchId = createMatch(admin, "M04我的报名比分", "2099-07-05T20:00:00");
+        signup(player, matchId);
+        jdbc.update("UPDATE team_match SET status = 4, score_home = 3, score_away = 0 WHERE id = ?",
+                matchId);
+        jdbc.update("""
+                INSERT INTO match_event (match_id, team, type, player_id, minute, half, penalty, created_by)
+                VALUES (?, 1, 0, NULL, 10, 0, 0, 1)
+                """, matchId);
+
+        mockMvc.perform(get("/api/v1/c/me/registrations")
+                        .param("scope", "history").cookie(player))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].match.id").value(matchId))
+                .andExpect(jsonPath("$.data.items[0].match.scoreHome").value(0))
+                .andExpect(jsonPath("$.data.items[0].match.scoreAway").value(1))
+                .andExpect(jsonPath("$.data.items[0].match.resultText").value((Object) null));
     }
 
     @Test

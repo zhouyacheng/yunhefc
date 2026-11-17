@@ -8,6 +8,8 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.event.DerivedScoreSnapshot;
+import com.yunhefc.contracts.event.EventScoreReadPort;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.registration.RegistrationQueueCounts;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
@@ -55,6 +57,7 @@ public class MatchAdminApplicationService {
     private static final String OUR_TEAM_MARKER = "云河FC";
 
     private final TeamMatchMapper teamMatchMapper;
+    private final EventScoreReadPort eventScoreReadPort;
     private final SeasonMatchNoStore seasonMatchNoStore;
     private final RegistrationDefaultsPort registrationDefaultsPort;
     private final RegistrationReadPort registrationReadPort;
@@ -123,11 +126,13 @@ public class MatchAdminApplicationService {
         wrapper.orderByAsc(TeamMatch::getId);
 
         Page<TeamMatch> result = teamMatchMapper.selectPage(new Page<>(page, pageSize), wrapper);
-        Map<Long, RegistrationQueueCounts> counts = registrationReadPort.queueCounts(
-                result.getRecords().stream().map(TeamMatch::getId).toList());
+        List<Long> matchIds = result.getRecords().stream().map(TeamMatch::getId).toList();
+        Map<Long, RegistrationQueueCounts> counts = registrationReadPort.queueCounts(matchIds);
+        Map<Long, DerivedScoreSnapshot> derivedScores = eventScoreReadPort.findDerivedScores(matchIds);
         List<MatchAdminView> items = result.getRecords().stream()
                 .map(match -> toView(match,
-                        counts.getOrDefault(match.getId(), RegistrationQueueCounts.EMPTY)))
+                        counts.getOrDefault(match.getId(), RegistrationQueueCounts.EMPTY),
+                        derivedScores.get(match.getId())))
                 .toList();
         return PageResponse.of(items, result.getTotal(), page, pageSize);
     }
@@ -146,7 +151,7 @@ public class MatchAdminApplicationService {
         if (match == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在");
         }
-        return toView(match, counts(matchId));
+        return toView(match, counts(matchId), derivedScore(matchId));
     }
 
     public MatchAdminView update(Long matchId, MatchUpdateRequest request) {
@@ -219,7 +224,7 @@ public class MatchAdminApplicationService {
             seasonMatchNoStore.forgetAfterCommit(teamId, previousSeason, previousSeasonMatchNo);
         }
         auditRecorder.recordCurrent("MATCH_UPDATE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
-        return toView(saved, counts(matchId));
+        return toView(saved, counts(matchId), derivedScore(matchId));
     }
 
     @Transactional
@@ -266,7 +271,7 @@ public class MatchAdminApplicationService {
             seasonMatchNoStore.recordAfterCommit(teamId, saved.getSeason(), saved.getSeasonMatchNo());
         }
         auditRecorder.recordCurrent("MATCH_STATUS_CHANGE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
-        return toView(saved, counts(matchId));
+        return toView(saved, counts(matchId), derivedScore(matchId));
     }
 
     /**
@@ -335,7 +340,7 @@ public class MatchAdminApplicationService {
                 current -> MatchStatusMachine.requirePostponable(current.getStatus()));
         auditRecorder.recordCurrent("MATCH_POSTPONE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
         appendScheduleChangedEvent(saved, false);
-        return toView(saved, counts(matchId));
+        return toView(saved, counts(matchId), derivedScore(matchId));
     }
 
     @Transactional
@@ -369,7 +374,7 @@ public class MatchAdminApplicationService {
                 current -> MatchStatusMachine.requireReschedulable(current.getStatus()));
         auditRecorder.recordCurrent("MATCH_RESCHEDULE", "MATCH", matchId, before, MatchAuditSnapshot.of(saved));
         appendScheduleChangedEvent(saved, true);
-        return toView(saved, counts(matchId));
+        return toView(saved, counts(matchId), derivedScore(matchId));
     }
 
     @Transactional
@@ -402,7 +407,7 @@ public class MatchAdminApplicationService {
         auditRecorder.recordCurrent("MATCH_CANCEL", "MATCH", matchId, before, after);
         outboxService.append(saved.getTeamId(), "MATCH", matchId, EventTypes.MATCH_CANCELLED,
                 Map.of("matchId", matchId, "matchTitle", saved.getTitle(), "reason", reason));
-        return toView(saved, counts(matchId));
+        return toView(saved, counts(matchId), derivedScore(matchId));
     }
 
     /**
@@ -631,7 +636,7 @@ public class MatchAdminApplicationService {
         seasonMatchNoStore.recordAfterCommit(teamId, match.getSeason(), match.getSeasonMatchNo());
         TeamMatch saved = teamMatchMapper.selectById(match.getId());
         auditRecorder.recordCurrent("MATCH_CREATE", "MATCH", saved.getId(), null, MatchAuditSnapshot.of(saved));
-        return toView(saved, RegistrationQueueCounts.EMPTY);
+        return toView(saved, RegistrationQueueCounts.EMPTY, null);
     }
 
     private OurSide ourSide(MatchType type, Integer requested, String homeTeamName, String awayTeamName) {
@@ -663,7 +668,13 @@ public class MatchAdminApplicationService {
         return normalized == null ? fallback : normalized;
     }
 
-    private MatchAdminView toView(TeamMatch match, RegistrationQueueCounts counts) {
+    private DerivedScoreSnapshot derivedScore(Long matchId) {
+        return eventScoreReadPort.findDerivedScore(matchId).orElse(null);
+    }
+
+    private MatchAdminView toView(TeamMatch match, RegistrationQueueCounts counts,
+                                  DerivedScoreSnapshot derived) {
+        MatchSummaryMapping.ResolvedScore score = MatchSummaryMapping.resolveScore(match, derived);
         return new MatchAdminView(
                 match.getId(),
                 match.getTitle(),
@@ -689,8 +700,8 @@ public class MatchAdminApplicationService {
                 match.getGuestCapacity(),
                 match.getWaitlistCapacity(),
                 Boolean.TRUE.equals(match.getIncludeGuests()),
-                match.getScoreHome(),
-                match.getScoreAway(),
+                score.scoreHome(),
+                score.scoreAway(),
                 match.getSeasonMatchNo(),
                 match.getTotalMatchNo(),
                 counts.confirmedCount(),

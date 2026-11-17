@@ -109,34 +109,11 @@ const rosterPlayers = computed(() =>
     .filter((player, index, all) => all.findIndex((item) => item.id === player.id) === index),
 );
 
-const derivedText = computed(() => {
-  if (!derived.value) {
-    return '暂无有效事件';
-  }
-  return `${derived.value.scoreHome} : ${derived.value.scoreAway}`;
-});
+const hasScoringEvents = computed(() => derived.value !== null);
 
-const storedText = computed(() => {
-  const match = selectedMatch.value;
-  if (!match || match.scoreHome === null || match.scoreHome === undefined) {
-    return '未录入';
-  }
-  return `${match.scoreHome} : ${match.scoreAway ?? 0}`;
-});
-
-const scoreMismatch = computed(() => {
-  const match = selectedMatch.value;
-  if (!match || !derived.value) {
-    return false;
-  }
-  if (match.scoreHome === null || match.scoreHome === undefined) {
-    return false;
-  }
-  return (
-    match.scoreHome !== derived.value.scoreHome ||
-    (match.scoreAway ?? 0) !== derived.value.scoreAway
-  );
-});
+const derivedScoreText = computed(() =>
+  derived.value ? `${derived.value.scoreHome} : ${derived.value.scoreAway}` : '—',
+);
 
 function playerLabel(player: { name: string; jersey?: number | null; position: number }): string {
   const jersey = player.jersey === null || player.jersey === undefined ? '' : ` #${player.jersey}`;
@@ -173,9 +150,34 @@ function needsRefresh(caught: unknown): boolean {
 }
 
 function syncScoreInputs(): void {
+  if (derived.value) {
+    scoreHome.value = derived.value.scoreHome;
+    scoreAway.value = derived.value.scoreAway;
+    return;
+  }
   const match = selectedMatch.value;
   scoreHome.value = match?.scoreHome ?? 0;
   scoreAway.value = match?.scoreAway ?? 0;
+}
+
+async function refreshSelectedMatchSummary(): Promise<void> {
+  const matchId = selectedMatchId.value;
+  if (matchId === null) {
+    return;
+  }
+  try {
+    const detail = await api.get<MatchAdmin>(`/matches/${matchId}`);
+    if (matchId !== selectedMatchId.value) {
+      return;
+    }
+    const index = matches.value.findIndex((match) => match.id === matchId);
+    if (index >= 0) {
+      matches.value[index] = detail;
+    }
+    syncScoreInputs();
+  } catch {
+    // 摘要刷新失败不阻断时间线；下次切换或保存时会重新拉取。
+  }
 }
 
 async function loadMatches(): Promise<void> {
@@ -243,10 +245,12 @@ async function loadTimeline(): Promise<void> {
     }
     events.value = timeline.items;
     derived.value = timeline.derivedScore ?? null;
+    syncScoreInputs();
   } catch (caught) {
     if (matchId === selectedMatchId.value) {
       events.value = [];
       derived.value = null;
+      syncScoreInputs();
       timelineError.value = isApiError(caught) ? caught.message : '事件加载失败，请稍后重试';
     }
   } finally {
@@ -285,7 +289,7 @@ async function loadRoster(): Promise<void> {
 
 async function saveScore(): Promise<void> {
   const match = selectedMatch.value;
-  if (!match || readOnly.value || scoreSaving.value) {
+  if (!match || readOnly.value || hasScoringEvents.value || scoreSaving.value) {
     return;
   }
   const home = scoreHome.value;
@@ -314,19 +318,13 @@ async function saveScore(): Promise<void> {
     match.scoreHome = response.score.scoreHome;
     match.scoreAway = response.score.scoreAway;
     match.version += 1;
-    derived.value = response.score.derived ?? null;
     syncScoreInputs();
-    const derivedScore = response.score.derived;
-    ElMessage.success(
-      derivedScore &&
-        (derivedScore.scoreHome !== response.score.scoreHome ||
-          derivedScore.scoreAway !== response.score.scoreAway)
-        ? '比分已保存；与事件推导比分不一致，仅提示不阻断'
-        : '比分已保存',
-    );
+    ElMessage.success('比分已保存');
   } catch (caught) {
     ElMessage.error(isApiError(caught) ? caught.message : '比分保存失败');
-    if (needsRefresh(caught)) {
+    if (isApiError(caught) && caught.code === ERROR_CODES.BUSINESS_RULE_VIOLATION) {
+      await Promise.all([refreshSelectedMatchSummary(), loadTimeline()]);
+    } else if (needsRefresh(caught)) {
       await loadMatches();
     }
   } finally {
@@ -447,7 +445,7 @@ async function submitEvent(): Promise<void> {
     }
     dialogVisible.value = false;
     ElMessage.success(editingEvent.value ? '事件已更新' : '事件已录入');
-    await loadTimeline();
+    await Promise.all([loadTimeline(), refreshSelectedMatchSummary()]);
   } catch (caught) {
     if (isApiError(caught) && caught.code === ERROR_CODES.GROUPING_MISMATCH) {
       // 行内提示违规字段与球员，并引导到 B06 重新生成分组。
@@ -488,7 +486,7 @@ async function deleteEvent(event: MatchEvent): Promise<void> {
       },
     );
     ElMessage.success('事件已删除');
-    await loadTimeline();
+    await Promise.all([loadTimeline(), refreshSelectedMatchSummary()]);
   } catch (caught) {
     ElMessage.error(isApiError(caught) ? caught.message : '删除失败');
     if (needsRefresh(caught)) {
@@ -509,7 +507,9 @@ onMounted(loadMatches);
     <div class="page-head">
       <div>
         <h2>事件 / 比分</h2>
-        <p class="muted">存储比分与事件独立；不一致只提示。已取消/已延期比赛只读。</p>
+        <p class="muted">
+          有进球/乌龙事件时比分按事件推导；无计分事件时可录入比分。已取消/已延期比赛只读。
+        </p>
       </div>
       <el-select
         v-if="matches.length"
@@ -565,7 +565,12 @@ onMounted(loadMatches);
               }}</el-tag>
             </header>
 
-            <div class="score-row">
+            <div v-if="hasScoringEvents" class="score-row score-row--readonly">
+              <span class="team-name">{{ selectedMatch.homeTeamName }}</span>
+              <strong class="score-final">{{ derivedScoreText }}</strong>
+              <span class="team-name">{{ selectedMatch.awayTeamName }}</span>
+            </div>
+            <div v-else class="score-row">
               <span class="team-name">{{ selectedMatch.homeTeamName }}</span>
               <el-input-number
                 v-model="scoreHome"
@@ -585,22 +590,12 @@ onMounted(loadMatches);
               <span class="team-name">{{ selectedMatch.awayTeamName }}</span>
             </div>
 
-            <dl class="score-meta">
-              <div>
-                <dt>存储比分</dt>
-                <dd>{{ storedText }}</dd>
-              </div>
-              <div>
-                <dt>事件推导</dt>
-                <dd>{{ derivedText }}</dd>
-              </div>
-            </dl>
-
-            <p v-if="scoreMismatch" class="hint hint--warning">
-              存储比分与事件推导比分不一致；保存不阻断，仅提示。
+            <p v-if="hasScoringEvents" class="hint">
+              已按进球/乌龙事件推导比分；如需修改，请编辑或删除计分事件。
             </p>
 
             <el-button
+              v-if="!hasScoringEvents"
               type="primary"
               :disabled="readOnly || !canEdit"
               :loading="scoreSaving"
@@ -851,21 +846,10 @@ onMounted(loadMatches);
   font-weight: 700;
 }
 
-.score-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin: 14px 0;
-}
-
-.score-meta dt {
-  color: var(--yh-muted);
-  font-size: 12px;
-}
-
-.score-meta dd {
-  margin: 2px 0 0;
-  font-size: 18px;
+.score-final {
+  grid-column: 2 / 5;
+  text-align: center;
+  font-size: 24px;
   font-weight: 700;
 }
 

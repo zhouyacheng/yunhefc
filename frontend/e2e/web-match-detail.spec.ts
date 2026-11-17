@@ -58,6 +58,9 @@ test('C03 访客：登录引导且不探测会话', async ({ page }) => {
   await expect(page.getByTestId('registration-card')).toContainText('登录后可报名与签到');
   await expect(page.getByText('登录后查看名单与考勤')).toBeVisible();
   await expect(page.getByTestId('share-button')).toBeVisible();
+  await expect(page.getByTestId('match-hero-meta')).toContainText('报名截止');
+  await expect(page.getByTestId('match-hero-meta')).toContainText('报名锁定');
+  await expect(page.getByTestId('match-hero-meta')).toContainText('聚龙足球场');
   await expect(page.getByTestId('signup-button')).toHaveCount(0);
   await expect(page.getByTestId('cancel-registration')).toHaveCount(0);
 
@@ -505,5 +508,17 @@ test('C03 加载失败可重试', async ({ page }) => {
   await expect(page.getByText('服务暂不可用')).toBeVisible();
   await page.getByRole('button', { name: '重试' }).click();
   await expect(page.locator('.match-hero')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('C03 已结束比赛：事件统计卡显示最终比分', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+
+  // 1002 已结束，种子事件推导与兜底比分均为 2:2。
+  await page.goto('/matches/1002');
+  await page.getByRole('button', { name: '事件' }).click();
+  await expect(page.getByText('最终比分 2 : 2')).toBeVisible();
+  await expect(page.getByText('存储比分')).toHaveCount(0);
+
   expect(errors).toEqual([]);
 });

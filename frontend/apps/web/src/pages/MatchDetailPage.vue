@@ -58,12 +58,15 @@ import {
   eventHalfText,
   eventTypeText,
   formatDateTime,
+  formatDateWithYear,
+  formatTimeRange,
   groupingTeamName,
   isInternalMatchType,
   isOpponentLineupSide,
   matchStatusText,
   matchTypeText,
   positionText,
+  seasonMatchText,
 } from '@yunhefc/shared';
 import { Button, Empty, Loading, Popup, Tag } from 'vant';
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
@@ -97,6 +100,7 @@ import StatusChangeDialog, {
 } from '../features/match-detail/StatusChangeDialog.vue';
 import {
   queuePercent,
+  resolveDisplayedScore,
   resultTone,
   scoreText,
   statusTone,
@@ -293,7 +297,11 @@ const registrationTone = computed(() => {
   }
   return 'muted';
 });
-const heroWinner = computed(() => (match.value ? winnerSide(match.value) : null));
+const heroWinner = computed(() => {
+  const current = match.value;
+  return current ? winnerSide({ ...current, ...displayedScore.value }) : null;
+});
+const ordinalLabel = computed(() => seasonMatchText(match.value));
 const confirmed = computed(() => registration.value?.status === 0);
 const canCheckIn = computed(
   () => confirmed.value && !checkInClosed.value && windowState.value === 'open',
@@ -387,7 +395,9 @@ const groupingPositionRows = computed(() =>
       ).length ?? 0,
   })),
 );
-const displayedScore = computed(() => eventDerived.value ?? match.value?.derivedScore ?? null);
+const displayedScore = computed(() =>
+  resolveDisplayedScore(match.value, eventDerived.value ?? match.value?.derivedScore ?? null),
+);
 const showAdminLink = computed(() => session.isAuthenticated && isEventAdmin.value);
 const adminEventsUrl = computed(() => adminUrl({ path: '/events', query: { match: matchId } }));
 const adminGroupingUrl = computed(() => adminUrl({ path: '/grouping', query: { match: matchId } }));
@@ -432,8 +442,7 @@ const playerOptions = computed(() => {
 });
 
 function displayedScoreText(): string {
-  const source = displayedScore.value ?? match.value;
-  return source ? scoreText(source) : 'VS';
+  return displayedScore.value ? scoreText(displayedScore.value) : 'VS';
 }
 
 function teamName(team: EventTeam): string {
@@ -1188,7 +1197,7 @@ async function submitEvent(): Promise<void> {
     }
     eventModalOpen.value = false;
     activeTab.value = 'events';
-    await loadEvents();
+    await Promise.all([loadEvents(), load(true)]);
   } catch (caught) {
     if (isApiError(caught) && caught.code === ERROR_CODES.GROUPING_MISMATCH) {
       // 行内提示违规字段与球员，并引导到 B06 重新生成分组。
@@ -1354,16 +1363,11 @@ onBeforeUnmount(() => {
           <Tag class="status-tag" :class="`status-tag--${statusTone(match.status)}`">
             {{ matchStatusText(match.status) }}
           </Tag>
-          <span class="muted small">第 {{ match.seasonMatchNo }} 场</span>
         </div>
         <div class="match-hero__teams">
           <span :class="{ 'team-name--winner': heroWinner === 0 }">{{ match.homeTeamName }}</span>
           <strong>{{ displayedScoreText() }}</strong>
           <span :class="{ 'team-name--winner': heroWinner === 1 }">{{ match.awayTeamName }}</span>
-        </div>
-        <div class="match-hero__meta muted small">
-          <span>{{ formatDateTime(match.startAt) }}</span>
-          <span>{{ match.venue }}</span>
         </div>
         <div v-if="match.resultText" class="match-hero__result">
           <Tag class="status-tag" :class="`status-tag--${resultTone(match.resultText)}`">
@@ -1424,6 +1428,15 @@ onBeforeUnmount(() => {
               {{ option.label }}
             </option>
           </select>
+        </div>
+
+        <div class="match-hero__meta muted small" data-testid="match-hero-meta">
+          <span>📅 {{ formatDateWithYear(match.startAt) }}</span>
+          <span>🕐 {{ formatTimeRange(match.startAt, match.endAt) }}</span>
+          <span>⏰ 报名截止 {{ formatDateTime(match.signupDeadline) }}</span>
+          <span>🔒 报名锁定 {{ formatDateTime(match.cancelLock) }}</span>
+          <span>⚽ {{ ordinalLabel }}</span>
+          <span>📍 {{ match.venue }}</span>
         </div>
 
         <p v-if="shareMessage" class="hint" data-testid="share-message">{{ shareMessage }}</p>
@@ -1706,9 +1719,7 @@ onBeforeUnmount(() => {
               ><span>换人</span>
             </div>
           </div>
-          <p v-if="match.status === 4" class="muted small">
-            存储比分 {{ match.scoreHome ?? 0 }} : {{ match.scoreAway ?? 0 }}
-          </p>
+          <p v-if="match.status === 4" class="muted small">最终比分 {{ displayedScoreText() }}</p>
         </section>
 
         <section class="card events-panel">

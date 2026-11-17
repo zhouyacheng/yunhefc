@@ -399,7 +399,7 @@ test('B 端：只读球员可查看分组但不能生成', async ({ page }) => {
   expect(errors).toEqual([]);
 });
 
-test('B 端：B04 录入/编辑事件并保存比分', async ({ page }) => {
+test('B 端：B04 有计分事件只读推导比分，无计分事件录入比分', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 
   await page.goto('/admin/login');
@@ -415,7 +415,12 @@ test('B 端：B04 录入/编辑事件并保存比分', async ({ page }) => {
   // 1004 场进行中，1002 已确认报名；重跑脚本会软删除上一轮事件。
   await page.locator('.match-picker').click();
   await page.locator('.el-select-dropdown__item').filter({ hasText: 'M06事件联调赛' }).click();
-  await expect(page.locator('.score-meta').getByText('事件推导', { exact: true })).toBeVisible();
+
+  // 无计分事件：可直接录入比分。
+  await expect(page.locator('.score-row input')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: '保存比分' })).toBeVisible();
+  await expect(page.locator('.score-row input').nth(0)).toHaveValue('0');
+  await expect(page.locator('.score-row input').nth(1)).toHaveValue('0');
 
   await page.getByRole('button', { name: '录入事件' }).click();
   const dialog = page.locator('.el-dialog');
@@ -437,26 +442,48 @@ test('B 端：B04 录入/编辑事件并保存比分', async ({ page }) => {
     .first();
   await expect(row).toBeVisible();
 
+  // 有计分事件：只读展示推导比分，不提供比分输入与保存。
+  await expect(page.locator('.score-final')).toHaveText('1 : 0');
+  await expect(page.locator('.score-row input')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '保存比分' })).toHaveCount(0);
+
   await row.getByRole('button', { name: '编辑' }).click();
   await dialog.locator('.el-form-item').filter({ hasText: '分钟' }).locator('input').fill('78');
   await dialog.getByRole('button', { name: '保存事件' }).click();
   await expect(
     page.locator('.event-row').filter({ hasText: '测试后卫01' }).filter({ hasText: "78'" }).first(),
   ).toBeVisible();
+  await expect(page.locator('.score-final')).toHaveText('1 : 0');
 
-  // 保存一个与当前推导比分不同的存储比分，确保断言真的依赖 PATCH 成功。
-  const derivedText = await page.locator('.score-meta dd').nth(1).innerText();
-  const [derivedHome, derivedAway] = derivedText.split(':').map((part) => Number(part.trim()));
-  const newHome = (derivedHome + 1) % 256;
-  const newAway = (derivedAway + 1) % 256;
+  // 删除计分事件后恢复比分录入。
+  await row.getByRole('button', { name: '删除' }).click();
+  await page.getByRole('button', { name: '删除', exact: true }).click();
+  await expect(page.locator('.score-row input')).toHaveCount(2);
+  await expect(page.getByRole('button', { name: '保存比分' })).toBeVisible();
+
   const scoreInputs = page.locator('.score-row input');
-  await scoreInputs.nth(0).fill(String(newHome));
-  await scoreInputs.nth(1).fill(String(newAway));
+  await scoreInputs.nth(0).fill('2');
+  await scoreInputs.nth(1).fill('1');
   await page.getByRole('button', { name: '保存比分' }).click();
-  await expect(page.locator('.score-meta dd').first()).toHaveText(`${newHome} : ${newAway}`);
+  await expect(scoreInputs.nth(0)).toHaveValue('2');
+  await expect(scoreInputs.nth(1)).toHaveValue('1');
 
-  // 存储比分与事件推导不一致时只提示不阻断。
-  await expect(page.locator('.hint--warning').first()).toContainText('不一致');
+  // 只有非计分事件时，比分仍可继续编辑。
+  await page.getByRole('button', { name: '录入事件' }).click();
+  await dialog.locator('.el-form-item').filter({ hasText: '类型' }).locator('.el-select').click();
+  await page.locator('.el-select-dropdown__item:visible').filter({ hasText: '黄牌' }).click();
+  await dialog.getByRole('combobox', { name: '球员', exact: true }).click();
+  await page
+    .locator('.el-select-dropdown__item:visible')
+    .filter({ hasText: '测试后卫01' })
+    .first()
+    .click();
+  await dialog.locator('.el-form-item').filter({ hasText: '分钟' }).locator('input').fill('30');
+  await dialog.getByRole('button', { name: '保存事件' }).click();
+  await expect(page.locator('.event-row').filter({ hasText: '黄牌' }).first()).toBeVisible();
+  await expect(page.locator('.score-row input').nth(0)).toHaveValue('2');
+  await expect(page.locator('.score-row input').nth(1)).toHaveValue('1');
+  await expect(page.getByRole('button', { name: '保存比分' })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

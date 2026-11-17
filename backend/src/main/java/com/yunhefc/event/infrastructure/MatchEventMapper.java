@@ -31,13 +31,18 @@ public interface MatchEventMapper extends BaseMapper<MatchEvent> {
     List<MatchEvent> selectTimeline(@Param("matchId") Long matchId);
 
     @Select("""
-            SELECT id, match_id, team, type, player_id, assist_player_id, in_player_id,
-                   out_player_id, minute, half, penalty, created_by, created_at, updated_by,
-                   updated_at, deleted_at, deleted_by, version, is_deleted
+            <script>
+            SELECT id, match_id, team, type
             FROM match_event
-            WHERE match_id = #{matchId} AND is_deleted = 0 AND deleted_at IS NULL
+            WHERE is_deleted = 0 AND deleted_at IS NULL
+              AND type IN (0, 1)
+              AND match_id IN
+            <foreach collection="matchIds" item="matchId" open="(" separator="," close=")">
+                #{matchId}
+            </foreach>
+            </script>
             """)
-    List<MatchEvent> selectActiveByMatch(@Param("matchId") Long matchId);
+    List<MatchEvent> selectScoringByMatchIds(@Param("matchIds") Collection<Long> matchIds);
 
     @Select("""
             <script>

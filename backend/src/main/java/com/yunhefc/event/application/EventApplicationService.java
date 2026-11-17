@@ -96,7 +96,9 @@ public class EventApplicationService {
         List<EventView> items = events.stream()
                 .map(event -> toView(event, players))
                 .toList();
-        DerivedScoreView derived = events.isEmpty() ? null : toDerived(EventScore.from(events));
+        DerivedScoreView derived = EventScore.hasScoringEvent(events)
+                ? toDerived(EventScore.from(events))
+                : null;
         return new EventTimeline(items, derived);
     }
 
@@ -249,32 +251,25 @@ public class EventApplicationService {
     }
 
     /**
-     * EVT-05：存储比分独立于事件；与推导值不一致只提示不阻断。
+     * EVT-05：仅无计分事件时允许写入兜底比分；成功时不存在推导值。
      */
     @Transactional
     public ScoreView updateScore(Long matchId, ScoreUpdateRequest request) {
         AuthPrincipal principal = CurrentUser.principal();
         MatchScoreChange change = matchScoreApplicationService.updateScore(matchId, principal.teamId(),
                 request.scoreHome(), request.scoreAway(), request.version());
-        // 事件写与比赛写都锁同一比赛行，这里读到的推导比分与刚落库的存储比分一致。
-        DerivedScoreView derived = derivedScore(matchId);
         auditRecorder.recordCurrent("SCORE_UPDATE", "MATCH", matchId,
-                scoreSnapshot(change.before(), null), scoreSnapshot(change.after(), derived));
-        log.info("match score updated, matchId={}, score={}:{}, version={}, editor={}",
+                scoreSnapshot(change.before(), null), scoreSnapshot(change.after(), null));
+        log.info("match fallback score updated, matchId={}, score={}:{}, version={}, editor={}",
                 matchId, change.after().scoreHome(), change.after().scoreAway(),
                 change.after().version(), principal.userId());
-        return new ScoreView(change.after().scoreHome(), change.after().scoreAway(), derived);
+        return new ScoreView(change.after().scoreHome(), change.after().scoreAway(), null);
     }
 
     private MatchEvent requireEvent(Long eventId) {
         return Optional.ofNullable(matchEventMapper.selectById(eventId))
                 .filter(item -> item.getDeletedAt() == null)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "事件不存在"));
-    }
-
-    private DerivedScoreView derivedScore(Long matchId) {
-        List<MatchEvent> events = matchEventMapper.selectActiveByMatch(matchId);
-        return events.isEmpty() ? null : toDerived(EventScore.from(events));
     }
 
     private void requireOwnTeamAndPlayer(MatchSnapshot match, AuthPrincipal principal,

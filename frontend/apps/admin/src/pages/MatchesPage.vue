@@ -921,6 +921,9 @@ onMounted(loadSeasons);
         </template>
       </el-table-column>
       <el-table-column label="场地" prop="venue" min-width="150" />
+      <el-table-column label="创建时间" prop="createdAt" min-width="170">
+        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      </el-table-column>
       <el-table-column
         v-if="canCreate || canEdit || canStatus"
         label="操作"

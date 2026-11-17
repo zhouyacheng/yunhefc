@@ -214,7 +214,7 @@
         <button type="button" class="btn btn-ghost btn-sm" data-match-reset>清空条件</button>
       </form>
       <div class="table-wrap"><table class="data-table">
-        <thead><tr><th class="sortable" data-match-sort="season">赛季${matchSortMark('season')}</th><th class="sortable" data-match-sort="seasonMatchNo">场次${matchSortMark('seasonMatchNo')}</th><th>比赛</th><th class="sortable" data-match-sort="type">类型${matchSortMark('type')}</th><th class="sortable" data-match-sort="startAt">开始时间${matchSortMark('startAt')}</th><th class="sortable" data-match-sort="endAt">结束时间${matchSortMark('endAt')}</th><th>状态</th><th>报名</th><th>操作</th></tr></thead>
+        <thead><tr><th class="sortable" data-match-sort="season">赛季${matchSortMark('season')}</th><th class="sortable" data-match-sort="seasonMatchNo">场次${matchSortMark('seasonMatchNo')}</th><th>比赛</th><th class="sortable" data-match-sort="type">类型${matchSortMark('type')}</th><th class="sortable" data-match-sort="startAt">开始时间${matchSortMark('startAt')}</th><th class="sortable" data-match-sort="endAt">结束时间${matchSortMark('endAt')}</th><th>状态</th><th>报名</th><th>创建时间</th><th>操作</th></tr></thead>
         <tbody>${paged.items.map((match) => {
           const statusControl = !canStatus
             ? `<span class="badge">${Y.statusLabel(match.status)}</span>`
@@ -230,6 +230,7 @@
           <td>${match.status === 'CANCELLED'
             ? `${Y.confirmed(match).length} 条（已作废）`
             : `${Y.confirmed(match).length}/${match.capacity + match.guestCapacity}${Y.waitlisted(match, 'PLAYER').length ? ` <small class="muted">候补 ${Y.waitlisted(match, 'PLAYER').length}/${match.waitlistCapacity ?? Y.state.settings.maxWaitlist}</small>` : ''}`}</td>
+          <td>${match.createdAt ? Y.formatDateTime(match.createdAt) : '—'}</td>
           <td><div class="table-actions">
             <a class="btn btn-ghost btn-sm" href="match.html?id=${match.id}">查看</a>
             ${canEdit ? `<button class="btn btn-ghost btn-sm" data-match-edit="${match.id}">编辑</button>` : ''}
@@ -643,6 +644,7 @@
             ...ordinals,
             format: '8人制',
             status: 'SIGNUP_OPEN',
+            createdAt: new Date().toISOString(),
             registrations: [],
             attendance: [],
             events: [],

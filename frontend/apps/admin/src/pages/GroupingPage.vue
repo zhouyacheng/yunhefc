@@ -110,6 +110,11 @@ function teamAssignments(teams: GroupingTeams): Map<number, GroupingTeam> {
 
 const groupedTeamByPlayer = computed(() => teamAssignments(draftTeams.value));
 
+const rosterByTeam = computed(() => ({
+  A: confirmedRoster.value.filter((row) => groupedTeamByPlayer.value.get(row.player.id) === 'A'),
+  B: confirmedRoster.value.filter((row) => groupedTeamByPlayer.value.get(row.player.id) === 'B'),
+}));
+
 const dirty = computed(() => {
   const saved = grouping.value;
   if (!saved) {
@@ -852,26 +857,42 @@ function retryGrouping(): void {
           </header>
           <p v-if="rosterError" class="hint hint--warning">{{ rosterError }}</p>
           <div class="roster-grid">
-            <div>
-              <p class="position-title">正式球员</p>
-              <div v-for="row in formalRoster" :key="row.player.id" class="roster-row">
-                <span>{{ playerLabel(row.player) }}</span>
-                <el-tag size="small" :type="rosterBadge(row).type" effect="light">
-                  {{ rosterBadge(row).label }}
-                </el-tag>
+            <template v-if="hasGrouping">
+              <div v-for="team in groupingTeams" :key="team">
+                <p class="position-title">
+                  {{ team }} 队 · {{ groupingTeamName(selectedMatch, team) }}
+                </p>
+                <div v-for="row in rosterByTeam[team]" :key="row.player.id" class="roster-row">
+                  <span>{{ playerLabel(row.player) }}</span>
+                  <el-tag size="small" :type="row.type === 1 ? 'success' : 'info'" effect="light">
+                    {{ row.type === 1 ? '球队球员' : '外挂' }}
+                  </el-tag>
+                </div>
+                <p v-if="!rosterByTeam[team].length" class="empty-inline">该队暂无球员</p>
               </div>
-              <p v-if="!formalRoster.length" class="empty-inline">暂无正式球员</p>
-            </div>
-            <div>
-              <p class="position-title">外挂球员</p>
-              <div v-for="row in guestRoster" :key="row.player.id" class="roster-row">
-                <span>{{ playerLabel(row.player) }}</span>
-                <el-tag size="small" :type="rosterBadge(row).type" effect="light">
-                  {{ rosterBadge(row).label }}
-                </el-tag>
+            </template>
+            <template v-else>
+              <div>
+                <p class="position-title">正式球员</p>
+                <div v-for="row in formalRoster" :key="row.player.id" class="roster-row">
+                  <span>{{ playerLabel(row.player) }}</span>
+                  <el-tag size="small" :type="rosterBadge(row).type" effect="light">
+                    {{ rosterBadge(row).label }}
+                  </el-tag>
+                </div>
+                <p v-if="!formalRoster.length" class="empty-inline">暂无正式球员</p>
               </div>
-              <p v-if="!guestRoster.length" class="empty-inline">暂无外挂球员</p>
-            </div>
+              <div>
+                <p class="position-title">外挂球员</p>
+                <div v-for="row in guestRoster" :key="row.player.id" class="roster-row">
+                  <span>{{ playerLabel(row.player) }}</span>
+                  <el-tag size="small" :type="rosterBadge(row).type" effect="light">
+                    {{ rosterBadge(row).label }}
+                  </el-tag>
+                </div>
+                <p v-if="!guestRoster.length" class="empty-inline">暂无外挂球员</p>
+              </div>
+            </template>
           </div>
         </section>
 

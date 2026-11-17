@@ -416,9 +416,31 @@ test('B 端：B06 生成分组并展示 A/B', async ({ page }) => {
     .getByRole('button', { name: /重新生成|确定/ })
     .click({ timeout: 2000 })
     .catch(() => undefined);
+  // 等生成响应并被页面消化，避免列快照读在响应落地前后。
+  await expect(page.getByText(/分组已(重新)?生成/)).toBeVisible();
 
   await expect(page.locator('.group-admin-column')).toHaveCount(2);
   await expect(page.getByText('测试门将01').first()).toBeVisible();
+
+  // 有分组时报名区按 A/B 两列展示，列内成员与分组调整区一致。
+  const rosterGrid = page.locator('.roster-section .roster-grid');
+  await expect(rosterGrid.locator('.position-title')).toHaveText(['A 队 · 橙队', 'B 队 · 兰队']);
+  for (const index of [0, 1]) {
+    const rosterLabels = await rosterGrid
+      .locator('> div')
+      .nth(index)
+      .locator('.roster-row > span:first-child')
+      .allInnerTexts();
+    const groupingNames = await page
+      .locator('.group-admin-column')
+      .nth(index)
+      .locator('.group-player strong')
+      .allInnerTexts();
+    expect(rosterLabels).toHaveLength(groupingNames.length);
+    for (const name of groupingNames) {
+      expect(rosterLabels.filter((label) => label.startsWith(name))).toHaveLength(1);
+    }
+  }
 
   expect(errors).toEqual([]);
 });
@@ -446,6 +468,11 @@ test('B 端：B06 调整 → 保存 → 清除 → 重新生成', async ({ page 
   await page.getByRole('button', { name: '清除分组' }).click();
   await page.locator('.el-message-box').getByRole('button', { name: '清除' }).click();
   await expect(page.getByText('尚未生成分组')).toBeVisible();
+  // 无分组时报名区回到正式/外挂两列。
+  await expect(page.locator('.roster-section .position-title')).toHaveText([
+    '正式球员',
+    '外挂球员',
+  ]);
   await page.locator('.toolbar').getByRole('button', { name: '生成分组' }).click();
   await expect(page.locator('.group-admin-column')).toHaveCount(2);
 

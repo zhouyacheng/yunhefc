@@ -2,7 +2,7 @@ package com.yunhefc.stats.application;
 
 import com.yunhefc.stats.domain.PlayerStatsSummary;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 某赛季球员统计汇总行。
@@ -13,9 +13,9 @@ public record PlayerStatsRow(
         int appearances,
         int goals,
         int assists,
-        Instant updatedAt) {
+        LocalDateTime updatedAt) {
 
-    public static PlayerStatsRow of(PlayerStatsSummary summary, Instant updatedAt) {
+    public static PlayerStatsRow of(PlayerStatsSummary summary, LocalDateTime updatedAt) {
         return new PlayerStatsRow(
                 summary.getPlayerId(),
                 summary.getSeason(),

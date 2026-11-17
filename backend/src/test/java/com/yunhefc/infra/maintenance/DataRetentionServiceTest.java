@@ -6,13 +6,12 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.retention.RetentionTask;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -20,7 +19,7 @@ import java.util.List;
 
 class DataRetentionServiceTest {
 
-    private static final Clock CLOCK = Clock.fixed(Instant.parse("2026-11-12T03:30:00Z"), ZoneOffset.UTC);
+    private static final LocalDateTime NOW = ShanghaiTime.parseLenient("2026-11-12T03:30:00Z");
     private static final Logger LOGGER = (Logger) LoggerFactory.getLogger(DataRetentionService.class);
 
     @Test
@@ -28,7 +27,7 @@ class DataRetentionServiceTest {
         StubTask notification = new StubTask("notification", 1000, 1000, 500);
         StubTask idempotency = new StubTask("idempotency", 0);
 
-        new DataRetentionService(List.of(notification, idempotency), CLOCK).cleanup();
+        new DataRetentionService(List.of(notification, idempotency)).cleanup(NOW);
 
         assertThat(notification.limits).containsExactly(1000, 1000, 1000);
         assertThat(idempotency.limits).containsExactly(1000);
@@ -42,7 +41,7 @@ class DataRetentionServiceTest {
         LOGGER.setLevel(Level.DEBUG);
 
         try {
-            new DataRetentionService(List.of(notification), CLOCK).cleanup();
+            new DataRetentionService(List.of(notification)).cleanup(NOW);
         } finally {
             LOGGER.setLevel(previous);
             LOGGER.detachAppender(appender);
@@ -62,7 +61,7 @@ class DataRetentionServiceTest {
         ListAppender<ILoggingEvent> appender = attachAppender();
 
         try {
-            new DataRetentionService(List.of(broken, notification), CLOCK).cleanup();
+            new DataRetentionService(List.of(broken, notification)).cleanup(NOW);
         } finally {
             LOGGER.detachAppender(appender);
         }
@@ -101,7 +100,7 @@ class DataRetentionServiceTest {
         }
 
         @Override
-        public int deleteBatch(Instant now, int limit) {
+        public int deleteBatch(LocalDateTime now, int limit) {
             invoked = true;
             limits.add(limit);
             return results.removeFirst();
@@ -111,7 +110,7 @@ class DataRetentionServiceTest {
     private record ThrowingTask(String name) implements RetentionTask {
 
         @Override
-        public int deleteBatch(Instant now, int limit) {
+        public int deleteBatch(LocalDateTime now, int limit) {
             throw new IllegalStateException("boom");
         }
     }

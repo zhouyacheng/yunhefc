@@ -20,7 +20,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -87,7 +87,7 @@ public class AuditLogApplicationService {
      * 年度冷备按 id 升序读取区间内全部原文行，不应用 is_deleted 过滤。
      */
     @Transactional(readOnly = true)
-    public List<AuditLog> exportRows(Instant from, Instant to) {
+    public List<AuditLog> exportRows(LocalDateTime from, LocalDateTime to) {
         return auditLogMapper.selectForExport(from, to);
     }
 

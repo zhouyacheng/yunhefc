@@ -1,13 +1,13 @@
 package com.yunhefc.infra.maintenance;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.retention.RetentionTask;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -21,10 +21,12 @@ public class DataRetentionService {
     private static final Logger log = LoggerFactory.getLogger(DataRetentionService.class);
 
     private final List<RetentionTask> tasks;
-    private final Clock clock;
 
     public void cleanup() {
-        Instant now = Instant.now(clock);
+        cleanup(ShanghaiTime.now());
+    }
+
+    public void cleanup(LocalDateTime now) {
         for (RetentionTask task : tasks) {
             int deleted = 0;
             try {

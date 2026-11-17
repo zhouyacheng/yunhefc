@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -80,7 +80,7 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
                    OR (status = 2 AND start_at <= #{now})
                    OR (status = 3 AND end_at <= #{now}))
             """)
-    List<TeamMatch> selectAutoAdvanceCandidates(@Param("now") Instant now);
+    List<TeamMatch> selectAutoAdvanceCandidates(@Param("now") LocalDateTime now);
 
     // 考勤缺勤候选：已结束且实际结束时间已到 cutoff；提前结束用 status_updated_at，否则用 end_at。
     @Select("""
@@ -94,7 +94,7 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
             ORDER BY id
             """)
     List<TeamMatch> selectFinishedBefore(@Param("status") int status,
-                                         @Param("cutoff") Instant cutoff);
+                                         @Param("cutoff") LocalDateTime cutoff);
 
     // 统计汇总候选：未取消比赛；赛季为空的行也要取出，由应用层按开赛年份裁决。
     @Select("""
@@ -122,10 +122,10 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
     List<TeamMatch> selectRollupMatches(@Param("teamId") Long teamId,
                                         @Param("cancelled") int cancelled);
 
-    // 有效赛季：空 season 按开赛时间的 Asia/Shanghai 年份归属（start_at 存 UTC）。
+    // 有效赛季：空 season 按开赛时间的 Asia/Shanghai 年份归属（start_at 存 +08:00 墙钟）。
     @Select("""
             SELECT DISTINCT COALESCE(NULLIF(season, ''),
-                   DATE_FORMAT(DATE_ADD(start_at, INTERVAL 8 HOUR), '%Y')) AS season
+                   DATE_FORMAT(start_at, '%Y')) AS season
             FROM team_match
             WHERE team_id = #{teamId} AND is_deleted = 0
             ORDER BY season DESC
@@ -142,5 +142,5 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
             """)
     int advanceStatus(@Param("id") Long id, @Param("current") int current,
                       @Param("target") int target, @Param("version") int version,
-                      @Param("now") Instant now);
+                      @Param("now") LocalDateTime now);
 }

@@ -7,6 +7,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
@@ -31,8 +32,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -67,8 +67,6 @@ class AuthServiceTest {
     private UserViewAssembler userViewAssembler;
     @Mock
     private AvatarUrlSigner avatarUrlSigner;
-    @Mock
-    private Clock clock;
 
     @InjectMocks
     private AuthService authService;
@@ -79,7 +77,6 @@ class AuthServiceTest {
         when(passwordEncoder.encode("Passw0rd!")).thenReturn("hash");
         when(userMapper.selectCount(any())).thenReturn(0L);
         when(teamReadPort.currentTeamId()).thenReturn(1L);
-        when(clock.instant()).thenReturn(Instant.parse("2026-11-10T00:00:00Z"));
         when(userMapper.insert(any(AppUser.class)))
                 .thenThrow(new DuplicateKeyException(
                         "Duplicate entry '13900000001' for key 'app_user.uk_user_phone'"));
@@ -136,7 +133,6 @@ class AuthServiceTest {
         when(passwordEncoder.matches("Passw0rd!", "hash")).thenReturn(true);
         when(userRoleMapper.findPermissionCodes(7L)).thenReturn(List.of("registration:create:own"));
         when(playerReadPort.findByUserId(7L)).thenReturn(Optional.empty());
-        when(clock.instant()).thenReturn(Instant.parse("2026-11-10T00:00:00Z"));
 
         authService.login(new LoginRequest("13900000001", "Passw0rd!"), false);
 

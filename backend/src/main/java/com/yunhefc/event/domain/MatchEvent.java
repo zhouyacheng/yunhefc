@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -27,10 +27,10 @@ public class MatchEvent {
     private EventHalf half;
     private Boolean penalty;
     private Long createdBy;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     private Long updatedBy;
-    private Instant updatedAt;
-    private Instant deletedAt;
+    private LocalDateTime updatedAt;
+    private LocalDateTime deletedAt;
     private Long deletedBy;
     private Integer version;
     @TableLogic

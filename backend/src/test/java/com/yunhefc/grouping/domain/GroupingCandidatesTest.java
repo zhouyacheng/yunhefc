@@ -6,7 +6,7 @@ import com.yunhefc.contracts.registration.ConfirmedRegistration;
 import com.yunhefc.contracts.security.UserAccountSnapshot;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -75,6 +75,6 @@ class GroupingCandidatesTest {
 
     private static UserAccountSnapshot account(Long userId, int status) {
         return new UserAccountSnapshot(userId, "139****0000", status, "ACTIVE",
-                false, Set.of(), Instant.EPOCH, false);
+                false, Set.of(), LocalDateTime.of(1970, 1, 1, 0, 0), false);
     }
 }

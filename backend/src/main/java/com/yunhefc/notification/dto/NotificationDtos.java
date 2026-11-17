@@ -1,6 +1,6 @@
 package com.yunhefc.notification.dto;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 public final class NotificationDtos {
 
@@ -18,14 +18,14 @@ public final class NotificationDtos {
             String body,
             String refType,
             Long refId,
-            Instant readAt,
-            Instant createdAt) {
+            LocalDateTime readAt,
+            LocalDateTime createdAt) {
     }
 
     public record UnreadCountView(int count) {
     }
 
-    public record ReadResult(Instant readAt) {
+    public record ReadResult(LocalDateTime readAt) {
     }
 
     public record ReadAllResult(int updated) {

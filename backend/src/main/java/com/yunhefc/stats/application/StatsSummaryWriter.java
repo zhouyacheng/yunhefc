@@ -6,7 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -19,7 +19,7 @@ public class StatsSummaryWriter {
     private final PlayerStatsSummaryMapper statsMapper;
 
     @Transactional
-    public void replace(List<PlayerStatsSummary> summaries, Instant now) {
+    public void replace(List<PlayerStatsSummary> summaries, LocalDateTime now) {
         if (!summaries.isEmpty()) {
             statsMapper.upsertBatch(summaries, now);
         }

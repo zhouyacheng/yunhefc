@@ -13,14 +13,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class MatchPublicIT extends IntegrationTestSupport {
 
@@ -44,10 +44,20 @@ class MatchPublicIT extends IntegrationTestSupport {
     }
 
     @Test
+    void publicTimesUseShanghaiOffset() throws Exception {
+        insertRawMatch(1L, "M03时区输出", "2098", "2098-06-01 10:00:00", 980199);
+
+        mockMvc.perform(get("/api/v1/c/matches").param("season", "2098"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].startAt")
+                        .value("2098-06-01T10:00:00+08:00"));
+    }
+
+    @Test
     void publicSeasonsUseEffectiveSeasonAndAlwaysIncludeCurrentYear() throws Exception {
         insertRawMatch(1L, "M03赛季明确", "2098", "2098-06-01 10:00:00", 980101);
-        // UTC 2096-12-31 16:30 = 上海 2097-01-01 00:30，空 season 按开赛年份归入 2097。
-        insertRawMatch(1L, "M03赛季空回退", "", "2096-12-31 16:30:00", 980102);
+        // 上海 2097-01-01 00:30（存储为 +08:00 墙钟），空 season 按开赛年份归入 2097。
+        insertRawMatch(1L, "M03赛季空回退", "", "2097-01-01 00:30:00", 980102);
         Long deleted = insertRawMatch(1L, "M03赛季伪删除", "2095", "2095-06-01 10:00:00", 980103);
         jdbc.update("UPDATE team_match SET is_deleted = 1 WHERE id = ?", deleted);
         insertRawMatch(2L, "M03赛季他队", "2094", "2094-06-01 10:00:00", 980104);
@@ -245,10 +255,10 @@ class MatchPublicIT extends IntegrationTestSupport {
         // 模拟手工冻结或自动流转滞后的过期比赛：状态非终态，但结束时间已过。
         jdbc.update("""
                 UPDATE team_match
-                SET start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR),
-                    end_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR),
-                    signup_deadline = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 HOUR),
-                    cancel_lock = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR),
+                SET start_at = DATE_SUB(NOW(), INTERVAL 3 HOUR),
+                    end_at = DATE_SUB(NOW(), INTERVAL 1 HOUR),
+                    signup_deadline = DATE_SUB(NOW(), INTERVAL 4 HOUR),
+                    cancel_lock = DATE_SUB(NOW(), INTERVAL 3 HOUR),
                     status = 2, manual_status = 1
                 WHERE id = ?
                 """, stale);
@@ -416,7 +426,7 @@ class MatchPublicIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.myRegistration").value((Object) null))
                 .andReturn();
         String json = result.getResponse().getContentAsString();
-        Instant startAt = Instant.parse(com.jayway.jsonpath.JsonPath.read(json, "$.data.startAt"));
+        LocalDateTime startAt = ShanghaiTime.parseLenient(com.jayway.jsonpath.JsonPath.read(json, "$.data.startAt"));
         assertThatInstant(startAt, "2099-09-01T20:00:00");
 
         mockMvc.perform(get("/api/v1/c/matches/999999999"))
@@ -484,9 +494,9 @@ class MatchPublicIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(40001));
     }
 
-    private void assertThatInstant(Instant actual, String localDateTime) {
+    private void assertThatInstant(LocalDateTime actual, String localDateTime) {
         org.assertj.core.api.Assertions.assertThat(actual)
-                .isEqualTo(LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant());
+                .isEqualTo(ShanghaiTime.parseLenient(localDateTime));
     }
 
     private String matchBody(String title, int type, String venue, String season, String startAt) {
@@ -494,7 +504,7 @@ class MatchPublicIT extends IntegrationTestSupport {
                 {"title":"%s","type":%d,"season":"%s","startAt":"%s","endAt":"%s","venue":"%s",
                  "homeTeamName":"橙队","awayTeamName":"兰队"}
                 """.formatted(title, type, season, local(startAt),
-                local(LocalDateTime.parse(startAt).plusHours(2).toString()), venue);
+                local(ShanghaiTime.parseLenient(startAt).plusHours(2).toString()), venue);
     }
 
     private String officialBody(String title, String home, String away,
@@ -505,13 +515,13 @@ class MatchPublicIT extends IntegrationTestSupport {
                  "scoreHome":%d,"scoreAway":%d}
                 """.formatted(title, local(startAt == null ? "2099-08-01T20:00:00" : startAt),
                 local(startAt == null ? "2099-08-01T22:00:00"
-                        : LocalDateTime.parse(startAt).plusHours(2).toString()),
+                        : ShanghaiTime.parseLenient(startAt).plusHours(2).toString()),
                 home, away, scoreHome, scoreAway);
     }
 
     private Long insertRawMatch(Long teamId, String title, String season,
                                 String startAt, int seasonMatchNo) {
-        LocalDateTime start = LocalDateTime.parse(startAt.replace(' ', 'T'));
+        LocalDateTime start = ShanghaiTime.parseLenient(startAt.replace(' ', 'T'));
         jdbc.update("""
                 INSERT INTO team_match (team_id, title, type, start_at, end_at, signup_deadline,
                     cancel_lock, venue, season, home_team_name, away_team_name, capacity,
@@ -599,7 +609,7 @@ class MatchPublicIT extends IntegrationTestSupport {
         return cookie(result, "YHFC_B");
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 }

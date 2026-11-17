@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.grouping.domain.RosterFingerprint;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -21,7 +22,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
@@ -747,13 +748,13 @@ class GroupingIT extends IntegrationTestSupport {
     }
 
     private Long createMatch(String title, int type, int status, int includeGuests, String season) {
-        Instant start = status == 4
-                ? Instant.now().minus(Duration.ofHours(3))
-                : Instant.now().plus(Duration.ofDays(1));
-        Instant end = start.plus(Duration.ofHours(2));
-        Instant signupDeadline = start.atZone(SHANGHAI).toLocalDate()
-                .atStartOfDay(SHANGHAI).toInstant();
-        Instant cancelLock = signupDeadline.plus(Duration.ofHours(1));
+        LocalDateTime start = status == 4
+                ? ShanghaiTime.now().minus(Duration.ofHours(3))
+                : ShanghaiTime.now().plus(Duration.ofDays(1));
+        LocalDateTime end = start.plus(Duration.ofHours(2));
+        LocalDateTime signupDeadline = start.toLocalDate()
+                .atStartOfDay();
+        LocalDateTime cancelLock = signupDeadline.plus(Duration.ofHours(1));
         long seasonNo = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(season_match_no), 0) + 1
                 FROM team_match WHERE team_id = 1 AND season = ?
@@ -768,8 +769,8 @@ class GroupingIT extends IntegrationTestSupport {
                     season_match_no, total_match_no, created_by)
                 VALUES (1, ?, ?, ?, ?, ?, ?, '测试场地', ?, '橙队', '兰队', ?, ?, 1, 30, 4, 2, ?,
                         ?, ?, 1)
-                """, title, type, Timestamp.from(start), Timestamp.from(end),
-                Timestamp.from(signupDeadline), Timestamp.from(cancelLock), season,
+                """, title, type, Timestamp.valueOf(start), Timestamp.valueOf(end),
+                Timestamp.valueOf(signupDeadline), Timestamp.valueOf(cancelLock), season,
                 type == 1 || type == 2 ? null : 0, status, includeGuests, seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

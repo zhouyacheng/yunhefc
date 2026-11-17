@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -21,7 +21,7 @@ public class ConsumedEvent {
     private String topic;
     private Integer partitionNo;
     private Long offsetNo;
-    private Instant processedAt;
+    private LocalDateTime processedAt;
     @TableLogic
     private Integer isDeleted;
 }

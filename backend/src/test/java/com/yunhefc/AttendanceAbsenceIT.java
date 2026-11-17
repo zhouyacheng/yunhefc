@@ -2,6 +2,7 @@ package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.attendance.application.AttendanceAbsenceApplicationService;
 import com.yunhefc.attendance.infrastructure.AttendanceAbsenceJob;
 import org.junit.jupiter.api.Test;
@@ -14,7 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
 import java.sql.Timestamp;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 
 class AttendanceAbsenceIT extends IntegrationTestSupport {
@@ -28,8 +29,8 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
     @Test
     void marksAbsentForConfirmedRegistrationsWithoutAttendanceUsingStatusUpdatedAt() {
         Long matchId = insertMatch("M05缺勤提前结束", 4,
-                Instant.now().minus(7, ChronoUnit.HOURS),
-                Instant.now().minus(1, ChronoUnit.HOURS));
+                ShanghaiTime.now().minus(7, ChronoUnit.HOURS),
+                ShanghaiTime.now().minus(1, ChronoUnit.HOURS));
         Long absent = insertPlayer("13900003601", "缺勤球员一", 1);
         Long present = insertPlayer("13900003602", "缺勤球员二", 1);
         Long waitlisted = insertPlayer("13900003603", "缺勤候补", 1);
@@ -51,9 +52,9 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
     @Test
     void fallsBackToEndAtWhenStatusUpdatedAtIsMissing() {
         Long due = insertMatch("M05缺勤无状态时间到期", 4, null,
-                Instant.now().minus(7, ChronoUnit.HOURS));
+                ShanghaiTime.now().minus(7, ChronoUnit.HOURS));
         Long notDue = insertMatch("M05缺勤无状态时间未到期", 4, null,
-                Instant.now().minus(5, ChronoUnit.HOURS));
+                ShanghaiTime.now().minus(5, ChronoUnit.HOURS));
         Long duePlayer = insertPlayer("13900003611", "缺勤回退一", 1);
         Long notDuePlayer = insertPlayer("13900003612", "缺勤回退二", 1);
         register(due, duePlayer, 0);
@@ -68,14 +69,14 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
     @Test
     void usesStatusUpdatedAtOnlyForEarlyFinish() {
         Long lateFinish = insertMatch("M05缺勤延迟完赛", 4,
-                Instant.now().minus(5, ChronoUnit.HOURS),
-                Instant.now().minus(20, ChronoUnit.HOURS));
+                ShanghaiTime.now().minus(5, ChronoUnit.HOURS),
+                ShanghaiTime.now().minus(20, ChronoUnit.HOURS));
         Long earlyDue = insertMatch("M05缺勤提前完赛", 4,
-                Instant.now().minus(7, ChronoUnit.HOURS),
-                Instant.now().plus(10, ChronoUnit.HOURS));
+                ShanghaiTime.now().minus(7, ChronoUnit.HOURS),
+                ShanghaiTime.now().plus(10, ChronoUnit.HOURS));
         Long earlyNotDue = insertMatch("M05缺勤提前未完赛", 4,
-                Instant.now().minus(5, ChronoUnit.HOURS),
-                Instant.now().plus(10, ChronoUnit.HOURS));
+                ShanghaiTime.now().minus(5, ChronoUnit.HOURS),
+                ShanghaiTime.now().plus(10, ChronoUnit.HOURS));
         Long first = insertPlayer("13900003621", "缺勤优先一", 1);
         Long second = insertPlayer("13900003622", "缺勤优先二", 1);
         Long third = insertPlayer("13900003623", "缺勤优先三", 1);
@@ -93,7 +94,7 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
 
     @Test
     void skipsCancelledPostponedAndUnfinishedMatches() {
-        Instant longAgo = Instant.now().minus(20, ChronoUnit.HOURS);
+        LocalDateTime longAgo = ShanghaiTime.now().minus(20, ChronoUnit.HOURS);
         Long cancelled = insertMatch("M05缺勤跳过取消", 6, longAgo, longAgo);
         Long postponed = insertMatch("M05缺勤跳过延期", 5, longAgo, longAgo);
         Long inProgress = insertMatch("M05缺勤跳过进行中", 3, longAgo, longAgo);
@@ -113,8 +114,8 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
     @Test
     void repeatedRunsAreIdempotentAndDoNotOverwriteExistingRecords() {
         Long matchId = insertMatch("M05缺勤幂等", 4,
-                Instant.now().minus(7, ChronoUnit.HOURS),
-                Instant.now().minus(1, ChronoUnit.HOURS));
+                ShanghaiTime.now().minus(7, ChronoUnit.HOURS),
+                ShanghaiTime.now().minus(1, ChronoUnit.HOURS));
         Long missing = insertPlayer("13900003641", "缺勤幂等一", 1);
         Long adminMarked = insertPlayer("13900003642", "缺勤幂等二", 1);
         register(matchId, missing, 0);
@@ -200,7 +201,7 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
 
     private long nextMatchNo = 910_000;
 
-    private Long insertMatch(String title, int status, Instant statusUpdatedAt, Instant endAt) {
+    private Long insertMatch(String title, int status, LocalDateTime statusUpdatedAt, LocalDateTime endAt) {
         long matchNo = nextMatchNo++;
         jdbc.update("""
                 INSERT INTO team_match (team_id, title, type, start_at, end_at, signup_deadline,
@@ -210,12 +211,12 @@ class AttendanceAbsenceIT extends IntegrationTestSupport {
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, 1, 30, ?, ?, ?,
                     1)
                 """, title,
-                Timestamp.from(endAt.minus(2, ChronoUnit.HOURS)),
-                Timestamp.from(endAt),
-                Timestamp.from(endAt.minus(10, ChronoUnit.HOURS)),
-                Timestamp.from(endAt.minus(4, ChronoUnit.HOURS)),
+                Timestamp.valueOf(endAt.minus(2, ChronoUnit.HOURS)),
+                Timestamp.valueOf(endAt),
+                Timestamp.valueOf(endAt.minus(10, ChronoUnit.HOURS)),
+                Timestamp.valueOf(endAt.minus(4, ChronoUnit.HOURS)),
                 status, matchNo, matchNo,
-                statusUpdatedAt == null ? null : Timestamp.from(statusUpdatedAt));
+                statusUpdatedAt == null ? null : Timestamp.valueOf(statusUpdatedAt));
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }
 }

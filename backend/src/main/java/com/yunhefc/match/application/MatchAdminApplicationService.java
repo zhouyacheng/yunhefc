@@ -3,6 +3,7 @@ package com.yunhefc.match.application;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
@@ -39,8 +40,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,7 +63,6 @@ public class MatchAdminApplicationService {
     private final RegistrationReadPort registrationReadPort;
     private final AuditRecorder auditRecorder;
     private final OutboxService outboxService;
-    private final Clock clock;
     private final TransactionTemplate transactionTemplate;
 
     public MatchAdminView create(MatchCreateRequest request) {
@@ -106,13 +105,13 @@ public class MatchAdminApplicationService {
                 .eq(type != null, TeamMatch::getType, type)
                 .eq(season != null, TeamMatch::getSeason, season);
         if (dateRange != null) {
-            wrapper.ge(TeamMatch::getStartAt, dateRange.startInstant())
-                    .lt(TeamMatch::getStartAt, dateRange.endExclusiveInstant());
+            wrapper.ge(TeamMatch::getStartAt, dateRange.startAt())
+                    .lt(TeamMatch::getStartAt, dateRange.endExclusiveAt());
         }
         if (MatchQueryParsing.SCOPE_UPCOMING.equals(scope)) {
             // 与 MAT-02 同口径：状态未结束且未取消，且结束时间未过。
             wrapper.notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED)
-                    .gt(TeamMatch::getEndAt, Instant.now(clock));
+                    .gt(TeamMatch::getEndAt, ShanghaiTime.now());
         } else if (MatchQueryParsing.SCOPE_HISTORY.equals(scope)) {
             wrapper.in(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
         }
@@ -255,7 +254,7 @@ public class MatchAdminApplicationService {
                 .eq(TeamMatch::getVersion, request.version())
                 .set(TeamMatch::getStatus, target)
                 .set(TeamMatch::getManualStatus, manualStatus)
-                .set(TeamMatch::getStatusUpdatedAt, Instant.now(clock))
+                .set(TeamMatch::getStatusUpdatedAt, ShanghaiTime.now())
                 .set(TeamMatch::getStatusUpdatedBy, userId)
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         if (updated == 0) {
@@ -333,7 +332,7 @@ public class MatchAdminApplicationService {
                 .set(TeamMatch::getCancelLock, schedule.cancelLock())
                 .set(TeamMatch::getStatus, MatchStatus.POSTPONED)
                 .set(TeamMatch::getManualStatus, true)
-                .set(TeamMatch::getStatusUpdatedAt, Instant.now(clock))
+                .set(TeamMatch::getStatusUpdatedAt, ShanghaiTime.now())
                 .set(TeamMatch::getStatusUpdatedBy, CurrentUser.principal().userId())
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
@@ -367,7 +366,7 @@ public class MatchAdminApplicationService {
                 .set(TeamMatch::getCancelLock, schedule.cancelLock())
                 .set(TeamMatch::getStatus, MatchStatus.SIGNUP_OPEN)
                 .set(TeamMatch::getManualStatus, false)
-                .set(TeamMatch::getStatusUpdatedAt, Instant.now(clock))
+                .set(TeamMatch::getStatusUpdatedAt, ShanghaiTime.now())
                 .set(TeamMatch::getStatusUpdatedBy, CurrentUser.principal().userId())
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
@@ -395,7 +394,7 @@ public class MatchAdminApplicationService {
                 .notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED)
                 .set(TeamMatch::getStatus, MatchStatus.CANCELLED)
                 .set(TeamMatch::getManualStatus, true)
-                .set(TeamMatch::getStatusUpdatedAt, Instant.now(clock))
+                .set(TeamMatch::getStatusUpdatedAt, ShanghaiTime.now())
                 .set(TeamMatch::getStatusUpdatedBy, CurrentUser.principal().userId())
                 .set(TeamMatch::getVersion, match.getVersion() + 1));
         TeamMatch saved = reloadAfterTransition(updated, matchId, teamId,
@@ -658,7 +657,7 @@ public class MatchAdminApplicationService {
     private String season(String requested) {
         String season = MatchQueryParsing.normalize(requested);
         if (season == null) {
-            return String.valueOf(LocalDate.now(clock.withZone(MatchTimeRules.ZONE)).getYear());
+            return String.valueOf(LocalDate.now(MatchTimeRules.ZONE).getYear());
         }
         return MatchQueryParsing.validSeason(season);
     }

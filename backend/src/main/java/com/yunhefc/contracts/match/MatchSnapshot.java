@@ -1,7 +1,6 @@
 package com.yunhefc.contracts.match;
 
-import java.time.Instant;
-import java.time.ZoneId;
+import java.time.LocalDateTime;
 
 /**
  * 跨模块读取的比赛快照。
@@ -10,10 +9,10 @@ public record MatchSnapshot(
         Long id,
         Long teamId,
         String title,
-        Instant startAt,
-        Instant endAt,
-        Instant signupDeadline,
-        Instant cancelLock,
+        LocalDateTime startAt,
+        LocalDateTime endAt,
+        LocalDateTime signupDeadline,
+        LocalDateTime cancelLock,
         Integer capacity,
         Integer guestCapacity,
         Integer waitlistCapacity,
@@ -21,13 +20,12 @@ public record MatchSnapshot(
         Integer status,
         String homeTeamName,
         String awayTeamName,
-        Instant statusUpdatedAt,
+        LocalDateTime statusUpdatedAt,
         String season,
         Integer type,
         Integer ourSide,
         Boolean includeGuests) {
 
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
     private static final int INTERNAL = 1;
     private static final int TRAINING = 2;
 
@@ -45,7 +43,7 @@ public record MatchSnapshot(
         if (season != null && !season.isBlank()) {
             return season;
         }
-        return startAt == null ? null : String.valueOf(startAt.atZone(BUSINESS_ZONE).getYear());
+        return startAt == null ? null : String.valueOf(startAt.getYear());
     }
 
     /**

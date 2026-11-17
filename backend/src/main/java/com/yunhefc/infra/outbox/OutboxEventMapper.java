@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -49,7 +49,7 @@ public interface OutboxEventMapper extends BaseMapper<OutboxEvent> {
               AND (lease_until IS NULL OR lease_until < NOW(3))
             """)
     int claim(@Param("id") Long id, @Param("owner") String owner,
-              @Param("leaseUntil") Instant leaseUntil);
+              @Param("leaseUntil") LocalDateTime leaseUntil);
 
     @Update("""
             UPDATE outbox_event
@@ -59,13 +59,13 @@ public interface OutboxEventMapper extends BaseMapper<OutboxEvent> {
     int markSent(@Param("id") Long id);
 
     @Delete("DELETE FROM outbox_event WHERE status = 1 AND sent_at < #{before} LIMIT #{limit}")
-    int deleteSentBefore(@Param("before") Instant before, @Param("limit") int limit);
+    int deleteSentBefore(@Param("before") LocalDateTime before, @Param("limit") int limit);
 
     @Select("SELECT COUNT(*) FROM outbox_event WHERE status = 2 AND created_at < #{before}")
-    int countFailedBefore(@Param("before") Instant before);
+    int countFailedBefore(@Param("before") LocalDateTime before);
 
     @Delete("DELETE FROM outbox_event WHERE status = 2 AND created_at < #{before} LIMIT #{limit}")
-    int deleteFailedBefore(@Param("before") Instant before, @Param("limit") int limit);
+    int deleteFailedBefore(@Param("before") LocalDateTime before, @Param("limit") int limit);
 
     @Update("""
             UPDATE outbox_event
@@ -77,6 +77,6 @@ public interface OutboxEventMapper extends BaseMapper<OutboxEvent> {
                 status = CASE WHEN attempts >= #{maxAttempts} THEN 2 ELSE 0 END
             WHERE id = #{id}
             """)
-    int markFailed(@Param("id") Long id, @Param("nextRetryAt") Instant nextRetryAt,
+    int markFailed(@Param("id") Long id, @Param("nextRetryAt") LocalDateTime nextRetryAt,
                    @Param("error") String error, @Param("maxAttempts") int maxAttempts);
 }

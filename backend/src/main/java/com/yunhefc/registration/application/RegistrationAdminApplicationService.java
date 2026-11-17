@@ -1,5 +1,6 @@
 package com.yunhefc.registration.application;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -17,8 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -33,7 +33,6 @@ public class RegistrationAdminApplicationService {
     private final MatchRegistrationContextPort matchRegistrationContextPort;
     private final RegistrationCancellationService registrationCancellationService;
     private final AuditRecorder auditRecorder;
-    private final Clock clock;
 
     /**
      * REG-07：移除有效报名并留痕；移除 CONFIRMED 时同池最早候补递补，结果如实返回。
@@ -57,7 +56,7 @@ public class RegistrationAdminApplicationService {
         }
         requireRemovable(registration, match);
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         Optional<Long> promotedPlayerId = registrationCancellationService
                 .removeAndPromote(registration, principal.userId(), now, match);
         auditRecorder.recordCurrent("REGISTRATION_REMOVE", "REGISTRATION", registrationId,
@@ -89,7 +88,7 @@ public class RegistrationAdminApplicationService {
     }
 
     private static Map<String, Object> auditAfter(Registration registration, Long removedBy,
-                                                  Instant now, Long promotedPlayerId) {
+                                                  LocalDateTime now, Long promotedPlayerId) {
         Map<String, Object> values = auditBefore(registration);
         values.put("status", RegistrationStatus.REMOVED.code());
         values.put("cancelledAt", now);

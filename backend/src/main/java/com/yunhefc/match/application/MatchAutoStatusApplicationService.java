@@ -1,5 +1,6 @@
 package com.yunhefc.match.application;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.match.domain.MatchStatus;
 import com.yunhefc.match.domain.MatchStatusMachine;
@@ -11,8 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -31,13 +31,12 @@ public class MatchAutoStatusApplicationService {
     private final TeamMatchMapper teamMatchMapper;
     private final AuditRecorder auditRecorder;
     private final TransactionTemplate transactionTemplate;
-    private final Clock clock;
 
     /**
      * @return 本次实际推进的比赛数；重复执行返回 0。
      */
     public int advance() {
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         int advanced = 0;
         for (TeamMatch candidate : teamMatchMapper.selectAutoAdvanceCandidates(now)) {
             try {
@@ -55,7 +54,7 @@ public class MatchAutoStatusApplicationService {
         return advanced;
     }
 
-    private int advanceOne(Long matchId, Long teamId, Instant now) {
+    private int advanceOne(Long matchId, Long teamId, LocalDateTime now) {
         // 候选在事务外读出，锁行后按最新数据重新判定，避免覆盖并发的手动修改。
         TeamMatch match = teamMatchMapper.selectByIdForUpdate(matchId, teamId);
         if (match == null) {

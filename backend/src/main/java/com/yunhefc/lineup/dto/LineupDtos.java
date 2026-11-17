@@ -8,7 +8,7 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public final class LineupDtos {
@@ -71,7 +71,7 @@ public final class LineupDtos {
             List<LineupStarterView> starters,
             List<LineupPlayerView> bench,
             int version,
-            Instant updatedAt,
+            LocalDateTime updatedAt,
             Long updatedBy) {
     }
 

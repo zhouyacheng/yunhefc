@@ -13,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.ratelimit.RedisRateLimiter;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -153,15 +154,15 @@ class RegistrationRateLimitIT extends IntegrationTestSupport {
                                 {"title":"%s","type":1,"season":"2099","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                                 """.formatted(title, local(startAt), local(
-                                LocalDateTime.parse(startAt).plusHours(2).toString()))))
+                                ShanghaiTime.parseLenient(startAt).plusHours(2).toString()))))
                 .andExpect(status().isOk())
                 .andReturn();
         return JsonPath.<Number>read(
                 result.getResponse().getContentAsString(), "$.data.id").longValue();
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private Cookie playerLogin(String phone, String name) throws Exception {

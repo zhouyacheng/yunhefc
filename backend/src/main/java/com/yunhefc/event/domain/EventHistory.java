@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -26,7 +26,7 @@ public class EventHistory {
     private String afterJson;
     private Long actorUserId;
     private String requestId;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     @TableLogic
     private Integer isDeleted;
 }

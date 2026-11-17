@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 队内分组主行；按 04 例外采用覆盖写与物理删除，不使用 @TableLogic。
@@ -23,10 +23,10 @@ public class MatchGrouping {
     private BigDecimal manualWeight;
     private BigDecimal autoWeight;
     private String rosterFingerprint;
-    private Instant generatedAt;
-    private Instant savedAt;
+    private LocalDateTime generatedAt;
+    private LocalDateTime savedAt;
     private Long createdBy;
-    private Instant createdAt;
-    private Instant updatedAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     private Integer isDeleted;
 }

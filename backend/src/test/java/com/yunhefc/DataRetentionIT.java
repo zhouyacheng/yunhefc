@@ -6,6 +6,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.infra.maintenance.DataRetentionJob;
 import com.yunhefc.infra.maintenance.DataRetentionService;
 import com.yunhefc.infra.outbox.OutboxFailedRetentionAdapter;
@@ -17,25 +18,18 @@ import org.quartz.Trigger;
 import org.quartz.TriggerKey;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.Primary;
 
 import java.sql.Timestamp;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Import(DataRetentionIT.FixedClockConfig.class)
 class DataRetentionIT extends IntegrationTestSupport {
 
-    private static final Instant NOW = Instant.parse("2026-11-12T03:30:00Z");
+    private static final LocalDateTime NOW = ShanghaiTime.parseLenient("2026-11-12T03:30:00Z");
 
     @Autowired
     private DataRetentionService dataRetentionService;
@@ -50,7 +44,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         // 已软删除的过期通知也必须物理清理，证明绕过 @TableLogic。
         insertNotification(900003L, NOW.minus(91, ChronoUnit.DAYS), 1);
 
-        dataRetentionService.cleanup();
+        dataRetentionService.cleanup(NOW);
 
         assertThat(notificationExists(900001L)).isFalse();
         assertThat(notificationExists(900002L)).isTrue();
@@ -68,7 +62,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         insertInviteUse(800001L, 999902L);
         insertInviteUse(800002L, 999903L);
 
-        dataRetentionService.cleanup();
+        dataRetentionService.cleanup(NOW);
 
         assertThat(inviteExists(800001L)).isFalse();
         assertThat(inviteExists(800002L)).isTrue();
@@ -98,7 +92,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         appender.start();
         logger.addAppender(appender);
         try {
-            dataRetentionService.cleanup();
+            dataRetentionService.cleanup(NOW);
         } finally {
             logger.detachAppender(appender);
         }
@@ -120,7 +114,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         insertConsumed(oldEvent, NOW.minus(8, ChronoUnit.DAYS), 1);
         insertConsumed(recentEvent, NOW.minus(6, ChronoUnit.DAYS), 2);
 
-        dataRetentionService.cleanup();
+        dataRetentionService.cleanup(NOW);
 
         assertThat(consumedExists(oldEvent)).isFalse();
         assertThat(consumedExists(recentEvent)).isTrue();
@@ -131,7 +125,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         insertIdempotency("expired", NOW.minus(1, ChronoUnit.HOURS));
         insertIdempotency("active", NOW.plus(1, ChronoUnit.HOURS));
 
-        dataRetentionService.cleanup();
+        dataRetentionService.cleanup(NOW);
 
         assertThat(idempotencyExists("expired")).isFalse();
         assertThat(idempotencyExists("active")).isTrue();
@@ -150,7 +144,7 @@ class DataRetentionIT extends IntegrationTestSupport {
         insertConsumed(consumedAtBoundary, NOW.minus(7, ChronoUnit.DAYS), 1);
         insertIdempotency("boundary", NOW);
 
-        dataRetentionService.cleanup();
+        dataRetentionService.cleanup(NOW);
 
         assertThat(notificationExists(903001L)).isTrue();
         assertThat(inviteExists(803001L)).isTrue();
@@ -162,17 +156,17 @@ class DataRetentionIT extends IntegrationTestSupport {
 
     @Test
     void deletesInBatchesUntilBelowBatchSize() {
-        Instant old = NOW.minus(91, ChronoUnit.DAYS);
+        LocalDateTime old = NOW.minus(91, ChronoUnit.DAYS);
         List<Object[]> rows = new ArrayList<>();
         for (int i = 0; i < 2500; i++) {
-            rows.add(new Object[]{901000L + i, Timestamp.from(old)});
+            rows.add(new Object[]{901000L + i, Timestamp.valueOf(old)});
         }
         jdbc.batchUpdate("""
                 INSERT INTO notification (id, user_id, type, title, body, created_at)
                 VALUES (?, 999901, 9, 'batch', 'batch', ?)
                 """, rows);
 
-        dataRetentionService.cleanup();
+        dataRetentionService.cleanup(NOW);
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM notification", Integer.class)).isZero();
     }
@@ -182,8 +176,8 @@ class DataRetentionIT extends IntegrationTestSupport {
         insertNotification(902001L, NOW.minus(91, ChronoUnit.DAYS), 0);
         insertIdempotency("repeat", NOW.minus(1, ChronoUnit.HOURS));
 
-        dataRetentionService.cleanup();
-        dataRetentionService.cleanup();
+        dataRetentionService.cleanup(NOW);
+        dataRetentionService.cleanup(NOW);
 
         assertThat(notificationExists(902001L)).isFalse();
         assertThat(idempotencyExists("repeat")).isFalse();
@@ -204,24 +198,24 @@ class DataRetentionIT extends IntegrationTestSupport {
         assertThat(trigger.getJobKey()).isEqualTo(detail.getKey());
     }
 
-    private void insertNotification(Long id, Instant createdAt, int isDeleted) {
+    private void insertNotification(Long id, LocalDateTime createdAt, int isDeleted) {
         jdbc.update("""
                 INSERT INTO notification (id, user_id, type, title, body, created_at, is_deleted)
                 VALUES (?, 999901, 9, 'retention', 'retention', ?, ?)
-                """, id, Timestamp.from(createdAt), isDeleted);
+                """, id, Timestamp.valueOf(createdAt), isDeleted);
     }
 
     private boolean notificationExists(Long id) {
         return count("SELECT COUNT(*) FROM notification WHERE id = ?", id) > 0;
     }
 
-    private void insertInvite(Long id, int status, Instant expiresAt, Instant revokedAt) {
+    private void insertInvite(Long id, int status, LocalDateTime expiresAt, LocalDateTime revokedAt) {
         jdbc.update("""
                 INSERT INTO invite_link (id, team_id, type, token_hash, inviter_user_id,
                     expires_at, status, revoked_at)
                 VALUES (?, 1, 0, ?, 999901, ?, ?, ?)
-                """, id, String.format("%064d", id), Timestamp.from(expiresAt), status,
-                revokedAt == null ? null : Timestamp.from(revokedAt));
+                """, id, String.format("%064d", id), Timestamp.valueOf(expiresAt), status,
+                revokedAt == null ? null : Timestamp.valueOf(revokedAt));
     }
 
     private boolean inviteExists(Long id) {
@@ -236,36 +230,36 @@ class DataRetentionIT extends IntegrationTestSupport {
         return count("SELECT COUNT(*) FROM invite_use WHERE invite_id = ?", inviteId);
     }
 
-    private void insertOutbox(String eventId, int status, Instant createdAt, Instant sentAt) {
+    private void insertOutbox(String eventId, int status, LocalDateTime createdAt, LocalDateTime sentAt) {
         jdbc.update("""
                 INSERT INTO outbox_event (event_id, aggregate_type, aggregate_id, event_type,
                     payload_json, status, attempts, created_at, sent_at)
                 VALUES (?, 'USER', 1, 'AUDIT_RECORDED', '{}', ?, 0, ?, ?)
-                """, eventId, status, Timestamp.from(createdAt),
-                sentAt == null ? null : Timestamp.from(sentAt));
+                """, eventId, status, Timestamp.valueOf(createdAt),
+                sentAt == null ? null : Timestamp.valueOf(sentAt));
     }
 
     private boolean outboxExists(String eventId) {
         return count("SELECT COUNT(*) FROM outbox_event WHERE event_id = ?", eventId) > 0;
     }
 
-    private void insertConsumed(String eventId, Instant processedAt, long offset) {
+    private void insertConsumed(String eventId, LocalDateTime processedAt, long offset) {
         jdbc.update("""
                 INSERT INTO consumed_event (consumer_group, event_id, topic, partition_no,
                     offset_no, processed_at)
                 VALUES ('retention-test', ?, 'retention-topic', 0, ?, ?)
-                """, eventId, offset, Timestamp.from(processedAt));
+                """, eventId, offset, Timestamp.valueOf(processedAt));
     }
 
     private boolean consumedExists(String eventId) {
         return count("SELECT COUNT(*) FROM consumed_event WHERE event_id = ?", eventId) > 0;
     }
 
-    private void insertIdempotency(String idemKey, Instant expiresAt) {
+    private void insertIdempotency(String idemKey, LocalDateTime expiresAt) {
         jdbc.update("""
                 INSERT INTO idempotency_key (user_id, endpoint, idem_key, request_hash, expires_at)
                 VALUES (999901, 'RETENTION', ?, REPEAT('a', 64), ?)
-                """, idemKey, Timestamp.from(expiresAt));
+                """, idemKey, Timestamp.valueOf(expiresAt));
     }
 
     private boolean idempotencyExists(String idemKey) {
@@ -276,13 +270,4 @@ class DataRetentionIT extends IntegrationTestSupport {
         return jdbc.queryForObject(sql, Integer.class, args);
     }
 
-    @TestConfiguration
-    static class FixedClockConfig {
-
-        @Bean
-        @Primary
-        Clock fixedClock() {
-            return Clock.fixed(NOW, ZoneOffset.UTC);
-        }
-    }
 }

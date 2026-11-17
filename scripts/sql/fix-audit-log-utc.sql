@@ -1,3 +1,5 @@
+-- 已废弃：2026-11-17 起 DATETIME 统一存 Asia/Shanghai 墙钟，本脚本不再适用，禁止再执行。
+--
 -- 一次性修复：audit_log.created_at 由本地墙钟（Asia/Shanghai）转为 UTC。
 --
 -- 背景：历史版本插入审计行未显式写 created_at，由 MySQL DEFAULT CURRENT_TIMESTAMP(3)

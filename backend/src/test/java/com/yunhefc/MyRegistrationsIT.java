@@ -22,6 +22,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class MyRegistrationsIT extends IntegrationTestSupport {
 
@@ -347,7 +348,7 @@ class MyRegistrationsIT extends IntegrationTestSupport {
                                 {"title":"%s","type":1,"season":"2099","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                                 """.formatted(title, local(startAt), local(
-                                LocalDateTime.parse(startAt).plusHours(2).toString()))))
+                                ShanghaiTime.parseLenient(startAt).plusHours(2).toString()))))
                 .andExpect(status().isOk())
                 .andReturn();
         Long matchId = JsonPath.<Number>read(
@@ -356,8 +357,8 @@ class MyRegistrationsIT extends IntegrationTestSupport {
         return matchId;
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private Cookie playerLogin(String phone, String name) throws Exception {

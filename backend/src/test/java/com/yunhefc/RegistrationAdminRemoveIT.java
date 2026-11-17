@@ -25,6 +25,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class RegistrationAdminRemoveIT extends IntegrationTestSupport {
 
@@ -339,7 +340,7 @@ class RegistrationAdminRemoveIT extends IntegrationTestSupport {
                                 {"title":"%s","type":1,"season":"2099","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                                 """.formatted(title, local(startAt), local(
-                                LocalDateTime.parse(startAt).plusHours(2).toString()))))
+                                ShanghaiTime.parseLenient(startAt).plusHours(2).toString()))))
                 .andExpect(status().isOk())
                 .andReturn();
         Long matchId = JsonPath.<Number>read(
@@ -348,8 +349,8 @@ class RegistrationAdminRemoveIT extends IntegrationTestSupport {
         return matchId;
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private Cookie playerLogin(String phone, String name) throws Exception {

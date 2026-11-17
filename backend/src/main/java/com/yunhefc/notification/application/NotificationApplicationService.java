@@ -3,6 +3,7 @@ package com.yunhefc.notification.application;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
@@ -18,8 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -28,7 +28,6 @@ import java.util.List;
 public class NotificationApplicationService {
 
     private final NotificationMapper notificationMapper;
-    private final Clock clock;
 
     @Transactional(readOnly = true)
     public PageResponse<NotificationView> list(Boolean unread, long page, long pageSize) {
@@ -66,7 +65,7 @@ public class NotificationApplicationService {
         if (notification.getReadAt() != null) {
             return new ReadResult(notification.getReadAt());
         }
-        Instant readAt = now();
+        LocalDateTime readAt = now();
         notificationMapper.update(null, new LambdaUpdateWrapper<Notification>()
                 .eq(Notification::getId, notificationId)
                 .eq(Notification::getUserId, userId)
@@ -78,7 +77,7 @@ public class NotificationApplicationService {
     @Transactional
     public ReadAllResult markAllRead() {
         Long userId = CurrentUser.principal().userId();
-        Instant now = now();
+        LocalDateTime now = now();
         int updated = notificationMapper.update(null, new LambdaUpdateWrapper<Notification>()
                 .eq(Notification::getUserId, userId)
                 .isNull(Notification::getReadAt)
@@ -86,8 +85,8 @@ public class NotificationApplicationService {
         return new ReadAllResult(updated);
     }
 
-    private Instant now() {
-        return Instant.now(clock).truncatedTo(ChronoUnit.MILLIS);
+    private LocalDateTime now() {
+        return ShanghaiTime.now().truncatedTo(ChronoUnit.MILLIS);
     }
 
     private static NotificationView toView(Notification notification) {

@@ -3,10 +3,11 @@ package com.yunhefc.match.application;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.error.BusinessException;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 
 class MatchQueryParsingTest {
@@ -64,8 +65,8 @@ class MatchQueryParsingTest {
 
         assertThat(range.start()).isEqualTo(LocalDate.of(2099, 6, 1));
         assertThat(range.end()).isEqualTo(LocalDate.of(2099, 6, 15));
-        assertThat(range.startInstant()).isEqualTo(Instant.parse("2099-05-31T16:00:00Z"));
-        assertThat(range.endExclusiveInstant()).isEqualTo(Instant.parse("2099-06-15T16:00:00Z"));
+        assertThat(range.startAt()).isEqualTo(ShanghaiTime.parseLenient("2099-05-31T16:00:00Z"));
+        assertThat(range.endExclusiveAt()).isEqualTo(ShanghaiTime.parseLenient("2099-06-15T16:00:00Z"));
     }
 
     @Test
@@ -73,8 +74,8 @@ class MatchQueryParsingTest {
         MatchQueryParsing.DateRange range =
                 MatchQueryParsing.dateRange("2099-06-01", "2099-06-01");
 
-        assertThat(range.startInstant()).isEqualTo(Instant.parse("2099-05-31T16:00:00Z"));
-        assertThat(range.endExclusiveInstant()).isEqualTo(Instant.parse("2099-06-01T16:00:00Z"));
+        assertThat(range.startAt()).isEqualTo(ShanghaiTime.parseLenient("2099-05-31T16:00:00Z"));
+        assertThat(range.endExclusiveAt()).isEqualTo(ShanghaiTime.parseLenient("2099-06-01T16:00:00Z"));
     }
 
     @Test

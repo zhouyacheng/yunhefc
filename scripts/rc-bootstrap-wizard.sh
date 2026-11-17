@@ -352,7 +352,7 @@ ask_secret OSS_ACCESS_KEY_SECRET "OSS AccessKeySecret："
   printf 'SESSION_COOKIE_SECURE=true\n'
   printf 'SESSION_COOKIE_DOMAIN=\n'
   printf 'CORS_ALLOWED_ORIGINS=https://www.%s\n' "$RC_DOMAIN"
-  printf 'DB_URL=jdbc:mysql://%s:%s/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8\n' "$RDS_HOST" "$RDS_PORT"
+  printf 'DB_URL=jdbc:mysql://%s:%s/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8\n' "$RDS_HOST" "$RDS_PORT"
   printf 'DB_USERNAME=yunhefc_app\n'
   printf 'DB_PASSWORD=%s\n' "$RDS_APP_PASSWORD"
   printf 'REDIS_HOST=redis\n'

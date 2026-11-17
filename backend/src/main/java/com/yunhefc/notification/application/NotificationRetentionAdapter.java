@@ -8,7 +8,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Component
 @Order(1)
@@ -24,7 +24,7 @@ public class NotificationRetentionAdapter implements RetentionTask {
     }
 
     @Override
-    public int deleteBatch(Instant now, int limit) {
+    public int deleteBatch(LocalDateTime now, int limit) {
         return notificationMapper.deleteCreatedBefore(
                 now.minus(Duration.ofDays(retentionProperties.getNotificationDays())), limit);
     }

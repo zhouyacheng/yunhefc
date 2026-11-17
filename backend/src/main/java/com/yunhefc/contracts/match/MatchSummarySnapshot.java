@@ -1,6 +1,6 @@
 package com.yunhefc.contracts.match;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 跨模块读取的比赛摘要快照；展示标签与结果文本由比赛域派生，避免调用方复制规则。
@@ -11,8 +11,8 @@ public record MatchSummarySnapshot(
         String title,
         Integer type,
         String typeLabel,
-        Instant startAt,
-        Instant endAt,
+        LocalDateTime startAt,
+        LocalDateTime endAt,
         String venue,
         Integer round,
         String season,

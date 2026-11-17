@@ -1,6 +1,6 @@
 package com.yunhefc.registration.dto;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 public final class RegistrationDtos {
 
@@ -14,8 +14,8 @@ public final class RegistrationDtos {
             String typeLabel,
             Integer status,
             String statusLabel,
-            Instant registeredAt,
-            Instant cancelledAt,
+            LocalDateTime registeredAt,
+            LocalDateTime cancelledAt,
             boolean active) {
     }
 

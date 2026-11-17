@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -24,12 +24,12 @@ public class OutboxEvent {
     private String payloadJson;
     private Integer status;
     private Integer attempts;
-    private Instant nextRetryAt;
+    private LocalDateTime nextRetryAt;
     private String leaseOwner;
-    private Instant leaseUntil;
+    private LocalDateTime leaseUntil;
     private String lastError;
-    private Instant createdAt;
-    private Instant sentAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime sentAt;
     @TableLogic
     private Integer isDeleted;
 }

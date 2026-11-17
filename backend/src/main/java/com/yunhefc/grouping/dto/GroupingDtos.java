@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public final class GroupingDtos {
@@ -44,7 +44,7 @@ public final class GroupingDtos {
             GroupingWeightsView weights,
             BigDecimal diff,
             List<String> warnings,
-            Instant savedAt) {
+            LocalDateTime savedAt) {
     }
 
     public record GroupingScoresView(
@@ -64,10 +64,10 @@ public final class GroupingDtos {
             GroupingWeightsView weights,
             BigDecimal diff,
             List<String> warnings,
-            Instant savedAt,
+            LocalDateTime savedAt,
             GroupingScoresView scores,
             String rosterFingerprint,
-            Instant generatedAt,
+            LocalDateTime generatedAt,
             List<Long> ungroupedPlayerIds,
             GroupingRosterDiffView rosterDiff) {
     }
@@ -92,13 +92,13 @@ public final class GroupingDtos {
     }
 
     public record GroupingSnapshotView(
-            Instant savedAt,
+            LocalDateTime savedAt,
             String rosterFingerprint,
             GroupingTeamsView teams) {
     }
 
     public record GroupingSaveResponse(
-            Instant savedAt,
+            LocalDateTime savedAt,
             GroupingSnapshotView snapshot) {
     }
 

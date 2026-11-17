@@ -2,12 +2,13 @@ package com.yunhefc.stats.domain;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.attendance.AttendanceSnapshot;
 import com.yunhefc.contracts.event.EventStatsSnapshot;
 import com.yunhefc.contracts.match.MatchSnapshot;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -15,7 +16,7 @@ class StatsAggregatorTest {
 
     private static final Long TEAM_ID = 1L;
     private static final Long MATCH_ID = 10L;
-    private static final Instant START = Instant.parse("2026-03-01T04:00:00Z");
+    private static final LocalDateTime START = ShanghaiTime.parseLenient("2026-03-01T04:00:00Z");
 
     @Test
     void countsPresentAndTempPresentAsAppearancesButNotAbsent() {

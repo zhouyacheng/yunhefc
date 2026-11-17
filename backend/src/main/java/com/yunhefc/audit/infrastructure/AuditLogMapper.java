@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -22,5 +22,5 @@ public interface AuditLogMapper extends BaseMapper<AuditLog> {
             WHERE created_at >= #{from} AND created_at < #{to}
             ORDER BY id ASC
             """)
-    List<AuditLog> selectForExport(@Param("from") Instant from, @Param("to") Instant to);
+    List<AuditLog> selectForExport(@Param("from") LocalDateTime from, @Param("to") LocalDateTime to);
 }

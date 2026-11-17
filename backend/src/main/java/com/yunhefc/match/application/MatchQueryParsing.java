@@ -6,7 +6,7 @@ import com.yunhefc.match.domain.MatchStatus;
 import com.yunhefc.match.domain.MatchTimeRules;
 import com.yunhefc.match.domain.MatchType;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.regex.Pattern;
@@ -164,12 +164,12 @@ final class MatchQueryParsing {
 
     record DateRange(LocalDate start, LocalDate end) {
 
-        Instant startInstant() {
-            return start.atStartOfDay(MatchTimeRules.ZONE).toInstant();
+        LocalDateTime startAt() {
+            return start.atStartOfDay();
         }
 
-        Instant endExclusiveInstant() {
-            return end.plusDays(1).atStartOfDay(MatchTimeRules.ZONE).toInstant();
+        LocalDateTime endExclusiveAt() {
+            return end.plusDays(1).atStartOfDay();
         }
     }
 

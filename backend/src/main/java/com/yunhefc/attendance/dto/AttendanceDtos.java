@@ -3,7 +3,7 @@ package com.yunhefc.attendance.dto;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 public final class AttendanceDtos {
 
@@ -17,7 +17,7 @@ public final class AttendanceDtos {
             String statusLabel,
             Integer source,
             String sourceLabel,
-            Instant recordedAt) {
+            LocalDateTime recordedAt) {
     }
 
     /**
@@ -30,7 +30,7 @@ public final class AttendanceDtos {
             String statusLabel,
             Integer source,
             String sourceLabel,
-            Instant recordedAt) {
+            LocalDateTime recordedAt) {
     }
 
     public record PlayerRef(

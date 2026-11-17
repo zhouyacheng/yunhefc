@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Mapper
 public interface AppUserMapper extends BaseMapper<AppUser> {
@@ -19,7 +19,7 @@ public interface AppUserMapper extends BaseMapper<AppUser> {
     int clearOpenid(@Param("id") Long id);
 
     @Update("UPDATE app_user SET last_login_at = #{lastLoginAt} WHERE id = #{id} AND is_deleted = 0")
-    int updateLastLoginAt(@Param("id") Long id, @Param("lastLoginAt") Instant lastLoginAt);
+    int updateLastLoginAt(@Param("id") Long id, @Param("lastLoginAt") LocalDateTime lastLoginAt);
 
     @Update("UPDATE app_user SET password_hash = #{passwordHash} WHERE id = #{id} AND is_deleted = 0")
     int updatePasswordHash(@Param("id") Long id, @Param("passwordHash") String passwordHash);

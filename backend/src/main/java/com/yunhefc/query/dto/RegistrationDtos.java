@@ -4,7 +4,7 @@ import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.registration.RegistrationSnapshot;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * REG-03/04/05/06 共用的报名行结构。
@@ -21,8 +21,8 @@ public final class RegistrationDtos {
             String typeLabel,
             Integer status,
             String statusLabel,
-            Instant registeredAt,
-            Instant cancelledAt) {
+            LocalDateTime registeredAt,
+            LocalDateTime cancelledAt) {
 
         public static RegistrationRow from(RegistrationSnapshot registration, PlayerSnapshot player) {
             Position position = Position.of(player.position());

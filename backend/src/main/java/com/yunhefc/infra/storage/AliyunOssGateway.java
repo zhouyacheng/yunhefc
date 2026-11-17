@@ -11,7 +11,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
-import java.time.Instant;
 import java.util.Date;
 
 public class AliyunOssGateway implements OssGateway {
@@ -38,7 +37,7 @@ public class AliyunOssGateway implements OssGateway {
     @Override
     public String signedUrl(String objectKey) {
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, objectKey, HttpMethod.GET);
-        request.setExpiration(Date.from(Instant.now().plusSeconds(SIGNED_URL_TTL_SECONDS)));
+        request.setExpiration(new Date(System.currentTimeMillis() + SIGNED_URL_TTL_SECONDS * 1000L));
         return client.generatePresignedUrl(request).toString();
     }
 

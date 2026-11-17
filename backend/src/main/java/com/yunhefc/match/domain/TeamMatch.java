@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -20,10 +20,10 @@ public class TeamMatch {
     private String title;
     private MatchType type;
     private String format;
-    private Instant startAt;
-    private Instant endAt;
-    private Instant signupDeadline;
-    private Instant cancelLock;
+    private LocalDateTime startAt;
+    private LocalDateTime endAt;
+    private LocalDateTime signupDeadline;
+    private LocalDateTime cancelLock;
     private String venue;
     private String competition;
     private String season;
@@ -42,11 +42,11 @@ public class TeamMatch {
     private Integer seasonMatchNo;
     private Integer totalMatchNo;
     private Integer version;
-    private Instant statusUpdatedAt;
+    private LocalDateTime statusUpdatedAt;
     private Long statusUpdatedBy;
     private Long createdBy;
-    private Instant createdAt;
-    private Instant updatedAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

@@ -14,7 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.Instant;
+import com.yunhefc.common.time.ShanghaiTime;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
 
 @RestController
@@ -40,14 +41,14 @@ public class AuditLogController {
         return ApiResponse.ok(auditLogService.list(query));
     }
 
-    private static Instant instant(String value) {
+    private static LocalDateTime instant(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }
         try {
-            return Instant.parse(value.trim());
+            return ShanghaiTime.parseLenient(value);
         } catch (DateTimeParseException ex) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "时间必须为 ISO-8601 UTC 格式");
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "时间必须为 ISO-8601 格式");
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.yunhefc.stats.application;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.attendance.AttendanceReadPort;
 import com.yunhefc.contracts.attendance.AttendanceSnapshot;
 import com.yunhefc.contracts.event.EventStatsReadPort;
@@ -18,8 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -48,7 +48,6 @@ public class StatsRollupApplicationService {
     private final StatsSummaryWriter summaryWriter;
     private final StatsCache statsCache;
     private final StatsQueryService statsQueryService;
-    private final Clock clock;
 
     /**
      * 按有效赛季分组重算。单赛季写入失败只保留该赛季旧值，不影响其他赛季。
@@ -88,7 +87,7 @@ public class StatsRollupApplicationService {
                 .map(PlayerSnapshot::id)
                 .collect(Collectors.toSet());
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         List<RollupResult> results = new ArrayList<>();
         for (String season : seasons) {
             Map<Long, PlayerTally> tallies = talliesBySeason.get(season);

@@ -8,7 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -122,7 +122,7 @@ public final class EventDtos {
             String halfLabel,
             boolean penalty,
             Long createdBy,
-            Instant updatedAt,
+            LocalDateTime updatedAt,
             Integer version) {
     }
 
@@ -135,7 +135,7 @@ public final class EventDtos {
     public record EventResponse(EventView event) {
     }
 
-    public record EventDeleteResponse(Long eventId, Instant deletedAt) {
+    public record EventDeleteResponse(Long eventId, LocalDateTime deletedAt) {
     }
 
     /**

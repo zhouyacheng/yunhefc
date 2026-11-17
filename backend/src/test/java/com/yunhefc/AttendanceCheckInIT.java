@@ -16,9 +16,10 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class AttendanceCheckInIT extends IntegrationTestSupport {
 
@@ -27,7 +28,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
     @Test
     void checkInWithinWindowCreatesPresentSelfRecordAndFillsReg04() throws Exception {
         Cookie player = playerLogin("13900002501", "签到本人");
-        Long matchId = insertMatch("M05签到窗口内", Instant.now().plus(Duration.ofHours(2)), 2);
+        Long matchId = insertMatch("M05签到窗口内", ShanghaiTime.now().plus(Duration.ofHours(2)), 2);
         register(matchId, playerId("13900002501"), 1, 0);
 
         mockMvc.perform(get("/api/v1/c/matches/" + matchId + "/attendance/me").cookie(player))
@@ -89,7 +90,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
     @Test
     void rejectsCheckInOutsideWindowAndWithoutConfirmedRegistration() throws Exception {
         Cookie confirmed = playerLogin("13900002502", "签到窗口外");
-        Long tooEarly = insertMatch("M05签到未开始", Instant.now().plus(Duration.ofHours(10)), 2);
+        Long tooEarly = insertMatch("M05签到未开始", ShanghaiTime.now().plus(Duration.ofHours(10)), 2);
         register(tooEarly, playerId("13900002502"), 1, 0);
 
         mockMvc.perform(post("/api/v1/c/matches/" + tooEarly + "/check-in")
@@ -99,7 +100,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value(42201));
 
-        Long tooLate = insertMatch("M05签到已结束", Instant.now().minus(Duration.ofHours(25)), 2);
+        Long tooLate = insertMatch("M05签到已结束", ShanghaiTime.now().minus(Duration.ofHours(25)), 2);
         register(tooLate, playerId("13900002502"), 1, 0);
 
         mockMvc.perform(post("/api/v1/c/matches/" + tooLate + "/check-in")
@@ -109,7 +110,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.code").value(42201));
 
-        Long open = insertMatch("M05仅确认可签", Instant.now().plus(Duration.ofHours(2)), 2);
+        Long open = insertMatch("M05仅确认可签", ShanghaiTime.now().plus(Duration.ofHours(2)), 2);
         Cookie waitlisted = playerLogin("13900002503", "签到候补");
         register(open, playerId("13900002503"), 1, 1);
 
@@ -135,7 +136,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
     @Test
     void cancelledAndPostponedMatchesReturnStateConflict() throws Exception {
         Cookie player = playerLogin("13900002505", "签到作废场次");
-        Long cancelled = insertMatch("M05签到已取消", Instant.now().plus(Duration.ofHours(2)), 6);
+        Long cancelled = insertMatch("M05签到已取消", ShanghaiTime.now().plus(Duration.ofHours(2)), 6);
         register(cancelled, playerId("13900002505"), 1, 0);
 
         mockMvc.perform(post("/api/v1/c/matches/" + cancelled + "/check-in")
@@ -145,7 +146,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40905));
 
-        Long postponed = insertMatch("M05签到已延期", Instant.now().plus(Duration.ofHours(2)), 5);
+        Long postponed = insertMatch("M05签到已延期", ShanghaiTime.now().plus(Duration.ofHours(2)), 5);
         register(postponed, playerId("13900002505"), 1, 0);
 
         mockMvc.perform(post("/api/v1/c/matches/" + postponed + "/check-in")
@@ -159,7 +160,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
     @Test
     void existingAdminSystemOrSelfAttendanceIsReturnedUnchanged() throws Exception {
         Cookie adminMarked = playerLogin("13900002506", "签到管理员优先");
-        Long matchId = insertMatch("M05签到已有记录", Instant.now().plus(Duration.ofHours(2)), 2);
+        Long matchId = insertMatch("M05签到已有记录", ShanghaiTime.now().plus(Duration.ofHours(2)), 2);
         Long adminMarkedPlayer = playerId("13900002506");
         register(matchId, adminMarkedPlayer, 1, 0);
         Long adminRecord = insertAttendance(matchId, adminMarkedPlayer, 0, 1);
@@ -206,7 +207,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
     @Test
     void guestSeesOnlyOwnAttendanceAndCrossTeamMatchIsNotFound() throws Exception {
         Cookie guest = guestLogin("13900002509", "签到外挂");
-        Long matchId = insertMatch("M05外挂签到", Instant.now().plus(Duration.ofHours(2)), 2);
+        Long matchId = insertMatch("M05外挂签到", ShanghaiTime.now().plus(Duration.ofHours(2)), 2);
         Long guestPlayer = playerId("13900002509");
         register(matchId, guestPlayer, 0, 0);
 
@@ -262,7 +263,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
     @Test
     void loginIssuedCsrfTokenSurvivesFirstAuthenticatedRead() throws Exception {
         insertPlayer("13900002512", "签到令牌", 1, 512);
-        Long matchId = insertMatch("M05签到令牌", Instant.now().plus(Duration.ofHours(2)), 2);
+        Long matchId = insertMatch("M05签到令牌", ShanghaiTime.now().plus(Duration.ofHours(2)), 2);
         register(matchId, playerId("13900002512"), 1, 0);
 
         CLogin login = loginWithRealCsrf("13900002512", "Player123!");
@@ -282,7 +283,7 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
     @Test
     void checkInIsDrivenByWindowNotMatchStatus() throws Exception {
         Cookie player = playerLogin("13900002511", "签到状态无关");
-        Long matchId = insertMatch("M05报名中也可签", Instant.now().plus(Duration.ofHours(2)), 0);
+        Long matchId = insertMatch("M05报名中也可签", ShanghaiTime.now().plus(Duration.ofHours(2)), 0);
         register(matchId, playerId("13900002511"), 1, 0);
 
         mockMvc.perform(post("/api/v1/c/matches/" + matchId + "/check-in")
@@ -293,11 +294,11 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.attendance.statusLabel").value("PRESENT"));
     }
 
-    private Long insertMatch(String title, Instant startAt, int status) {
-        Instant endAt = startAt.plus(Duration.ofHours(2));
-        Instant signupDeadline = startAt.atZone(SHANGHAI).toLocalDate()
-                .atStartOfDay(SHANGHAI).toInstant();
-        Instant cancelLock = signupDeadline.plus(Duration.ofHours(1));
+    private Long insertMatch(String title, LocalDateTime startAt, int status) {
+        LocalDateTime endAt = startAt.plus(Duration.ofHours(2));
+        LocalDateTime signupDeadline = startAt.toLocalDate()
+                .atStartOfDay();
+        LocalDateTime cancelLock = signupDeadline.plus(Duration.ofHours(1));
         long seasonNo = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(season_match_no), 0) + 1
                 FROM team_match WHERE team_id = 1 AND season = '2099'
@@ -310,8 +311,8 @@ class AttendanceCheckInIT extends IntegrationTestSupport {
                     cancel_lock, venue, season, home_team_name, away_team_name, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, 1, 30, ?, ?, 1)
-                """, title, Timestamp.from(startAt), Timestamp.from(endAt),
-                Timestamp.from(signupDeadline), Timestamp.from(cancelLock), status, seasonNo, totalNo);
+                """, title, Timestamp.valueOf(startAt), Timestamp.valueOf(endAt),
+                Timestamp.valueOf(signupDeadline), Timestamp.valueOf(cancelLock), status, seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }
 

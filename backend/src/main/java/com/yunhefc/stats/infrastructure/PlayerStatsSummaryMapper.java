@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -48,5 +48,5 @@ public interface PlayerStatsSummaryMapper extends BaseMapper<PlayerStatsSummary>
                 updated_at = VALUES(updated_at)
             </script>
             """)
-    int upsertBatch(@Param("rows") List<PlayerStatsSummary> rows, @Param("now") Instant now);
+    int upsertBatch(@Param("rows") List<PlayerStatsSummary> rows, @Param("now") LocalDateTime now);
 }

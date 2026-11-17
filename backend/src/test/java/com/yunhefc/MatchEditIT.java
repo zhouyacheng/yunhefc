@@ -14,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -26,6 +25,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class MatchEditIT extends IntegrationTestSupport {
 
@@ -72,14 +72,14 @@ class MatchEditIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.version").value(1))
                 .andReturn();
 
-        Instant startAt = Instant.parse(json(result, "$.data.startAt"));
-        Instant endAt = Instant.parse(json(result, "$.data.endAt"));
+        LocalDateTime startAt = ShanghaiTime.parseLenient(json(result, "$.data.startAt"));
+        LocalDateTime endAt = ShanghaiTime.parseLenient(json(result, "$.data.endAt"));
         assertThat(startAt).isEqualTo(local("2026-12-12T19:00:00"));
         assertThat(endAt).isEqualTo(local("2026-12-12T22:00:00"));
-        assertThat(Instant.parse(json(result, "$.data.signupDeadline")))
-                .isEqualTo(startAt.atZone(ZONE).toLocalDate().atStartOfDay(ZONE).toInstant());
-        assertThat(Instant.parse(json(result, "$.data.cancelLock")))
-                .isEqualTo(startAt.atZone(ZONE).toLocalDate().atTime(1, 0).atZone(ZONE).toInstant());
+        assertThat(ShanghaiTime.parseLenient(json(result, "$.data.signupDeadline")))
+                .isEqualTo(startAt.toLocalDate().atStartOfDay());
+        assertThat(ShanghaiTime.parseLenient(json(result, "$.data.cancelLock")))
+                .isEqualTo(startAt.toLocalDate().atTime(1, 0));
 
         String auditPayload = jdbc.queryForObject("""
                 SELECT payload_json FROM outbox_event
@@ -158,7 +158,7 @@ class MatchEditIT extends IntegrationTestSupport {
                 """.formatted(local("2026-12-11T01:30:00"), local("2026-12-11T03:30:00")))
                 .andExpect(status().isOk())
                 .andReturn();
-        assertThat(Instant.parse(json(early, "$.data.cancelLock")))
+        assertThat(ShanghaiTime.parseLenient(json(early, "$.data.cancelLock")))
                 .isEqualTo(local("2026-12-11T01:00:00"));
         editExpecting(admin, matchId, """
                 {"startAt":"%s","endAt":"%s","version":0}
@@ -231,11 +231,11 @@ class MatchEditIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.manualStatus").value(true))
                 .andExpect(jsonPath("$.data.version").value(3))
                 .andReturn();
-        Instant startAt = Instant.parse(json(postponedEdit, "$.data.startAt"));
-        assertThat(Instant.parse(json(postponedEdit, "$.data.signupDeadline")))
-                .isEqualTo(startAt.atZone(ZONE).toLocalDate().atStartOfDay(ZONE).toInstant());
-        assertThat(Instant.parse(json(postponedEdit, "$.data.cancelLock")))
-                .isEqualTo(startAt.atZone(ZONE).toLocalDate().atTime(1, 0).atZone(ZONE).toInstant());
+        LocalDateTime startAt = ShanghaiTime.parseLenient(json(postponedEdit, "$.data.startAt"));
+        assertThat(ShanghaiTime.parseLenient(json(postponedEdit, "$.data.signupDeadline")))
+                .isEqualTo(startAt.toLocalDate().atStartOfDay());
+        assertThat(ShanghaiTime.parseLenient(json(postponedEdit, "$.data.cancelLock")))
+                .isEqualTo(startAt.toLocalDate().atTime(1, 0));
 
         // 编辑不额外产生延期/取消通知，状态变更各自只发一次。
         assertThat(countEvents("MATCH_POSTPONED", postponed)).isEqualTo(1);
@@ -524,8 +524,8 @@ class MatchEditIT extends IntegrationTestSupport {
                                 {"title":"%s","type":1,"season":"%s","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                                 """.formatted(title, season, local(startAt),
-                                LocalDateTime.parse(startAt).plusHours(2)
-                                        .atZone(ZONE).toInstant().toString())))
+                                ShanghaiTime.parseLenient(startAt).plusHours(2)
+                                        .toString())))
                 .andExpect(status().isOk())
                 .andReturn();
         Long matchId = ((Number) com.jayway.jsonpath.JsonPath.read(
@@ -593,8 +593,8 @@ class MatchEditIT extends IntegrationTestSupport {
         return com.jayway.jsonpath.JsonPath.read(result.getResponse().getContentAsString(), path);
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private Long insertPlayer(String phone, String name) {

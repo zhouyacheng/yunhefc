@@ -4,7 +4,7 @@ import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -24,7 +24,7 @@ public final class MatchTimeRules {
     private MatchTimeRules() {
     }
 
-    public static Schedule validateAndDerive(Instant startAt, Instant endAt) {
+    public static Schedule validateAndDerive(LocalDateTime startAt, LocalDateTime endAt) {
         if (startAt == null || endAt == null) {
             throw violation("开始/结束时间不能为空");
         }
@@ -32,21 +32,21 @@ public final class MatchTimeRules {
         if (duration.compareTo(MIN_DURATION) < 0 || duration.compareTo(MAX_DURATION) > 0) {
             throw violation("开始/结束时间相差必须为 2–4 小时");
         }
-        LocalDate matchDay = startAt.atZone(ZONE).toLocalDate();
-        if (!startAt.atZone(ZONE).toLocalTime().isAfter(CANCEL_LOCK_TIME)) {
+        LocalDate matchDay = startAt.toLocalDate();
+        if (!startAt.toLocalTime().isAfter(CANCEL_LOCK_TIME)) {
             throw violation("开赛时间必须晚于当天 01:00");
         }
         return new Schedule(
                 startAt,
                 endAt,
-                matchDay.atStartOfDay(ZONE).toInstant(),
-                matchDay.atTime(CANCEL_LOCK_TIME).atZone(ZONE).toInstant());
+                matchDay.atStartOfDay(),
+                matchDay.atTime(CANCEL_LOCK_TIME));
     }
 
     private static BusinessException violation(String message) {
         return new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, message);
     }
 
-    public record Schedule(Instant startAt, Instant endAt, Instant signupDeadline, Instant cancelLock) {
+    public record Schedule(LocalDateTime startAt, LocalDateTime endAt, LocalDateTime signupDeadline, LocalDateTime cancelLock) {
     }
 }

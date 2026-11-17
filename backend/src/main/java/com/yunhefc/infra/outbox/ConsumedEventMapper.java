@@ -5,7 +5,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Mapper
 public interface ConsumedEventMapper {
@@ -20,5 +20,5 @@ public interface ConsumedEventMapper {
                   @Param("offset") long offset);
 
     @Delete("DELETE FROM consumed_event WHERE processed_at < #{before} LIMIT #{limit}")
-    int deleteProcessedBefore(@Param("before") Instant before, @Param("limit") int limit);
+    int deleteProcessedBefore(@Param("before") LocalDateTime before, @Param("limit") int limit);
 }

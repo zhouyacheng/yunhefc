@@ -5,7 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Component
 @Order(6)
@@ -20,7 +20,7 @@ public class IdempotencyRetentionAdapter implements RetentionTask {
     }
 
     @Override
-    public int deleteBatch(Instant now, int limit) {
+    public int deleteBatch(LocalDateTime now, int limit) {
         return idempotencyKeyMapper.deleteExpiredBefore(now, limit);
     }
 }

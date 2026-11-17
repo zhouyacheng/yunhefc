@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -18,7 +18,7 @@ public class InviteUse {
     private Long id;
     private Long inviteId;
     private Long userId;
-    private Instant usedAt;
+    private LocalDateTime usedAt;
     @TableLogic
     private Integer isDeleted;
 }

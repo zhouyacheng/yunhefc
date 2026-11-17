@@ -1,5 +1,6 @@
 package com.yunhefc.attendance.application;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.attendance.domain.AttendanceSource;
 import com.yunhefc.attendance.domain.AttendanceStatus;
 import com.yunhefc.attendance.infrastructure.AttendanceMapper;
@@ -11,9 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -31,14 +31,13 @@ public class AttendanceAbsenceApplicationService {
     private final AttendanceMapper attendanceMapper;
     private final MatchReadPort matchReadPort;
     private final RegistrationReadPort registrationReadPort;
-    private final Clock clock;
 
     /**
      * @return 本次新增的缺勤记录数；重复执行返回 0。
      */
     public int markDueAbsences() {
-        Instant now = Instant.now(clock);
-        Instant cutoff = now.minus(ABSENCE_DELAY);
+        LocalDateTime now = ShanghaiTime.now();
+        LocalDateTime cutoff = now.minus(ABSENCE_DELAY);
         int created = 0;
         for (MatchSnapshot candidate : matchReadPort.findFinishedBefore(cutoff)) {
             try {
@@ -67,8 +66,8 @@ public class AttendanceAbsenceApplicationService {
         return created;
     }
 
-    private static boolean isDue(MatchSnapshot match, Instant cutoff) {
-        Instant actualEnd = match.endAt();
+    private static boolean isDue(MatchSnapshot match, LocalDateTime cutoff) {
+        LocalDateTime actualEnd = match.endAt();
         if (actualEnd == null) {
             return false;
         }

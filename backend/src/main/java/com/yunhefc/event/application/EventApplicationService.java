@@ -3,6 +3,7 @@ package com.yunhefc.event.application;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.api.RequestContext;
 import com.yunhefc.common.error.BusinessException;
@@ -47,9 +48,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -81,7 +81,6 @@ public class EventApplicationService {
     private final TeamReadPort teamReadPort;
     private final AuditRecorder auditRecorder;
     private final ObjectMapper objectMapper;
-    private final Clock clock;
 
     /**
      * EVT-01：公开时间线；软删除需同时排除 is_deleted 与 deleted_at。
@@ -141,7 +140,7 @@ public class EventApplicationService {
         requireEligiblePlayers(match, selectedPlayerIds(fields));
         requireSavedGrouping(match, fields);
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         MatchEvent event = new MatchEvent();
         event.setMatchId(match.id());
         apply(event, fields);
@@ -181,7 +180,7 @@ public class EventApplicationService {
         requireSavedGrouping(match, merged);
 
         Map<String, Object> before = auditSnapshot(event);
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         apply(event, merged);
         int updated = matchEventMapper.update(null, new LambdaUpdateWrapper<MatchEvent>()
                 .eq(MatchEvent::getId, eventId)
@@ -230,7 +229,7 @@ public class EventApplicationService {
             throw versionConflict(event.getVersion());
         }
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         int updated = matchEventMapper.softDelete(eventId, request.version(), principal.userId(), now);
         if (updated == 0) {
             MatchEvent current = matchEventMapper.selectById(eventId);
@@ -309,7 +308,7 @@ public class EventApplicationService {
     }
 
     private void requirePlayerWindow(MatchSnapshot match, String message) {
-        if (match.finished() && Instant.now(clock).isAfter(editWindowEnd(match))) {
+        if (match.finished() && ShanghaiTime.now().isAfter(editWindowEnd(match))) {
             throw violation(message);
         }
     }
@@ -370,7 +369,7 @@ public class EventApplicationService {
         }
     }
 
-    private Instant editWindowEnd(MatchSnapshot match) {
+    private LocalDateTime editWindowEnd(MatchSnapshot match) {
         return match.endAt().plus(PLAYER_EDIT_WINDOW);
     }
 
@@ -470,7 +469,7 @@ public class EventApplicationService {
         history.setAfterJson(json(after));
         history.setActorUserId(principal.userId());
         history.setRequestId(RequestContext.requestId());
-        history.setCreatedAt(Instant.now(clock));
+        history.setCreatedAt(ShanghaiTime.now());
         eventHistoryMapper.insert(history);
     }
 

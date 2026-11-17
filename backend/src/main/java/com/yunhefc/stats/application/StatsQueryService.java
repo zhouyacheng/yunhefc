@@ -8,7 +8,6 @@ import com.yunhefc.stats.infrastructure.StatsCache;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Comparator;
@@ -30,13 +29,12 @@ public class StatsQueryService {
     private final StatsSummaryReader summaryReader;
     private final PlayerReadPort playerReadPort;
     private final StatsCache statsCache;
-    private final Clock clock;
 
     /**
      * 本赛季：按 Asia/Shanghai 的当前年份。
      */
     public String currentSeason() {
-        return String.valueOf(LocalDate.now(clock.withZone(BUSINESS_ZONE)).getYear());
+        return String.valueOf(LocalDate.now(BUSINESS_ZONE).getYear());
     }
 
     /**

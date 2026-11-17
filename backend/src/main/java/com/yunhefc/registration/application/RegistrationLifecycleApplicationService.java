@@ -1,5 +1,6 @@
 package com.yunhefc.registration.application;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.match.MatchRegistrationContextPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
 import com.yunhefc.contracts.registration.RegistrationLifecyclePort;
@@ -9,8 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -23,7 +23,6 @@ public class RegistrationLifecycleApplicationService implements RegistrationLife
     private final RegistrationMapper registrationMapper;
     private final MatchRegistrationContextPort matchRegistrationContextPort;
     private final RegistrationCancellationService registrationCancellationService;
-    private final Clock clock;
 
     /**
      * P-05 注销编排：账号行已被排他锁定；先按主键升序锁定全部未开赛比赛行，再以当前读扫描
@@ -41,7 +40,7 @@ public class RegistrationLifecycleApplicationService implements RegistrationLife
             return;
         }
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         for (Registration registration : active) {
             MatchSnapshot match = cancellable.get(registration.getMatchId());
             if (match != null) {

@@ -1,6 +1,7 @@
 package com.yunhefc.auth.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.RoleCodes;
@@ -47,8 +48,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -80,7 +80,6 @@ public class WechatAuthService {
     private final AuthSessionService sessionService;
     private final UserViewAssembler userViewAssembler;
     private final AvatarUrlSigner avatarUrlSigner;
-    private final Clock clock;
 
     public AuthorizeResponse authorize(String redirect, String userAgent, HttpServletRequest request) {
         if (!properties.isEnabled()) {
@@ -225,7 +224,7 @@ public class WechatAuthService {
         user.setPhone(request.phone());
         user.setOpenid(openid);
         user.setStatus(UserStatus.PENDING);
-        user.setCreatedAt(Instant.now(clock));
+        user.setCreatedAt(ShanghaiTime.now());
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException ex) {

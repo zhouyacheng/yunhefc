@@ -1,6 +1,6 @@
 package com.yunhefc.stats.dto;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public final class TeamStatsDtos {
@@ -17,6 +17,6 @@ public final class TeamStatsDtos {
             int appearances,
             int goals,
             int assists,
-            Instant updatedAt) {
+            LocalDateTime updatedAt) {
     }
 }

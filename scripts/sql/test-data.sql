@@ -5,7 +5,7 @@
 -- 说明：仅为 1001（ADMIN）/1002（PLAYER）/1016（GUEST）/1022（ADMIN）/1023（PLAYER）写入测试密码 Passw0rd!，其余账号 password_hash 为空。
 
 SET NAMES utf8mb4;
-SET time_zone = '+00:00';
+SET time_zone = '+08:00';
 START TRANSACTION;
 
 -- 球队与默认角色（已存在则复用）
@@ -103,7 +103,7 @@ DELETE FROM team_match WHERE title LIKE 'E2E比赛%' OR title LIKE 'E2E基准%';
 -- 四场测试比赛：1001 锁定（用于分组/阵容），1002 已结束（用于事件/考勤/统计），
 -- 1003 开赛时间随脚本滚动（用于 C 端签到黄金路径），1004 进行中（用于 C 端事件黄金路径）
 -- 1001 场时间随脚本执行滚动，保证 LOCKED 场次始终晚于 1005，首页 Hero 顺序稳定。
-SET @locked_start = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 3 HOUR);
+SET @locked_start = DATE_ADD(NOW(), INTERVAL 3 HOUR);
 
 INSERT IGNORE INTO team_match
   (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
@@ -113,11 +113,11 @@ INSERT IGNORE INTO team_match
 VALUES
   (1001, @team_id, '橙队VS兰队', 1, '8人制',
    @locked_start, DATE_ADD(@locked_start, INTERVAL 2 HOUR),
-   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR), DATE_ADD(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),
+   DATE_ADD(NOW(), INTERVAL 2 HOUR), DATE_ADD(NOW(), INTERVAL 150 MINUTE),
    '聚龙足球场', NULL, '2026', 1, '橙队', '兰队', NULL,
    2, 1, 30, 4, 2, 1, 0, 0, 1, 1, 0, 1001),
   (1002, @team_id, '橙队VS兰队', 1, '8人制',
-   '2026-11-01 20:00:00', '2026-11-01 22:00:00', '2026-11-01 00:00:00', '2026-11-01 10:00:00',
+   '2026-11-02 04:00:00', '2026-11-02 06:00:00', '2026-11-01 08:00:00', '2026-11-01 18:00:00',
    '聚龙足球场', NULL, '2026', 2, '橙队', '兰队', NULL,
    4, 0, 30, 4, 2, 1, 2, 2, 2, 2, 0, 1001);
 
@@ -125,22 +125,22 @@ VALUES
 UPDATE team_match
 SET start_at = @locked_start,
     end_at = DATE_ADD(@locked_start, INTERVAL 2 HOUR),
-    signup_deadline = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR),
-    cancel_lock = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),
+    signup_deadline = DATE_ADD(NOW(), INTERVAL 2 HOUR),
+    cancel_lock = DATE_ADD(NOW(), INTERVAL 150 MINUTE),
     status = 2, manual_status = 1, version = 0, is_deleted = 0
 WHERE id = 1001;
 
 -- 报名：1001 场 19 人（15 正式 + 4 外挂），1002 场 12 人（10 正式 + 2 外挂）
 INSERT IGNORE INTO registration (match_id, player_id, type, status, registered_at)
-SELECT 1001, id, type, 0, '2026-11-10 09:00:00'
+SELECT 1001, id, type, 0, '2026-11-10 17:00:00'
 FROM player WHERE id BETWEEN 1001 AND 1019;
 
 INSERT IGNORE INTO registration (match_id, player_id, type, status, registered_at)
-SELECT 1002, id, type, 0, '2026-10-25 09:00:00'
+SELECT 1002, id, type, 0, '2026-10-25 17:00:00'
 FROM player WHERE id BETWEEN 1001 AND 1010 OR id BETWEEN 1016 AND 1017;
 
 -- 签到联调：1003 场开赛时间随脚本执行滚动到 2 小时后，保证 C 端 Playwright 黄金路径处于签到窗口内。
-SET @checkin_start = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR);
+SET @checkin_start = DATE_ADD(NOW(), INTERVAL 2 HOUR);
 INSERT INTO team_match
   (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
    venue, competition, season, round, home_team_name, away_team_name, our_side,
@@ -149,9 +149,9 @@ INSERT INTO team_match
 VALUES
   (1003, @team_id, 'M05签到联调赛', 1, '8人制',
    @checkin_start, DATE_ADD(@checkin_start, INTERVAL 2 HOUR),
-   DATE_SUB(DATE(DATE_ADD(@checkin_start, INTERVAL 8 HOUR)), INTERVAL 8 HOUR),
-   DATE_SUB(DATE_ADD(DATE(DATE_ADD(@checkin_start, INTERVAL 8 HOUR)), INTERVAL 1 HOUR), INTERVAL 8 HOUR),
-   '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 3, '橙队', '兰队', NULL,
+   DATE(@checkin_start),
+   DATE_ADD(DATE(@checkin_start), INTERVAL 1 HOUR),
+   '聚龙足球场', NULL, YEAR(NOW()), 3, '橙队', '兰队', NULL,
    2, 1, 30, 4, 2, 1, 0, 0, 3, 3, 0, 1001)
 ON DUPLICATE KEY UPDATE
   start_at = VALUES(start_at), end_at = VALUES(end_at),
@@ -162,13 +162,13 @@ ON DUPLICATE KEY UPDATE
 
 -- 1002（测试登录账号）在 1003 场确认报名；重跑脚本时重置考勤，保证签到黄金路径可重复执行。
 INSERT INTO registration (match_id, player_id, type, status, registered_at)
-VALUES (1003, 1002, 1, 0, UTC_TIMESTAMP())
+VALUES (1003, 1002, 1, 0, NOW())
 ON DUPLICATE KEY UPDATE status = 0, cancelled_at = NULL;
 
 DELETE FROM attendance WHERE match_id = 1003 AND player_id = 1002;
 
 -- 1004 进行中（C 端事件黄金路径）：1002 确认报名，重跑脚本时清空既有事件。
-SET @event_start = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR);
+SET @event_start = DATE_SUB(NOW(), INTERVAL 1 HOUR);
 INSERT INTO team_match
   (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
    venue, competition, season, round, home_team_name, away_team_name, our_side,
@@ -177,9 +177,9 @@ INSERT INTO team_match
 VALUES
   (1004, @team_id, 'M06事件联调赛', 0, '8人制',
    @event_start, DATE_ADD(@event_start, INTERVAL 2 HOUR),
-   DATE_SUB(DATE(DATE_ADD(@event_start, INTERVAL 8 HOUR)), INTERVAL 8 HOUR),
-   DATE_SUB(DATE_ADD(DATE(DATE_ADD(@event_start, INTERVAL 8 HOUR)), INTERVAL 1 HOUR), INTERVAL 8 HOUR),
-   '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 4, '云河FC', '对手FC', 0,
+   DATE(@event_start),
+   DATE_ADD(DATE(@event_start), INTERVAL 1 HOUR),
+   '聚龙足球场', NULL, YEAR(NOW()), 4, '云河FC', '对手FC', 0,
    3, 1, 30, 4, 2, 1, 0, 0, 4, 4, 0, 1001)
 ON DUPLICATE KEY UPDATE
   start_at = VALUES(start_at), end_at = VALUES(end_at),
@@ -189,12 +189,12 @@ ON DUPLICATE KEY UPDATE
   version = 0;
 
 INSERT INTO registration (match_id, player_id, type, status, registered_at)
-VALUES (1004, 1002, 1, 0, UTC_TIMESTAMP())
+VALUES (1004, 1002, 1, 0, NOW())
 ON DUPLICATE KEY UPDATE status = 0, cancelled_at = NULL;
 
 -- 事件与历史永久保留：仅软删除上一轮事件，使时间线与推导比分从空开始。
 UPDATE match_event
-SET is_deleted = 1, deleted_at = COALESCE(deleted_at, UTC_TIMESTAMP())
+SET is_deleted = 1, deleted_at = COALESCE(deleted_at, NOW())
 WHERE match_id = 1004 AND is_deleted = 0;
 
 -- 考勤：1002 场部分正常/缺勤/临时到场（1020 未报名，临时到场）
@@ -244,7 +244,7 @@ INSERT IGNORE INTO match_grouping
 VALUES
   (3001, 1001, 70.00, 30.00,
    SHA2('1001,1002,1003,1004,1005,1006,1007,1008,1009,1010,1011,1012,1013,1014,1015,1016,1017,1018,1019', 256),
-   '2026-11-14 12:00:00', '2026-11-14 12:05:00', 1001);
+   '2026-11-14 20:00:00', '2026-11-14 20:05:00', 1001);
 
 INSERT IGNORE INTO match_grouping_player
   (grouping_id, player_id, team, manual_score, auto_score, final_score)
@@ -300,7 +300,7 @@ ON DUPLICATE KEY UPDATE
 -- =========================================================================
 
 -- 1) 1005 队内赛（最近可报名场次）：开赛 +1h、报名截止 +30min；重放复位 1002 的报名与考勤。
-SET @b3_start = DATE_ADD(UTC_TIMESTAMP(), INTERVAL 1 HOUR);
+SET @b3_start = DATE_ADD(NOW(), INTERVAL 1 HOUR);
 
 INSERT INTO team_match
   (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
@@ -310,9 +310,9 @@ INSERT INTO team_match
 VALUES
   (1005, @team_id, 'B3首页联调赛', 1, '8人制',
    @b3_start, DATE_ADD(@b3_start, INTERVAL 2 HOUR),
-   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE),
-   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 45 MINUTE),
-   '聚龙足球场', NULL, YEAR(UTC_TIMESTAMP()), 5, '橙队', '兰队', NULL,
+   DATE_ADD(NOW(), INTERVAL 30 MINUTE),
+   DATE_ADD(NOW(), INTERVAL 45 MINUTE),
+   '聚龙足球场', NULL, YEAR(NOW()), 5, '橙队', '兰队', NULL,
    0, 0, 30, 4, 2, 1,
    NULL, NULL, 5, 5, 0, 1001)
 ON DUPLICATE KEY UPDATE
@@ -331,10 +331,10 @@ DELETE FROM registration WHERE match_id = 1005 AND player_id = 1002;
 -- 1b) 1004 改为已结束：退出 upcoming；1005 保留为最近可报名场次（首页 Hero 取开赛时间最大的 1001，见 P-49）。
 UPDATE team_match
 SET status = 4, manual_status = 0,
-    start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 150 MINUTE),
-    end_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 30 MINUTE),
-    signup_deadline = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 180 MINUTE),
-    cancel_lock = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 160 MINUTE)
+    start_at = DATE_SUB(NOW(), INTERVAL 150 MINUTE),
+    end_at = DATE_SUB(NOW(), INTERVAL 30 MINUTE),
+    signup_deadline = DATE_SUB(NOW(), INTERVAL 180 MINUTE),
+    cancel_lock = DATE_SUB(NOW(), INTERVAL 160 MINUTE)
 WHERE id = 1004;
 
 -- 2) 待审核账号 1021：status=0、GUEST、外挂球员；重放复位状态/角色并清理邀请使用。
@@ -388,40 +388,40 @@ INSERT INTO notification (id, user_id, type, title, body, ref_type, ref_id, read
 VALUES
   (4001, 1002, 0, '报名成功',
    '你已成功报名「B3首页联调赛」，请留意赛前通知。', 'MATCH', 1005, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 12 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 12 MINUTE)),
   (4002, 1002, 1, '候补递补成功',
    '你已递补为「B3首页联调赛」的正式报名，请留意赛前通知。', 'MATCH', 1005, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 11 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 11 MINUTE)),
   (4003, 1002, 7, '比赛延期',
    '「M05签到联调赛」已延期，请留意新的开赛时间。', 'MATCH', 1003, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 10 MINUTE)),
   (4004, 1002, 8, '比赛取消',
    '「M06事件联调赛」已取消：场地原因。', 'MATCH', 1004, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 9 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 9 MINUTE)),
   (4005, 1002, 9, '角色变更',
    '你的角色已更新：PLAYER', 'USER', 1002, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 8 MINUTE)),
   (4006, 1002, 10, '账号审核通过',
    '你的账号已通过审核，现在可以报名参加比赛', 'USER', 1002, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 7 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 7 MINUTE)),
   (4007, 1002, 0, '报名成功',
    '你已成功报名「M05签到联调赛」，请留意赛前通知。', 'MATCH', 1003, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 6 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 6 MINUTE)),
   (4008, 1002, 1, '候补递补成功',
    '你已递补为「M06事件联调赛」的正式报名，请留意赛前通知。', 'MATCH', 1004,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 5 MINUTE), DATE_SUB(NOW(), INTERVAL 5 MINUTE)),
   (4009, 1002, 7, '比赛延期',
    '「M06事件联调赛」已延期，请留意新的开赛时间。', 'MATCH', 1004,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 4 MINUTE), DATE_SUB(NOW(), INTERVAL 4 MINUTE)),
   (4010, 1002, 8, '比赛取消',
    '「M05签到联调赛」已取消：天气原因。', 'MATCH', 1003,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 3 MINUTE), DATE_SUB(NOW(), INTERVAL 3 MINUTE)),
   (4011, 1002, 9, '角色变更',
    '你的角色已更新：PLAYER、GUEST', 'USER', 1002,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 2 MINUTE)),
+   DATE_SUB(NOW(), INTERVAL 2 MINUTE), DATE_SUB(NOW(), INTERVAL 2 MINUTE)),
   (4012, 1002, 10, '账号审核通过',
    '你的账号已通过审核，现在可以报名参加比赛', 'USER', 1002,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 MINUTE))
+   DATE_SUB(NOW(), INTERVAL 1 MINUTE), DATE_SUB(NOW(), INTERVAL 1 MINUTE))
 ON DUPLICATE KEY UPDATE
   user_id = VALUES(user_id), type = VALUES(type), title = VALUES(title), body = VALUES(body),
   ref_type = VALUES(ref_type), ref_id = VALUES(ref_id), read_at = VALUES(read_at),
@@ -452,18 +452,18 @@ INSERT INTO invite_link
    used_count, status, revoked_at, created_at)
 VALUES
   (5001, @team_id, 0, SHA2('B3-INVITE-TEAM', 256), NULL, 1002,
-   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), NULL, 0, 0, NULL, UTC_TIMESTAMP()),
+   DATE_ADD(NOW(), INTERVAL 7 DAY), NULL, 0, 0, NULL, NOW()),
   (5002, @team_id, 1, SHA2('B3-INVITE-MATCH', 256), 1005, 1002,
-   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), NULL, 0, 0, NULL, UTC_TIMESTAMP()),
+   DATE_ADD(NOW(), INTERVAL 7 DAY), NULL, 0, 0, NULL, NOW()),
   (5003, @team_id, 0, SHA2('B3-INVITE-EXPIRED', 256), NULL, 1002,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY), NULL, 0, 0, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 8 DAY)),
+   DATE_SUB(NOW(), INTERVAL 1 DAY), NULL, 0, 0, NULL,
+   DATE_SUB(NOW(), INTERVAL 8 DAY)),
   (5004, @team_id, 0, SHA2('B3-INVITE-REVOKED', 256), NULL, 1002,
-   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), NULL, 0, 1,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR), DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY)),
+   DATE_ADD(NOW(), INTERVAL 7 DAY), NULL, 0, 1,
+   DATE_SUB(NOW(), INTERVAL 1 HOUR), DATE_SUB(NOW(), INTERVAL 1 DAY)),
   (5005, @team_id, 0, SHA2('B3-INVITE-EXHAUSTED', 256), NULL, 1002,
-   DATE_ADD(UTC_TIMESTAMP(), INTERVAL 7 DAY), 1, 1, 0, NULL,
-   DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY));
+   DATE_ADD(NOW(), INTERVAL 7 DAY), 1, 1, 0, NULL,
+   DATE_SUB(NOW(), INTERVAL 1 DAY));
 
 -- END B3 C-A fixtures
 
@@ -491,7 +491,7 @@ ON DUPLICATE KEY UPDATE is_deleted = 0;
 DELETE FROM attendance WHERE match_id = 1005 AND player_id IN (1011, 1016, 1023);
 DELETE FROM registration WHERE match_id = 1005 AND player_id IN (1011, 1016, 1023);
 INSERT INTO registration (match_id, player_id, type, status, registered_at)
-VALUES (1005, 1011, 1, 1, '2026-11-13 09:00:00');
+VALUES (1005, 1011, 1, 1, '2026-11-13 17:00:00');
 
 -- 3) 1002 名单分段与 B03 返回递补：复位状态/报名；
 --    1011 保持最早候补，管理员移除 1002 的正式报名后递补到正式段。
@@ -502,8 +502,8 @@ WHERE id = 1002;
 DELETE FROM registration WHERE match_id = 1002 AND player_id IN (1002, 1011);
 INSERT INTO registration (match_id, player_id, type, status, registered_at)
 VALUES
-  (1002, 1002, 1, 0, '2026-10-25 09:00:00'),
-  (1002, 1011, 1, 1, '2026-10-26 09:00:00');
+  (1002, 1002, 1, 0, '2026-10-25 17:00:00'),
+  (1002, 1011, 1, 1, '2026-10-26 17:00:00');
 
 -- END B4 C-B fixtures
 
@@ -519,13 +519,13 @@ VALUES
   (6001, @team_id, 1001, 'E2E审计员', 'SETTINGS_UPDATE', 'SETTINGS', @team_id,
    JSON_OBJECT('maxPlayers', 30, 'phone', '13900000001'),
    JSON_OBJECT('maxPlayers', 31, 'phone', '13900000001'),
-   'e2e-audit-settings', '203.0.113.24', UTC_TIMESTAMP(3) - INTERVAL 3 MINUTE),
+   'e2e-audit-settings', '203.0.113.24', NOW(3) - INTERVAL 3 MINUTE),
   (6002, @team_id, 1002, '测试球员', 'MATCH_CREATE', 'MATCH', 1001,
    NULL, JSON_OBJECT('title', '橙队VS兰队'), 'e2e-audit-match', '203.0.113.25',
-   UTC_TIMESTAMP(3) - INTERVAL 2 MINUTE),
+   NOW(3) - INTERVAL 2 MINUTE),
   (6003, @team_id, NULL, NULL, 'E2E_UNKNOWN_ACTION', 'UNKNOWN_TARGET', NULL,
    NULL, NULL, 'e2e-audit-unknown', '203.0.113.26',
-   UTC_TIMESTAMP(3) - INTERVAL 1 MINUTE);
+   NOW(3) - INTERVAL 1 MINUTE);
 -- END B10 audit fixtures
 
 COMMIT;

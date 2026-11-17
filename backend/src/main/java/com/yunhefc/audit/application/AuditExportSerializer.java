@@ -3,6 +3,7 @@ package com.yunhefc.audit.application;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.audit.domain.AuditLog;
+import com.yunhefc.common.time.ShanghaiTime;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -12,7 +13,6 @@ import java.io.OutputStreamWriter;
 import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.List;
 import java.util.zip.GZIPOutputStream;
 
@@ -44,7 +44,8 @@ public class AuditExportSerializer {
                 row.getId(), row.getTeamId(), row.getActorUserId(), row.getActorName(),
                 row.getAction(), row.getTargetType(), row.getTargetId(),
                 parseSnapshot(row.getBeforeJson()), parseSnapshot(row.getAfterJson()),
-                row.getRequestId(), row.getIp(), row.getCreatedAt());
+                row.getRequestId(), row.getIp(),
+                row.getCreatedAt() == null ? null : ShanghaiTime.formatIso(row.getCreatedAt()));
     }
 
     private Object parseSnapshot(String json) {
@@ -60,6 +61,6 @@ public class AuditExportSerializer {
 
     record ExportLine(Long id, Long teamId, Long actorUserId, String actorName, String action,
                       String targetType, Long targetId, Object before, Object after,
-                      String requestId, String ip, Instant createdAt) {
+                      String requestId, String ip, String createdAt) {
     }
 }

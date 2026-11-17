@@ -1,6 +1,7 @@
 package com.yunhefc.infra.outbox;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.config.MessagingProperties;
 import com.yunhefc.common.config.OutboxProperties;
 import com.yunhefc.contracts.messaging.EventTypes;
@@ -11,8 +12,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -32,7 +32,6 @@ public class OutboxRelay {
     private final ObjectMapper objectMapper;
     private final MessagingProperties messagingProperties;
     private final OutboxProperties outboxProperties;
-    private final Clock clock;
     private final String owner = UUID.randomUUID().toString();
 
     public void relay() {
@@ -42,7 +41,7 @@ public class OutboxRelay {
         List<OutboxEvent> events = outboxEventMapper.findClaimable(BATCH_SIZE);
         List<PendingSend> pending = new ArrayList<>();
         for (OutboxEvent event : events) {
-            if (outboxEventMapper.claim(event.getId(), owner, Instant.now(clock).plusSeconds(60)) == 0) {
+            if (outboxEventMapper.claim(event.getId(), owner, ShanghaiTime.now().plusSeconds(60)) == 0) {
                 continue;
             }
             try {
@@ -70,7 +69,7 @@ public class OutboxRelay {
     private void markFailed(OutboxEvent event, Exception ex) {
         int attempts = event.getAttempts() == null ? 1 : event.getAttempts() + 1;
         long delay = Math.min(300, 30L * attempts);
-        outboxEventMapper.markFailed(event.getId(), Instant.now(clock).plusSeconds(delay),
+        outboxEventMapper.markFailed(event.getId(), ShanghaiTime.now().plusSeconds(delay),
                 truncate(ex.getMessage()), MAX_ATTEMPTS);
         log.warn("Outbox event failed, eventId={}, attempts={}", event.getEventId(), attempts, ex);
     }

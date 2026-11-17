@@ -1,5 +1,6 @@
 package com.yunhefc.auth.application;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.auth.domain.InviteLink;
 import com.yunhefc.auth.domain.InviteStatus;
@@ -10,8 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -23,11 +23,10 @@ public class InviteExpiryService {
 
     private final InviteLinkMapper inviteLinkMapper;
     private final AuditRecorder auditRecorder;
-    private final Clock clock;
 
     @Transactional
     public int expire() {
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         List<InviteLink> overdue = inviteLinkMapper.findOverdue(now);
         int expired = 0;
         for (InviteLink invite : overdue) {

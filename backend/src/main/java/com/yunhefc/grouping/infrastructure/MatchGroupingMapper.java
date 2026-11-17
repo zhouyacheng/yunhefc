@@ -9,7 +9,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Mapper
 public interface MatchGroupingMapper extends BaseMapper<MatchGrouping> {
@@ -43,7 +43,7 @@ public interface MatchGroupingMapper extends BaseMapper<MatchGrouping> {
                   @Param("manualWeight") BigDecimal manualWeight,
                   @Param("autoWeight") BigDecimal autoWeight,
                   @Param("rosterFingerprint") String rosterFingerprint,
-                  @Param("generatedAt") Instant generatedAt,
+                  @Param("generatedAt") LocalDateTime generatedAt,
                   @Param("createdBy") Long createdBy);
 
     @Update("""
@@ -58,7 +58,7 @@ public interface MatchGroupingMapper extends BaseMapper<MatchGrouping> {
             SET saved_at = #{savedAt}
             WHERE id = #{id}
             """)
-    int markSaved(@Param("id") Long id, @Param("savedAt") Instant savedAt);
+    int markSaved(@Param("id") Long id, @Param("savedAt") LocalDateTime savedAt);
 
     @Delete("DELETE FROM match_grouping WHERE id = #{id}")
     int deletePhysical(@Param("id") Long id);

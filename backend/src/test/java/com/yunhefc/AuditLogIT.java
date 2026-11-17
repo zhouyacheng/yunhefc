@@ -14,7 +14,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.sql.Timestamp;
-import java.time.Instant;
+import java.time.LocalDateTime;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class AuditLogIT extends IntegrationTestSupport {
 
@@ -22,15 +23,15 @@ class AuditLogIT extends IntegrationTestSupport {
     void filtersByActorActionTargetTypeTargetIdAndTimeRange() throws Exception {
         Cookie admin = adminLogin("13900001001");
         Long first = insertAudit(1L, 101L, "张三", "MATCH_CREATE", "MATCH", 501L,
-                null, "{\"status\":0}", "audit-a", Instant.parse("2026-01-01T10:00:00Z"));
+                null, "{\"status\":0}", "audit-a", ShanghaiTime.parseLenient("2026-01-01T10:00:00Z"));
         Long second = insertAudit(1L, 102L, "李四", "MATCH_UPDATE", "MATCH", 501L,
-                "{\"status\":0}", "{\"status\":1}", "audit-b", Instant.parse("2026-01-02T10:00:00Z"));
+                "{\"status\":0}", "{\"status\":1}", "audit-b", ShanghaiTime.parseLenient("2026-01-02T10:00:00Z"));
         Long third = insertAudit(1L, 101L, "张三", "LINEUP_SAVE", "LINEUP", 502L,
-                null, "{\"formation\":\"4-4-2\"}", "audit-c", Instant.parse("2026-01-03T10:00:00Z"));
+                null, "{\"formation\":\"4-4-2\"}", "audit-c", ShanghaiTime.parseLenient("2026-01-03T10:00:00Z"));
         Long system = insertAudit(1L, null, "系统", "INVITE_EXPIRE", "INVITE", 503L,
-                "{\"status\":0}", "{\"status\":2}", "audit-d", Instant.parse("2026-01-04T10:00:00Z"));
+                "{\"status\":0}", "{\"status\":2}", "audit-d", ShanghaiTime.parseLenient("2026-01-04T10:00:00Z"));
         insertAudit(2L, 101L, "张三", "MATCH_CREATE", "MATCH", 900L,
-                null, "{\"status\":0}", "audit-other-team", Instant.parse("2026-01-05T10:00:00Z"));
+                null, "{\"status\":0}", "audit-other-team", ShanghaiTime.parseLenient("2026-01-05T10:00:00Z"));
 
         mockMvc.perform(get("/api/v1/b/audit-logs").cookie(admin))
                 .andExpect(status().isOk())
@@ -107,7 +108,7 @@ class AuditLogIT extends IntegrationTestSupport {
     @Test
     void ordersByCreatedAtThenIdDescending() throws Exception {
         Cookie admin = adminLogin("13900001011");
-        Instant sameTime = Instant.parse("2026-02-01T00:00:00Z");
+        LocalDateTime sameTime = ShanghaiTime.parseLenient("2026-02-01T00:00:00Z");
         Long lower = insertAudit(1L, 111L, "甲", "ACTION_A", "USER", 1L, null, null, "order-a", sameTime);
         Long higher = insertAudit(1L, 111L, "甲", "ACTION_B", "USER", 2L, null, null, "order-b", sameTime);
 
@@ -122,7 +123,7 @@ class AuditLogIT extends IntegrationTestSupport {
     void rejectsInvalidFiltersAndBadRequestParams() throws Exception {
         Cookie admin = adminLogin("13900001021");
         insertAudit(1L, 121L, "控制", "MATCH_CREATE", "MATCH", 1L, null, null, "invalid-a",
-                Instant.parse("2026-03-01T00:00:00Z"));
+                ShanghaiTime.parseLenient("2026-03-01T00:00:00Z"));
 
         mockMvc.perform(get("/api/v1/b/audit-logs").cookie(admin)
                         .param("from", "2026-03-02T00:00:00Z")
@@ -178,7 +179,7 @@ class AuditLogIT extends IntegrationTestSupport {
                 {"phone":"123456","openid":"another","ip":"192.168.10.7"}
                 """;
         Long id = insertAudit(1L, 141L, "脱敏", "PLAYER_UPDATE", "PLAYER", 601L,
-                before, after, "mask-a", "10.1.2.3", Instant.parse("2026-04-01T00:00:00Z"));
+                before, after, "mask-a", "10.1.2.3", ShanghaiTime.parseLenient("2026-04-01T00:00:00Z"));
 
         mockMvc.perform(get("/api/v1/b/audit-logs").cookie(admin).param("action", "PLAYER_UPDATE"))
                 .andExpect(status().isOk())
@@ -208,20 +209,20 @@ class AuditLogIT extends IntegrationTestSupport {
 
     private Long insertAudit(Long teamId, Long actorUserId, String actorName, String action,
                              String targetType, Long targetId, String before, String after,
-                             String requestId, Instant createdAt) {
+                             String requestId, LocalDateTime createdAt) {
         return insertAudit(teamId, actorUserId, actorName, action, targetType, targetId,
                 before, after, requestId, null, createdAt);
     }
 
     private Long insertAudit(Long teamId, Long actorUserId, String actorName, String action,
                              String targetType, Long targetId, String before, String after,
-                             String requestId, String ip, Instant createdAt) {
+                             String requestId, String ip, LocalDateTime createdAt) {
         jdbc.update("""
                 INSERT INTO audit_log (team_id, actor_user_id, actor_name, action, target_type,
                     target_id, before_json, after_json, request_id, ip, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, teamId, actorUserId, actorName, action, targetType, targetId,
-                before, after, requestId, ip, Timestamp.from(createdAt));
+                before, after, requestId, ip, Timestamp.valueOf(createdAt));
         return jdbc.queryForObject("SELECT id FROM audit_log WHERE request_id = ?", Long.class, requestId);
     }
 

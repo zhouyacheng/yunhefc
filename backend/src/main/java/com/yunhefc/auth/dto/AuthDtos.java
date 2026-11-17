@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
 
@@ -45,7 +45,7 @@ public final class AuthDtos {
             Integer status,
             String statusLabel,
             Set<String> roles,
-            Instant createdAt,
+            LocalDateTime createdAt,
             boolean wechatBound) {
     }
 
@@ -127,8 +127,8 @@ public final class AuthDtos {
     public record MatchSummary(
             Long id,
             String title,
-            Instant startAt,
-            Instant endAt,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
             String venue,
             Integer status,
             String homeTeamName,
@@ -143,16 +143,16 @@ public final class AuthDtos {
             Long matchId,
             MatchSummary match,
             UserSummary inviter,
-            Instant expiresAt,
+            LocalDateTime expiresAt,
             Integer maxUses,
             Integer usedCount,
             Integer remainingUses,
             Integer status,
             String statusLabel,
             boolean exhausted,
-            Instant createdAt) {
+            LocalDateTime createdAt) {
     }
 
-    public record InviteCreatedView(String inviteUrl, Instant expiresAt) {
+    public record InviteCreatedView(String inviteUrl, LocalDateTime expiresAt) {
     }
 }

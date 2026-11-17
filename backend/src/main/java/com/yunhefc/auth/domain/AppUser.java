@@ -9,7 +9,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -22,10 +22,10 @@ public class AppUser {
     private String passwordHash;
     private String openid;
     private UserStatus status;
-    private Instant lastLoginAt;
-    private Instant createdAt;
+    private LocalDateTime lastLoginAt;
+    private LocalDateTime createdAt;
     @TableField(updateStrategy = FieldStrategy.NEVER)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
     @TableLogic
     private Integer isDeleted;
 

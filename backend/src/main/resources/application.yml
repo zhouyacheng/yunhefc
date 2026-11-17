@@ -57,7 +57,7 @@ yunhefc:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:5273}
   auth:
     login-rate-limit:
-      max-attempts: ${AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS:10}
+      max-attempts: ${AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS:50}
       window: ${AUTH_LOGIN_RATE_LIMIT_WINDOW:1m}
   audit:
     export:

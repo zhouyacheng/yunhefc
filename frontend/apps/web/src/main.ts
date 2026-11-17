@@ -1,3 +1,4 @@
+import { installChunkReloadGuard } from '@yunhefc/shared';
 import { createPinia } from 'pinia';
 import { createApp } from 'vue';
 import 'vant/lib/index.css';
@@ -8,6 +9,7 @@ import './styles/main.css';
 
 const app = createApp(App);
 
+installChunkReloadGuard(router);
 app.use(createPinia());
 app.use(router);
 app.mount('#app');

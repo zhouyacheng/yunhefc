@@ -1,3 +1,4 @@
+import { installChunkReloadGuard } from '@yunhefc/shared';
 import ElementPlus from 'element-plus';
 import zhCn from 'element-plus/es/locale/lang/zh-cn';
 import { createPinia } from 'pinia';
@@ -12,6 +13,7 @@ import './styles/main.css';
 
 const app = createApp(App);
 
+installChunkReloadGuard(router);
 app.use(createPinia());
 app.use(ElementPlus, { locale: zhCn });
 app.use(router);

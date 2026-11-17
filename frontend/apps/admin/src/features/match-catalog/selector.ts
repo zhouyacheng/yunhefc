@@ -1,7 +1,10 @@
 import type { MatchSummary } from '@yunhefc/shared';
 import { MATCH_STATUS_TEXT, formatDateTime } from '@yunhefc/shared';
 
+import type { MatchFilters } from './types';
+
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+const MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 export interface MatchOptionGroup {
   key: string;
@@ -26,6 +29,35 @@ export function seasonLabel(value: string | null | undefined): string {
 
 export function optionLabel(match: MatchSummary): string {
   return `${match.title} · ${formatDateTime(match.startAt)} · ${MATCH_STATUS_TEXT[match.status]}`;
+}
+
+/**
+ * 比赛是否满足当前筛选。月份按 Asia/Shanghai 自然月比较；
+ * 非法 monthRange 与 source 对齐视为不下发月份条件。
+ */
+export function matchFitsFilters(match: MatchSummary, filters: MatchFilters): boolean {
+  if (filters.season !== '' && match.season !== filters.season) {
+    return false;
+  }
+  if (filters.status !== '' && match.status !== filters.status) {
+    return false;
+  }
+  const range = filters.monthRange;
+  if (!range) {
+    return true;
+  }
+  const [first, second] = range;
+  if (!MONTH_KEY_PATTERN.test(first) || !MONTH_KEY_PATTERN.test(second)) {
+    return true;
+  }
+  const start = first <= second ? first : second;
+  const end = first <= second ? second : first;
+  const time = Date.parse(match.startAt);
+  if (Number.isNaN(time)) {
+    return false;
+  }
+  const month = new Date(time + SHANGHAI_OFFSET_MS).toISOString().slice(0, 7);
+  return month >= start && month <= end;
 }
 
 /**

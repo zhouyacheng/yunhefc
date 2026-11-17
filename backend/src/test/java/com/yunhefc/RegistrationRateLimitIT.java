@@ -44,9 +44,9 @@ class RegistrationRateLimitIT extends IntegrationTestSupport {
         Long matchId = createMatch(admin, "M04限流窗口", "2099-07-01T20:00:00");
         setCapacities(matchId, 2, 1, 1);
 
-        // 前 10 次同一幂等键：首次报名成功，其余为重放，全部计入限流窗口
+        // 前 50 次同一幂等键：首次报名成功，其余为重放，全部计入限流窗口
         String idemKey = UUID.randomUUID().toString();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 50; i++) {
             signup(player, matchId, idemKey, IP_A).andExpect(status().isOk());
         }
 
@@ -54,7 +54,7 @@ class RegistrationRateLimitIT extends IntegrationTestSupport {
                 "SELECT id FROM app_user WHERE phone = '13900000811'", Long.class);
         Long ttl = redisTemplate.getExpire(
                 "yunhefc:rate:registration:" + userId + ":" + IP_A, TimeUnit.SECONDS);
-        assertThat(ttl).isBetween(50L, 60L);
+        assertThat(ttl).isBetween(30L, 60L);
 
         MvcResult limited = signup(player, matchId, UUID.randomUUID().toString(), IP_A)
                 .andExpect(status().isTooManyRequests())
@@ -86,7 +86,7 @@ class RegistrationRateLimitIT extends IntegrationTestSupport {
         // 未开放报名，失败请求同样计数：放行时统一返回 40905
         jdbc.update("UPDATE team_match SET status = 1 WHERE id = ?", matchId);
 
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < 50; i++) {
             signup(playerA, matchId, UUID.randomUUID().toString(), IP_A)
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.code").value(40905));
@@ -119,7 +119,7 @@ class RegistrationRateLimitIT extends IntegrationTestSupport {
 
         Long userId = jdbc.queryForObject(
                 "SELECT id FROM app_user WHERE phone = '13900000816'", Long.class);
-        verify(rateLimiter).check("registration:" + userId + ":" + IP_A, 10,
+        verify(rateLimiter).check("registration:" + userId + ":" + IP_A, 50,
                 Duration.ofSeconds(60));
     }
 

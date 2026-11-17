@@ -4,10 +4,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   currentShanghaiSeason,
   groupMatches,
+  matchFitsFilters,
   mergeSeasons,
   optionLabel,
   seasonLabel,
 } from './selector';
+import type { MatchFilters } from './types';
 
 function match(
   id: number,
@@ -73,6 +75,50 @@ describe('optionLabel', () => {
   it('包含标题与状态', () => {
     expect(optionLabel(match(1, '2026'))).toContain('比赛1');
     expect(optionLabel(match(1, '2026'))).toContain('已锁定');
+  });
+});
+
+function filters(overrides: Partial<MatchFilters> = {}): MatchFilters {
+  return { season: '', monthRange: null, status: '', ...overrides };
+}
+
+describe('matchFitsFilters', () => {
+  it('赛季与状态空串表示不限，非空精确比较', () => {
+    expect(matchFitsFilters(match(1, '2026'), filters())).toBe(true);
+    expect(matchFitsFilters(match(1, '2026'), filters({ season: '2026' }))).toBe(true);
+    expect(matchFitsFilters(match(1, '2026'), filters({ season: '2025' }))).toBe(false);
+    expect(matchFitsFilters(match(1, '2026', '比赛1', 2), filters({ status: 2 }))).toBe(true);
+    expect(matchFitsFilters(match(1, '2026', '比赛1', 2), filters({ status: 4 }))).toBe(false);
+  });
+
+  it('月份按上海自然月边界', () => {
+    const marchEdge = { ...match(1, '2026'), startAt: '2026-03-31T15:59:59Z' };
+    expect(matchFitsFilters(marchEdge, filters({ monthRange: ['2026-03', '2026-03'] }))).toBe(true);
+    const aprilStart = { ...marchEdge, startAt: '2026-03-31T16:00:00Z' };
+    expect(matchFitsFilters(aprilStart, filters({ monthRange: ['2026-03', '2026-03'] }))).toBe(
+      false,
+    );
+    expect(matchFitsFilters(aprilStart, filters({ monthRange: ['2026-04', '2026-04'] }))).toBe(
+      true,
+    );
+  });
+
+  it('支持跨月与反序范围', () => {
+    const item = { ...match(1, '2026'), startAt: '2026-05-10T12:00:00Z' };
+    expect(matchFitsFilters(item, filters({ monthRange: ['2026-03', '2026-06'] }))).toBe(true);
+    expect(matchFitsFilters(item, filters({ monthRange: ['2026-06', '2026-03'] }))).toBe(true);
+    expect(matchFitsFilters(item, filters({ monthRange: ['2026-06', '2026-07'] }))).toBe(false);
+  });
+
+  it('非法月份范围视为不限', () => {
+    const item = { ...match(1, '2026'), startAt: '2026-05-10T12:00:00Z' };
+    expect(matchFitsFilters(item, filters({ monthRange: ['2026-13', '2026-01'] }))).toBe(true);
+  });
+
+  it('startAt 非法时仅在存在月份条件时判不匹配', () => {
+    const broken = { ...match(1, '2026'), startAt: 'not-a-date' };
+    expect(matchFitsFilters(broken, filters({ monthRange: ['2026-03', '2026-03'] }))).toBe(false);
+    expect(matchFitsFilters(broken, filters())).toBe(true);
   });
 });
 

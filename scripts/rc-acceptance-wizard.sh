@@ -444,8 +444,8 @@ fi
 # ── Stage 9 ───────────────────────────────────────────────────────────────
 stage "§6.9 限流与锁定 / §6.10 日志与密钥"
 ask TEST_PHONE "专用测试手机号（仅用于限流验证）："
-say "将连续发起 11 次错误登录；该账号会被锁定约 15 分钟，请使用专用测试号。"
-if confirm "执行 11 次错误登录？"; then
+say "将连续发起 51 次错误登录；该账号会被锁定约 15 分钟，请使用专用测试号。"
+if confirm "执行 51 次错误登录？"; then
   csrf_jar="$(mktemp)"
   csrf_json=$(curl -s -c "$csrf_jar" --max-time 10 "$WEB/api/v1/c/auth/csrf" 2>/dev/null || true)
   csrf_token=$(printf '%s' "$csrf_json" \
@@ -457,7 +457,7 @@ if confirm "执行 11 次错误登录？"; then
   else
     codes=()
     sixth_code=""
-    for i in $(seq 1 11); do
+    for i in $(seq 1 51); do
       resp=$(curl -s -w '\n%{http_code}' -X POST --max-time 10 \
         -b "$csrf_jar" -H "X-XSRF-TOKEN: $csrf_token" \
         -H 'Content-Type: application/json' \
@@ -471,16 +471,16 @@ if confirm "执行 11 次错误登录？"; then
           | sed -n 's/.*"code"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p')
       fi
     done
-    last="${codes[10]:-}"
+    last="${codes[50]:-}"
     if [[ "$sixth_code" == "40103" ]]; then
       say "  ${GREEN}✓${RESET} 第 6 次登录返回 40103（账号锁定）"; record "§6.9 账号锁定" "PASS"
     else
       warn "第 6 次登录 body code=${sixth_code:-无响应}，期望 40103"; record "§6.9 账号锁定" "FAIL"
     fi
     if [[ "$last" == "429" ]]; then
-      say "  ${GREEN}✓${RESET} 第 11 次登录返回 429"; record "§6.9 登录限流" "PASS"
+      say "  ${GREEN}✓${RESET} 第 51 次登录返回 429"; record "§6.9 登录限流" "PASS"
     else
-      warn "第 11 次登录 HTTP=${last:-无响应}，期望 429"; record "§6.9 登录限流" "FAIL"
+      warn "第 51 次登录 HTTP=${last:-无响应}，期望 429"; record "§6.9 登录限流" "FAIL"
     fi
   fi
   rm -f "$csrf_jar"

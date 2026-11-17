@@ -7,6 +7,6 @@ yunhefc:
     mode: mock
     require-wechat-ua: false
   kafka:
-    listener-enabled: false
+    listener-enabled: ${KAFKA_LISTENER_ENABLED:false}
   outbox:
-    enabled: false
+    enabled: ${OUTBOX_ENABLED:false}

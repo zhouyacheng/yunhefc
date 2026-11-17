@@ -24,6 +24,37 @@ SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run   # dev 显式开启短信/微
 | `SMS_ENDPOINT` | `https://gyytz.market.alicloudapi.com/sms/smsSend` |
 | `SMS_APPCODE` / `SMS_SIGN_ID` / `SMS_TEMPLATE_ID` | 空；非 mock 模式下必须配置，prod 缺失则启动失败 |
 
+### 查看操作日志（需本地 Kafka）
+
+dev profile 默认关闭 Outbox 中继与 Kafka 消费（`application-dev.yml`），业务写入只落
+`outbox_event`，不会产生 `audit_log`，B10 操作日志页因此看不到新记录。需要验证操作日志时显式开启：
+
+1. 创建 topic（Kafka 禁止自动建 topic）：
+
+```bash
+KAFKA_BOOTSTRAP=localhost:19092   # 换成实际映射到宿主机 9092 的端口
+for topic in yunhefc.notification.events yunhefc.notification.events.DLT \
+             yunhefc.audit.events yunhefc.audit.events.DLT; do
+  docker run --rm --network host apache/kafka:3.7.2 \
+    /opt/kafka/bin/kafka-topics.sh --bootstrap-server "$KAFKA_BOOTSTRAP" \
+    --create --if-not-exists --topic "$topic" --partitions 1 --replication-factor 1
+done
+```
+
+2. 启动时开启链路，缩短中继周期便于排空积压：
+
+```bash
+SPRING_PROFILES_ACTIVE=dev \
+OUTBOX_ENABLED=true KAFKA_LISTENER_ENABLED=true OUTBOX_RELAY_INTERVAL_MS=5000 \
+./mvnw spring-boot:run
+```
+
+日志为异步落库，正常延迟不超过一个中继周期。首次开启会补投历史 PENDING 事件（每批 20 条），
+积压较多时需要等待排空；期间通知消费者也会同步消费，dev 下短信/微信为 mock，不会外发。
+
+E2E 仍显式注入 `OUTBOX_ENABLED=false` / `KAFKA_LISTENER_ENABLED=false`，不受上述开关影响；
+prod 两者默认开启，若线上同样没有日志，先查 `outbox_event` 的 `status` 与 `last_error`。
+
 ## 测试
 
 前置：Docker 正在运行；首次运行会拉取 `mysql:8.4` 与 `redis:6.2.24`。

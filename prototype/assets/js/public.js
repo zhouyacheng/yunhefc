@@ -386,7 +386,6 @@
             <span>📍 ${esc(match.venue)}</span>
           </div>
           <div class="match-hero-actions">
-            <button class="btn btn-ghost btn-sm" data-action="share">分享比赛</button>
             ${canInviteTeammate ? '<button class="btn btn-ghost btn-sm" data-action="invite-teammate">邀请队友</button>' : ''}
             ${Y.hasPermission('match:status:any') ? `<select class="input input-sm" data-action="c-status" aria-label="修改比赛状态">${Y.statusOptions(match).map((option) => `<option value="${option.status}" ${match.status === option.status ? 'selected' : ''} ${option.disabled ? `disabled title="${option.reason}"` : ''}>${Y.statusLabel(option.status)}</option>`).join('')}</select>` : ''}
           </div>
@@ -680,17 +679,6 @@
           render();
         });
       });
-      const share = $('[data-action="share"]', host);
-      if (share) {
-        share.addEventListener('click', async () => {
-          try {
-            await navigator.clipboard.writeText(location.href);
-            Y.toast('比赛链接已复制');
-          } catch (error) {
-            Y.toast('请手动复制地址栏链接');
-          }
-        });
-      }
       $$('[data-public-side]', host).forEach((button) => {
         button.addEventListener('click', () => {
           lineupSide = button.dataset.publicSide;

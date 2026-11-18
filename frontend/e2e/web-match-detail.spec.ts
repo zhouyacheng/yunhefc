@@ -57,7 +57,6 @@ test('C03 访客：登录引导且不探测会话', async ({ page }) => {
 
   await expect(page.getByTestId('registration-card')).toContainText('登录后可报名与签到');
   await expect(page.getByText('登录后查看名单与考勤')).toBeVisible();
-  await expect(page.getByTestId('share-button')).toBeVisible();
   await expect(page.getByTestId('match-hero-meta')).toContainText('报名截止');
   await expect(page.getByTestId('match-hero-meta')).toContainText('报名锁定');
   await expect(page.getByTestId('match-hero-meta')).toContainText('聚龙足球场');
@@ -150,7 +149,6 @@ test('C03 作废场次：横幅、历史条数与操作隐藏', async ({ page })
 test('C03 正式球员：报名、邀请一次性链接、取消并真实递补', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
     Object.defineProperty(navigator, 'clipboard', {
       value: {
         writeText: async (text: string) => {
@@ -253,90 +251,6 @@ test('C03 名单与考勤：分段、候补顺序与左连接', async ({ page })
   await expect(page.getByTestId('roster-formal')).toContainText('未记录');
   await expect(page.getByTestId('roster-waitlist').getByTestId('roster-row')).toHaveCount(0);
   expect(errors).toEqual([]);
-});
-
-test('C03 分享：无原生分享时复制稳定 URL', async ({ page }) => {
-  const errors = collectConsoleErrors(page);
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'share', { value: undefined, configurable: true });
-    Object.defineProperty(navigator, 'clipboard', {
-      value: {
-        writeText: async (text: string) => {
-          (window as unknown as { __copied?: string }).__copied = text;
-        },
-      },
-      configurable: true,
-    });
-  });
-
-  await page.goto('/matches/1005');
-  await page.getByTestId('share-button').click();
-
-  await expect(page.getByTestId('share-message')).toContainText('链接已复制');
-  expect(await page.evaluate(() => (window as unknown as { __copied?: string }).__copied)).toBe(
-    'http://localhost:5273/matches/1005',
-  );
-  expect(errors).toEqual([]);
-});
-
-test('C03 分享：支持 navigator.share 时调起系统分享', async ({ page }) => {
-  const errors = collectConsoleErrors(page);
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, 'share', {
-      value: async (data: ShareData) => {
-        (window as unknown as { __shared?: ShareData }).__shared = data;
-      },
-      configurable: true,
-    });
-    Object.defineProperty(navigator, 'clipboard', {
-      value: {
-        writeText: async (text: string) => {
-          (window as unknown as { __copied?: string }).__copied = text;
-        },
-      },
-      configurable: true,
-    });
-  });
-
-  await page.goto('/matches/1005');
-  await page.getByTestId('share-button').click();
-
-  await expect(page.getByTestId('share-message')).toContainText('已调起系统分享');
-  const shared = await page.evaluate(
-    () => (window as unknown as { __shared?: ShareData }).__shared,
-  );
-  expect(shared?.url).toBe('http://localhost:5273/matches/1005');
-  expect(
-    await page.evaluate(() => (window as unknown as { __copied?: string }).__copied),
-  ).toBeUndefined();
-  expect(errors).toEqual([]);
-});
-
-test.describe('C03 分享：微信内置浏览器', () => {
-  test.use({ userAgent: 'Mozilla/5.0 (iPhone) MicroMessenger/8.0.0' });
-
-  test('提示右上角分享且不复制', async ({ page }) => {
-    const errors = collectConsoleErrors(page);
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'clipboard', {
-        value: {
-          writeText: async (text: string) => {
-            (window as unknown as { __copied?: string }).__copied = text;
-          },
-        },
-        configurable: true,
-      });
-    });
-
-    await page.goto('/matches/1005');
-    await page.getByTestId('share-button').click();
-
-    await expect(page.getByTestId('share-message')).toContainText('右上角');
-    expect(
-      await page.evaluate(() => (window as unknown as { __copied?: string }).__copied),
-    ).toBeUndefined();
-    expect(errors).toEqual([]);
-  });
 });
 
 test('C03 管理员：状态合法集、延期与取消并恢复', async ({ page }) => {

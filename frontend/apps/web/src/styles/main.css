@@ -565,6 +565,26 @@ textarea {
   color: var(--yh-green);
 }
 
+.site-footer__beian {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.site-footer__beian a {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.site-footer__beian img {
+  width: auto;
+  height: 16px;
+}
+
 .page-head {
   margin: 12px 0 18px;
 }

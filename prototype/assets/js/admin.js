@@ -1433,7 +1433,7 @@
             <td><strong>${esc(player.name)}</strong></td>
             <td>${esc(player.region || '—')}</td>
             <td>${player.type === 'PLAYER' ? '正式' : '外挂'}</td>
-            <td>${Y.rolesOf(player).includes('ADMIN') ? '是' : '否'}</td>
+            <td>${Y.rolesOf(player).includes('ADMIN') ? '是' : ''}</td>
             <td><span class="badge ${player.status === 'ACTIVE' ? 'badge-open' : player.status === 'PENDING' ? 'badge-postponed' : 'badge-cancelled'}">${player.status === 'ACTIVE' ? '正常' : player.status === 'PENDING' ? '待审核' : '已注销'}</span></td>
             <td>${Y.positionLabel(player.position)}</td>
             <td>${Y.stars(player.skill)}</td>

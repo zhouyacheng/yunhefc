@@ -779,7 +779,7 @@ onUnmounted(() => {
         <template #default="{ row }">{{ playerTypeText(row.type) }}</template>
       </el-table-column>
       <el-table-column label="管理员" width="90">
-        <template #default="{ row }">{{ row.admin ? '是' : '否' }}</template>
+        <template #default="{ row }">{{ row.admin ? '是' : '' }}</template>
       </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }">

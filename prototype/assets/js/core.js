@@ -695,6 +695,19 @@
     return EVENT_TYPE_META[type] ? EVENT_TYPE_META[type].label : type;
   }
 
+  function typeClass(type) {
+    switch (Number(type)) {
+      case 1:
+        return 'badge-type-internal';
+      case 2:
+        return 'badge-type-training';
+      case 3:
+        return 'badge-type-friendly';
+      default:
+        return 'badge-type-external';
+    }
+  }
+
   function statusLabel(status) {
     return MATCH_STATUS_META[status] ? MATCH_STATUS_META[status].label : status;
   }
@@ -961,7 +974,7 @@
     const result = resultOf(match);
     return `<a class="match-card" href="match.html?id=${match.id}">
       <div class="match-card-top">
-        <span class="muted">${formatDateTimeRange(match.start, match.end)}</span>
+        <span class="muted">${formatDateTime(match.start)}</span>
         <span class="match-top-right">
           ${result.label !== '—' ? `<span class="result ${result.cls}">${result.label}</span>` : ''}
           ${matchOrdinalLabel(match) ? `<span class="match-ordinal">${matchOrdinalLabel(match)}</span>` : ''}
@@ -973,7 +986,7 @@
         <span class="team-name ${winner === names.away ? 'winner' : ''}">${escapeHtml(names.away)}</span>
       </div>
       <div class="match-card-foot">
-        <span class="badge badge-type">${typeLabel(match.type)}</span>
+        <span class="badge ${typeClass(match.type)}">${typeLabel(match.type)}</span>
         <span class="muted match-venue">${escapeHtml(match.venue || '')}${match.round ? ` · 第 ${match.round} 轮` : ''}</span>
         <span class="match-status ${statusClass(match.status)}">${statusLabel(match.status)}</span>
       </div>
@@ -1043,6 +1056,7 @@
     positionShort,
     positionRank,
     typeLabel,
+    typeClass,
     POSITION_META,
     POSITIONS,
     OUTFIELD_POSITIONS,

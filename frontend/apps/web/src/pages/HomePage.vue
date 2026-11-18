@@ -2,7 +2,12 @@
 import { isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import { hasBackendPermission } from '@yunhefc/permissions';
 import type { MatchDetail, MatchSummary, Page, Registration } from '@yunhefc/shared';
-import { formatDateTimeRange, matchStatusText, matchTypeText } from '@yunhefc/shared';
+import {
+  formatDayStartTime,
+  matchStatusText,
+  matchTypeText,
+  seasonMatchText,
+} from '@yunhefc/shared';
 import { Button, Empty, Loading, Tag } from 'vant';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
@@ -234,9 +239,8 @@ onUnmounted(() => {
             </div>
 
             <div class="home-hero__meta">
-              <span>{{ formatDateTimeRange(hero.startAt, hero.endAt) }}</span>
-              <span>{{ hero.venue }}</span>
-              <span>第 {{ hero.seasonMatchNo }} 场</span>
+              <span>{{ formatDayStartTime(hero.startAt) }} · {{ hero.venue }}</span>
+              <span class="home-hero__ordinal">{{ seasonMatchText(hero) }}</span>
             </div>
 
             <div class="hero-queue">

@@ -12,8 +12,8 @@ test('C02 赛程：状态筛选写入 URL，刷新后恢复', async ({ page }) =
 
   await page.goto('/matches');
   await expect(page.locator('.match-card')).toHaveCount(5);
-  await expect(page.locator('.match-card__meta').first()).toContainText(
-    /\d{4}\/\d{2}\/\d{2} \d{2}:\d{2} ~ (?:\d{2}\/\d{2} )?\d{2}:\d{2}/,
+  await expect(page.locator('.match-card__date').first()).toContainText(
+    /\d{1,2}月\d{1,2}日 周. \d{2}:\d{2}$/,
   );
   await expect(page.getByRole('button', { name: '搜索', exact: true })).toHaveCount(0);
 

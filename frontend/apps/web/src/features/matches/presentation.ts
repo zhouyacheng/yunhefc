@@ -26,6 +26,22 @@ export function statusTone(status: number | null | undefined): StatusTone {
   }
 }
 
+export type TypeTone = 'external' | 'internal' | 'training' | 'friendly';
+
+/** 比赛类型配色，与状态标签同一套 pill 规则；未知类型按对外比赛处理。 */
+export function typeTone(type: number | null | undefined): TypeTone {
+  switch (type) {
+    case 1:
+      return 'internal';
+    case 2:
+      return 'training';
+    case 3:
+      return 'friendly';
+    default:
+      return 'external';
+  }
+}
+
 export function resultTone(resultText: string | null | undefined): ResultTone {
   if (!resultText) {
     return 'muted';

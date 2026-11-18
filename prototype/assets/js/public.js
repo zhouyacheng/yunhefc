@@ -75,7 +75,7 @@
             <span class="hero-score">${Y.scoreText(next)}</span>
             <span>${esc(names.away)}</span>
           </div>
-          <div class="hero-meta">${Y.formatDateTimeRange(next.start, next.end)} · ${esc(next.venue)}</div>
+          <div class="hero-meta">${Y.formatDateTime(next.start)} · ${esc(next.venue)}</div>
           ${Y.matchOrdinalLabel(next) ? `<div class="hero-ordinal">${Y.matchOrdinalLabel(next)}</div>` : ''}
           <div class="hero-progress">
             <div class="between"><span>报名队列</span><b>${nextConfirmed}/${nextCapacity}</b></div>

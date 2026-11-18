@@ -13,6 +13,10 @@ public final class GroupingScoreCalculator {
 
     private static final BigDecimal FOUR = BigDecimal.valueOf(4);
     private static final BigDecimal HALF = new BigDecimal("0.5");
+    private static final BigDecimal TWO = BigDecimal.valueOf(2);
+    private static final BigDecimal MIN_SKILL = new BigDecimal("1.00");
+    private static final BigDecimal MAX_SKILL = new BigDecimal("5.00");
+    private static final BigDecimal DEFAULT_SKILL = new BigDecimal("3.00");
     private static final int RATE_SCALE = 10;
 
     private GroupingScoreCalculator() {
@@ -37,8 +41,12 @@ public final class GroupingScoreCalculator {
         List<GroupingScore> scores = new ArrayList<>(candidates.size());
         for (GroupingCandidate candidate : candidates) {
             GroupingPlayerStats playerStats = statsOf(stats, candidate.playerId());
-            BigDecimal manual = BigDecimal.valueOf(Math.clamp(candidate.skill(), 1, 5))
-                    .setScale(1, RoundingMode.HALF_UP);
+            BigDecimal skill = candidate.skill() == null ? DEFAULT_SKILL : candidate.skill();
+            BigDecimal manual = skill.max(MIN_SKILL).min(MAX_SKILL)
+                    .multiply(TWO)
+                    .setScale(0, RoundingMode.FLOOR)
+                    .divide(TWO)
+                    .setScale(2, RoundingMode.HALF_UP);
             boolean manualOnly = playerStats.appearances() == 0
                     || playerStats.appearances() < weights.minAppearances();
             BigDecimal auto = null;

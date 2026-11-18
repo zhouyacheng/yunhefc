@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -62,7 +63,7 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.secondaryPositionLabels[1]").value("DEFENDER"))
                 .andExpect(jsonPath("$.data.region").value("宁波"))
                 .andExpect(jsonPath("$.data.avatarUrl").value("mock://oss/" + avatarKey))
-                .andExpect(jsonPath("$.data.skill").value(3));
+                .andExpect(jsonPath("$.data.skill").value(3.00));
 
         assertThat(jdbc.queryForObject("SELECT name FROM player WHERE id = ?", String.class, playerId))
                 .isEqualTo("自助乙");
@@ -74,8 +75,8 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
                 .isEqualTo("[0, 1]");
         assertThat(jdbc.queryForObject("SELECT avatar_url FROM player WHERE id = ?", String.class, playerId))
                 .isEqualTo(avatarKey);
-        assertThat(jdbc.queryForObject("SELECT skill FROM player WHERE id = ?", Integer.class, playerId))
-                .isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT skill FROM player WHERE id = ?", BigDecimal.class, playerId))
+                .isEqualByComparingTo("3.00");
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM outbox_event WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ? "
                         + "AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'PLAYER_UPDATE'",
@@ -138,8 +139,8 @@ class PlayerSelfProfileIT extends IntegrationTestSupport {
 
         assertThat(jdbc.queryForObject("SELECT jersey FROM player WHERE id = ?", Integer.class, playerId))
                 .isNull();
-        assertThat(jdbc.queryForObject("SELECT skill FROM player WHERE id = ?", Integer.class, playerId))
-                .isEqualTo(3);
+        assertThat(jdbc.queryForObject("SELECT skill FROM player WHERE id = ?", BigDecimal.class, playerId))
+                .isEqualByComparingTo("3.00");
         assertThat(jdbc.queryForObject("SELECT type FROM player WHERE id = ?", Integer.class, playerId))
                 .isZero();
     }

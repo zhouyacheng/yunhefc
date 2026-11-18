@@ -92,9 +92,39 @@ class GroupingScoreCalculatorTest {
         GroupingScore score = calculate(List.of(candidate(1L, 5)),
                 Map.of(1L, new GroupingPlayerStats(3, 1, 0)), 4).getFirst();
 
-        assertThat(score.manualScore().scale()).isEqualTo(1);
+        assertThat(score.manualScore().scale()).isEqualTo(2);
         assertThat(score.autoScore().scale()).isEqualTo(2);
         assertThat(score.finalScore().scale()).isEqualTo(2);
+    }
+
+    @Test
+    void floorsManualScoreToHalfStarSteps() {
+        assertThat(manualOf("4.01")).isEqualByComparingTo("4.00");
+        assertThat(manualOf("4.49")).isEqualByComparingTo("4.00");
+        assertThat(manualOf("4.50")).isEqualByComparingTo("4.50");
+        assertThat(manualOf("4.99")).isEqualByComparingTo("4.50");
+        assertThat(manualOf("5.00")).isEqualByComparingTo("5.00");
+    }
+
+    @Test
+    void finalScoreUsesQuantizedManualScore() {
+        List<GroupingScore> scores = calculate(
+                List.of(candidate(1L, new BigDecimal("4.49")),
+                        candidate(2L, new BigDecimal("4.50"))),
+                Map.of(1L, new GroupingPlayerStats(3, 0, 0),
+                        2L, new GroupingPlayerStats(3, 0, 0)),
+                3);
+
+        // 自动分均为 4.00；量化后 manual 4.00 → 4.00×0.7+4.00×0.3，4.50 → 4.50×0.7+4.00×0.3。
+        assertThat(scores.get(0).manualScore()).isEqualByComparingTo("4.00");
+        assertThat(scores.get(0).finalScore()).isEqualByComparingTo("4.00");
+        assertThat(scores.get(1).manualScore()).isEqualByComparingTo("4.50");
+        assertThat(scores.get(1).finalScore()).isEqualByComparingTo("4.35");
+    }
+
+    private static BigDecimal manualOf(String skill) {
+        return calculate(List.of(candidate(1L, new BigDecimal(skill))), Map.of(), 5)
+                .getFirst().manualScore();
     }
 
     @Test
@@ -123,6 +153,10 @@ class GroupingScoreCalculatorTest {
     }
 
     private static GroupingCandidate candidate(Long id, int skill) {
+        return candidate(id, BigDecimal.valueOf(skill));
+    }
+
+    private static GroupingCandidate candidate(Long id, BigDecimal skill) {
         return new GroupingCandidate(id, "球员" + id, id.intValue(), 1, skill);
     }
 

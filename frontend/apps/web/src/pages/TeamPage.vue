@@ -7,6 +7,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
+import SkillStars from '../components/SkillStars.vue';
 import {
   avatarInitial,
   avatarSrc,
@@ -109,11 +110,6 @@ watch(
   { immediate: true },
 );
 
-function skillStars(skill: number): string {
-  const filled = Math.max(0, Math.min(5, skill));
-  return `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`;
-}
-
 function onAvatarError(playerId: number): void {
   if (!failedAvatars.value.includes(playerId)) {
     failedAvatars.value = [...failedAvatars.value, playerId];
@@ -191,8 +187,8 @@ onMounted(() => {
                   <span>{{ player.region || '—' }}</span>
                 </div>
 
-                <div class="player-card__stars" :aria-label="`星级 ${player.skill}/5`">
-                  {{ skillStars(player.skill) }}
+                <div class="player-card__stars">
+                  <SkillStars :skill="player.skill" />
                 </div>
 
                 <div class="player-card__stats small">

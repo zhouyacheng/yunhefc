@@ -8,6 +8,7 @@ import {
   PLAYER_STATUS_TEXT,
   PLAYER_TYPE_TEXT,
   POSITION_TEXT,
+  SKILL_LEVELS,
   avatarPlaceholder,
   compressAvatar,
   isDisplayableAvatarUrl,
@@ -21,6 +22,8 @@ import {
   playerStatusTone,
   playerTypeText,
   positionText,
+  skillAriaLabel,
+  skillLevelText,
   validateAvatarFile,
 } from '@yunhefc/shared';
 import type { TableInstance } from 'element-plus';
@@ -28,6 +31,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 
 import { api } from '../api/client';
+import SkillStars from '../components/SkillStars.vue';
 import { useSessionStore } from '../stores/session';
 
 interface PlayerFilters {
@@ -37,7 +41,7 @@ interface PlayerFilters {
   admin: string | undefined;
   status: string | undefined;
   position: string | undefined;
-  skill: string | undefined;
+  skillLevel: string | undefined;
 }
 
 interface AvatarUploadView {
@@ -56,7 +60,6 @@ interface PlayerProfilePayload {
 }
 
 const POSITION_CODES = [0, 1, 2, 3];
-const SKILL_CODES = [1, 2, 3, 4, 5];
 const TYPE_OPTIONS = Object.entries(PLAYER_TYPE_TEXT).map(([value, label]) => ({
   value,
   label,
@@ -136,7 +139,7 @@ function emptyFilters(): PlayerFilters {
     admin: undefined,
     status: undefined,
     position: undefined,
-    skill: undefined,
+    skillLevel: undefined,
   };
 }
 
@@ -176,8 +179,8 @@ async function load(): Promise<void> {
     if (filters.position !== undefined && filters.position !== '') {
       query.position = Number(filters.position);
     }
-    if (filters.skill !== undefined && filters.skill !== '') {
-      query.skill = Number(filters.skill);
+    if (filters.skillLevel !== undefined && filters.skillLevel !== '') {
+      query.skillLevel = Number(filters.skillLevel);
     }
     const result = await api.get<Page<PlayerAdmin>>('/players', { query });
     if (seq !== requestSeq) {
@@ -731,12 +734,12 @@ onUnmounted(() => {
         </el-select>
       </el-form-item>
       <el-form-item label="星级">
-        <el-select v-model="filters.skill" class="filter-select" placeholder="全部" clearable>
+        <el-select v-model="filters.skillLevel" class="filter-select" placeholder="全部" clearable>
           <el-option
-            v-for="code in SKILL_CODES"
-            :key="code"
-            :label="`${code} 星`"
-            :value="String(code)"
+            v-for="level in SKILL_LEVELS"
+            :key="level.code"
+            :label="level.label"
+            :value="String(level.code)"
           />
         </el-select>
       </el-form-item>
@@ -748,6 +751,7 @@ onUnmounted(() => {
 
     <el-table
       ref="tableRef"
+      class="players-table"
       v-loading="loading"
       :data="rows"
       empty-text="没有符合条件的球员"
@@ -771,17 +775,17 @@ onUnmounted(() => {
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="姓名" prop="name" min-width="120" />
+      <el-table-column label="姓名" prop="name" width="160" />
       <el-table-column prop="region" label="地区" width="110" sortable="custom">
         <template #default="{ row }">{{ row.region || '—' }}</template>
       </el-table-column>
-      <el-table-column label="类型" width="90">
+      <el-table-column prop="type" label="类型" width="90" sortable="custom">
         <template #default="{ row }">{{ playerTypeText(row.type) }}</template>
       </el-table-column>
-      <el-table-column label="管理员" width="90">
+      <el-table-column prop="admin" label="管理员" width="112" sortable="custom">
         <template #default="{ row }">{{ row.admin ? '是' : '' }}</template>
       </el-table-column>
-      <el-table-column label="状态" width="100">
+      <el-table-column prop="status" label="状态" width="100" sortable="custom">
         <template #default="{ row }">
           <el-tag :type="playerStatusTone(row.status)" effect="light">
             {{ playerStatusText(row.status) }}
@@ -792,7 +796,9 @@ onUnmounted(() => {
         <template #default="{ row }">{{ positionText(row.position) }}</template>
       </el-table-column>
       <el-table-column prop="skill" label="星级" width="92" sortable="custom">
-        <template #default="{ row }">{{ row.skill }}★</template>
+        <template #default="{ row }">
+          <SkillStars :skill="row.skill" :title="skillAriaLabel(row.skill)" />
+        </template>
       </el-table-column>
       <el-table-column label="微信" width="92">
         <template #default="{ row }">{{ row.wechatBound ? '已绑定' : '未绑定' }}</template>
@@ -962,14 +968,20 @@ onUnmounted(() => {
           <span class="muted small">最多 3 个，不含主位置</span>
         </el-form-item>
         <el-form-item label="星级">
-          <el-select v-model="editForm.skill">
-            <el-option
-              v-for="code in SKILL_CODES"
-              :key="code"
-              :label="`${code} 星`"
-              :value="code"
-            />
-          </el-select>
+          <el-input-number
+            v-model="editForm.skill"
+            :min="1"
+            :max="5"
+            :precision="2"
+            :step="0.01"
+            :value-on-clear="3"
+            controls-position="right"
+          />
+          <span class="muted small skill-hint">1.00–5.00，最多两位小数。</span>
+          <span class="muted small skill-hint">
+            显示规则：小数部分 0.00–0.49 记为整星，0.50–0.99 记为半星；当前为
+            {{ skillLevelText(editForm.skill) }}。
+          </span>
         </el-form-item>
       </el-form>
       <p v-if="editDialog.error" class="dialog-error">{{ editDialog.error }}</p>
@@ -1055,6 +1067,14 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.players-table :deep(.el-table__header .cell) {
+  white-space: nowrap;
+}
+
+.skill-hint {
+  width: 100%;
+  margin-top: 4px;
+}
 .page-head {
   margin-bottom: 16px;
 }

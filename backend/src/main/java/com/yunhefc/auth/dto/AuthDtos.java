@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -57,7 +58,7 @@ public final class AuthDtos {
             String typeLabel,
             Integer position,
             String positionLabel,
-            Integer skill,
+            BigDecimal skill,
             String avatarUrl) {
     }
 

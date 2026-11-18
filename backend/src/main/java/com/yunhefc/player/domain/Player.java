@@ -11,6 +11,7 @@ import com.yunhefc.contracts.player.Position;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Getter
@@ -29,7 +30,7 @@ public class Player {
     private String secondaryPositions;
     private String region;
     private String avatarUrl;
-    private Integer skill;
+    private BigDecimal skill;
     private LocalDateTime createdAt;
     @TableField(updateStrategy = FieldStrategy.NEVER)
     private LocalDateTime updatedAt;

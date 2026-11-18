@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# 生产库重建：清理手工建表 + test-data 残留，改用 Flyway V1–V8 初始化，
+# 生产库重建：清理手工建表 + test-data 残留，改用 Flyway V1–V9 初始化，
 # 并用真实 BCrypt 哈希创建首位管理员（RUNBOOK §1.3、§1.5）。
 #
 # 破坏性操作：会清空 yunhefc 库全部对象。必须输入确认短语才会执行。
@@ -35,7 +35,7 @@ cleanup_remote() {
 }
 trap cleanup_remote EXIT
 
-printf '\n%s生产库重建（Flyway V1–V8 + 首位管理员）%s\n\n' "$DIM" "$RESET"
+printf '\n%s生产库重建（Flyway V1–V9 + 首位管理员）%s\n\n' "$DIM" "$RESET"
 
 say "目标主机：$ECS_SSH"
 remote 'echo ok' >/dev/null 2>&1 || die "SSH 不可用"
@@ -57,7 +57,7 @@ ADMIN_POS="${ADMIN_POS:-2}"
 
 say ""
 say "将执行："
-say "  1. 复制 V1–V8 到 /opt/yunhefc/migrations"
+say "  1. 复制 V1–V9 到 /opt/yunhefc/migrations"
 say "  2. 停止 backend 容器"
 say "  3. flyway clean + migrate（清空 yunhefc 库）"
 say "  4. 生成 BCrypt 哈希并执行 bootstrap-admin.sql"

@@ -93,7 +93,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].name").value("M02列表丙"));
 
         mockMvc.perform(get("/api/v1/b/players").cookie(admin)
-                        .param("name", "M02列表").param("skill", "5"))
+                        .param("name", "M02列表").param("skillLevel", "9"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.total").value(1))
                 .andExpect(jsonPath("$.data.items[0].name").value("M02列表甲"));
@@ -150,7 +150,92 @@ class PlayerAdminIT extends IntegrationTestSupport {
         mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("position", "9"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
-        mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("skill", "9"))
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("skillLevel", "10"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
+    void filtersByHalfStarLevelRanges() throws Exception {
+        Cookie admin = adminLogin("13900000470");
+        Long playerRole = roleId("PLAYER");
+        insertPlayer(insertUser("13900000471", 1, playerRole), "M02档位四星甲", 741, 1, 2, 4.25, null);
+        insertPlayer(insertUser("13900000472", 1, playerRole), "M02档位四星半甲", 742, 1, 2, 4.75, null);
+        insertPlayer(insertUser("13900000473", 1, playerRole), "M02档位四星下限", 743, 1, 2, 4.00, null);
+        insertPlayer(insertUser("13900000474", 1, playerRole), "M02档位四星半上限", 744, 1, 2, 4.99, null);
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02档位").param("skillLevel", "7"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items[0].name").value("M02档位四星甲"))
+                .andExpect(jsonPath("$.data.items[1].name").value("M02档位四星下限"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02档位").param("skillLevel", "8"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items[0].name").value("M02档位四星半甲"))
+                .andExpect(jsonPath("$.data.items[1].name").value("M02档位四星半上限"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02档位").param("skillLevel", "6"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02档位").param("skillLevel", "9"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(0));
+    }
+
+    @Test
+    void sortsByTypeStatusAndAdmin() throws Exception {
+        Cookie admin = adminLogin("13900000480");
+        Long playerRole = roleId("PLAYER");
+        Long guestRole = roleId("GUEST");
+        Long adminRole = roleId("ADMIN");
+
+        insertPlayer(insertUser("13900000481", 1, guestRole), "M02排序外挂", 751, 0, 2, 3, null);
+        insertPlayer(insertUser("13900000482", 0, playerRole), "M02排序待审", 752, 1, 2, 3, null);
+        insertPlayer(insertUser("13900000483", 1, playerRole), "M02排序正常", 753, 1, 2, 3, null);
+        insertPlayer(insertUser("13900000484", 2, playerRole), "M02排序注销", 754, 1, 2, 3, null);
+        insertPlayer(insertUser("13900000485", 1, adminRole), "M02排序管理员", 755, 1, 2, 3, null);
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "type:asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(5))
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序外挂"))
+                .andExpect(jsonPath("$.data.items[1].name").value("M02排序待审"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "type:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序待审"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "status:asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序待审"))
+                .andExpect(jsonPath("$.data.items[4].name").value("M02排序注销"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "status:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序注销"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "admin:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序管理员"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "admin:asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[4].name").value("M02排序管理员"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("sort", "admin:up"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
     }
@@ -212,7 +297,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"name":"M02编辑甲改","jersey":722,"region":"宁波","position":3,
-                                 "secondaryPositions":[1,2],"skill":5,"avatarUrl":"%s",
+                                 "secondaryPositions":[1,2],"skill":4.25,"avatarUrl":"%s",
                                  "type":0,"userId":999999,"status":2}
                                 """.formatted(avatarKey)))
                 .andExpect(status().isOk())
@@ -225,7 +310,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.positionLabel").value("FORWARD"))
                 .andExpect(jsonPath("$.data.secondaryPositions[0]").value(1))
                 .andExpect(jsonPath("$.data.secondaryPositionLabels[1]").value("MIDFIELDER"))
-                .andExpect(jsonPath("$.data.skill").value(5))
+                .andExpect(jsonPath("$.data.skill").value(4.25))
                 .andExpect(jsonPath("$.data.status").value(1))
                 .andExpect(jsonPath("$.data.statusLabel").value("ACTIVE"))
                 .andExpect(jsonPath("$.data.admin").value(false))
@@ -335,6 +420,23 @@ class PlayerAdminIT extends IntegrationTestSupport {
                         .content("{\"skill\":6}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
+
+        mockMvc.perform(patch("/api/v1/b/players/" + guestPlayer)
+                        .cookie(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skill\":4.256}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+
+        // 尾随 0 不改变数值精度，按 4.25 接受。
+        mockMvc.perform(patch("/api/v1/b/players/" + guestPlayer)
+                        .cookie(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"skill\":4.250}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.skill").value(4.25));
 
         mockMvc.perform(patch("/api/v1/b/players/" + guestPlayer)
                         .cookie(admin)
@@ -450,7 +552,7 @@ class PlayerAdminIT extends IntegrationTestSupport {
     }
 
     private Long insertPlayer(Long userId, String name, Integer jersey, int type, int position,
-                              int skill, String region) {
+                              double skill, String region) {
         String secondary = switch (position) {
             case 0 -> "[1,2]";
             case 1 -> "[2,3]";

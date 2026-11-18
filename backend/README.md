@@ -81,5 +81,9 @@ docker rm -f <容器ID>
 - `V3__seed_team_roles_permissions_settings.sql`：球队、3 个默认角色、28 个权限、9 项配置
 - `V4__seed_formation_templates.sql`：8 套预置阵型、64 个槽位
 - `V5__add_table_comments.sql`：27 张业务表的表级中文注释
+- `V6__backfill_cancel_lock_match_day_0100.sql`：取消锁定时间回填
+- `V7__reset_session_and_align_seed_timezone.sql`：Flyway 会话时区重置与新库种子回填
+- `V8__add_audit_log_operated_at.sql`：审计操作时间列、回填与索引
+- `V9__player_skill_decimal.sql`：球员星级与分组手动分改为两位小数
 
 迁移在应用启动时执行；数据库不建任何 CHECK，业务规则由应用层强校验（见 `docs/design/04.数据库设计.md` §8.1）。

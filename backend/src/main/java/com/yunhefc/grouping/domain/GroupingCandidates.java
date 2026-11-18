@@ -5,6 +5,7 @@ import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.registration.ConfirmedRegistration;
 import com.yunhefc.contracts.security.UserAccountSnapshot;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -55,7 +56,7 @@ public final class GroupingCandidates {
                     }
                     candidates.add(new GroupingCandidate(
                             player.id(), player.name(), player.jersey(), player.position(),
-                            player.skill() == null ? 3 : player.skill()));
+                            player.skill() == null ? new BigDecimal("3.00") : player.skill()));
                 });
         return candidates.stream()
                 .sorted(Comparator.comparing(GroupingCandidate::playerId))

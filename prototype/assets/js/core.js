@@ -476,7 +476,9 @@
     }
     if (patch.skill !== undefined && hasPermission('player:edit:any')) {
       const skill = Number(patch.skill);
-      if (!Number.isInteger(skill) || skill < 1 || skill > 5) return { ok: false, message: '星级必须为 1–5' };
+      if (!Number.isFinite(skill) || skill < 1 || skill > 5 || Number(skill.toFixed(2)) !== skill) {
+        return { ok: false, message: '星级必须为 1.00–5.00，最多两位小数' };
+      }
       if (skill !== player.skill) { before.skill = player.skill; player.skill = skill; after.skill = skill; }
     }
     player.updatedAt = new Date().toISOString();
@@ -831,8 +833,29 @@
   }
 
   function stars(skill) {
-    const value = Math.max(0, Math.min(5, Number(skill) || 0));
-    return `<span class="stars">${'★'.repeat(value)}${'☆'.repeat(5 - value)}</span>`;
+    const starPath = 'M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z';
+    const numeric = Number(skill);
+    const hundredths = Number.isFinite(numeric)
+      ? Math.max(0, Math.min(500, Math.round(numeric * 100)))
+      : 0;
+    const full = Math.floor(hundredths / 100);
+    const half = hundredths % 100 >= 50;
+    const label = (Number.isFinite(numeric) ? numeric : 0).toFixed(2);
+    const parts = [
+      ...Array(full).fill('full'),
+      ...(half ? ['half'] : []),
+      ...Array(5 - full - (half ? 1 : 0)).fill('empty')
+    ];
+    const cell = (part) => {
+      const empty = part === 'full'
+        ? ''
+        : `<path class="skill-star__empty" d="${starPath}"/>`;
+      const fill = part === 'empty'
+        ? ''
+        : `<path class="skill-star__fill${part === 'half' ? ' skill-star__fill--half' : ''}" d="${starPath}"/>`;
+      return `<svg class="skill-star skill-star--${part}" viewBox="0 0 24 24" aria-hidden="true">${empty}${fill}</svg>`;
+    };
+    return `<span class="stars" role="img" aria-label="星级 ${label}/5">${parts.map(cell).join('')}</span>`;
   }
 
   function maskPhone(phone) {

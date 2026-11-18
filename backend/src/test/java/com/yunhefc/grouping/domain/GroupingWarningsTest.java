@@ -56,7 +56,8 @@ class GroupingWarningsTest {
     }
 
     private static GroupingCandidate candidate(Long id, int position) {
-        return new GroupingCandidate(id, "球员" + id, id.intValue(), position, 3);
+        return new GroupingCandidate(id, "球员" + id, id.intValue(), position,
+                new BigDecimal("3.00"));
     }
 
     private static AssignedPlayer player(Long id, int position) {

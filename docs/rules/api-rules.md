@@ -42,6 +42,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 6. 需要乐观锁的接口携带 `version`：阵容、比赛状态、事件修改；版本不匹配返回 `VERSION_CONFLICT`。
 7. 认证写请求携带会话 Cookie，并通过 `X-XSRF-TOKEN` 提交 CSRF token；token 从登录或 `auth/csrf` 响应体获取，不使用 CSRF Cookie。
 8. 文件上传使用 `multipart/form-data`；服务端校验类型与大小（头像上限 2MB），写入阿里云 OSS，业务表只存对象键（不含签名参数）。
+9. 评分/星级等小数值使用 JSON number 传输并明确精度（如星级 1.00–5.00、两位小数），不做字符串化；按固定档位筛选时使用数字 code（如 `skillLevel=1..9`），不在查询参数中接受任意区间。
 
 ---
 

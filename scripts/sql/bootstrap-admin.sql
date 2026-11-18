@@ -31,7 +31,7 @@ ON DUPLICATE KEY UPDATE is_deleted = 0;
 
 -- jersey 留空，避开正式球员号码唯一键；type=1 为正式球员。
 INSERT INTO player (team_id, user_id, name, jersey, type, position, skill)
-VALUES (@team_id, @user_id, @name, NULL, 1, @position, 3)
+VALUES (@team_id, @user_id, @name, NULL, 1, @position, 3.00)
 ON DUPLICATE KEY UPDATE is_deleted = 0;
 
 SELECT @user_id AS user_id, @team_id AS team_id;

@@ -12,6 +12,7 @@ import ProfileEditPopup from '../components/ProfileEditPopup.vue';
 import { avatarPlaceholder, isDisplayableAvatarUrl } from '../features/profile/avatar';
 import { isPending } from '../features/auth/user-status';
 import { isWechatBrowser, requestWechatAuthorize } from '../features/auth/wechat';
+import SkillStars from '../components/SkillStars.vue';
 import { useSessionStore } from '../stores/session';
 
 const ROLE_TEXT: Readonly<Record<string, string>> = {
@@ -41,11 +42,6 @@ const roleText = computed(() => {
   return roles.length ? roles.map((role) => ROLE_TEXT[role] ?? role).join(' / ') : '—';
 });
 const avatarSrc = computed(() => session.player?.avatarUrl ?? null);
-
-function skillStars(skill: number): string {
-  const filled = Math.max(0, Math.min(5, skill));
-  return `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`;
-}
 
 function openEdit(): void {
   if (pending.value) {
@@ -132,9 +128,7 @@ onMounted(() => {
             <div class="profile-identity__meta">
               <span>号码 {{ session.player.jersey ?? '—' }}</span>
               <span>位置 {{ positionText(session.player.position) }}</span>
-              <span :aria-label="`星级 ${session.player.skill}/5`">
-                {{ skillStars(session.player.skill) }}
-              </span>
+              <SkillStars :skill="session.player.skill" />
             </div>
           </div>
 

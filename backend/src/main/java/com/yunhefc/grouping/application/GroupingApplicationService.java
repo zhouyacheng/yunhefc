@@ -498,9 +498,10 @@ public class GroupingApplicationService {
             PlayerSnapshot player = players.get(row.getPlayerId());
             GroupingCandidate candidate = player == null
                     ? new GroupingCandidate(row.getPlayerId(), "球员#" + row.getPlayerId(),
-                            null, -1, 3)
+                            null, -1, new BigDecimal("3.00"))
                     : new GroupingCandidate(player.id(), player.name(), player.jersey(),
-                            player.position(), player.skill() == null ? 3 : player.skill());
+                            player.position(),
+                            player.skill() == null ? new BigDecimal("3.00") : player.skill());
             GroupingScore score = new GroupingScore(row.getPlayerId(), row.getManualScore(),
                     row.getAutoScore(),
                     row.getFinalScore() == null ? ZERO : row.getFinalScore(),

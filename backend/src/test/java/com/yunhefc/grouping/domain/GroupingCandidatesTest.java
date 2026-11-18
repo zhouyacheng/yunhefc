@@ -6,6 +6,7 @@ import com.yunhefc.contracts.registration.ConfirmedRegistration;
 import com.yunhefc.contracts.security.UserAccountSnapshot;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -62,7 +63,8 @@ class GroupingCandidatesTest {
     }
 
     private static PlayerSnapshot player(Long id, Long userId, PlayerType type) {
-        return new PlayerSnapshot(id, 1L, userId, "球员" + id, id.intValue(), type.code(), 1, 3, null);
+        return new PlayerSnapshot(id, 1L, userId, "球员" + id, id.intValue(), type.code(), 1,
+                new BigDecimal("3.00"), null);
     }
 
     private static Map<Long, UserAccountSnapshot> accounts(Long... userIds) {

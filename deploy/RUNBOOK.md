@@ -95,7 +95,22 @@ ACR_PASSWORD=<read-only-password>
 sha7=<7位commit>
 mkdir -p /opt/yunhefc/migrations
 cp backend/src/main/resources/db/migration/*.sql /opt/yunhefc/migrations/
+```
 
+#### 迁移前预检（P-68：V9 星级精度）
+
+V9 会把 `player.skill` 由 `TINYINT UNSIGNED` 改为 `DECIMAL(3,2)`、`match_grouping_player.manual_score` 由 `DECIMAL(3,1)` 改为 `DECIMAL(3,2)`。`TINYINT` 可存 0–255，超出 `DECIMAL(3,2)` 上限 9.99 的值会让 `ALTER` 直接失败；先用迁移账号检查：
+
+```sql
+SELECT COUNT(*) AS skill_out_of_range FROM player WHERE skill < 1 OR skill > 5;
+SELECT COUNT(*) AS skill_over_decimal FROM player WHERE skill > 9.99;
+SELECT COUNT(*) AS manual_score_out_of_range FROM match_grouping_player
+  WHERE manual_score IS NOT NULL AND (manual_score < 1 OR manual_score > 5);
+```
+
+- 三个计数必须为 0 才能执行 `migrate`；非 0 时先备份并按业务确认修数，禁止在迁移脚本里静默改成 `3.00`。
+
+```bash
 docker run --rm --network host \
   -v /opt/yunhefc/migrations:/flyway/sql:ro \
   flyway/flyway:11.7.2 \
@@ -107,9 +122,9 @@ docker run --rm --network host \
 - 迁移成功后确认 `flyway_schema_history` 与目标版本一致。
 - 应用以 `spring.flyway.enabled=false` 启动；发布前若迁移未执行，应用不会补跑。
 
-#### 迁移后校验（P-66：V8 操作时间）
+#### 迁移后校验（P-66：V8 操作时间；P-68：V9 星级精度）
 
-`flyway migrate` 成功后执行，确认最新版本为 V8：
+`flyway migrate` 成功后执行，确认最新版本为 V9：
 
 ```bash
 docker run --rm --network host \
@@ -122,11 +137,16 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
   SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;
   SHOW COLUMNS FROM audit_log LIKE 'operated_at';
   SHOW INDEX FROM audit_log WHERE Key_name = 'idx_audit_team_operated';
-  SELECT COUNT(*) AS null_operated_at FROM audit_log WHERE operated_at IS NULL;"
+  SELECT COUNT(*) AS null_operated_at FROM audit_log WHERE operated_at IS NULL;
+  SHOW COLUMNS FROM player LIKE 'skill';
+  SHOW COLUMNS FROM match_grouping_player LIKE 'manual_score';
+  SELECT COUNT(*) AS invalid_skill FROM player WHERE skill < 1 OR skill > 5;
+  SELECT COUNT(*) AS invalid_manual_score FROM match_grouping_player
+    WHERE manual_score IS NOT NULL AND (manual_score < 1 OR manual_score > 5);"
 ```
 
-- 期望：最新版本 8 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）。
-- 顺序：先 `migrate` 再部署新镜像。V8 只新增可空列与索引，旧镜像可继续运行，回滚只回代码，不做逆向迁移。
+- 期望：最新版本 9 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）；`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`，`manual_score` 为 `decimal(3,2) NULL`；两个非法值计数均为 0。
+- 顺序：先 `migrate` 再部署新镜像。V8 只新增可空列与索引，V9 为无损值域扩展（TINYINT→DECIMAL、DECIMAL(3,1)→DECIMAL(3,2)），旧镜像可继续运行；但旧镜像以整数读取会截断小数，V9 执行后至新镜像完全切换前，避免在 B07 修改球员星级。回滚只回代码，不做逆向迁移。
 
 #### 一次性迁移：DATETIME 转 Asia/Shanghai（P-63，仅本次发布）
 

@@ -30,6 +30,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
@@ -183,7 +184,8 @@ class RegistrationApplicationServiceTest {
     }
 
     private PlayerSnapshot formalPlayer() {
-        return new PlayerSnapshot(PLAYER_ID, TEAM_ID, USER_ID, "测试球员", 8, 1, 1, 3, null);
+        return new PlayerSnapshot(PLAYER_ID, TEAM_ID, USER_ID, "测试球员", 8, 1, 1,
+                new BigDecimal("3.00"), null);
     }
 
     private Registration registration(RegistrationStatus status, RegistrationType type) {

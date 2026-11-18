@@ -110,6 +110,28 @@ test('C04 球队：切换赛季更新 URL、请求与统计', async ({ page }) =
   await expect(card.locator('.player-card__stats')).toContainText('出场 0');
   await expect(card.locator('.player-card__stats')).toContainText('进球 0');
 
+  // 星级按半星粒度展示，aria-label 保留两位小数。
+  const defenderCard = page
+    .locator('.team-group')
+    .nth(2)
+    .locator('.player-card')
+    .filter({ hasText: '测试后卫01' });
+  await expect(defenderCard.locator('.player-card__stars .skill-star--full')).toHaveCount(4);
+  await expect(defenderCard.locator('.player-card__stars .skill-star--empty')).toHaveCount(1);
+  await expect(defenderCard.locator('.player-card__stars .skill-stars')).toHaveAttribute(
+    'aria-label',
+    '星级 4.25/5',
+  );
+  const halfStarCard = page
+    .locator('.team-group')
+    .nth(2)
+    .locator('.player-card')
+    .filter({ hasText: '测试后卫04' });
+  await expect(halfStarCard.locator('.player-card__stars .skill-star--full')).toHaveCount(4);
+  await expect(halfStarCard.locator('.player-card__stars .skill-star--half')).toHaveCount(1);
+  await expect(halfStarCard.locator('.player-card__stars .skill-star--empty')).toHaveCount(0);
+  await expect(halfStarCard.locator('.player-card__stars')).not.toContainText('½');
+
   await select.selectOption(current);
   await expect(page).toHaveURL(/\/team$/);
   expect(rosterRequests[rosterRequests.length - 1]).toContain(`season=${current}`);

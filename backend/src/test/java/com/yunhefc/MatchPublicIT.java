@@ -328,13 +328,20 @@ class MatchPublicIT extends IntegrationTestSupport {
         insertRegistration(win, waitlisted, 1, 1);
         insertRegistration(win, cancelled, 1, 2);
         insertRegistration(win, removedGuest, 0, 3);
+        jdbc.update("""
+                UPDATE team_match SET capacity = 21, guest_capacity = 3, waitlist_capacity = 2
+                WHERE id = ?
+                """, win);
 
         mockMvc.perform(get("/api/v1/c/matches").param("season", "2099").param("type", "0"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].id").value(win))
                 .andExpect(jsonPath("$.data.items[0].confirmedCount").value(2))
                 .andExpect(jsonPath("$.data.items[0].guestCount").value(1))
-                .andExpect(jsonPath("$.data.items[0].waitlistCount").value(1));
+                .andExpect(jsonPath("$.data.items[0].waitlistCount").value(1))
+                .andExpect(jsonPath("$.data.items[0].capacity").value(21))
+                .andExpect(jsonPath("$.data.items[0].guestCapacity").value(3))
+                .andExpect(jsonPath("$.data.items[0].waitlistCapacity").value(2));
         mockMvc.perform(get("/api/v1/c/matches/" + win))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.confirmedCount").value(2))

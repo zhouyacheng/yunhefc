@@ -183,6 +183,9 @@ public class MatchPublicApplicationService {
                 summary.statusLabel(),
                 summary.totalMatchNo(),
                 summary.seasonMatchNo(),
+                summary.capacity(),
+                summary.guestCapacity(),
+                summary.waitlistCapacity(),
                 counts.confirmedCount(),
                 counts.guestCount(),
                 counts.waitlistCount());

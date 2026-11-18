@@ -50,7 +50,10 @@ final class MatchSummaryMapping {
                 match.getStatus().code(),
                 match.getStatus().label(),
                 match.getTotalMatchNo(),
-                match.getSeasonMatchNo());
+                match.getSeasonMatchNo(),
+                match.getCapacity(),
+                match.getGuestCapacity(),
+                match.getWaitlistCapacity());
     }
 
     /**

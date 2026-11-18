@@ -851,21 +851,57 @@ textarea {
   border-radius: 7px;
 }
 
-.match-card__foot {
+.match-card__stat {
   display: flex;
-  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  color: var(--yh-muted);
+  font-size: 12px;
+}
+
+.match-card__stat--formal {
+  justify-self: start;
+}
+
+.match-card__stat--guest {
+  justify-self: center;
+}
+
+.match-card__stat--waitlist {
+  justify-self: end;
+}
+
+.match-card__stat b {
+  color: var(--yh-ink);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-card__foot {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   gap: 8px;
   align-items: center;
-  justify-content: space-between;
   padding-top: 14px;
   margin-top: 14px;
   color: var(--yh-muted);
   border-top: 1px dashed var(--yh-line);
 }
 
+.match-card__foot > .match-type-tag {
+  justify-self: start;
+}
+
+.match-card__foot > .status-tag {
+  justify-self: end;
+}
+
 .match-card__foot .small {
+  justify-self: stretch;
   min-width: 0;
   overflow: hidden;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

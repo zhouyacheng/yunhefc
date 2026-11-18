@@ -20,6 +20,28 @@ import {
 const props = defineProps<{ match: MatchSummary }>();
 
 const winner = computed(() => winnerSide(props.match));
+
+/** 底行三栏报名人数：正式 / 外挂 / 候补，各显示「已确认 / 名额」。 */
+const queueStats = computed(() => [
+  {
+    key: 'formal',
+    label: '正式',
+    count: props.match.confirmedCount,
+    capacity: props.match.capacity,
+  },
+  {
+    key: 'guest',
+    label: '外挂',
+    count: props.match.guestCount,
+    capacity: props.match.guestCapacity,
+  },
+  {
+    key: 'waitlist',
+    label: '候补',
+    count: props.match.waitlistCount,
+    capacity: props.match.waitlistCapacity,
+  },
+]);
 </script>
 
 <template>
@@ -50,6 +72,15 @@ const winner = computed(() => winnerSide(props.match));
       <Tag class="status-tag" :class="`status-tag--${statusTone(match.status)}`">
         {{ matchStatusText(match.status) }}
       </Tag>
+      <div
+        v-for="stat in queueStats"
+        :key="stat.key"
+        class="match-card__stat"
+        :class="`match-card__stat--${stat.key}`"
+      >
+        <span>{{ stat.label }}</span>
+        <b>{{ stat.count }} / {{ stat.capacity }}</b>
+      </div>
     </div>
   </article>
 </template>

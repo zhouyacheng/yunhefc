@@ -153,6 +153,9 @@ public class MyRegistrationsApplicationService {
                 match.statusLabel(),
                 match.totalMatchNo(),
                 match.seasonMatchNo(),
+                match.capacity(),
+                match.guestCapacity(),
+                match.waitlistCapacity(),
                 counts.confirmedCount(),
                 counts.guestCount(),
                 counts.waitlistCount());

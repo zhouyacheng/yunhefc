@@ -245,6 +245,9 @@ public final class MatchDtos {
             String statusLabel,
             Integer totalMatchNo,
             Integer seasonMatchNo,
+            Integer capacity,
+            Integer guestCapacity,
+            Integer waitlistCapacity,
             int confirmedCount,
             int guestCount,
             int waitlistCount) {

@@ -53,6 +53,9 @@ test('C01 首页：登录球员看到最近一场与报名队列', async ({ page
 
   const formalQueue = page.locator('.hero-queue__item').first();
   await expect(formalQueue).toContainText('15 / 30');
+  await expect(
+    page.locator('.home-section .match-card').first().locator('.match-card__stat'),
+  ).toHaveCount(3);
   await expect(page.locator('.hero-queue__item').nth(1)).toContainText('4 / 4');
   // 1002 已在 1001 场报名，CTA 直接进入详情。
   await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();

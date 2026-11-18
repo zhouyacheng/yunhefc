@@ -35,6 +35,9 @@ export interface MatchSummary {
   statusLabel: string;
   totalMatchNo: number;
   seasonMatchNo: number;
+  capacity: number;
+  guestCapacity: number;
+  waitlistCapacity: number;
   confirmedCount: number;
   guestCount: number;
   waitlistCount: number;
@@ -52,9 +55,6 @@ export interface MatchDetail extends MatchSummary {
   competition?: string | null;
   signupDeadline: string;
   cancelLock: string;
-  capacity: number;
-  guestCapacity: number;
-  waitlistCapacity: number;
   version: number;
   derivedScore?: DerivedScore | null;
   myRegistration?: Registration | null;

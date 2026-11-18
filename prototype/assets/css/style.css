@@ -709,6 +709,33 @@ h3 {
   color: var(--ink);
 }
 
+.match-card-stat {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.match-card-stat--formal {
+  justify-self: start;
+}
+
+.match-card-stat--guest {
+  justify-self: center;
+}
+
+.match-card-stat--waitlist {
+  justify-self: end;
+}
+
+.match-card-stat b {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 .match-card-foot {
   margin-top: 14px;
   padding-top: 14px;
@@ -718,7 +745,16 @@ h3 {
 .match-card-foot {
   display: grid;
   grid-template-columns: auto 1fr auto;
+  gap: 8px;
   align-items: baseline;
+}
+
+.match-card-foot > .badge {
+  justify-self: start;
+}
+
+.match-card-foot > .match-status {
+  justify-self: end;
 }
 
 .match-venue {

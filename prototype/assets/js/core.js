@@ -972,6 +972,19 @@
     const names = teamNames(match);
     const winner = winnerName(match);
     const result = resultOf(match);
+    const regs = match.registrations || [];
+    const countRegs = (type, status) => regs.filter((registration) =>
+      registration.type === type && registration.status === status).length;
+    const formal = countRegs('PLAYER', 'CONFIRMED');
+    const guest = countRegs('GUEST', 'CONFIRMED');
+    const waitlist = countRegs('PLAYER', 'WAITLISTED');
+    const stats = [
+      ['formal', '正式', formal, match.capacity],
+      ['guest', '外挂', guest, match.guestCapacity],
+      ['waitlist', '候补', waitlist, match.waitlistCapacity],
+    ].map(([key, label, used, capacity]) =>
+      `<div class="match-card-stat match-card-stat--${key}"><span>${label}</span><b>${used} / ${Number(capacity) || 0}</b></div>`,
+    ).join('');
     return `<a class="match-card" href="match.html?id=${match.id}">
       <div class="match-card-top">
         <span class="muted">${formatDateTime(match.start)}</span>
@@ -989,6 +1002,7 @@
         <span class="badge ${typeClass(match.type)}">${typeLabel(match.type)}</span>
         <span class="muted match-venue">${escapeHtml(match.venue || '')}${match.round ? ` · 第 ${match.round} 轮` : ''}</span>
         <span class="match-status ${statusClass(match.status)}">${statusLabel(match.status)}</span>
+        ${stats}
       </div>
     </a>`;
   }

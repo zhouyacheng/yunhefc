@@ -36,17 +36,10 @@ interface RosterGroup {
   empty: string;
 }
 
-/** 公开赛程列表不含容量，选中后从公开详情补齐。 */
-interface RegistrationsMatch extends MatchSummary {
-  capacity?: number;
-  guestCapacity?: number;
-  waitlistCapacity?: number;
-}
-
 const session = useSessionStore();
 
 const pickerRef = ref<InstanceType<typeof MatchPicker> | null>(null);
-const selectedMatch = ref<RegistrationsMatch | null>(null);
+const selectedMatch = ref<MatchSummary | null>(null);
 const selectedMatchId = ref<number | null>(null);
 const registrations = ref<RegistrationRow[]>([]);
 const attendance = ref<AttendanceRow[]>([]);
@@ -347,19 +340,17 @@ async function submitTemp(): Promise<void> {
           <div class="stat-card">
             <span>正式报名</span>
             <b>{{ formalRows.length }}</b>
-            <small>{{ cancelled ? '已作废' : `名额 ${selectedMatch.capacity ?? '—'}` }}</small>
+            <small>{{ cancelled ? '已作废' : `名额 ${selectedMatch.capacity}` }}</small>
           </div>
           <div class="stat-card">
             <span>外挂报名</span>
             <b>{{ guestRows.length }}</b>
-            <small>{{ cancelled ? '已作废' : `名额 ${selectedMatch.guestCapacity ?? '—'}` }}</small>
+            <small>{{ cancelled ? '已作废' : `名额 ${selectedMatch.guestCapacity}` }}</small>
           </div>
           <div class="stat-card">
             <span>候补（正式）</span>
             <b>{{ waitlistRows.length }}</b>
-            <small>{{
-              cancelled ? '已作废' : `上限 ${selectedMatch.waitlistCapacity ?? '—'}`
-            }}</small>
+            <small>{{ cancelled ? '已作废' : `上限 ${selectedMatch.waitlistCapacity}` }}</small>
           </div>
           <div v-if="!cancelled" class="stat-card">
             <span>临时到场</span>

@@ -15,6 +15,17 @@ test('C02 赛程：状态筛选写入 URL，刷新后恢复', async ({ page }) =
   await expect(page.locator('.match-card__date').first()).toContainText(
     /\d{1,2}月\d{1,2}日 周. \d{2}:\d{2}$/,
   );
+
+  // 每张卡底行下方展示三栏报名人数：正式 / 外挂 / 候补（含终态场次）。
+  const stats = page.locator('.match-card').first().locator('.match-card__stat');
+  await expect(stats).toHaveCount(3);
+  await expect(stats.nth(0)).toContainText(/正式\s*\d+\s*\/\s*\d+/);
+  await expect(stats.nth(1)).toContainText(/外挂\s*\d+\s*\/\s*\d+/);
+  await expect(stats.nth(2)).toContainText(/候补\s*\d+\s*\/\s*\d+/);
+  const statCounts = await page
+    .locator('.match-card')
+    .evaluateAll((cards) => cards.map((card) => card.querySelectorAll('.match-card__stat').length));
+  expect(statCounts.every((count) => count === 3)).toBe(true);
   await expect(page.getByRole('button', { name: '搜索', exact: true })).toHaveCount(0);
 
   await clearMonth(page);

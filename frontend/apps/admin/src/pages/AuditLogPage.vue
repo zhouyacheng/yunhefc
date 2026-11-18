@@ -146,7 +146,7 @@ onMounted(load);
     <div class="page-head">
       <div>
         <h2>操作日志</h2>
-        <p class="muted">只读；按时间倒序展示脱敏后的变更快照，不支持编辑、删除或导出。</p>
+        <p class="muted">只读；按操作时间倒序展示脱敏后的变更快照，不支持编辑、删除或导出。</p>
       </div>
     </div>
 
@@ -162,7 +162,7 @@ onMounted(load);
     </el-alert>
 
     <el-form class="audit-filters" :inline="true" @submit.prevent="search">
-      <el-form-item label="时间范围">
+      <el-form-item label="操作时间范围">
         <el-date-picker
           v-model="filters.range"
           class="filter-range"
@@ -224,7 +224,7 @@ onMounted(load);
           :min="1"
           :precision="0"
           :value-on-clear="null"
-          controls-position="right"
+          :controls="false"
         />
       </el-form-item>
       <el-form-item>
@@ -251,8 +251,8 @@ onMounted(load);
           </div>
         </template>
       </el-table-column>
-      <el-table-column label="时间" width="170">
-        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      <el-table-column label="操作时间" width="170">
+        <template #default="{ row }">{{ formatDateTime(row.operatedAt) }}</template>
       </el-table-column>
       <el-table-column label="操作人" width="130">
         <template #default="{ row }">{{ actorText(row) }}</template>
@@ -266,8 +266,8 @@ onMounted(load);
       <el-table-column label="对象 ID" width="110">
         <template #default="{ row }">{{ row.targetId ?? '—' }}</template>
       </el-table-column>
-      <el-table-column label="IP" width="140">
-        <template #default="{ row }">{{ row.ipMasked ?? '—' }}</template>
+      <el-table-column label="创建时间" width="170">
+        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
       </el-table-column>
     </el-table>
 

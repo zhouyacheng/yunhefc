@@ -16,6 +16,8 @@ export interface AuditLog {
   requestId: string | null;
   ipMasked: string | null;
   createdAt: string;
+  /** 操作时间；旧数据或生产端未上报时为 null。 */
+  operatedAt: string | null;
 }
 
 /** 38 个已使用的动作码中文标签；未知码按原值展示。 */

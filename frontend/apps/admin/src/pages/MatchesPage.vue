@@ -107,6 +107,10 @@ const typeOptions = [
     text,
   })),
 ];
+const matchTypeOptions = Object.entries(MATCH_TYPE_TEXT).map(([value, text]) => ({
+  value: Number(value) as MatchType,
+  text,
+}));
 
 const rows = ref<MatchAdmin[]>([]);
 const total = ref(0);
@@ -1010,7 +1014,7 @@ onMounted(loadSeasons);
         <el-form-item label="类型">
           <el-select v-if="matchDialog.mode === 'create'" v-model="matchForm.type" class="full">
             <el-option
-              v-for="item in typeOptions"
+              v-for="item in matchTypeOptions"
               :key="item.value"
               :label="item.text"
               :value="item.value"

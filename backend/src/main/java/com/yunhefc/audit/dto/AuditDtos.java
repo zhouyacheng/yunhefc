@@ -13,7 +13,7 @@ public final class AuditDtos {
 
     public record AuditLogView(Long id, Actor actor, String action, String targetType, Long targetId,
                                Object beforeRedacted, Object afterRedacted, String requestId,
-                               String ipMasked, LocalDateTime createdAt) {
+                               String ipMasked, LocalDateTime createdAt, LocalDateTime operatedAt) {
 
         public record Actor(Long id, String name) {
         }

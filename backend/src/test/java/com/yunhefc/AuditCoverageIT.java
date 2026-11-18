@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.jayway.jsonpath.JsonPath;
 import com.yunhefc.auth.application.InviteExpiryService;
+import com.yunhefc.common.time.ShanghaiTime;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -51,6 +52,8 @@ class AuditCoverageIT extends IntegrationTestSupport {
         assertThat(((Number) audit.get("target_id")).longValue()).isEqualTo(userId);
         assertThat(audit.get("openid")).isEqualTo("***");
         assertThat((String) audit.get("raw_openid")).doesNotContain("mock-openid-bind-logged-in");
+        assertThat(ShanghaiTime.parseLenient((String) audit.get("operate_at")))
+                .isBetween(ShanghaiTime.now().minusMinutes(5), ShanghaiTime.now());
     }
 
     @Test
@@ -136,6 +139,7 @@ class AuditCoverageIT extends IntegrationTestSupport {
                 SELECT CAST(JSON_EXTRACT(payload_json, '$.actorUserId') AS SIGNED) AS actor_user_id,
                        JSON_TYPE(JSON_EXTRACT(payload_json, '$.actorUserId')) AS actor_type,
                        JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.actorName')) AS actor_name,
+                       JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.operateAt')) AS operate_at,
                        JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.targetType')) AS target_type,
                        CAST(JSON_EXTRACT(payload_json, '$.targetId') AS SIGNED) AS target_id,
                        JSON_UNQUOTE(JSON_EXTRACT(JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.afterJson')), '$.openid')) AS openid,

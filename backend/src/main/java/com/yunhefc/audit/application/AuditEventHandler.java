@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.audit.domain.AuditLog;
 import com.yunhefc.audit.infrastructure.AuditLogMapper;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.ConsumedEventMapper;
 import com.yunhefc.infra.outbox.OutboxMessage;
@@ -13,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Service
@@ -50,11 +52,15 @@ public class AuditEventHandler {
             auditLog.setAfterJson(asString(payload.get("afterJson")));
             auditLog.setRequestId(asString(payload.get("requestId")));
             auditLog.setIp(asString(payload.get("ip")));
+            auditLog.setOperatedAt(asTime(payload.get("operateAt"), event.eventId()));
             auditLogMapper.insert(auditLog);
-            log.info("audit event processed, eventId={}, action={}, targetType={}, targetId={}, "
-                            + "actorUserId={}, topic={}, partition={}, offset={}",
-                    event.eventId(), auditLog.getAction(), auditLog.getTargetType(),
-                    auditLog.getTargetId(), auditLog.getActorUserId(), topic, partition, offset);
+            log.info("audit event processed, eventId={}, teamId={}, action={}, targetType={}, "
+                            + "targetId={}, actorUserId={}, actorName={}, requestId={}, operateAt={}, "
+                            + "topic={}, partition={}, offset={}",
+                    event.eventId(), auditLog.getTeamId(), auditLog.getAction(),
+                    auditLog.getTargetType(), auditLog.getTargetId(), auditLog.getActorUserId(),
+                    auditLog.getActorName(), auditLog.getRequestId(), auditLog.getOperatedAt(),
+                    topic, partition, offset);
         } catch (Exception ex) {
             log.error("audit event handling failed, topic={}, partition={}, offset={}",
                     topic, partition, offset, ex);
@@ -68,5 +74,24 @@ public class AuditEventHandler {
 
     private String asString(Object value) {
         return value == null ? null : String.valueOf(value);
+    }
+
+    /**
+     * 操作时间为生产端写入；旧消息缺失或格式非法时降级为空，不阻断审计落库。
+     */
+    private LocalDateTime asTime(Object value, String eventId) {
+        if (value == null) {
+            return null;
+        }
+        String text = String.valueOf(value).trim();
+        if (text.isEmpty()) {
+            return null;
+        }
+        try {
+            return ShanghaiTime.parseLenient(text);
+        } catch (RuntimeException ex) {
+            log.warn("audit event operateAt invalid, eventId={}, value={}", eventId, text);
+            return null;
+        }
     }
 }

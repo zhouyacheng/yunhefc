@@ -73,9 +73,9 @@ public class AuditLogApplicationService {
                 .eq(action != null, AuditLog::getAction, action)
                 .eq(targetType != null, AuditLog::getTargetType, targetType)
                 .eq(query.targetId() != null, AuditLog::getTargetId, query.targetId())
-                .ge(query.from() != null, AuditLog::getCreatedAt, query.from())
-                .le(query.to() != null, AuditLog::getCreatedAt, query.to())
-                .orderByDesc(AuditLog::getCreatedAt)
+                .ge(query.from() != null, AuditLog::getOperatedAt, query.from())
+                .le(query.to() != null, AuditLog::getOperatedAt, query.to())
+                .orderByDesc(AuditLog::getOperatedAt)
                 .orderByDesc(AuditLog::getId);
 
         Page<AuditLog> result = auditLogMapper.selectPage(new Page<>(page.page(), page.pageSize()), wrapper);
@@ -106,7 +106,8 @@ public class AuditLogApplicationService {
                 redact(log.getAfterJson()),
                 log.getRequestId(),
                 MaskUtils.maskIp(log.getIp()),
-                log.getCreatedAt());
+                log.getCreatedAt(),
+                log.getOperatedAt());
     }
 
     private Object redact(String json) {

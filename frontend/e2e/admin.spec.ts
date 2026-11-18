@@ -785,6 +785,21 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await page.getByRole('button', { name: '新建比赛' }).click();
   const createDialog = page.locator('.el-dialog').filter({ hasText: '创建比赛' });
   await expect(createDialog).toBeVisible();
+
+  // 比赛类型下拉绑定数字模型，需显示中文且不出现筛选项「全部类型」
+  const typeSelect = createDialog
+    .locator('.el-form-item')
+    .filter({ hasText: '类型' })
+    .locator('.el-select');
+  await expect(typeSelect).toContainText('队内赛');
+  await typeSelect.click();
+  const typeDropdown = page.locator('.el-select__popper:visible');
+  await expect(
+    typeDropdown.locator('.el-select-dropdown__item').filter({ hasText: '全部类型' }),
+  ).toHaveCount(0);
+  await typeDropdown.locator('.el-select-dropdown__item').filter({ hasText: '友谊赛' }).click();
+  await expect(createDialog.getByText('我方主客')).toBeVisible();
+
   await createDialog.getByPlaceholder('例如 橙队VS兰队').fill(title);
   await fillDialogDateTime(createDialog, '开始时间', start);
   await fillDialogDateTime(
@@ -1524,6 +1539,11 @@ test('B 端：B10 操作日志筛选、展开与脱敏快照', async ({ page }) 
   await page.goto('/admin/audit');
   await expect(page).toHaveURL(/\/admin\/audit$/);
   await expect(page.getByRole('heading', { level: 2, name: '操作日志' })).toBeVisible();
+  const auditHeaders = (await page.locator('.el-table__header th').allInnerTexts()).map((text) =>
+    text.trim(),
+  );
+  expect(auditHeaders).toContain('创建时间');
+  expect(auditHeaders).toContain('操作时间');
 
   // 未知动作与对象类型按原值展示（B10 fixtures 6003）；用 allow-create 直接筛出，
   // 避免 fixture 因分页或运行期日志累积而漂出第 1 页。

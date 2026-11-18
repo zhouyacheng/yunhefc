@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.common.api.RequestContext;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.infra.outbox.OutboxService;
@@ -43,6 +44,8 @@ public class AuditRecorder {
         String requestId = RequestContext.requestId();
         payload.put("requestId", requestId.isEmpty() ? null : requestId);
         payload.put("ip", RequestContext.clientIp());
+        // 操作发生时刻；显式 ISO 字符串，避免 wire 格式依赖全局 Jackson 配置。
+        payload.put("operateAt", ShanghaiTime.formatIso(ShanghaiTime.now()));
         outboxService.append(teamId, "AUDIT", targetId, EventTypes.AUDIT_RECORDED, payload);
     }
 

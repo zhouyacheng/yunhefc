@@ -107,6 +107,27 @@ docker run --rm --network host \
 - 迁移成功后确认 `flyway_schema_history` 与目标版本一致。
 - 应用以 `spring.flyway.enabled=false` 启动；发布前若迁移未执行，应用不会补跑。
 
+#### 迁移后校验（P-66：V8 操作时间）
+
+`flyway migrate` 成功后执行，确认最新版本为 V8：
+
+```bash
+docker run --rm --network host \
+  -v /opt/yunhefc/migrations:/flyway/sql:ro \
+  flyway/flyway:11.7.2 \
+  -url="jdbc:mysql://<rds-host>:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8" \
+  -user=yunhefc_migrator -password='<migrator-pwd>' -connectRetries=10 info
+
+mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
+  SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;
+  SHOW COLUMNS FROM audit_log LIKE 'operated_at';
+  SHOW INDEX FROM audit_log WHERE Key_name = 'idx_audit_team_operated';
+  SELECT COUNT(*) AS null_operated_at FROM audit_log WHERE operated_at IS NULL;"
+```
+
+- 期望：最新版本 8 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）。
+- 顺序：先 `migrate` 再部署新镜像。V8 只新增可空列与索引，旧镜像可继续运行，回滚只回代码，不做逆向迁移。
+
 #### 一次性迁移：DATETIME 转 Asia/Shanghai（P-63，仅本次发布）
 
 新镜像首次发布前，若目标库已有业务数据：

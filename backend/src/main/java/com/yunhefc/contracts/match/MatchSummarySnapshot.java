@@ -26,7 +26,10 @@ public record MatchSummarySnapshot(
         Integer status,
         String statusLabel,
         Integer totalMatchNo,
-        Integer seasonMatchNo) {
+        Integer seasonMatchNo,
+        Integer capacity,
+        Integer guestCapacity,
+        Integer waitlistCapacity) {
 
     public boolean finishedOrCancelled() {
         return status != null && (status == MatchStatusCodes.FINISHED

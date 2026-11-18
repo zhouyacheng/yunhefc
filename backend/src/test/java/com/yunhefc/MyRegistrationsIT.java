@@ -87,6 +87,8 @@ class MyRegistrationsIT extends IntegrationTestSupport {
         signup(player, cancelledMatch);
         jdbc.update("UPDATE team_match SET status = 6 WHERE id = ?", cancelledMatch);
 
+        setCapacities(openMatch, 20, 3, 5);
+
         mockMvc.perform(get("/api/v1/c/me/registrations").cookie(player))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(0))
@@ -101,7 +103,10 @@ class MyRegistrationsIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].registration.player.name").value("我的报名分组"))
                 .andExpect(jsonPath("$.data.items[0].match.typeLabel").value("INTERNAL"))
                 .andExpect(jsonPath("$.data.items[0].match.statusLabel").value("SIGNUP_OPEN"))
-                .andExpect(jsonPath("$.data.items[0].match.confirmedCount").value(1));
+                .andExpect(jsonPath("$.data.items[0].match.confirmedCount").value(1))
+                .andExpect(jsonPath("$.data.items[0].match.capacity").value(20))
+                .andExpect(jsonPath("$.data.items[0].match.guestCapacity").value(3))
+                .andExpect(jsonPath("$.data.items[0].match.waitlistCapacity").value(5));
 
         mockMvc.perform(get("/api/v1/c/me/registrations")
                         .param("scope", "active").cookie(player))

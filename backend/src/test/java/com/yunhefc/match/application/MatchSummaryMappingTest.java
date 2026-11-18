@@ -63,6 +63,16 @@ class MatchSummaryMappingTest {
         assertThat(summary.resultText()).isNull();
     }
 
+    @Test
+    void copiesQueueCapacitiesForCardRendering() {
+        MatchSummarySnapshot summary = MatchSummaryMapping.toSummary(
+                match(MatchStatus.SIGNUP_OPEN, null, null, null), null);
+
+        assertThat(summary.capacity()).isEqualTo(30);
+        assertThat(summary.guestCapacity()).isEqualTo(4);
+        assertThat(summary.waitlistCapacity()).isEqualTo(2);
+    }
+
     private static TeamMatch match(MatchStatus status, OurSide ourSide, Integer home, Integer away) {
         TeamMatch match = new TeamMatch();
         match.setId(1L);
@@ -74,6 +84,9 @@ class MatchSummaryMappingTest {
         match.setHomeTeamName("主队");
         match.setAwayTeamName("客队");
         match.setSeason("2026");
+        match.setCapacity(30);
+        match.setGuestCapacity(4);
+        match.setWaitlistCapacity(2);
         match.setScoreHome(home);
         match.setScoreAway(away);
         return match;

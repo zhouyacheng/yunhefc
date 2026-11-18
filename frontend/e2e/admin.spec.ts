@@ -68,6 +68,7 @@ function matchRow(page: Page, title: string): Locator {
 }
 
 interface MatchAdminItem {
+  id: number;
   seasonMatchNo: number;
   round: number | null;
 }
@@ -907,9 +908,10 @@ test('B 端：B02 比赛列表字段与赛季编辑', async ({ page }) => {
   const headerTexts = (await page.locator('.el-table__header th').allInnerTexts()).map((text) =>
     text.trim(),
   );
-  expect(headerTexts.slice(0, 4)).toEqual(['赛季', '场次', '比赛', '类型']);
+  expect(headerTexts.slice(0, 5)).toEqual(['ID', '赛季', '场次', '比赛', '类型']);
   expect(headerTexts.some((text) => text.includes('开始时间'))).toBe(true);
   expect(headerTexts.some((text) => text.includes('结束时间'))).toBe(true);
+  expect(headerTexts.some((text) => text.includes('创建时间'))).toBe(true);
 
   const title = `E2E比赛字段${Date.now()}`;
   const start = futureInstant(15);
@@ -930,12 +932,13 @@ test('B 端：B02 比赛列表字段与赛季编辑', async ({ page }) => {
   const createdRow = matchRow(page, title);
   await expect(createdRow).toBeVisible();
   const createdCells = createdRow.locator('td');
-  await expect(createdCells.nth(0)).toHaveText('2077');
+  await expect(createdCells.nth(1)).toHaveText('2077');
   const created = await matchAdminItemFor(page, title, '2077');
-  await expect(createdCells.nth(1)).toHaveText(String(created.seasonMatchNo));
-  await expect(createdCells.nth(1)).toHaveText(/^\d+$/);
-  await expect(createdCells.nth(4)).toHaveText(shanghaiDateTimeInput(start).replaceAll('-', '/'));
-  await expect(createdCells.nth(5)).toHaveText(shanghaiDateTimeInput(end).replaceAll('-', '/'));
+  await expect(createdCells.nth(0)).toHaveText(String(created.id));
+  await expect(createdCells.nth(2)).toHaveText(String(created.seasonMatchNo));
+  await expect(createdCells.nth(2)).toHaveText(/^\d+$/);
+  await expect(createdCells.nth(5)).toHaveText(shanghaiDateTimeInput(start).replaceAll('-', '/'));
+  await expect(createdCells.nth(6)).toHaveText(shanghaiDateTimeInput(end).replaceAll('-', '/'));
 
   // 目标赛季先放一场，保证被编辑比赛重算后的 seasonMatchNo 与其 round 不同，
   // 这样“场次”列若仍展示 round 就会被断言抓住。
@@ -969,12 +972,12 @@ test('B 端：B02 比赛列表字段与赛季编辑', async ({ page }) => {
   await editDialog.getByRole('button', { name: '保存修改' }).click();
 
   const editedRow = matchRow(page, title);
-  await expect(editedRow.locator('td').nth(0)).toHaveText('2078');
+  await expect(editedRow.locator('td').nth(1)).toHaveText('2078');
   const edited = await matchAdminItemFor(page, title, '2078');
   // round 不随赛季变化，seasonMatchNo 会重算；两者不同才能证明列表取的是 seasonMatchNo。
   expect(edited.seasonMatchNo).not.toBe(edited.round);
-  await expect(editedRow.locator('td').nth(1)).toHaveText(String(edited.seasonMatchNo));
-  await expect(editedRow.locator('td').nth(1)).toHaveText(/^\d+$/);
+  await expect(editedRow.locator('td').nth(2)).toHaveText(String(edited.seasonMatchNo));
+  await expect(editedRow.locator('td').nth(2)).toHaveText(/^\d+$/);
 
   expect(errors).toEqual([]);
 });

@@ -1237,14 +1237,12 @@
       const rosterRow = ({ registration, player }) => {
         const group = groupOf(player.id);
         const groupLabel = group ? Y.groupingTeamName(match, group) : (registration.type === 'GUEST' && !match.includeGuests ? '外挂（本场不参与）' : '未分组');
-        return `<div class="reg-admin-row">${Y.avatar(player, 'sm')}<div class="grow"><strong>${esc(player.name)}</strong><small>#${player.jersey ?? '—'} · ${Y.positionLabel(player.position)} · ${registration.type === 'GUEST' ? '外挂' : '球队球员'}</small></div><span class="badge ${group ? 'badge-open' : 'badge-muted'}">${groupLabel}</span></div>`;
+        return `<div class="reg-admin-row">${Y.avatar(player, 'sm')}<div class="grow"><strong>${esc(player.name)}</strong><small>#${player.jersey ?? '—'} · ${Y.positionLabel(player.position)} · ${registration.type === 'GUEST' ? '外挂' : '球队球员'} · ${Y.stars(player.skill)} ${Number(player.skill).toFixed(2)}</small></div><span class="badge ${group ? 'badge-open' : 'badge-muted'}">${groupLabel}</span></div>`;
       };
-      const config = Y.groupingConfig();
-      const weightsText = `手动 ${Math.round(config.manualWeight * 100)}% + 自动 ${Math.round(config.autoWeight * 100)}% · 少于 ${config.minAppearances} 场优先手动`;
       const nameOf = (id) => Y.playerById(id)?.name || `#${id}`;
       const warnings = Y.combinedWarnings(grouping, summary);
       host.innerHTML = `<div class="admin-section-head">
-        <div><h1>队内分组</h1><p class="muted">按综合分均衡；仅锁定状态可生成、调整和保存。</p></div>
+        <div><h1>队内分组</h1><p class="muted">按球员星级均衡；仅锁定状态可生成、调整和保存。</p></div>
         <div class="table-actions">
           <select class="input input-sm" data-group-match>${candidates.map((item) => `<option value="${item.id}" ${item.id === match.id ? 'selected' : ''}>${esc(item.title)} · ${Y.formatDate(item.start)}</option>`).join('')}</select>
           ${canGenerate ? `<button class="btn btn-primary btn-sm" data-action="generate-grouping"${locked ? '' : ' disabled title="仅锁定状态可生成/重新分组"'}>${grouping ? '重新分组' : '生成分组'}</button>${grouping ? `<button class="btn btn-ghost btn-sm" data-action="clear-grouping"${locked ? '' : ' disabled title="仅锁定状态可清除分组"'}>清除分组</button>` : ''}` : '<span class="muted small">只读</span>'}
@@ -1253,7 +1251,7 @@
       ${locked ? '' : '<div class="banner banner-warn">只有锁定状态才能进行分组；如需清除或重新分组，请先把比赛状态重置为“锁定”。</div>'}
       ${rosterDiff.changed ? `<div class="banner banner-warn">名单已变化，建议重新生成。新增：${rosterDiff.addedIds.map(nameOf).join('、') || '无'}；移除：${rosterDiff.removedIds.map(nameOf).join('、') || '无'}。</div>` : ''}
       ${warnings.length ? `<div class="banner banner-warn">${warnings.map(esc).join('；')}</div>` : ''}
-      <p class="muted small">参与分组 ${eligibleCount} 人 · ${weightsText}${summary ? ` · 总分差 ${summary.diff.toFixed(2)}` : ''}</p>
+      <p class="muted small">参与分组 ${eligibleCount} 人 · 按球员星级均衡${summary ? ` · 总分差 ${summary.diff.toFixed(2)}` : ''}</p>
       ${grouping
         ? `<div class="group-admin-grid">${['A', 'B'].map((team) => groupAdminColumn(match, team, summary, grouping)).join('')}</div>
            <div class="card" style="margin-top:14px"><div class="between"><span class="muted small">保存后不随报名变化自动重算；名单变化时提示重新生成。</span>${canGenerate ? `<button class="btn btn-primary btn-sm" data-action="save-grouping"${locked ? '' : ' disabled'}>保存分组</button>` : '<span class="muted small">只读</span>'}</div></div>`
@@ -1365,12 +1363,13 @@
         .map((key) => `${Y.positionLabel(key)} ${pos[key] || 0}`).join(' · ');
       const scoreOf = (id) => (grouping && grouping.scores && grouping.scores[id]) || null;
       return `<div class="group-admin-column" data-drop-team="${team}">
-        <div class="group-admin-head"><strong>${Y.groupingTeamName(match, team)}</strong><span>${players.length} 人 · 综合 ${total.toFixed(2)}</span><small>${posText}</small></div>
+        <div class="group-admin-head"><strong>${Y.groupingTeamName(match, team)}</strong><span>${players.length} 人 · 总分 ${total.toFixed(2)}</span><small>${posText}</small></div>
         ${players.map((player) => {
           const score = scoreOf(player.id);
+          const starLevel = score && score.final != null ? Number(score.final) : Number(player.skill);
           const detail = score
-            ? `${Y.positionShort(player.position)} · 手动 ${score.manual == null ? '—' : Number(score.manual).toFixed(2)}★ · 自动 ${score.auto ? score.auto.toFixed(2) : '—'} · 综合 ${Number(score.final).toFixed(2)}${score.manualOnly ? '（以手动分为准）' : ''}`
-            : `${Y.positionShort(player.position)} · ${Number(player.skill).toFixed(2)}★`;
+            ? `${Y.positionShort(player.position)} · ${Y.stars(starLevel)} · ${Number(score.final).toFixed(2)}`
+            : `${Y.positionShort(player.position)} · ${Y.stars(starLevel)}`;
           return `<div class="group-player" draggable="true" data-group-player="${player.id}" data-from="${team}">${Y.avatar(player, 'xs')}<span>${esc(player.name)}</span><small>${detail}</small></div>`;
         }).join('') || '<div class="empty-inline">拖球员到这里</div>'}
       </div>`;
@@ -1897,17 +1896,7 @@
           <label>外挂球员报名上限<input class="input" type="number" min="0" data-setting="maxGuests" value="${settings.maxGuests}"></label>
           <label>候补上限<input class="input" type="number" min="0" data-setting="maxWaitlist" value="${settings.maxWaitlist}"></label>
         </div>
-        <div class="admin-form-row" style="margin-top:12px">
-          <label>分组手动权重<input class="input" type="number" min="0" step="1" data-setting="groupingManualWeight" value="${settings.groupingManualWeight ?? 70}"></label>
-          <label>分组自动权重<input class="input" type="number" min="0" step="1" data-setting="groupingAutoWeight" value="${settings.groupingAutoWeight ?? 30}"></label>
-          <label>自动分最少出场<input class="input" type="number" min="0" step="1" data-setting="groupingMinAppearances" value="${settings.groupingMinAppearances ?? 3}"></label>
-        </div>
-        <div class="admin-form-row" style="margin-top:12px">
-          <label>出场率权重<input class="input" type="number" min="0" step="1" data-setting="groupingAppearanceWeight" value="${settings.groupingAppearanceWeight ?? 50}"></label>
-          <label>进球权重<input class="input" type="number" min="0" step="1" data-setting="groupingGoalWeight" value="${settings.groupingGoalWeight ?? 25}"></label>
-          <label>助攻权重<input class="input" type="number" min="0" step="1" data-setting="groupingAssistWeight" value="${settings.groupingAssistWeight ?? 25}"></label>
-        </div>
-        <p class="muted small" style="margin-top:10px">候补上限按全场合计；修改只影响新建比赛，已创建比赛保持原参数。分组权重按比例生效，默认 70/30；自动分默认出场 50/进球 25/助攻 25；少于最少出场时优先手动分。已保存分组展示当前配置权重，分数不回算。</p>
+        <p class="muted small" style="margin-top:10px">候补上限按全场合计；修改只影响新建比赛，已创建比赛保持原参数。分组直接使用球员星级，不再配置权重。</p>
         ${Y.hasPermission('settings:manage:any') ? '<button class="btn btn-primary btn-sm" data-action="save-settings" style="margin-top:12px">保存设置</button>' : '<p class="muted small" style="margin-top:12px">只读：没有管理系统设置的权限。</p>'}
       </section>`;
       const saveSettings = $('[data-action="save-settings"]', host);
@@ -1927,21 +1916,10 @@
           Y.toast('报名参数不合法');
           return;
         }
-        if (next.groupingManualWeight < 0 || next.groupingManualWeight > 100 ||
-          next.groupingAutoWeight < 0 || next.groupingAutoWeight > 100 ||
-          next.groupingManualWeight + next.groupingAutoWeight !== 100 ||
-          next.groupingMinAppearances < 0 || next.groupingMinAppearances > 99 ||
-          next.groupingAppearanceWeight < 0 || next.groupingAppearanceWeight > 100 ||
-          next.groupingGoalWeight < 0 || next.groupingGoalWeight > 100 ||
-          next.groupingAssistWeight < 0 || next.groupingAssistWeight > 100 ||
-          next.groupingAppearanceWeight + next.groupingGoalWeight + next.groupingAssistWeight <= 0) {
-          Y.toast('分组参数不合法');
-          return;
-        }
         Y.state.settings = { ...Y.state.settings, ...next };
         Y.save();
         Y.addAudit(Y.currentUser().name, '修改系统设置',
-          `报名 ${next.maxPlayers}/${next.maxGuests}/候补 ${next.maxWaitlist}；分组 ${next.groupingManualWeight}/${next.groupingAutoWeight}，自动 ${next.groupingAppearanceWeight}/${next.groupingGoalWeight}/${next.groupingAssistWeight}，最少出场 ${next.groupingMinAppearances}`);
+          `报名 ${next.maxPlayers}/${next.maxGuests}/候补 ${next.maxWaitlist}`);
         Y.toast('设置已保存');
       });
     }

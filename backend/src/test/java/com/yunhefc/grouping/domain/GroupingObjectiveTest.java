@@ -57,7 +57,7 @@ class GroupingObjectiveTest {
         GroupingCandidate candidate = new GroupingCandidate(id, "球员" + id, id.intValue(), position,
                 new BigDecimal("3.00"));
         GroupingScore score = new GroupingScore(id, BigDecimal.valueOf(3).setScale(1), null,
-                new BigDecimal(finalScore), true);
+                new BigDecimal(finalScore));
         return new AssignedPlayer(candidate, score);
     }
 }

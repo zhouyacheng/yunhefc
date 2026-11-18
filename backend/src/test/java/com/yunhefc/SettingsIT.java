@@ -33,8 +33,7 @@ class SettingsIT extends IntegrationTestSupport {
 
         jdbc.update("""
                 INSERT INTO system_setting (team_id, setting_key, setting_value, value_type)
-                VALUES (1, 'registration.maxPlayers', JSON_QUOTE('abc'), 'NUMBER'),
-                       (1, 'grouping.manualWeight', JSON_EXTRACT('70.5', '$'), 'NUMBER')
+                VALUES (1, 'registration.maxPlayers', JSON_QUOTE('abc'), 'NUMBER')
                 """);
 
         expectDefaults(get("/api/v1/b/settings").cookie(admin));
@@ -53,16 +52,14 @@ class SettingsIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.settings.maxPlayers").value(42))
                 .andExpect(jsonPath("$.data.settings.maxGuests").value(6))
-                .andExpect(jsonPath("$.data.settings.maxWaitlist").value(2))
-                .andExpect(jsonPath("$.data.settings.groupingManualWeight").value(70))
-                .andExpect(jsonPath("$.data.settings.groupingAutoWeight").value(30))
-                .andExpect(jsonPath("$.data.settings.groupingAppearanceWeight").value(50))
-                .andExpect(jsonPath("$.data.settings.groupingGoalWeight").value(25))
-                .andExpect(jsonPath("$.data.settings.groupingAssistWeight").value(25))
-                .andExpect(jsonPath("$.data.settings.groupingMinAppearances").value(3));
+                .andExpect(jsonPath("$.data.settings.maxWaitlist").value(2));
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM system_setting WHERE team_id = 1",
-                Integer.class)).isEqualTo(9);
+                Integer.class)).isGreaterThanOrEqualTo(3);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM system_setting
+                WHERE team_id = 1 AND setting_key LIKE 'grouping.%' AND is_deleted = 0
+                """, Integer.class)).isZero();
         assertThat(jdbc.queryForObject("""
                 SELECT JSON_TYPE(setting_value)
                 FROM system_setting
@@ -76,7 +73,8 @@ class SettingsIT extends IntegrationTestSupport {
         assertThat(jdbc.queryForObject("""
                 SELECT COUNT(*) FROM system_setting
                 WHERE team_id = 1 AND value_type = 'NUMBER' AND is_deleted = 0
-                """, Integer.class)).isEqualTo(9);
+                AND setting_key LIKE 'registration.%'
+                """, Integer.class)).isEqualTo(3);
     }
 
     @Test
@@ -86,7 +84,7 @@ class SettingsIT extends IntegrationTestSupport {
         patchSettings(admin, "{\"settings\":{}}", UUID.randomUUID().toString())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.settings.maxPlayers").value(30))
-                .andExpect(jsonPath("$.data.settings.groupingAssistWeight").value(25));
+                .andExpect(jsonPath("$.data.settings.maxGuests").value(4));
     }
 
     @Test
@@ -122,7 +120,7 @@ class SettingsIT extends IntegrationTestSupport {
     }
 
     @Test
-    void rejectsOutOfRangeValuesAndInvalidWeightSumsWithoutWriting() throws Exception {
+    void rejectsOutOfRangeValuesWithoutWriting() throws Exception {
         Cookie admin = adminLogin("13900003005");
         List<String> invalidBodies = List.of(
                 "{\"settings\":{\"maxPlayers\":0}}",
@@ -130,19 +128,7 @@ class SettingsIT extends IntegrationTestSupport {
                 "{\"settings\":{\"maxGuests\":-1}}",
                 "{\"settings\":{\"maxGuests\":100}}",
                 "{\"settings\":{\"maxWaitlist\":-1}}",
-                "{\"settings\":{\"maxWaitlist\":100}}",
-                "{\"settings\":{\"groupingMinAppearances\":-1}}",
-                "{\"settings\":{\"groupingMinAppearances\":100}}",
-                "{\"settings\":{\"groupingManualWeight\":-1}}",
-                "{\"settings\":{\"groupingManualWeight\":101}}",
-                "{\"settings\":{\"groupingAutoWeight\":-1}}",
-                "{\"settings\":{\"groupingAutoWeight\":101}}",
-                "{\"settings\":{\"groupingManualWeight\":50,\"groupingAutoWeight\":40}}",
-                "{\"settings\":{\"groupingAppearanceWeight\":0,\"groupingGoalWeight\":0,"
-                        + "\"groupingAssistWeight\":0}}",
-                "{\"settings\":{\"groupingAppearanceWeight\":101}}",
-                "{\"settings\":{\"groupingGoalWeight\":101}}",
-                "{\"settings\":{\"groupingAssistWeight\":101}}");
+                "{\"settings\":{\"maxWaitlist\":100}}");
 
         for (String body : invalidBodies) {
             patchSettings(admin, body, UUID.randomUUID().toString())
@@ -162,45 +148,20 @@ class SettingsIT extends IntegrationTestSupport {
         Cookie admin = adminLogin("13900003006");
 
         patchSettings(admin, """
-                {"settings":{"maxPlayers":1,"maxGuests":0,"maxWaitlist":0,
-                 "groupingMinAppearances":0,"groupingManualWeight":0,
-                 "groupingAutoWeight":100,"groupingAppearanceWeight":0,
-                 "groupingGoalWeight":50,"groupingAssistWeight":50}}
+                {"settings":{"maxPlayers":1,"maxGuests":0,"maxWaitlist":0}}
                 """, UUID.randomUUID().toString())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.settings.maxPlayers").value(1))
                 .andExpect(jsonPath("$.data.settings.maxGuests").value(0))
-                .andExpect(jsonPath("$.data.settings.maxWaitlist").value(0))
-                .andExpect(jsonPath("$.data.settings.groupingMinAppearances").value(0))
-                .andExpect(jsonPath("$.data.settings.groupingManualWeight").value(0))
-                .andExpect(jsonPath("$.data.settings.groupingAutoWeight").value(100))
-                .andExpect(jsonPath("$.data.settings.groupingAppearanceWeight").value(0));
+                .andExpect(jsonPath("$.data.settings.maxWaitlist").value(0));
 
         patchSettings(admin, """
-                {"settings":{"maxPlayers":99,"maxGuests":99,"maxWaitlist":99,
-                 "groupingMinAppearances":99,"groupingManualWeight":100,
-                 "groupingAutoWeight":0,"groupingAppearanceWeight":100,
-                 "groupingGoalWeight":0,"groupingAssistWeight":0}}
+                {"settings":{"maxPlayers":99,"maxGuests":99,"maxWaitlist":99}}
                 """, UUID.randomUUID().toString())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.settings.maxPlayers").value(99))
                 .andExpect(jsonPath("$.data.settings.maxGuests").value(99))
-                .andExpect(jsonPath("$.data.settings.maxWaitlist").value(99))
-                .andExpect(jsonPath("$.data.settings.groupingMinAppearances").value(99))
-                .andExpect(jsonPath("$.data.settings.groupingManualWeight").value(100))
-                .andExpect(jsonPath("$.data.settings.groupingAutoWeight").value(0))
-                .andExpect(jsonPath("$.data.settings.groupingAppearanceWeight").value(100))
-                .andExpect(jsonPath("$.data.settings.groupingGoalWeight").value(0))
-                .andExpect(jsonPath("$.data.settings.groupingAssistWeight").value(0));
-
-        patchSettings(admin, """
-                {"settings":{"groupingAppearanceWeight":1,
-                 "groupingGoalWeight":0,"groupingAssistWeight":0}}
-                """, UUID.randomUUID().toString())
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.settings.groupingAppearanceWeight").value(1))
-                .andExpect(jsonPath("$.data.settings.groupingGoalWeight").value(0))
-                .andExpect(jsonPath("$.data.settings.groupingAssistWeight").value(0));
+                .andExpect(jsonPath("$.data.settings.maxWaitlist").value(99));
     }
 
     @Test
@@ -235,11 +196,10 @@ class SettingsIT extends IntegrationTestSupport {
                 WHERE event_type = 'AUDIT_RECORDED'
                   AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'SETTINGS_UPDATE'
                 """, Long.class)).isEqualTo(1L);
-        assertThat(snapshotLength("beforeJson")).isEqualTo(9);
-        assertThat(snapshotLength("afterJson")).isEqualTo(9);
+        assertThat(snapshotLength("beforeJson")).isEqualTo(3);
+        assertThat(snapshotLength("afterJson")).isEqualTo(3);
         assertThat(snapshotNumber("beforeJson", "maxPlayers")).isEqualTo(30);
         assertThat(snapshotNumber("afterJson", "maxPlayers")).isEqualTo(42);
-        assertThat(snapshotNumber("afterJson", "groupingManualWeight")).isEqualTo(70);
     }
 
     @Test
@@ -291,13 +251,7 @@ class SettingsIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(0))
                 .andExpect(jsonPath("$.data.settings.maxPlayers").value(30))
                 .andExpect(jsonPath("$.data.settings.maxGuests").value(4))
-                .andExpect(jsonPath("$.data.settings.maxWaitlist").value(2))
-                .andExpect(jsonPath("$.data.settings.groupingManualWeight").value(70))
-                .andExpect(jsonPath("$.data.settings.groupingAutoWeight").value(30))
-                .andExpect(jsonPath("$.data.settings.groupingAppearanceWeight").value(50))
-                .andExpect(jsonPath("$.data.settings.groupingGoalWeight").value(25))
-                .andExpect(jsonPath("$.data.settings.groupingAssistWeight").value(25))
-                .andExpect(jsonPath("$.data.settings.groupingMinAppearances").value(3));
+                .andExpect(jsonPath("$.data.settings.maxWaitlist").value(2));
     }
 
     private ResultActions patchSettings(Cookie actor, String body, String idempotencyKey) throws Exception {

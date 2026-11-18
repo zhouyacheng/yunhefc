@@ -449,6 +449,17 @@ test('B 端：B06 生成分组并展示 A/B', async ({ page }) => {
     }
   }
 
+  // 报名区每行展示星级图标与两位小数分值。
+  const skillValues = await rosterGrid.locator('.roster-row .skill-value').allInnerTexts();
+  expect(skillValues.length).toBeGreaterThan(0);
+  for (const value of skillValues) {
+    expect(value).toMatch(/^[1-5]\.\d{2}$/);
+  }
+  await expect(rosterGrid.locator('.roster-row').first().locator('.skill-star')).toHaveCount(5);
+  await expect(
+    page.locator('.group-admin-column .group-player').first().locator('.skill-star'),
+  ).toHaveCount(5);
+
   expect(errors).toEqual([]);
 });
 
@@ -1533,7 +1544,7 @@ async function fillSettingsNumber(page: Page, label: string, value: number): Pro
   await expect(input).toHaveValue(String(value));
 }
 
-test('B 端：B09 修改报名上限与分组权重并保存，刷新仍生效', async ({ page }) => {
+test('B 端：B09 修改报名上限并保存，刷新仍生效', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   // 1022 为管理端专用管理员，避开 1001 在整套用例中的 AUTH-15 限流。
   await loginAdmin(page, '13910000022');
@@ -1545,8 +1556,7 @@ test('B 端：B09 修改报名上限与分组权重并保存，刷新仍生效',
   await loaded;
 
   await fillSettingsNumber(page, '正式球员报名上限', 31);
-  await fillSettingsNumber(page, '分组手动权重', 65);
-  await fillSettingsNumber(page, '分组自动权重', 35);
+  await fillSettingsNumber(page, '外挂球员报名上限', 6);
 
   const patched = page.waitForResponse(
     (response) =>
@@ -1561,20 +1571,13 @@ test('B 端：B09 修改报名上限与分组权重并保存，刷新仍生效',
   await page.reload();
   await reloaded;
   await expect(settingsNumberInput(page, '正式球员报名上限')).toHaveValue('31');
-  await expect(settingsNumberInput(page, '分组手动权重')).toHaveValue('65');
-  await expect(settingsNumberInput(page, '分组自动权重')).toHaveValue('35');
+  await expect(settingsNumberInput(page, '外挂球员报名上限')).toHaveValue('6');
 
   expect(errors).toEqual([]);
 });
 
-test('B 端：B09 权重合计非法时字段级提示且不发 PATCH', async ({ page }) => {
+test('B 端：B09 不再展示分组权重参数', async ({ page }) => {
   const errors = collectConsoleErrors(page);
-  const patches: string[] = [];
-  page.on('request', (request) => {
-    if (new URL(request.url()).pathname === '/api/v1/b/settings' && request.method() === 'PATCH') {
-      patches.push(request.url());
-    }
-  });
   await loginAdmin(page, '13910000022');
 
   const loaded = waitSettingsGet(page);
@@ -1582,13 +1585,9 @@ test('B 端：B09 权重合计非法时字段级提示且不发 PATCH', async ({
   await expect(page.getByRole('heading', { level: 2, name: '系统设置' })).toBeVisible();
   await loaded;
 
-  await fillSettingsNumber(page, '分组手动权重', 60);
-  await fillSettingsNumber(page, '分组自动权重', 30);
-
-  await page.getByRole('button', { name: '保存设置' }).click();
-  const manualError = settingsFormItem(page, '分组手动权重').locator('.el-form-item__error');
-  await expect(manualError).toHaveText('手动与自动权重合计必须为 100');
-  expect(patches).toEqual([]);
+  await expect(page.locator('.settings-form')).not.toContainText('分组手动权重');
+  await expect(page.locator('.settings-form')).not.toContainText('分组自动权重');
+  await expect(page.locator('.settings-form')).toContainText('分组直接使用球员星级');
 
   expect(errors).toEqual([]);
 });

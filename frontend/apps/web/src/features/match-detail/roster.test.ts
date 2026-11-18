@@ -18,7 +18,7 @@ function row(
 ): RegistrationRow {
   return {
     id: playerId,
-    player: { id: playerId, name, jersey: playerId, position: 1 },
+    player: { id: playerId, name, jersey: playerId, position: 1, skill: 3 },
     type,
     status,
     registeredAt,

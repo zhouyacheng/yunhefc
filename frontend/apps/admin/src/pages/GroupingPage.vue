@@ -20,14 +20,17 @@ import {
   MATCH_STATUS_LOCKED,
   MATCH_STATUS_TEXT,
   formatDateTime,
+  formatSkill,
   groupingTeamName,
   positionText,
+  skillAriaLabel,
 } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, h, ref, watch } from 'vue';
 
 import { api } from '../api/client';
 import MatchPicker from '../components/MatchPicker.vue';
+import SkillStars from '../components/SkillStars.vue';
 import { useSessionStore } from '../stores/session';
 
 const session = useSessionStore();
@@ -826,12 +829,12 @@ function retryGrouping(): void {
                   >
                     <strong>{{ player.name }}</strong>
                     <small>#{{ player.jersey ?? '—' }} · {{ positionText(player.position) }}</small>
-                    <span
-                      class="score"
-                      :title="`手动 ${player.manualScore ?? '—'} / 自动 ${player.autoScore ?? '—'}`"
-                    >
-                      {{ (player.finalScore ?? 0).toFixed(2) }}
-                    </span>
+                    <SkillStars
+                      v-if="player.manualScore != null"
+                      :skill="player.manualScore"
+                      :title="skillAriaLabel(player.manualScore)"
+                    />
+                    <span class="score">{{ (player.finalScore ?? 0).toFixed(2) }}</span>
                   </div>
                   <p v-if="!playersByPosition(team, bucket.key).length" class="empty-inline">—</p>
                 </div>
@@ -864,9 +867,16 @@ function retryGrouping(): void {
                 </p>
                 <div v-for="row in rosterByTeam[team]" :key="row.player.id" class="roster-row">
                   <span>{{ playerLabel(row.player) }}</span>
-                  <el-tag size="small" :type="row.type === 1 ? 'success' : 'info'" effect="light">
-                    {{ row.type === 1 ? '球队球员' : '外挂' }}
-                  </el-tag>
+                  <span class="roster-meta">
+                    <SkillStars
+                      :skill="row.player.skill"
+                      :title="skillAriaLabel(row.player.skill)"
+                    />
+                    <span class="skill-value">{{ formatSkill(row.player.skill) }}</span>
+                    <el-tag size="small" :type="row.type === 1 ? 'success' : 'info'" effect="light">
+                      {{ row.type === 1 ? '球队球员' : '外挂' }}
+                    </el-tag>
+                  </span>
                 </div>
                 <p v-if="!rosterByTeam[team].length" class="empty-inline">该队暂无球员</p>
               </div>
@@ -876,9 +886,16 @@ function retryGrouping(): void {
                 <p class="position-title">正式球员</p>
                 <div v-for="row in formalRoster" :key="row.player.id" class="roster-row">
                   <span>{{ playerLabel(row.player) }}</span>
-                  <el-tag size="small" :type="rosterBadge(row).type" effect="light">
-                    {{ rosterBadge(row).label }}
-                  </el-tag>
+                  <span class="roster-meta">
+                    <SkillStars
+                      :skill="row.player.skill"
+                      :title="skillAriaLabel(row.player.skill)"
+                    />
+                    <span class="skill-value">{{ formatSkill(row.player.skill) }}</span>
+                    <el-tag size="small" :type="rosterBadge(row).type" effect="light">
+                      {{ rosterBadge(row).label }}
+                    </el-tag>
+                  </span>
                 </div>
                 <p v-if="!formalRoster.length" class="empty-inline">暂无正式球员</p>
               </div>
@@ -886,9 +903,16 @@ function retryGrouping(): void {
                 <p class="position-title">外挂球员</p>
                 <div v-for="row in guestRoster" :key="row.player.id" class="roster-row">
                   <span>{{ playerLabel(row.player) }}</span>
-                  <el-tag size="small" :type="rosterBadge(row).type" effect="light">
-                    {{ rosterBadge(row).label }}
-                  </el-tag>
+                  <span class="roster-meta">
+                    <SkillStars
+                      :skill="row.player.skill"
+                      :title="skillAriaLabel(row.player.skill)"
+                    />
+                    <span class="skill-value">{{ formatSkill(row.player.skill) }}</span>
+                    <el-tag size="small" :type="rosterBadge(row).type" effect="light">
+                      {{ rosterBadge(row).label }}
+                    </el-tag>
+                  </span>
                 </div>
                 <p v-if="!guestRoster.length" class="empty-inline">暂无外挂球员</p>
               </div>
@@ -1106,6 +1130,23 @@ function retryGrouping(): void {
   padding: 6px 0;
   border-bottom: 1px solid var(--yh-line);
   font-size: 12px;
+}
+
+.roster-meta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.skill-value {
+  min-width: 32px;
+  color: var(--yh-ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
 }
 
 .chip-list {

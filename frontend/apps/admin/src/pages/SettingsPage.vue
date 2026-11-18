@@ -4,7 +4,6 @@ import { SETTINGS_MANAGE_ANY, hasPermission } from '@yunhefc/permissions';
 import type { SettingsErrors, SettingsForm, SystemSettings } from '@yunhefc/shared';
 import {
   SETTINGS_FIELD_RULES,
-  SETTINGS_GROUPING_KEYS,
   SETTINGS_KEYS,
   SETTINGS_REGISTRATION_KEYS,
   settingsErrors,
@@ -137,28 +136,8 @@ onMounted(load);
         </el-form-item>
       </el-card>
 
-      <el-card header="分组参数" class="settings-card">
-        <el-form-item
-          v-for="key in SETTINGS_GROUPING_KEYS"
-          :key="key"
-          :label="SETTINGS_FIELD_RULES[key].label"
-          :error="errors[key]"
-        >
-          <el-input-number
-            v-model="form[key]"
-            :min="SETTINGS_FIELD_RULES[key].min"
-            :max="SETTINGS_FIELD_RULES[key].max"
-            :precision="0"
-            :step="1"
-            :disabled="!canManage"
-            controls-position="right"
-          />
-        </el-form-item>
-        <p class="muted small">手动与自动权重合计须为 100；出场率、进球、助攻权重合计须大于 0。</p>
-      </el-card>
-
       <p class="muted small boundary">
-        修改只影响新建比赛与后续分组；已创建比赛参数不变，已保存分组分数不回算，权重标签展示当前有效配置。
+        修改只影响新建比赛；已创建比赛的报名参数不回算。分组直接使用球员星级，不再配置权重。
       </p>
 
       <div class="settings-actions">

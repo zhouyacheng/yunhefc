@@ -43,7 +43,7 @@ description: MySQL 表结构、命名、枚举、伪删除、索引、约束与 
 6. **永不使用数据库 CHECK**；状态/类型枚举、范围与跨字段规则全部由应用层强校验，完整清单见 `04.数据库设计.md` §8.1。至少覆盖：
    - 换人事件字段完整性、进球助攻/点球约束；
    - 外挂不得候补；
-   - 时间、容量、赛季、分组权重、坐标范围；
+   - 时间、容量、赛季、分组分数、坐标范围；
    - 预置/自定义阵型归属、报名容量上限。
 7. 唯一性、非空与默认值仍由数据库保证；业务规则不得依赖数据库异常，应用层必须返回明确业务错误码。
 8. 约束命名统一 `uk_`、`idx_` 前缀；本项目永久禁用 `CHECK`/`chk_`，不提供例外，也不要创建此类约束。
@@ -100,13 +100,14 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 2. 基线顺序：
    - `V1__baseline_schema.sql`：27 张业务表；
    - `V2__quartz_schema.sql`：11 张 Quartz 表；
-   - `V3__seed_team_roles_permissions_settings.sql`：球队、角色、28 权限、9 项配置；
+   - `V3__seed_team_roles_permissions_settings.sql`：球队、角色、28 权限、9 项配置（V10 删除其中 6 项分组权重）；
    - `V4__seed_formation_templates.sql`：8 套阵型、64 个槽位；
    - `V5__add_table_comments.sql`：27 张业务表的表级中文注释；
    - `V6__backfill_cancel_lock_match_day_0100.sql`：取消锁定回填（P-51）；
    - `V7__reset_session_and_align_seed_timezone.sql`：Flyway 会话重置与新库种子时区回填（P-65）；
    - `V8__add_audit_log_operated_at.sql`：审计操作时间列、历史回填与索引（P-66）；
    - `V9__player_skill_decimal.sql`：球员星级与分组手动分改为两位小数（P-68）。
+   - `V10__remove_grouping_weight_settings.sql`：伪删除分组权重配置并更新分组分数列注释（P-72）。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。
@@ -158,5 +159,5 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间存 Asia/Shanghai 墙钟、`DATETIME(3)`；业务边界直接在 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V9 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V10 顺序正确、可重复、无环境硬编码
 - [ ] 未执行生产 DDL、未手工改表

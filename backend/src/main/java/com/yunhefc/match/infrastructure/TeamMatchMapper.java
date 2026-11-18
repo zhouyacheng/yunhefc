@@ -97,19 +97,6 @@ public interface TeamMatchMapper extends BaseMapper<TeamMatch> {
                                          @Param("cutoff") LocalDateTime cutoff);
 
     // 统计汇总候选：未取消比赛；赛季为空的行也要取出，由应用层按开赛年份裁决。
-    @Select("""
-            SELECT id, team_id, title, type, our_side, start_at, end_at, signup_deadline,
-                   cancel_lock, capacity, guest_capacity, waitlist_capacity, venue, status,
-                   home_team_name, away_team_name, status_updated_at, season
-            FROM team_match
-            WHERE team_id = #{teamId} AND is_deleted = 0 AND status <> #{cancelled}
-              AND (season = #{season} OR season IS NULL OR season = '')
-            ORDER BY id
-            """)
-    List<TeamMatch> selectSeasonMatches(@Param("teamId") Long teamId,
-                                        @Param("season") String season,
-                                        @Param("cancelled") int cancelled);
-
     // 统计汇总候选：本队全部未取消比赛，赛季为空的行由应用层按开赛年份归属。
     @Select("""
             SELECT id, team_id, title, type, our_side, start_at, end_at, signup_deadline,

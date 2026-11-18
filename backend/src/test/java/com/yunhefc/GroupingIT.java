@@ -139,7 +139,6 @@ class GroupingIT extends IntegrationTestSupport {
     @Test
     void generatesDraftPersistsScoresAndRequiresConfirmationToOverwrite() throws Exception {
         Cookie admin = adminLogin("13900002821", "分组生成");
-        updateSetting("grouping.minAppearances", "0");
         Long matchId = createMatch("M08生成赛", 1, 2, 1, SEASON);
         createMatch("M08已结束赛", 1, 4, 1, SEASON);
         Long goalkeeper = insertPlayer("13900002822", "门将", 1, 0, 5);
@@ -150,11 +149,6 @@ class GroupingIT extends IntegrationTestSupport {
         register(matchId, defender, 1, 0);
         register(matchId, midfielder, 1, 0);
         register(matchId, forward, 1, 0);
-        insertStats(goalkeeper, 1, 0, 0);
-        insertStats(defender, 0, 0, 0);
-        insertStats(midfielder, 1, 2, 0);
-        insertStats(forward, 1, 0, 1);
-
         String fingerprint = RosterFingerprint.of(List.of(goalkeeper, defender, midfielder, forward));
         generate(admin, matchId, "{}", key())
                 .andExpect(status().isOk())
@@ -164,9 +158,7 @@ class GroupingIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.grouping.generatedAt").exists())
                 .andExpect(jsonPath("$.data.grouping.savedAt").value(nullValue()))
                 .andExpect(jsonPath("$.data.grouping.ungroupedPlayerIds.length()").value(0))
-                .andExpect(jsonPath("$.data.grouping.rosterDiff.changed").value(false))
-                .andExpect(jsonPath("$.data.grouping.weights.manualWeight").value(70))
-                .andExpect(jsonPath("$.data.grouping.weights.autoWeight").value(30));
+                .andExpect(jsonPath("$.data.grouping.rosterDiff.changed").value(false));
 
         Long groupingId = groupingId(matchId);
         Map<String, Object> main = jdbc.queryForMap("""
@@ -174,24 +166,26 @@ class GroupingIT extends IntegrationTestSupport {
                 FROM match_grouping WHERE id = ?
                 """, groupingId);
         assertThat(main.get("saved_at")).isNull();
-        assertThat((BigDecimal) main.get("manual_weight")).isEqualByComparingTo("70");
-        assertThat((BigDecimal) main.get("auto_weight")).isEqualByComparingTo("30");
+        assertThat((BigDecimal) main.get("manual_weight")).isEqualByComparingTo("100");
+        assertThat((BigDecimal) main.get("auto_weight")).isEqualByComparingTo("0");
         assertThat(main.get("roster_fingerprint")).isEqualTo(fingerprint);
         assertThat(groupingPlayerCount(groupingId)).isEqualTo(4);
 
-        Map<String, Object> manualOnly = jdbc.queryForMap("""
-                SELECT auto_score, final_score FROM match_grouping_player
+        Map<String, Object> defenderScore = jdbc.queryForMap("""
+                SELECT manual_score, auto_score, final_score FROM match_grouping_player
                 WHERE grouping_id = ? AND player_id = ?
                 """, groupingId, defender);
-        assertThat(manualOnly.get("auto_score")).isNull();
-        assertThat((BigDecimal) manualOnly.get("final_score")).isEqualByComparingTo("3.00");
+        assertThat((BigDecimal) defenderScore.get("manual_score")).isEqualByComparingTo("3.00");
+        assertThat(defenderScore.get("auto_score")).isNull();
+        assertThat((BigDecimal) defenderScore.get("final_score")).isEqualByComparingTo("3.00");
 
-        Map<String, Object> blended = jdbc.queryForMap("""
-                SELECT auto_score, final_score FROM match_grouping_player
+        Map<String, Object> goalkeeperScore = jdbc.queryForMap("""
+                SELECT manual_score, auto_score, final_score FROM match_grouping_player
                 WHERE grouping_id = ? AND player_id = ?
                 """, groupingId, goalkeeper);
-        assertThat((BigDecimal) blended.get("auto_score")).isEqualByComparingTo("3.00");
-        assertThat((BigDecimal) blended.get("final_score")).isEqualByComparingTo("4.40");
+        assertThat((BigDecimal) goalkeeperScore.get("manual_score")).isEqualByComparingTo("5.00");
+        assertThat(goalkeeperScore.get("auto_score")).isNull();
+        assertThat((BigDecimal) goalkeeperScore.get("final_score")).isEqualByComparingTo("5.00");
 
         assertThat(auditCount("grouping.generate")).isEqualTo(1);
 
@@ -731,20 +725,6 @@ class GroupingIT extends IntegrationTestSupport {
                 WHERE event_type = 'AUDIT_RECORDED'
                   AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = ?
                 """, Integer.class, action);
-    }
-
-    private void updateSetting(String settingKey, String value) {
-        jdbc.update("""
-                UPDATE system_setting SET setting_value = ?
-                WHERE team_id = 1 AND setting_key = ?
-                """, value, settingKey);
-    }
-
-    private void insertStats(Long playerId, int appearances, int goals, int assists) {
-        jdbc.update("""
-                INSERT INTO player_stats_summary (team_id, player_id, season, appearances, goals, assists)
-                VALUES (1, ?, ?, ?, ?, ?)
-                """, playerId, SEASON, appearances, goals, assists);
     }
 
     private Long createMatch(String title, int type, int status, int includeGuests, String season) {

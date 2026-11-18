@@ -30,18 +30,8 @@ public final class GroupingDtos {
             @JsonProperty("B") List<GroupedPlayerView> teamB) {
     }
 
-    public record GroupingWeightsView(
-            BigDecimal manualWeight,
-            BigDecimal autoWeight,
-            BigDecimal appearanceWeight,
-            BigDecimal goalWeight,
-            BigDecimal assistWeight,
-            int minAppearances) {
-    }
-
     public record GroupingView(
             GroupingTeamsView teams,
-            GroupingWeightsView weights,
             BigDecimal diff,
             List<String> warnings,
             LocalDateTime savedAt) {
@@ -61,7 +51,6 @@ public final class GroupingDtos {
 
     public record GroupingAdminView(
             GroupingTeamsView teams,
-            GroupingWeightsView weights,
             BigDecimal diff,
             List<String> warnings,
             LocalDateTime savedAt,

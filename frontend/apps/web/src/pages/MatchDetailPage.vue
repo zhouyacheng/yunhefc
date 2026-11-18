@@ -561,6 +561,7 @@ function ownRosterPlayer() {
     jersey: player.jersey,
     position: player.position,
     positionLabel: player.positionLabel,
+    skill: player.skill,
   };
 }
 
@@ -684,6 +685,7 @@ async function loadRoster(): Promise<void> {
                 jersey: player.jersey,
                 position: player.position,
                 positionLabel: player.positionLabel,
+                skill: player.skill,
               },
               type: registration.value.type,
               status: registration.value.status,

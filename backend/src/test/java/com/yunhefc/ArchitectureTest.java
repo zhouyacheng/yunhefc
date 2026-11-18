@@ -55,10 +55,10 @@ class ArchitectureTest {
                             + "不依赖 grouping application/domain/表");
 
     @ArchTest
-    static final ArchRule onlyQueryAndGroupingMayDependOnStats =
-            noClasses().that().resideInAnyPackage(domainPackagesExcept("stats", "query", "grouping"))
+    static final ArchRule onlyQueryMayDependOnStats =
+            noClasses().that().resideInAnyPackage(domainPackagesExcept("stats", "query"))
                     .should().dependOnClassesThat().resideInAPackage("com.yunhefc.stats..")
-                    .because("仅 query 与 grouping 可依赖 stats 只读接口");
+                    .because("仅 query 可依赖 stats 只读接口");
 
     private static String[] domainPackages() {
         return Arrays.stream(BUSINESS_DOMAINS)

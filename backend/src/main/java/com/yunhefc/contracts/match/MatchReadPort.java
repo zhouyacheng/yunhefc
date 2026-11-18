@@ -22,19 +22,9 @@ public interface MatchReadPort {
     List<MatchSnapshot> findFinishedBefore(LocalDateTime cutoff);
 
     /**
-     * 球队指定赛季的未取消比赛；赛季为空按开赛年份。
-     */
-    List<MatchSnapshot> findSeasonMatches(Long teamId, String season);
-
-    /**
      * 球队全部未取消比赛，供统计汇总按有效赛季分组重算。
      */
     List<MatchSnapshot> findRollupMatches(Long teamId);
-
-    /**
-     * 球队指定赛季已结束的场次数；作为分组出场率分母，0 由调用方按 1 处理。
-     */
-    int countFinishedInSeason(Long teamId, String season);
 
     /**
      * 分组写路径锁比赛行，串行化同场生成/调整/保存/清除。

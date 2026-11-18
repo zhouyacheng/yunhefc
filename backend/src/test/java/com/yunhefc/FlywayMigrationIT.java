@@ -46,7 +46,7 @@ class FlywayMigrationIT {
 
     @Test
     void migratesEmptyDatabaseAndSeedsReferenceData() {
-        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(9);
+        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(10);
         assertThat(count("""
                 SELECT COUNT(*) FROM team
                 WHERE id = 1 AND ABS(TIMESTAMPDIFF(MINUTE, created_at, NOW())) <= 5
@@ -105,7 +105,7 @@ class FlywayMigrationIT {
         assertThat(count("SELECT COUNT(*) FROM app_role")).isEqualTo(3);
         assertThat(count("SELECT COUNT(*) FROM permission")).isEqualTo(28);
         assertThat(count("SELECT COUNT(*) FROM role_permission")).isEqualTo(40);
-        assertThat(count("SELECT COUNT(*) FROM system_setting")).isEqualTo(9);
+        assertThat(count("SELECT COUNT(*) FROM system_setting WHERE is_deleted = 0")).isEqualTo(3);
         assertThat(count("SELECT COUNT(*) FROM formation_template WHERE is_preset = 1")).isEqualTo(8);
         assertThat(count("SELECT COUNT(*) FROM formation_slot")).isEqualTo(64);
     }

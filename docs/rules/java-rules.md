@@ -71,7 +71,7 @@ com.yunhefc.<domain>/
 - `contracts`：领域事件 DTO、事件类型常量与跨模块只读 port 接口；不依赖业务实现。
 - `infra`：共享技术网关（`MessagePublisher`、`OssGateway`、`IdempotencyStore`、`CacheStore` 等），不暴露 KafkaTemplate/RedisTemplate。
 - `query`：跨域只读组合查询；只依赖各域 read port，不写业务表。
-- `stats`：统计汇总任务与查询；只读依赖各域 read port，允许 `query` 与 `grouping` 通过只读接口依赖，其他业务域不得依赖。
+- `stats`：统计汇总任务与查询；只读依赖各域 read port，仅允许 `query` 通过只读接口依赖，其他业务域不得依赖。
 
 ### 3.3 依赖规则
 

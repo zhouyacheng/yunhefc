@@ -585,16 +585,13 @@
       const rosterDiff = summary ? summary.rosterDiff : { changed: false, addedIds: [], removedIds: [] };
       const warnings = grouping ? Y.combinedWarnings(grouping, summary) : [];
       const nameOf = (id) => Y.playerById(id)?.name || `#${id}`;
-      const weights = grouping && grouping.weights
-        ? `手动 ${Math.round(grouping.weights.manualWeight * 100)}% + 自动 ${Math.round(grouping.weights.autoWeight * 100)}%`
-        : '';
       return `<div class="card">
         <div class="card-head"><h2>队内分组</h2>${Y.hasPermission('grouping:generate:any') ? `<a class="link" href="admin.html?section=grouping&match=${match.id}">去生成/调整 →</a>` : '<span class="muted">管理员生成，球员只读</span>'}</div>
         ${grouping
           ? `${rosterDiff.changed ? `<div class="banner banner-warn">名单已变化，建议重新生成。新增：${rosterDiff.addedIds.map(nameOf).join('、') || '无'}；移除：${rosterDiff.removedIds.map(nameOf).join('、') || '无'}。</div>` : ''}
              ${warnings.length ? `<div class="banner banner-warn">${warnings.map(esc).join('；')}</div>` : ''}
              <div class="group-grid">${['A', 'B'].map((team) => groupColumn(team, grouping[team] || [], summary, grouping)).join('')}</div>
-             <p class="muted small">总分差 ${summary.diff.toFixed(2)}${weights ? ` · ${weights}` : ''}${grouping.savedAt ? ` · 保存于 ${Y.formatDateTime(grouping.savedAt)}` : ''}${grouping.snapshot ? ' · 已保存快照' : ''}</p>`
+             <p class="muted small">总分差 ${summary.diff.toFixed(2)}${grouping.savedAt ? ` · 保存于 ${Y.formatDateTime(grouping.savedAt)}` : ''}${grouping.snapshot ? ' · 已保存快照' : ''}</p>`
           : '<div class="empty-inline">尚未生成分组</div>'}
       </div>`;
     }
@@ -607,7 +604,7 @@
         .map((key) => `${Y.positionLabel(key)} ${pos[key] || 0}`).join(' · ');
       const teamName = Y.groupingTeamName(match, team);
       const scoreOf = (id) => (grouping.scores && grouping.scores[id] ? Number(grouping.scores[id].final).toFixed(2) : '—');
-      return `<div class="group-column"><div class="group-head"><strong>${teamName}</strong><span>${players.length} 人 · 综合 ${total.toFixed(2)}</span><small>${posText}</small></div>${players.map((player) => `<span class="player-chip">${Y.avatar(player, 'xs')}<span>${esc(player.name)}</span><small>#${player.jersey} · ${scoreOf(player.id)}</small></span>`).join('')}</div>`;
+      return `<div class="group-column"><div class="group-head"><strong>${teamName}</strong><span>${players.length} 人 · 总分 ${total.toFixed(2)}</span><small>${posText}</small></div>${players.map((player) => `<span class="player-chip">${Y.avatar(player, 'xs')}<span>${esc(player.name)}</span><small>#${player.jersey} · ${scoreOf(player.id)}</small></span>`).join('')}</div>`;
     }
 
     function playerChip(player) {

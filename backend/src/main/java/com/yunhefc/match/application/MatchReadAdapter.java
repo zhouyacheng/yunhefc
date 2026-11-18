@@ -48,30 +48,10 @@ public class MatchReadAdapter implements MatchReadPort {
     }
 
     @Override
-    public List<MatchSnapshot> findSeasonMatches(Long teamId, String season) {
-        if (season == null || season.isBlank()) {
-            return List.of();
-        }
-        // SQL 已按 season 预筛；空赛季行需按开赛年份在应用层二次裁决。
-        return teamMatchMapper.selectSeasonMatches(teamId, season, MatchStatus.CANCELLED.code())
-                .stream()
-                .map(MatchReadAdapter::toSnapshot)
-                .filter(match -> season.equals(match.effectiveSeason()))
-                .toList();
-    }
-
-    @Override
     public List<MatchSnapshot> findRollupMatches(Long teamId) {
         return teamMatchMapper.selectRollupMatches(teamId, MatchStatus.CANCELLED.code()).stream()
                 .map(MatchReadAdapter::toSnapshot)
                 .toList();
-    }
-
-    @Override
-    public int countFinishedInSeason(Long teamId, String season) {
-        return (int) findSeasonMatches(teamId, season).stream()
-                .filter(MatchSnapshot::finished)
-                .count();
     }
 
     @Override

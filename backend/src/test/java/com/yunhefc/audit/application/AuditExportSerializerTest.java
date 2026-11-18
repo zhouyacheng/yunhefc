@@ -34,6 +34,7 @@ class AuditExportSerializerTest {
         AuditLog second = row(9L, 2L, null, "系统", "INVITE_EXPIRE", "INVITE", 502L,
                 "{\"status\":0}", "{\"status\":2}", "req-b", null,
                 ShanghaiTime.parseLenient("2026-12-31T23:59:59.999Z"));
+        second.setOperatedAt(null);
 
         String raw = gunzip(serializer.toJsonlGz(List.of(first, second)));
         assertThat(raw).endsWith("\n");
@@ -46,6 +47,7 @@ class AuditExportSerializerTest {
         assertThat(firstLine.get("after").isObject()).isTrue();
         assertThat(firstLine.get("after").get("phone").asText()).isEqualTo("13812345678");
         assertThat(firstLine.get("createdAt").asText()).isEqualTo("2026-03-01T18:00:00+08:00");
+        assertThat(firstLine.get("operatedAt").asText()).isEqualTo("2026-03-01T18:00:00+08:00");
         assertThat(firstLine.get("ip").asText()).isEqualTo("10.0.0.1");
 
         JsonNode secondLine = lines.get(1);
@@ -53,6 +55,7 @@ class AuditExportSerializerTest {
         assertThat(secondLine.get("actorName").asText()).isEqualTo("系统");
         assertThat(secondLine.get("before").isObject()).isTrue();
         assertThat(secondLine.get("after").get("status").asInt()).isEqualTo(2);
+        assertThat(secondLine.get("operatedAt").isNull()).isTrue();
     }
 
     private String gunzip(byte[] content) throws IOException {
@@ -85,6 +88,7 @@ class AuditExportSerializerTest {
         row.setRequestId(requestId);
         row.setIp(ip);
         row.setCreatedAt(createdAt);
+        row.setOperatedAt(createdAt);
         return row;
     }
 }

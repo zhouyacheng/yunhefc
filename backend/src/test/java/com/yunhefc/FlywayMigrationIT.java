@@ -46,7 +46,7 @@ class FlywayMigrationIT {
 
     @Test
     void migratesEmptyDatabaseAndSeedsReferenceData() {
-        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(7);
+        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(8);
         assertThat(count("""
                 SELECT COUNT(*) FROM team
                 WHERE id = 1 AND ABS(TIMESTAMPDIFF(MINUTE, created_at, NOW())) <= 5

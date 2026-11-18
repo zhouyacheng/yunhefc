@@ -97,6 +97,8 @@ class AuditExportIT extends IntegrationTestSupport {
         assertThat(firstRow.get("ip").asText()).isEqualTo("10.0.0.1");
         assertThat(ShanghaiTime.parseLenient(firstRow.get("createdAt").asText()))
                 .isEqualTo(midYear.plusSeconds(200));
+        assertThat(ShanghaiTime.parseLenient(firstRow.get("operatedAt").asText()))
+                .isEqualTo(midYear.plusSeconds(200));
         assertThat(firstRow.get("before").isNull()).isTrue();
         assertThat(firstRow.get("after").isObject()).isTrue();
         assertThat(firstRow.get("after").get("phone").asText()).isEqualTo("13812345678");
@@ -195,10 +197,10 @@ class AuditExportIT extends IntegrationTestSupport {
                              String requestId, String ip, LocalDateTime createdAt) {
         jdbc.update("""
                 INSERT INTO audit_log (team_id, actor_user_id, actor_name, action, target_type,
-                    target_id, before_json, after_json, request_id, ip, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    target_id, before_json, after_json, request_id, ip, created_at, operated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, teamId, actorUserId, actorName, action, targetType, targetId,
-                before, after, requestId, ip, createdAt);
+                before, after, requestId, ip, createdAt, createdAt);
         return jdbc.queryForObject("SELECT id FROM audit_log WHERE request_id = ?", Long.class, requestId);
     }
 }

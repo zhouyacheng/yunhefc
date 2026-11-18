@@ -105,7 +105,7 @@ class AuditLogIT extends IntegrationTestSupport {
     }
 
     @Test
-    void ordersByCreatedAtThenIdDescending() throws Exception {
+    void ordersByOperatedAtThenIdDescending() throws Exception {
         Cookie admin = adminLogin("13900001011");
         LocalDateTime sameTime = ShanghaiTime.parseLenient("2026-02-01T00:00:00Z");
         Long lower = insertAudit(1L, 111L, "甲", "ACTION_A", "USER", 1L, null, null, "order-a", sameTime);
@@ -116,6 +116,34 @@ class AuditLogIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.items[0].id").value(higher))
                 .andExpect(jsonPath("$.data.items[1].id").value(lower));
+    }
+
+    @Test
+    void returnsCreatedAndOperatedTimeSeparately() throws Exception {
+        Cookie admin = adminLogin("13900001051");
+        LocalDateTime created = ShanghaiTime.parseLenient("2026-05-01T09:05:00Z");
+        LocalDateTime operated = ShanghaiTime.parseLenient("2026-05-01T09:00:00Z");
+        Long withOperated = insertAudit(1L, 151L, "时间", "TIME_PROBE", "USER", 1L, null, null,
+                "time-a", null, created, operated);
+        Long legacy = insertAudit(1L, 151L, "时间", "TIME_PROBE", "USER", 2L, null, null,
+                "time-b", null, created, null);
+
+        mockMvc.perform(get("/api/v1/b/audit-logs").cookie(admin).param("actor", "151"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items[0].id").value(withOperated))
+                .andExpect(jsonPath("$.data.items[0].createdAt").value("2026-05-01T17:05:00+08:00"))
+                .andExpect(jsonPath("$.data.items[0].operatedAt").value("2026-05-01T17:00:00+08:00"))
+                .andExpect(jsonPath("$.data.items[1].id").value(legacy))
+                .andExpect(jsonPath("$.data.items[1].operatedAt").value(nullValue()));
+
+        // 时间筛选按操作时间：legacy 行创建时间在区间内但操作时间为空，不应命中。
+        mockMvc.perform(get("/api/v1/b/audit-logs").cookie(admin).param("actor", "151")
+                        .param("from", "2026-05-01T16:59:00+08:00")
+                        .param("to", "2026-05-01T17:01:00+08:00"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(withOperated));
     }
 
     @Test
@@ -210,18 +238,26 @@ class AuditLogIT extends IntegrationTestSupport {
                              String targetType, Long targetId, String before, String after,
                              String requestId, LocalDateTime createdAt) {
         return insertAudit(teamId, actorUserId, actorName, action, targetType, targetId,
-                before, after, requestId, null, createdAt);
+                before, after, requestId, null, createdAt, createdAt);
     }
 
     private Long insertAudit(Long teamId, Long actorUserId, String actorName, String action,
                              String targetType, Long targetId, String before, String after,
                              String requestId, String ip, LocalDateTime createdAt) {
+        return insertAudit(teamId, actorUserId, actorName, action, targetType, targetId,
+                before, after, requestId, ip, createdAt, createdAt);
+    }
+
+    private Long insertAudit(Long teamId, Long actorUserId, String actorName, String action,
+                             String targetType, Long targetId, String before, String after,
+                             String requestId, String ip, LocalDateTime createdAt,
+                             LocalDateTime operatedAt) {
         jdbc.update("""
                 INSERT INTO audit_log (team_id, actor_user_id, actor_name, action, target_type,
-                    target_id, before_json, after_json, request_id, ip, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    target_id, before_json, after_json, request_id, ip, created_at, operated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, teamId, actorUserId, actorName, action, targetType, targetId,
-                before, after, requestId, ip, createdAt);
+                before, after, requestId, ip, createdAt, operatedAt);
         return jdbc.queryForObject("SELECT id FROM audit_log WHERE request_id = ?", Long.class, requestId);
     }
 

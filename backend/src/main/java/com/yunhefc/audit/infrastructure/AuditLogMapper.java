@@ -17,7 +17,7 @@ public interface AuditLogMapper extends BaseMapper<AuditLog> {
      */
     @Select("""
             SELECT id, team_id, actor_user_id, actor_name, action, target_type, target_id,
-                   before_json, after_json, request_id, ip, created_at
+                   before_json, after_json, request_id, ip, created_at, operated_at
             FROM audit_log
             WHERE created_at >= #{from} AND created_at < #{to}
             ORDER BY id ASC

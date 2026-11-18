@@ -154,11 +154,12 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
         auditEventConsumer.apply(auditMessage, AUDIT_TOPIC, 0, 11L);
 
         Map<String, Object> log = jdbc.queryForMap(
-                "SELECT team_id, actor_user_id, actor_name FROM audit_log "
+                "SELECT team_id, actor_user_id, actor_name, operated_at FROM audit_log "
                         + "WHERE action = 'USER_ROLES_UPDATE' ORDER BY id DESC LIMIT 1");
         assertThat(((Number) log.get("team_id")).longValue()).isEqualTo(1L);
         assertThat(((Number) log.get("actor_user_id")).longValue()).isEqualTo(adminId);
         assertThat(log.get("actor_name")).isEqualTo("审核员");
+        assertThat(log.get("operated_at")).isNotNull();
 
         Map<String, Object> roleRow = jdbc.queryForMap(
                 "SELECT event_id, team_id, aggregate_type, aggregate_id, event_type, payload_json "
@@ -173,6 +174,29 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
         assertThat(jdbc.queryForList(
                 "SELECT CONCAT(consumer_group, '@', topic) FROM consumed_event ORDER BY id", String.class))
                 .contains("yunhefc-audit@" + AUDIT_TOPIC, "yunhefc-notification@" + NOTIFICATION_TOPIC);
+    }
+
+    @Test
+    void auditConsumerAcceptsLegacyPayloadWithoutOrWithMalformedOperateAt() throws Exception {
+        OutboxMessage legacy = new OutboxMessage("audit-legacy-event", 1L, "AUDIT", 43L,
+                "AUDIT_RECORDED", "{\"teamId\":1,\"action\":\"LEGACY_PROBE\",\"targetType\":\"USER\"}");
+        auditEventConsumer.apply(objectMapper.writeValueAsString(legacy), AUDIT_TOPIC, 0, 41L);
+
+        OutboxMessage malformed = new OutboxMessage("audit-malformed-time", 1L, "AUDIT", 44L,
+                "AUDIT_RECORDED",
+                "{\"teamId\":1,\"action\":\"MALFORMED_PROBE\",\"targetType\":\"USER\","
+                        + "\"operateAt\":\"not-a-time\"}");
+        auditEventConsumer.apply(objectMapper.writeValueAsString(malformed), AUDIT_TOPIC, 0, 42L);
+
+        Map<String, Object> legacyRow = jdbc.queryForMap(
+                "SELECT created_at, operated_at FROM audit_log WHERE action = 'LEGACY_PROBE'");
+        assertThat(legacyRow.get("created_at")).isNotNull();
+        assertThat(legacyRow.get("operated_at")).isNull();
+
+        Map<String, Object> malformedRow = jdbc.queryForMap(
+                "SELECT created_at, operated_at FROM audit_log WHERE action = 'MALFORMED_PROBE'");
+        assertThat(malformedRow.get("created_at")).isNotNull();
+        assertThat(malformedRow.get("operated_at")).isNull();
     }
 
     @Test

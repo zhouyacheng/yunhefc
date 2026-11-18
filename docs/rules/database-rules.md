@@ -72,7 +72,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 1. 高频查询、分页排序、逻辑关联字段建立索引；索引以实际查询与执行计划为依据。
 2. 列表分页优先使用 `(过滤列, 排序列)` 组合索引，并带稳定 tie-breaker。
 3. 唯一约束由唯一索引实现；不要为同一列重复建普通索引。
-4. 业务表现有 58 条 KEY/UNIQUE 定义；复核未发现完全重复或前缀可覆盖项，保持现状，不重复建可覆盖索引。
+4. 业务表现有 59 条 KEY/UNIQUE 定义；复核未发现完全重复或前缀可覆盖项，保持现状，不重复建可覆盖索引（P-66 新增 `idx_audit_team_operated`）。
 5. `is_deleted` 作为通用过滤条件，不单独建低选择性索引；查询在现有索引前缀后附加 `is_deleted=0`。
 6. Quartz 官方索引随框架保留，不做业务索引收敛。
 7. 索引变更通过 Flyway 迁移；不在生产环境手工 `CREATE INDEX`。
@@ -104,7 +104,8 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
    - `V4__seed_formation_templates.sql`：8 套阵型、64 个槽位；
    - `V5__add_table_comments.sql`：27 张业务表的表级中文注释；
    - `V6__backfill_cancel_lock_match_day_0100.sql`：取消锁定回填（P-51）；
-   - `V7__reset_session_and_align_seed_timezone.sql`：Flyway 会话重置与新库种子时区回填（P-65）。
+   - `V7__reset_session_and_align_seed_timezone.sql`：Flyway 会话重置与新库种子时区回填（P-65）；
+   - `V8__add_audit_log_operated_at.sql`：审计操作时间列、历史回填与索引（P-66）。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。
@@ -156,5 +157,5 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间存 Asia/Shanghai 墙钟、`DATETIME(3)`；业务边界直接在 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V7 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V8 顺序正确、可重复、无环境硬编码
 - [ ] 未执行生产 DDL、未手工改表

@@ -514,18 +514,19 @@ DELETE FROM audit_log WHERE id BETWEEN 6001 AND 6003;
 
 INSERT INTO audit_log
   (id, team_id, actor_user_id, actor_name, action, target_type, target_id,
-   before_json, after_json, request_id, ip, created_at)
+   before_json, after_json, request_id, ip, created_at, operated_at)
 VALUES
   (6001, @team_id, 1001, 'E2E审计员', 'SETTINGS_UPDATE', 'SETTINGS', @team_id,
    JSON_OBJECT('maxPlayers', 30, 'phone', '13900000001'),
    JSON_OBJECT('maxPlayers', 31, 'phone', '13900000001'),
-   'e2e-audit-settings', '203.0.113.24', NOW(3) - INTERVAL 3 MINUTE),
+   'e2e-audit-settings', '203.0.113.24', NOW(3) - INTERVAL 3 MINUTE,
+   NOW(3) - INTERVAL 3 MINUTE),
   (6002, @team_id, 1002, '测试球员', 'MATCH_CREATE', 'MATCH', 1001,
    NULL, JSON_OBJECT('title', '橙队VS兰队'), 'e2e-audit-match', '203.0.113.25',
-   NOW(3) - INTERVAL 2 MINUTE),
+   NOW(3) - INTERVAL 2 MINUTE, NOW(3) - INTERVAL 2 MINUTE),
   (6003, @team_id, NULL, NULL, 'E2E_UNKNOWN_ACTION', 'UNKNOWN_TARGET', NULL,
    NULL, NULL, 'e2e-audit-unknown', '203.0.113.26',
-   NOW(3) - INTERVAL 1 MINUTE);
+   NOW(3) - INTERVAL 1 MINUTE, NULL);
 -- END B10 audit fixtures
 
 COMMIT;

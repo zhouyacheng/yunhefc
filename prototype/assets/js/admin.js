@@ -1963,7 +1963,8 @@
         <span class="actor">${esc(item.actor)}</span>
         <span class="action">${esc(item.action)}</span>
         <span class="target">${esc(item.target)}</span>
-        <span class="time">${Y.formatDateTime(item.at)}</span>
+        <span class="time">创建 ${Y.formatDateTime(item.at)}</span>
+        <span class="time">操作 ${item.operateAt ? Y.formatDateTime(item.operateAt) : '—'}</span>
         ${item.before || item.after ? `<details class="audit-detail"><summary>变更详情</summary><pre>${esc(JSON.stringify({ before: item.before, after: item.after }, null, 2))}</pre></details>` : ''}
       </div>`).join('') || '<div class="empty-inline">暂无日志</div>'}</div>
       ${Y.paginationHtml(paged.page, paged.totalPages, paged.total, auditPageSize)}`;

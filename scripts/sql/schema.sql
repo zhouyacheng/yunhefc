@@ -417,11 +417,13 @@ CREATE TABLE audit_log (
   request_id    VARCHAR(64)     NULL COMMENT '请求ID',
   ip            VARCHAR(45)     NULL COMMENT '客户端IP',
   created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  operated_at   DATETIME(3)     NULL COMMENT '操作时间（Kafka 生产时写入；旧数据回填为创建时间）',
   is_deleted    TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
   PRIMARY KEY (id),
   KEY idx_audit_team_created (team_id, created_at),
   KEY idx_audit_target (target_type, target_id),
-  KEY idx_audit_actor (actor_user_id, created_at)
+  KEY idx_audit_actor (actor_user_id, created_at),
+  KEY idx_audit_team_operated (team_id, operated_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='操作日志';
 
 -- ---------------------------------------------------------------------------

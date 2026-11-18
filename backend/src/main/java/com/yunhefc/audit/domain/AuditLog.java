@@ -27,6 +27,7 @@ public class AuditLog {
     private String requestId;
     private String ip;
     private LocalDateTime createdAt;
+    private LocalDateTime operatedAt;
     @TableLogic
     private Integer isDeleted;
 }

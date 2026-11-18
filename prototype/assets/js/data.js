@@ -566,10 +566,10 @@
   ];
 
   const audit = [
-    { id: 'a2', actor: '管理员', action: '调整角色权限', target: 'COACH', at: iso(-1, 18, 10) },
-    { id: 'a1', actor: '管理员', action: '创建比赛', target: '云河FC vs 海港联', at: iso(-1, 16, 20) },
-    { id: 'a3', actor: '管理员', action: '标记考勤', target: '云河FC vs 东岸竞技', at: iso(-3, 22, 40) },
-    { id: 'a4', actor: '陈子昂', action: '录入事件', target: '云河FC vs 东岸竞技', at: iso(-3, 21, 10) }
+    { id: 'a2', actor: '管理员', action: '调整角色权限', target: 'COACH', at: iso(-1, 18, 10), operateAt: iso(-1, 18, 10) },
+    { id: 'a1', actor: '管理员', action: '创建比赛', target: '云河FC vs 海港联', at: iso(-1, 16, 20), operateAt: iso(-1, 16, 20) },
+    { id: 'a3', actor: '管理员', action: '标记考勤', target: '云河FC vs 东岸竞技', at: iso(-3, 22, 40), operateAt: iso(-3, 22, 40) },
+    { id: 'a4', actor: '陈子昂', action: '录入事件', target: '云河FC vs 东岸竞技', at: iso(-3, 21, 10), operateAt: iso(-3, 21, 10) }
   ];
 
   const customFormations = [];

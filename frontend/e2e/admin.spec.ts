@@ -1539,6 +1539,11 @@ test('B 端：B10 操作日志筛选、展开与脱敏快照', async ({ page }) 
   await page.goto('/admin/audit');
   await expect(page).toHaveURL(/\/admin\/audit$/);
   await expect(page.getByRole('heading', { level: 2, name: '操作日志' })).toBeVisible();
+  const auditHeaders = (await page.locator('.el-table__header th').allInnerTexts()).map((text) =>
+    text.trim(),
+  );
+  expect(auditHeaders).toContain('创建时间');
+  expect(auditHeaders).toContain('操作时间');
 
   // 未知动作与对象类型按原值展示（B10 fixtures 6003）；用 allow-create 直接筛出，
   // 避免 fixture 因分页或运行期日志累积而漂出第 1 页。

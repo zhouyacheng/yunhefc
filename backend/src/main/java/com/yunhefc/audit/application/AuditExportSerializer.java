@@ -45,7 +45,8 @@ public class AuditExportSerializer {
                 row.getAction(), row.getTargetType(), row.getTargetId(),
                 parseSnapshot(row.getBeforeJson()), parseSnapshot(row.getAfterJson()),
                 row.getRequestId(), row.getIp(),
-                row.getCreatedAt() == null ? null : ShanghaiTime.formatIso(row.getCreatedAt()));
+                row.getCreatedAt() == null ? null : ShanghaiTime.formatIso(row.getCreatedAt()),
+                row.getOperatedAt() == null ? null : ShanghaiTime.formatIso(row.getOperatedAt()));
     }
 
     private Object parseSnapshot(String json) {
@@ -61,6 +62,6 @@ public class AuditExportSerializer {
 
     record ExportLine(Long id, Long teamId, Long actorUserId, String actorName, String action,
                       String targetType, Long targetId, Object before, Object after,
-                      String requestId, String ip, String createdAt) {
+                      String requestId, String ip, String createdAt, String operatedAt) {
     }
 }

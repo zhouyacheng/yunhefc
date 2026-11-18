@@ -1893,15 +1893,15 @@ onBeforeUnmount(() => {
           <div class="stat-grid">
             <div>
               <b>{{ groupingTotal('A') }}</b
-              ><span>A 队总分</span>
+              ><span>{{ groupingTeamLabel('A') }}</span>
             </div>
             <div>
               <b>{{ groupingTotal('B') }}</b
-              ><span>B 队总分</span>
+              ><span>{{ groupingTeamLabel('B') }}</span>
             </div>
             <div>
               <b>{{ (grouping?.diff ?? 0).toFixed(2) }}</b
-              ><span>总分差</span>
+              ><span>分差</span>
             </div>
           </div>
           <a

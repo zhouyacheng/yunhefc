@@ -32,6 +32,6 @@ class MatchSnapshotTest {
 
     private static MatchSnapshot snapshot(String season, LocalDateTime startAt) {
         return new MatchSnapshot(1L, 1L, "测试", startAt, startAt, null, null, 30, 4, 2,
-                "场地", 4, "橙队", "兰队", null, season, 1, null, true);
+                "场地", 4, "橙队", "兰队", null, season, 1, null, true, null, null);
     }
 }

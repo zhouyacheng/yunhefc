@@ -24,7 +24,9 @@ public record MatchSnapshot(
         String season,
         Integer type,
         Integer ourSide,
-        Boolean includeGuests) {
+        Boolean includeGuests,
+        Integer seasonMatchNo,
+        Integer totalMatchNo) {
 
     private static final int INTERNAL = 1;
     private static final int TRAINING = 2;

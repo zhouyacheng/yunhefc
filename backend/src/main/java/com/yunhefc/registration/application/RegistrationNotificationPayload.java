@@ -2,6 +2,7 @@ package com.yunhefc.registration.application;
 
 import com.yunhefc.contracts.match.MatchSnapshot;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -13,6 +14,13 @@ final class RegistrationNotificationPayload {
     }
 
     static Map<String, Object> of(MatchSnapshot match, Long userId) {
-        return Map.of("userId", userId, "matchId", match.id(), "matchTitle", match.title());
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("userId", userId);
+        payload.put("matchId", match.id());
+        payload.put("matchTitle", match.title());
+        payload.put("season", match.effectiveSeason());
+        payload.put("seasonMatchNo", match.seasonMatchNo());
+        payload.put("totalMatchNo", match.totalMatchNo());
+        return payload;
     }
 }

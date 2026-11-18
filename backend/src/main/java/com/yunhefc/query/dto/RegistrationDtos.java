@@ -4,6 +4,7 @@ import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.player.Position;
 import com.yunhefc.contracts.registration.RegistrationSnapshot;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -29,7 +30,7 @@ public final class RegistrationDtos {
             return new RegistrationRow(
                     registration.id(),
                     new PlayerRef(player.id(), player.name(), player.jersey(),
-                            position.code(), position.label()),
+                            position.code(), position.label(), player.skill()),
                     registration.type(),
                     registration.typeLabel(),
                     registration.status(),
@@ -44,6 +45,7 @@ public final class RegistrationDtos {
             String name,
             Integer jersey,
             Integer position,
-            String positionLabel) {
+            String positionLabel,
+            BigDecimal skill) {
     }
 }

@@ -14,18 +14,15 @@ import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccountReadPort;
 import com.yunhefc.contracts.security.UserAccountSnapshot;
-import com.yunhefc.contracts.settings.GroupingSettingsPort;
 import com.yunhefc.grouping.domain.AssignedPlayer;
 import com.yunhefc.grouping.domain.GroupingAlgorithm;
 import com.yunhefc.grouping.domain.GroupingAssignment;
 import com.yunhefc.grouping.domain.GroupingCandidate;
 import com.yunhefc.grouping.domain.GroupingCandidates;
-import com.yunhefc.grouping.domain.GroupingPlayerStats;
 import com.yunhefc.grouping.domain.GroupingRandom;
 import com.yunhefc.grouping.domain.GroupingScore;
 import com.yunhefc.grouping.domain.GroupingScoreCalculator;
 import com.yunhefc.grouping.domain.GroupingWarnings;
-import com.yunhefc.grouping.domain.GroupingWeights;
 import com.yunhefc.grouping.domain.MatchGrouping;
 import com.yunhefc.grouping.domain.MatchGroupingPlayer;
 import com.yunhefc.grouping.domain.RosterFingerprint;
@@ -40,11 +37,8 @@ import com.yunhefc.grouping.dto.GroupingDtos.GroupingScoresView;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingSnapshotView;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingTeamsView;
 import com.yunhefc.grouping.dto.GroupingDtos.GroupingView;
-import com.yunhefc.grouping.dto.GroupingDtos.GroupingWeightsView;
 import com.yunhefc.grouping.infrastructure.MatchGroupingMapper;
 import com.yunhefc.grouping.infrastructure.MatchGroupingPlayerMapper;
-import com.yunhefc.stats.application.PlayerStatsRow;
-import com.yunhefc.stats.application.StatsQueryService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +51,6 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -78,6 +71,9 @@ public class GroupingApplicationService {
     private static final int TEAM_A = 0;
     private static final int TEAM_B = 1;
     private static final BigDecimal ZERO = BigDecimal.ZERO.setScale(2);
+    // 分组已改为纯星级：历史权重列保留，固定写入手动 100 / 自动 0。
+    private static final BigDecimal LEGACY_MANUAL_WEIGHT = new BigDecimal("100.00");
+    private static final BigDecimal LEGACY_AUTO_WEIGHT = new BigDecimal("0.00");
 
     private final MatchGroupingMapper groupingMapper;
     private final MatchGroupingPlayerMapper groupingPlayerMapper;
@@ -85,21 +81,19 @@ public class GroupingApplicationService {
     private final RegistrationReadPort registrationReadPort;
     private final PlayerReadPort playerReadPort;
     private final UserAccountReadPort userAccountReadPort;
-    private final StatsQueryService statsQueryService;
-    private final GroupingSettingsPort groupingSettingsPort;
     private final AuditRecorder auditRecorder;
 
     @Transactional(readOnly = true)
     public GroupingView viewForPlayer(Long matchId) {
         ReadModel model = readModel(matchId);
-        return new GroupingView(model.teams(), model.weights(), model.diff(),
+        return new GroupingView(model.teams(), model.diff(),
                 model.warnings(), model.savedAt());
     }
 
     @Transactional(readOnly = true)
     public GroupingAdminView adminView(Long matchId) {
         ReadModel model = readModel(matchId);
-        return new GroupingAdminView(model.teams(), model.weights(), model.diff(),
+        return new GroupingAdminView(model.teams(), model.diff(),
                 model.warnings(), model.savedAt(), model.scores(), model.rosterFingerprint(),
                 model.generatedAt(), model.ungroupedPlayerIds(), model.rosterDiff());
     }
@@ -127,12 +121,7 @@ public class GroupingApplicationService {
                 ? groupingPlayerMapper.selectByGroupingId(existing.getId()) : List.of();
         Map<String, Object> before = visible ? auditSnapshot(existing, existingPlayers) : null;
 
-        GroupingWeights weights = GroupingWeights.resolve(groupingSettingsPort.load(match.teamId()));
-        String season = match.effectiveSeason();
-        Map<Long, GroupingPlayerStats> stats = loadStats(match.teamId(), season);
-        int finishedMatches = matchReadPort.countFinishedInSeason(match.teamId(), season);
-        List<GroupingScore> scores = GroupingScoreCalculator.calculate(candidates, stats, weights,
-                finishedMatches);
+        List<GroupingScore> scores = GroupingScoreCalculator.calculate(candidates);
         Map<Long, GroupingScore> scoreByPlayer = scores.stream()
                 .collect(Collectors.toMap(GroupingScore::playerId, Function.identity()));
         List<AssignedPlayer> players = candidates.stream()
@@ -147,7 +136,7 @@ public class GroupingApplicationService {
         String fingerprint = RosterFingerprint.of(candidateIds(candidates));
         LocalDateTime now = ShanghaiTime.now();
 
-        MatchGrouping grouping = persist(existing, matchId, weights, fingerprint, now,
+        MatchGrouping grouping = persist(existing, matchId, fingerprint, now,
                 principal.userId(), assignment);
         List<MatchGroupingPlayer> rows = groupingPlayerMapper.selectByGroupingId(grouping.getId());
         auditRecorder.recordCurrent("grouping.generate", "team_match", matchId,
@@ -159,7 +148,6 @@ public class GroupingApplicationService {
         BigDecimal sumB = sum(assignment.teamB());
         return new GroupingAdminView(
                 new GroupingTeamsView(teamView(assignment.teamA()), teamView(assignment.teamB())),
-                weightsView(weights),
                 sumA.subtract(sumB).abs().setScale(2, RoundingMode.HALF_UP),
                 warnings,
                 null,
@@ -335,7 +323,7 @@ public class GroupingApplicationService {
                         groupingId, playerId, TEAM_B));
     }
 
-    private MatchGrouping persist(MatchGrouping existing, Long matchId, GroupingWeights weights,
+    private MatchGrouping persist(MatchGrouping existing, Long matchId,
                                   String fingerprint, LocalDateTime now, Long userId,
                                   GroupingAssignment assignment) {
         MatchGrouping grouping = existing == null ? new MatchGrouping() : existing;
@@ -344,11 +332,11 @@ public class GroupingApplicationService {
             grouping.setCreatedBy(userId);
             grouping.setIsDeleted(0);
         } else {
-            groupingMapper.overwrite(existing.getId(), weights.manualWeight(), weights.autoWeight(),
+            groupingMapper.overwrite(existing.getId(), LEGACY_MANUAL_WEIGHT, LEGACY_AUTO_WEIGHT,
                     fingerprint, now, userId);
         }
-        grouping.setManualWeight(weights.manualWeight());
-        grouping.setAutoWeight(weights.autoWeight());
+        grouping.setManualWeight(LEGACY_MANUAL_WEIGHT);
+        grouping.setAutoWeight(LEGACY_AUTO_WEIGHT);
         grouping.setRosterFingerprint(fingerprint);
         grouping.setGeneratedAt(now);
         grouping.setSavedAt(null);
@@ -375,7 +363,6 @@ public class GroupingApplicationService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
         requireInternal(match);
         List<GroupingCandidate> candidates = loadCandidates(match);
-        GroupingWeights weights = GroupingWeights.resolve(groupingSettingsPort.load(match.teamId()));
 
         MatchGrouping grouping = groupingMapper.selectByMatchIncludingDeleted(matchId);
         boolean visible = visible(grouping);
@@ -407,7 +394,6 @@ public class GroupingApplicationService {
 
         return new ReadModel(
                 visible ? toTeamsView(rows, players) : emptyTeams(),
-                weightsView(weights),
                 visible ? diff : ZERO,
                 visible ? GroupingWarnings.compute(teamA, teamB, candidates) : List.of(),
                 visible ? grouping.getSavedAt() : null,
@@ -435,15 +421,6 @@ public class GroupingApplicationService {
         Map<Long, UserAccountSnapshot> accounts = userAccountReadPort.findByIds(
                 players.stream().map(PlayerSnapshot::userId).distinct().toList());
         return GroupingCandidates.select(match.guestsIncluded(), registrations, players, accounts);
-    }
-
-    private Map<Long, GroupingPlayerStats> loadStats(Long teamId, String season) {
-        Map<Long, PlayerStatsRow> rows = statsQueryService.seasonStats(teamId,
-                season == null ? "" : season);
-        Map<Long, GroupingPlayerStats> stats = new HashMap<>();
-        rows.forEach((playerId, row) -> stats.put(playerId,
-                new GroupingPlayerStats(row.appearances(), row.goals(), row.assists())));
-        return stats;
     }
 
     private Map<Long, PlayerSnapshot> loadPlayers(Long teamId, List<Long> playerIds) {
@@ -504,20 +481,13 @@ public class GroupingApplicationService {
                             player.skill() == null ? new BigDecimal("3.00") : player.skill());
             GroupingScore score = new GroupingScore(row.getPlayerId(), row.getManualScore(),
                     row.getAutoScore(),
-                    row.getFinalScore() == null ? ZERO : row.getFinalScore(),
-                    row.getAutoScore() == null);
+                    row.getFinalScore() == null ? ZERO : row.getFinalScore());
             return new AssignedPlayer(candidate, score);
         }).toList();
     }
 
     private static GroupingTeamsView emptyTeams() {
         return new GroupingTeamsView(List.of(), List.of());
-    }
-
-    private static GroupingWeightsView weightsView(GroupingWeights weights) {
-        return new GroupingWeightsView(weights.manualWeight(), weights.autoWeight(),
-                weights.appearanceWeight(), weights.goalWeight(), weights.assistWeight(),
-                weights.minAppearances());
     }
 
     private static MatchGroupingPlayer toRow(Long groupingId, AssignedPlayer player, int team) {
@@ -578,7 +548,6 @@ public class GroupingApplicationService {
 
     private record ReadModel(
             GroupingTeamsView teams,
-            GroupingWeightsView weights,
             BigDecimal diff,
             List<String> warnings,
             LocalDateTime savedAt,

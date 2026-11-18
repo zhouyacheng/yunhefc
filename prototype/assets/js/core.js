@@ -110,29 +110,6 @@
       loaded.permissionVersion = 3;
       mark();
     }
-    const manualWeight = Number(loaded.settings.groupingManualWeight);
-    const autoWeight = Number(loaded.settings.groupingAutoWeight);
-    const minAppearances = Number(loaded.settings.groupingMinAppearances);
-    if (!Number.isFinite(manualWeight) || !Number.isFinite(autoWeight) || manualWeight < 0 || autoWeight < 0 || manualWeight + autoWeight <= 0) {
-      loaded.settings.groupingManualWeight = 70;
-      loaded.settings.groupingAutoWeight = 30;
-      mark();
-    }
-    if (!Number.isInteger(minAppearances) || minAppearances < 0) {
-      loaded.settings.groupingMinAppearances = 3;
-      mark();
-    }
-    const appearanceWeight = Number(loaded.settings.groupingAppearanceWeight);
-    const goalWeight = Number(loaded.settings.groupingGoalWeight);
-    const assistWeight = Number(loaded.settings.groupingAssistWeight);
-    if (![appearanceWeight, goalWeight, assistWeight].every((value) => Number.isFinite(value) && value >= 0) ||
-      appearanceWeight + goalWeight + assistWeight <= 0) {
-      loaded.settings.groupingAppearanceWeight = 50;
-      loaded.settings.groupingGoalWeight = 25;
-      loaded.settings.groupingAssistWeight = 25;
-      mark();
-    }
-
     for (const match of loaded.matches) {
       if (!match.lineups) { match.lineups = {}; mark(); }
       if (!['INTERNAL', 'TRAINING'].includes(match.type) && !['HOME', 'AWAY'].includes(match.ourSide)) {

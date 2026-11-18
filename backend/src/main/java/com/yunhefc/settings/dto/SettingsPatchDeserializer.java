@@ -10,7 +10,7 @@ import com.yunhefc.settings.dto.SettingsDtos.SettingsPatch;
 import java.io.IOException;
 
 /**
- * 9 项配置只接受 JSON 整数；小数、数字字符串与 null 之外的标量一律 40001。
+ * 3 项配置只接受 JSON 整数；小数、数字字符串与 null 之外的标量一律 40001。
  */
 public final class SettingsPatchDeserializer extends JsonDeserializer<SettingsPatch> {
 
@@ -23,13 +23,7 @@ public final class SettingsPatchDeserializer extends JsonDeserializer<SettingsPa
         return new SettingsPatch(
                 integer(node, parser, "maxPlayers"),
                 integer(node, parser, "maxGuests"),
-                integer(node, parser, "maxWaitlist"),
-                integer(node, parser, "groupingManualWeight"),
-                integer(node, parser, "groupingAutoWeight"),
-                integer(node, parser, "groupingAppearanceWeight"),
-                integer(node, parser, "groupingGoalWeight"),
-                integer(node, parser, "groupingAssistWeight"),
-                integer(node, parser, "groupingMinAppearances"));
+                integer(node, parser, "maxWaitlist"));
     }
 
     private static Integer integer(JsonNode node, JsonParser parser, String field) throws MismatchedInputException {

@@ -34,26 +34,13 @@ public class SettingsApplicationService {
     private static final String MAX_PLAYERS_KEY = "registration.maxPlayers";
     private static final String MAX_GUESTS_KEY = "registration.maxGuests";
     private static final String MAX_WAITLIST_KEY = "registration.maxWaitlist";
-    private static final String MANUAL_KEY = "grouping.manualWeight";
-    private static final String AUTO_KEY = "grouping.autoWeight";
-    private static final String APPEARANCE_KEY = "grouping.appearanceWeight";
-    private static final String GOAL_KEY = "grouping.goalWeight";
-    private static final String ASSIST_KEY = "grouping.assistWeight";
-    private static final String MIN_APPEARANCES_KEY = "grouping.minAppearances";
 
     private static final List<String> KEYS = List.of(
-            MAX_PLAYERS_KEY, MAX_GUESTS_KEY, MAX_WAITLIST_KEY,
-            MANUAL_KEY, AUTO_KEY, APPEARANCE_KEY, GOAL_KEY, ASSIST_KEY, MIN_APPEARANCES_KEY);
+            MAX_PLAYERS_KEY, MAX_GUESTS_KEY, MAX_WAITLIST_KEY);
 
     private static final int DEFAULT_MAX_PLAYERS = 30;
     private static final int DEFAULT_MAX_GUESTS = 4;
     private static final int DEFAULT_MAX_WAITLIST = 2;
-    private static final int DEFAULT_MANUAL = 70;
-    private static final int DEFAULT_AUTO = 30;
-    private static final int DEFAULT_APPEARANCE = 50;
-    private static final int DEFAULT_GOAL = 25;
-    private static final int DEFAULT_ASSIST = 25;
-    private static final int DEFAULT_MIN_APPEARANCES = 3;
 
     private final SystemSettingMapper systemSettingMapper;
     private final ObjectMapper objectMapper;
@@ -72,7 +59,7 @@ public class SettingsApplicationService {
         validate(after);
         systemSettingMapper.upsertBatch(actor.teamId(), toValues(after), actor.userId(),
                 ShanghaiTime.now());
-        // 审计与配置写入同一事务；before/after 均为合并后的完整 9 键。
+        // 审计与配置写入同一事务；before/after 均为合并后的完整 3 键。
         auditRecorder.recordCurrent("SETTINGS_UPDATE", "SETTINGS", actor.teamId(), before, after);
         return after;
     }
@@ -87,13 +74,7 @@ public class SettingsApplicationService {
         return new SettingsView(
                 integer(MAX_PLAYERS_KEY, values.get(MAX_PLAYERS_KEY), DEFAULT_MAX_PLAYERS),
                 integer(MAX_GUESTS_KEY, values.get(MAX_GUESTS_KEY), DEFAULT_MAX_GUESTS),
-                integer(MAX_WAITLIST_KEY, values.get(MAX_WAITLIST_KEY), DEFAULT_MAX_WAITLIST),
-                integer(MANUAL_KEY, values.get(MANUAL_KEY), DEFAULT_MANUAL),
-                integer(AUTO_KEY, values.get(AUTO_KEY), DEFAULT_AUTO),
-                integer(APPEARANCE_KEY, values.get(APPEARANCE_KEY), DEFAULT_APPEARANCE),
-                integer(GOAL_KEY, values.get(GOAL_KEY), DEFAULT_GOAL),
-                integer(ASSIST_KEY, values.get(ASSIST_KEY), DEFAULT_ASSIST),
-                integer(MIN_APPEARANCES_KEY, values.get(MIN_APPEARANCES_KEY), DEFAULT_MIN_APPEARANCES));
+                integer(MAX_WAITLIST_KEY, values.get(MAX_WAITLIST_KEY), DEFAULT_MAX_WAITLIST));
     }
 
     private int integer(String key, String raw, int fallback) {
@@ -117,40 +98,13 @@ public class SettingsApplicationService {
         return new SettingsView(
                 patch.maxPlayers() == null ? before.maxPlayers() : patch.maxPlayers(),
                 patch.maxGuests() == null ? before.maxGuests() : patch.maxGuests(),
-                patch.maxWaitlist() == null ? before.maxWaitlist() : patch.maxWaitlist(),
-                patch.groupingManualWeight() == null
-                        ? before.groupingManualWeight() : patch.groupingManualWeight(),
-                patch.groupingAutoWeight() == null
-                        ? before.groupingAutoWeight() : patch.groupingAutoWeight(),
-                patch.groupingAppearanceWeight() == null
-                        ? before.groupingAppearanceWeight() : patch.groupingAppearanceWeight(),
-                patch.groupingGoalWeight() == null
-                        ? before.groupingGoalWeight() : patch.groupingGoalWeight(),
-                patch.groupingAssistWeight() == null
-                        ? before.groupingAssistWeight() : patch.groupingAssistWeight(),
-                patch.groupingMinAppearances() == null
-                        ? before.groupingMinAppearances() : patch.groupingMinAppearances());
+                patch.maxWaitlist() == null ? before.maxWaitlist() : patch.maxWaitlist());
     }
 
     private void validate(SettingsView settings) {
         requireRange(settings.maxPlayers(), 1, 99, "报名默认人数");
         requireRange(settings.maxGuests(), 0, 99, "外挂默认上限");
         requireRange(settings.maxWaitlist(), 0, 99, "候补默认上限");
-        requireRange(settings.groupingMinAppearances(), 0, 99, "最少出场次数");
-        requireRange(settings.groupingManualWeight(), 0, 100, "手动权重");
-        requireRange(settings.groupingAutoWeight(), 0, 100, "自动权重");
-        requireRange(settings.groupingAppearanceWeight(), 0, 100, "出场权重");
-        requireRange(settings.groupingGoalWeight(), 0, 100, "进球权重");
-        requireRange(settings.groupingAssistWeight(), 0, 100, "助攻权重");
-
-        // 与 GroupingWeights.resolve 同口径：主权重合计必须为 100，子权重合计必须大于 0。
-        if (settings.groupingManualWeight() + settings.groupingAutoWeight() != 100) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "手动与自动权重合计必须为 100");
-        }
-        if (settings.groupingAppearanceWeight() + settings.groupingGoalWeight()
-                + settings.groupingAssistWeight() <= 0) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "出场、进球、助攻权重合计必须大于 0");
-        }
     }
 
     private void requireRange(int value, int min, int max, String label) {
@@ -165,12 +119,6 @@ public class SettingsApplicationService {
         values.put(MAX_PLAYERS_KEY, settings.maxPlayers());
         values.put(MAX_GUESTS_KEY, settings.maxGuests());
         values.put(MAX_WAITLIST_KEY, settings.maxWaitlist());
-        values.put(MANUAL_KEY, settings.groupingManualWeight());
-        values.put(AUTO_KEY, settings.groupingAutoWeight());
-        values.put(APPEARANCE_KEY, settings.groupingAppearanceWeight());
-        values.put(GOAL_KEY, settings.groupingGoalWeight());
-        values.put(ASSIST_KEY, settings.groupingAssistWeight());
-        values.put(MIN_APPEARANCES_KEY, settings.groupingMinAppearances());
         return values;
     }
 }

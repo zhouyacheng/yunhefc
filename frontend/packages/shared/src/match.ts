@@ -151,9 +151,14 @@ export interface RosterPlayer {
   positionLabel?: string;
 }
 
+/** 报名行球员：在展示字段之外携带星级，考勤行不携带。 */
+export interface RegistrationPlayer extends RosterPlayer {
+  skill: number;
+}
+
 export interface RegistrationRow {
   id: number;
-  player: RosterPlayer;
+  player: RegistrationPlayer;
   type: number;
   typeLabel?: string;
   status: number;
@@ -263,16 +268,6 @@ export interface PromotionResult {
 
 export type GroupingTeam = 'A' | 'B';
 
-/** 05 §4 GroupingView.weights；当前有效配置（已按规格回退）。 */
-export interface GroupingWeights {
-  manualWeight: number;
-  autoWeight: number;
-  appearanceWeight: number;
-  goalWeight: number;
-  assistWeight: number;
-  minAppearances: number;
-}
-
 /** 05 §4 GroupedPlayer。 */
 export interface GroupedPlayer {
   playerId: number;
@@ -292,7 +287,6 @@ export interface GroupingTeams {
 /** 05 §4 GroupingView。 */
 export interface GroupingView {
   teams: GroupingTeams;
-  weights: GroupingWeights;
   diff: number;
   warnings: string[];
   savedAt?: string | null;

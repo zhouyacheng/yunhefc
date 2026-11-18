@@ -17,7 +17,7 @@ import java.sql.Statement;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 必须使用全新空库：先迁到 V5 造存量数据，再迁移到 V6/V7 验证回填范围。
+ * 必须使用全新空库：先迁到 V5 造存量数据，再迁移到 V6/V7 验证回填范围；V10 清理分组权重。
  */
 @Testcontainers
 class FlywayBackfillIT {

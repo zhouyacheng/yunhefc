@@ -63,7 +63,7 @@ class GroupingWarningsTest {
     private static AssignedPlayer player(Long id, int position) {
         GroupingCandidate candidate = candidate(id, position);
         GroupingScore score = new GroupingScore(id, BigDecimal.valueOf(3).setScale(1), null,
-                BigDecimal.valueOf(3).setScale(2), true);
+                BigDecimal.valueOf(3).setScale(2));
         return new AssignedPlayer(candidate, score);
     }
 }

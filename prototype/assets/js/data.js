@@ -577,13 +577,7 @@
   const settings = {
     maxPlayers: 30,
     maxGuests: 4,
-    maxWaitlist: 2,
-    groupingManualWeight: 70,
-    groupingAutoWeight: 30,
-    groupingMinAppearances: 3,
-    groupingAppearanceWeight: 50,
-    groupingGoalWeight: 25,
-    groupingAssistWeight: 25
+    maxWaitlist: 2
   };
 
   // 球队页赛季筛选演示：2025 赛季用一组与当前赛季不同的出场/进球/助攻。

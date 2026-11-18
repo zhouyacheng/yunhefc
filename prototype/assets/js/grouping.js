@@ -1,30 +1,8 @@
 (function () {
   const Y = window.YHFC;
-  const { state, save, addAudit, currentUser, playerById, confirmed, clone, positionLabel,
+  const { save, addAudit, currentUser, playerById, confirmed, clone, positionLabel,
     GROUP_POSITIONS, OUTFIELD_POSITIONS, rosterFingerprint, INTERNAL_TYPES } = Y;
   if (typeof confirmed !== 'function') throw new Error('grouping.js 需要在 match.js 之后加载');
-
-  function groupingConfig() {
-    const settings = state.settings || {};
-    const manual = Number(settings.groupingManualWeight);
-    const auto = Number(settings.groupingAutoWeight);
-    const minAppearances = Number(settings.groupingMinAppearances);
-    const total = manual + auto;
-    const valid = Number.isFinite(total) && total > 0 && manual >= 0 && auto >= 0;
-    const appearance = Number(settings.groupingAppearanceWeight);
-    const goal = Number(settings.groupingGoalWeight);
-    const assist = Number(settings.groupingAssistWeight);
-    const subTotal = appearance + goal + assist;
-    const subValid = Number.isFinite(subTotal) && subTotal > 0 && appearance >= 0 && goal >= 0 && assist >= 0;
-    return {
-      manualWeight: valid ? manual / total : 0.7,
-      autoWeight: valid ? auto / total : 0.3,
-      minAppearances: Number.isInteger(minAppearances) && minAppearances >= 0 ? minAppearances : 3,
-      appearanceWeight: subValid ? appearance / subTotal : 0.5,
-      goalWeight: subValid ? goal / subTotal : 0.25,
-      assistWeight: subValid ? assist / subTotal : 0.25
-    };
-  }
 
   function groupingEligiblePlayers(match) {
     const seen = new Set();
@@ -40,59 +18,11 @@
   }
 
   function groupingProfiles(players) {
-    const config = groupingConfig();
-    const rows = players.map((player) => ({
-      player,
-      manual: Number.isFinite(Number(player.skill))
-        ? Math.floor(Math.max(1, Math.min(5, Number(player.skill))) * 2) / 2
-        : null,
-      appearances: Math.max(0, Number(player.appearances) || 0),
-      goals: Math.max(0, Number(player.goals) || 0),
-      assists: Math.max(0, Number(player.assists) || 0)
-    }));
-    const season = String(new Date().getFullYear());
-    const teamMatchCount = Math.max(1, state.matches.filter((match) =>
-      match.status === 'FINISHED' && String(match.season || new Date(match.start).getFullYear()) === season).length);
-    const goalsPer = (row) => row.appearances > 0 ? row.goals / row.appearances : 0;
-    const assistsPer = (row) => row.appearances > 0 ? row.assists / row.appearances : 0;
-    const goalValues = rows.map(goalsPer);
-    const assistValues = rows.map(assistsPer);
-    const minGoals = Math.min(0, ...goalValues);
-    const maxGoals = Math.max(0, ...goalValues);
-    const minAssists = Math.min(0, ...assistValues);
-    const maxAssists = Math.max(0, ...assistValues);
-    const normalize = (value, min, max) => max <= min + 1e-9 ? 0.5 : (value - min) / (max - min);
-    return rows.map((row) => {
-      const appearanceRate = Math.min(1, row.appearances / teamMatchCount);
-      const goalsPerGame = goalsPer(row);
-      const assistsPerGame = assistsPer(row);
-      const breakdown = {
-        appearanceRate,
-        goalsPerGame,
-        assistsPerGame,
-        appearanceNorm: appearanceRate,
-        goalsNorm: normalize(goalsPerGame, minGoals, maxGoals),
-        assistsNorm: normalize(assistsPerGame, minAssists, maxAssists)
-      };
-      const auto = row.appearances > 0
-        ? 1 + 4 * (config.appearanceWeight * breakdown.appearanceNorm + config.goalWeight * breakdown.goalsNorm + config.assistWeight * breakdown.assistsNorm)
-        : null;
-      const manualOnly = row.appearances < config.minAppearances;
-      let final;
-      if (row.manual == null && auto == null) final = 3;
-      else if (manualOnly) final = row.manual ?? auto ?? 3;
-      else if (row.manual == null) final = auto;
-      else if (auto == null) final = row.manual;
-      else final = row.manual * config.manualWeight + auto * config.autoWeight;
-      return {
-        player: row.player,
-        manual: row.manual,
-        auto,
-        final,
-        manualOnly,
-        stats: { appearances: row.appearances, goals: row.goals, assists: row.assists },
-        breakdown
-      };
+    // 分组直接使用球员星级，缺失时按默认 3.00。
+    return players.map((player) => {
+      const raw = Number(player.skill);
+      const final = Number.isFinite(raw) ? Math.max(1, Math.min(5, raw)) : 3;
+      return { player, final };
     });
   }
 
@@ -213,14 +143,7 @@
     const scores = {};
     Object.keys(profiles).forEach((id) => {
       const profile = profiles[id];
-      scores[id] = {
-        manual: profile.manual,
-        auto: profile.auto,
-        final: profile.final,
-        manualOnly: profile.manualOnly,
-        stats: profile.stats,
-        breakdown: profile.breakdown
-      };
+      scores[id] = { final: profile.final };
     });
     return {
       ok: true,
@@ -228,7 +151,6 @@
         A,
         B,
         scores,
-        weights: groupingConfig(),
         rosterFingerprint: rosterFingerprint(eligible.map((player) => player.id)),
         generatedAt: new Date().toISOString(),
         savedAt: null,
@@ -293,7 +215,6 @@
       savedAt: grouping.savedAt,
       generatedAt: grouping.generatedAt || null,
       rosterFingerprint: grouping.rosterFingerprint,
-      weights: grouping.weights || groupingConfig(),
       players: clone(grouping.scores || {}),
       teamTotals: { A: summary.totalA, B: summary.totalB },
       teamDiff: summary.diff,
@@ -311,5 +232,5 @@
     ]));
   }
 
-  Object.assign(Y, { groupingConfig, groupingEligiblePlayers, groupingProfiles, positionCountsOf, groupingObjective, buildGrouping, groupingSummary, groupingRosterDiff, saveGroupingSnapshot, combinedWarnings });
+  Object.assign(Y, { groupingEligiblePlayers, groupingProfiles, positionCountsOf, groupingObjective, buildGrouping, groupingSummary, groupingRosterDiff, saveGroupingSnapshot, combinedWarnings });
 })();

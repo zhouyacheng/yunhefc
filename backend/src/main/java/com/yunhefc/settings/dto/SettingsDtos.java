@@ -11,13 +11,7 @@ public final class SettingsDtos {
     public record SettingsView(
             int maxPlayers,
             int maxGuests,
-            int maxWaitlist,
-            int groupingManualWeight,
-            int groupingAutoWeight,
-            int groupingAppearanceWeight,
-            int groupingGoalWeight,
-            int groupingAssistWeight,
-            int groupingMinAppearances) {
+            int maxWaitlist) {
     }
 
     /**
@@ -27,13 +21,7 @@ public final class SettingsDtos {
     public record SettingsPatch(
             Integer maxPlayers,
             Integer maxGuests,
-            Integer maxWaitlist,
-            Integer groupingManualWeight,
-            Integer groupingAutoWeight,
-            Integer groupingAppearanceWeight,
-            Integer groupingGoalWeight,
-            Integer groupingAssistWeight,
-            Integer groupingMinAppearances) {
+            Integer maxWaitlist) {
     }
 
     public record SettingsUpdateRequest(@NotNull SettingsPatch settings) {

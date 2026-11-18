@@ -50,6 +50,7 @@ class RegistrationRosterIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].player.jersey").value(302))
                 .andExpect(jsonPath("$.data.items[0].player.position").value(2))
                 .andExpect(jsonPath("$.data.items[0].player.positionLabel").value("MIDFIELDER"))
+                .andExpect(jsonPath("$.data.items[0].player.skill").value(3.0))
                 .andExpect(jsonPath("$.data.items[0].type").value(1))
                 .andExpect(jsonPath("$.data.items[0].typeLabel").value("PLAYER"))
                 .andExpect(jsonPath("$.data.items[0].status").value(1))

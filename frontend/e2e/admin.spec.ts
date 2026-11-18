@@ -785,6 +785,21 @@ test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', asy
   await page.getByRole('button', { name: '新建比赛' }).click();
   const createDialog = page.locator('.el-dialog').filter({ hasText: '创建比赛' });
   await expect(createDialog).toBeVisible();
+
+  // 比赛类型下拉绑定数字模型，需显示中文且不出现筛选项「全部类型」
+  const typeSelect = createDialog
+    .locator('.el-form-item')
+    .filter({ hasText: '类型' })
+    .locator('.el-select');
+  await expect(typeSelect).toContainText('队内赛');
+  await typeSelect.click();
+  const typeDropdown = page.locator('.el-select__popper:visible');
+  await expect(
+    typeDropdown.locator('.el-select-dropdown__item').filter({ hasText: '全部类型' }),
+  ).toHaveCount(0);
+  await typeDropdown.locator('.el-select-dropdown__item').filter({ hasText: '友谊赛' }).click();
+  await expect(createDialog.getByText('我方主客')).toBeVisible();
+
   await createDialog.getByPlaceholder('例如 橙队VS兰队').fill(title);
   await fillDialogDateTime(createDialog, '开始时间', start);
   await fillDialogDateTime(

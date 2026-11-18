@@ -1,10 +1,21 @@
 <script setup lang="ts">
 import type { MatchSummary } from '@yunhefc/shared';
-import { formatDate, formatDateTimeRange, matchStatusText, matchTypeText } from '@yunhefc/shared';
+import {
+  formatDayStartTime,
+  matchStatusText,
+  matchTypeText,
+  seasonMatchText,
+} from '@yunhefc/shared';
 import { Tag } from 'vant';
 import { computed } from 'vue';
 
-import { resultTone, scoreText, statusTone, winnerSide } from '../features/matches/presentation';
+import {
+  resultTone,
+  scoreText,
+  statusTone,
+  typeTone,
+  winnerSide,
+} from '../features/matches/presentation';
 
 const props = defineProps<{ match: MatchSummary }>();
 
@@ -14,7 +25,7 @@ const winner = computed(() => winnerSide(props.match));
 <template>
   <article class="match-card">
     <div class="match-card__top">
-      <span class="match-card__date">{{ formatDate(match.startAt) }}</span>
+      <span class="match-card__date">{{ formatDayStartTime(match.startAt) }}</span>
       <Tag
         v-if="match.resultText"
         class="status-tag"
@@ -22,7 +33,7 @@ const winner = computed(() => winnerSide(props.match));
       >
         {{ match.resultText }}
       </Tag>
-      <span class="muted small">第 {{ match.seasonMatchNo }} 场</span>
+      <span class="match-card__ordinal">{{ seasonMatchText(match) }}</span>
     </div>
 
     <div class="match-card__teams">
@@ -31,20 +42,14 @@ const winner = computed(() => winnerSide(props.match));
       <span :class="{ 'team-name--winner': winner === 1 }">{{ match.awayTeamName }}</span>
     </div>
 
-    <div class="match-card__meta muted small">
-      <span>{{ matchTypeText(match.type) }}</span>
-      <span>{{ formatDateTimeRange(match.startAt, match.endAt) }}</span>
-      <span>{{ match.venue }}</span>
-    </div>
-
     <div class="match-card__foot">
+      <Tag class="match-type-tag" :class="`match-type-tag--${typeTone(match.type)}`">
+        {{ matchTypeText(match.type) }}
+      </Tag>
+      <span class="small">{{ match.venue }}</span>
       <Tag class="status-tag" :class="`status-tag--${statusTone(match.status)}`">
         {{ matchStatusText(match.status) }}
       </Tag>
-      <span class="small">
-        正式 {{ match.confirmedCount }} · 外挂 {{ match.guestCount }} · 候补
-        {{ match.waitlistCount }}
-      </span>
     </div>
   </article>
 </template>

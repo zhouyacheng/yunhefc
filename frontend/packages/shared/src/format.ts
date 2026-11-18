@@ -8,13 +8,6 @@ const dateTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   hour12: false,
 });
 
-const dateFormatter = new Intl.DateTimeFormat('zh-CN', {
-  timeZone: 'Asia/Shanghai',
-  month: '2-digit',
-  day: '2-digit',
-  weekday: 'short',
-});
-
 const timeFormatter = new Intl.DateTimeFormat('zh-CN', {
   timeZone: 'Asia/Shanghai',
   hour: '2-digit',
@@ -27,6 +20,12 @@ const yearDateFormatter = new Intl.DateTimeFormat('zh-CN', {
   year: 'numeric',
   month: '2-digit',
   day: '2-digit',
+});
+
+const monthDayLongFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  month: 'long',
+  day: 'numeric',
 });
 
 const weekdayFormatter = new Intl.DateTimeFormat('zh-CN', {
@@ -56,12 +55,28 @@ export function formatDateTime(value: string | null | undefined): string {
   return Number.isNaN(date.getTime()) ? '—' : dateTimeFormatter.format(date);
 }
 
+/** 月日与星期：11/18 周三。 */
 export function formatDate(value: string | null | undefined): string {
   if (!value) {
     return '—';
   }
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '—' : dateFormatter.format(date);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return `${monthDayFormatter.format(date)} ${weekdayFormatter.format(date)}`;
+}
+
+/** 月日、星期与开始时刻：12月3日 周四 20:00。 */
+export function formatDayStartTime(value: string | null | undefined): string {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return `${monthDayLongFormatter.format(date)} ${weekdayFormatter.format(date)} ${timeFormatter.format(date)}`;
 }
 
 /** 带年份与星期：2026/12/02 周三。 */

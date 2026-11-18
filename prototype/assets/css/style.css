@@ -334,6 +334,26 @@ h3 {
   color: #3730a3;
 }
 
+.badge-type-external {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.badge-type-internal {
+  background: var(--green-soft);
+  color: #166534;
+}
+
+.badge-type-training {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.badge-type-friendly {
+  background: #fef3c7;
+  color: #92400e;
+}
+
 .badge-soon {
   background: #fef3c7;
   color: #92400e;

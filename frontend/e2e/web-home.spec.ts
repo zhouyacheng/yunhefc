@@ -16,7 +16,10 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
   // Hero 取全部比赛里开赛时间最大的一条：种子数据中为 1001。
   await expect(page.locator('.home-hero__teams')).toContainText(/橙队.*兰队/);
   await expect(page.locator('.home-hero__meta span').first()).toContainText(
-    /\d{4}\/\d{2}\/\d{2} \d{2}:\d{2} ~ (?:\d{2}\/\d{2} )?\d{2}:\d{2}/,
+    /\d{1,2}月\d{1,2}日 周. \d{2}:\d{2} · /,
+  );
+  await expect(page.locator('.home-hero__meta span').nth(1)).toContainText(
+    /赛季第\d+场（累计\d+场）/,
   );
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
   // 最近比赛取 Hero 之后的 3 场：1003、1005、1004。

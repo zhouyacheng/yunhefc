@@ -1,6 +1,36 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDateTimeRange, formatDateWithYear, formatTimeRange } from './format';
+import {
+  formatDate,
+  formatDayStartTime,
+  formatDateTimeRange,
+  formatDateWithYear,
+  formatTimeRange,
+} from './format';
+
+describe('formatDayStartTime', () => {
+  it('输出月日、星期与开始时刻', () => {
+    expect(formatDayStartTime('2026-12-03T12:00:00Z')).toBe('12月3日 周四 20:00');
+  });
+
+  it('按上海自然日跨日', () => {
+    expect(formatDayStartTime('2078-12-01T16:00:00Z')).toBe('12月2日 周五 00:00');
+  });
+
+  it.each([null, '', 'bad'])('无效值显示占位符：%s', (value) => {
+    expect(formatDayStartTime(value)).toBe('—');
+  });
+});
+
+describe('formatDate', () => {
+  it('月日与星期之间保留空格', () => {
+    expect(formatDate('2026-11-18T11:30:00Z')).toBe('11/18 周三');
+  });
+
+  it.each([null, '', 'bad'])('无效值显示占位符：%s', (value) => {
+    expect(formatDate(value)).toBe('—');
+  });
+});
 
 describe('formatDateWithYear', () => {
   it('输出上海日期与星期', () => {

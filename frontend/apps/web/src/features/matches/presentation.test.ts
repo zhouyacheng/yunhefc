@@ -6,8 +6,20 @@ import {
   resultTone,
   scoreText,
   statusTone,
+  typeTone,
   winnerSide,
 } from './presentation';
+
+describe('typeTone', () => {
+  it('maps match types to distinct color tones', () => {
+    expect(typeTone(0)).toBe('external');
+    expect(typeTone(1)).toBe('internal');
+    expect(typeTone(2)).toBe('training');
+    expect(typeTone(3)).toBe('friendly');
+    expect(typeTone(null)).toBe('external');
+    expect(typeTone(undefined)).toBe('external');
+  });
+});
 
 describe('statusTone', () => {
   it('maps match statuses to prototype badge tones', () => {

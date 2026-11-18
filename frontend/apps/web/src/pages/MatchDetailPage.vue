@@ -87,12 +87,6 @@ import {
   type RosterSections,
   type RosterSnapshot,
 } from '../features/match-detail/roster';
-import {
-  isWechatBrowser,
-  shareMode,
-  stableMatchUrl,
-  WECHAT_SHARE_HINT,
-} from '../features/match-detail/share';
 import { statusOptions } from '../features/match-detail/status-options';
 import StatusChangeDialog, {
   type StatusDialogMode,
@@ -139,10 +133,6 @@ const rosterDiffText = ref('');
 
 const signingUp = ref(false);
 const cancelling = ref(false);
-
-const shareMessage = ref('');
-const shareError = ref('');
-const sharing = ref(false);
 
 const inviteOpen = ref(false);
 const inviteSubmitting = ref(false);
@@ -836,42 +826,6 @@ async function copyText(text: string): Promise<boolean> {
   }
 }
 
-async function shareMatch(): Promise<void> {
-  if (!match.value || sharing.value) {
-    return;
-  }
-  sharing.value = true;
-  shareMessage.value = '';
-  shareError.value = '';
-  const url = stableMatchUrl(matchId, window.location.origin, import.meta.env.BASE_URL);
-  try {
-    const mode = shareMode({
-      isWechat: isWechatBrowser(navigator.userAgent),
-      canNativeShare: typeof navigator.share === 'function',
-    });
-    if (mode === 'wechat') {
-      shareMessage.value = WECHAT_SHARE_HINT;
-      return;
-    }
-    if (mode === 'native') {
-      try {
-        await navigator.share({ title: match.value.title, url });
-        shareMessage.value = '已调起系统分享';
-        return;
-      } catch (caught) {
-        if ((caught as { name?: string }).name === 'AbortError') {
-          return;
-        }
-      }
-    }
-    const copied = await copyText(url);
-    shareMessage.value = copied ? '链接已复制' : '复制失败，请手动复制';
-    shareError.value = copied ? '' : url;
-  } finally {
-    sharing.value = false;
-  }
-}
-
 function openInvite(): void {
   inviteResult.value = null;
   inviteError.value = '';
@@ -1390,16 +1344,6 @@ onBeforeUnmount(() => {
 
         <div class="match-hero__actions">
           <Button
-            size="small"
-            type="primary"
-            plain
-            data-testid="share-button"
-            :loading="sharing"
-            @click="shareMatch"
-          >
-            分享比赛
-          </Button>
-          <Button
             v-if="canInvite"
             size="small"
             type="primary"
@@ -1439,15 +1383,6 @@ onBeforeUnmount(() => {
           <span>📍 {{ match.venue }}</span>
         </div>
 
-        <p v-if="shareMessage" class="hint" data-testid="share-message">{{ shareMessage }}</p>
-        <input
-          v-if="shareError"
-          class="share-manual"
-          data-testid="share-manual"
-          :value="shareError"
-          readonly
-          aria-label="分享链接"
-        />
         <p v-if="statusActionError" class="action-error" data-testid="status-action-error">
           {{ statusActionError }}
         </p>
@@ -2122,18 +2057,6 @@ onBeforeUnmount(() => {
 .status-select option {
   color: var(--yh-ink);
   background: var(--yh-surface);
-}
-
-.share-manual {
-  width: 100%;
-  padding: 8px 10px;
-  color: var(--yh-ink);
-  font: inherit;
-  font-size: 13px;
-  background: var(--yh-surface);
-  border: 1px solid var(--yh-line);
-  border-radius: var(--yh-radius-sm);
-  word-break: break-all;
 }
 
 .voided-banner {

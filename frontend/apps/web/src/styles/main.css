@@ -307,6 +307,39 @@ textarea {
   background: var(--yh-purple-soft);
 }
 
+/* 比赛类型：与状态标签同一套 pill 规则，按类型区分底色。 */
+.match-type-tag.van-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  border: 0;
+  border-radius: 999px;
+}
+
+.match-type-tag--external.van-tag {
+  color: var(--yh-indigo-ink);
+  background: var(--yh-indigo-soft);
+}
+
+.match-type-tag--internal.van-tag {
+  color: var(--yh-green-ink);
+  background: var(--yh-green-soft);
+}
+
+.match-type-tag--training.van-tag {
+  color: var(--yh-blue-ink);
+  background: var(--yh-blue-soft);
+}
+
+.match-type-tag--friendly.van-tag {
+  color: var(--yh-amber-ink);
+  background: var(--yh-amber-soft);
+}
+
 .segmented {
   display: inline-flex;
   padding: 3px;
@@ -738,13 +771,24 @@ textarea {
   align-items: center;
 }
 
-.match-card__date {
-  font-size: 13px;
-  font-weight: 700;
+.match-card__date,
+.match-card__ordinal {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--yh-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.match-card__top .muted {
-  margin-left: auto;
+.match-card__date {
+  flex: 0 0 auto;
+  margin-right: auto;
+}
+
+.match-card__ordinal {
+  flex: 0 1 auto;
 }
 
 .match-card__teams {
@@ -787,12 +831,6 @@ textarea {
   border-radius: 7px;
 }
 
-.match-card__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 12px;
-}
-
 .match-card__foot {
   display: flex;
   flex-wrap: wrap;
@@ -805,8 +843,11 @@ textarea {
   border-top: 1px dashed var(--yh-line);
 }
 
-.match-card__top .muted:last-child {
-  margin-left: auto;
+.match-card__foot .small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .page-footer {
@@ -1809,16 +1850,22 @@ textarea {
 
 .home-hero__teams strong {
   color: var(--yh-green);
-  font-size: 14px;
-  letter-spacing: 0.08em;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
 }
 
 .home-hero__meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
+  flex-direction: column;
+  gap: 2px;
   color: var(--yh-muted);
   font-size: 13px;
+  text-align: center;
+}
+
+.home-hero__ordinal {
+  font-size: 11px;
 }
 
 .hero-queue {

@@ -116,8 +116,9 @@ test('C04 球队：切换赛季更新 URL、请求与统计', async ({ page }) =
     .nth(2)
     .locator('.player-card')
     .filter({ hasText: '测试后卫01' });
-  await expect(defenderCard.locator('.player-card__stars')).toHaveText('★★★★☆');
-  await expect(defenderCard.locator('.player-card__stars')).toHaveAttribute(
+  await expect(defenderCard.locator('.player-card__stars .skill-star--full')).toHaveCount(4);
+  await expect(defenderCard.locator('.player-card__stars .skill-star--empty')).toHaveCount(1);
+  await expect(defenderCard.locator('.player-card__stars .skill-stars')).toHaveAttribute(
     'aria-label',
     '星级 4.25/5',
   );
@@ -126,7 +127,10 @@ test('C04 球队：切换赛季更新 URL、请求与统计', async ({ page }) =
     .nth(2)
     .locator('.player-card')
     .filter({ hasText: '测试后卫04' });
-  await expect(halfStarCard.locator('.player-card__stars')).toHaveText('★★★★½');
+  await expect(halfStarCard.locator('.player-card__stars .skill-star--full')).toHaveCount(4);
+  await expect(halfStarCard.locator('.player-card__stars .skill-star--half')).toHaveCount(1);
+  await expect(halfStarCard.locator('.player-card__stars .skill-star--empty')).toHaveCount(0);
+  await expect(halfStarCard.locator('.player-card__stars')).not.toContainText('½');
 
   await select.selectOption(current);
   await expect(page).toHaveURL(/\/team$/);

@@ -63,8 +63,10 @@ export const SKILL_LEVELS = [
 export const MIN_SKILL = 1;
 export const MAX_SKILL = 5;
 
-/** 半星粒度展示：小数部分 <0.50 取整星，>=0.50 记半星。 */
-export function skillStarText(skill: number): string {
+export type SkillStar = 'full' | 'half' | 'empty';
+
+/** 半星粒度：小数部分 <0.50 取整星，>=0.50 记半星；固定返回 5 格。 */
+export function skillStarParts(skill: number): SkillStar[] {
   const value = Number(skill);
   const hundredths = Number.isFinite(value)
     ? Math.max(0, Math.min(500, Math.round(value * 100)))
@@ -72,7 +74,11 @@ export function skillStarText(skill: number): string {
   const full = Math.floor(hundredths / 100);
   const half = hundredths % 100 >= 50;
   const empty = MAX_SKILL - full - (half ? 1 : 0);
-  return `${'★'.repeat(full)}${half ? '½' : ''}${'☆'.repeat(empty)}`;
+  return [
+    ...Array<SkillStar>(full).fill('full'),
+    ...(half ? (['half'] as SkillStar[]) : []),
+    ...Array<SkillStar>(empty).fill('empty'),
+  ];
 }
 
 /** 原始星级保留两位小数，供列表与无障碍标签使用。 */

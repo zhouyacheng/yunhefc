@@ -54,7 +54,7 @@ import {
   formatSkill,
   settingsErrors,
   skillAriaLabel,
-  skillStarText,
+  skillStarParts,
   toSettingsPayload,
 } from './index';
 
@@ -298,11 +298,11 @@ describe('player management rules', () => {
     expect(SKILL_LEVELS[0]).toEqual({ code: 1, label: '1 星', min: 1, max: 1.5 });
     expect(SKILL_LEVELS[7]).toEqual({ code: 8, label: '4 星半', min: 4.5, max: 5 });
     expect(SKILL_LEVELS[8]).toEqual({ code: 9, label: '5 星', min: 5, max: 5 });
-    expect(skillStarText(4.01)).toBe('★★★★☆');
-    expect(skillStarText(4.49)).toBe('★★★★☆');
-    expect(skillStarText(4.5)).toBe('★★★★½');
-    expect(skillStarText(4.99)).toBe('★★★★½');
-    expect(skillStarText(5)).toBe('★★★★★');
+    expect(skillStarParts(4.01)).toEqual(['full', 'full', 'full', 'full', 'empty']);
+    expect(skillStarParts(4.49)).toEqual(['full', 'full', 'full', 'full', 'empty']);
+    expect(skillStarParts(4.5)).toEqual(['full', 'full', 'full', 'full', 'half']);
+    expect(skillStarParts(4.99)).toEqual(['full', 'full', 'full', 'full', 'half']);
+    expect(skillStarParts(5)).toEqual(['full', 'full', 'full', 'full', 'full']);
     expect(formatSkill(4)).toBe('4.00');
     expect(formatSkill(4.25)).toBe('4.25');
     expect(skillAriaLabel(4.25)).toBe('星级 4.25/5');

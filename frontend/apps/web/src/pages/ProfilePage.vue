@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isApiError } from '@yunhefc/api-client';
 import type { Player } from '@yunhefc/shared';
-import { positionText, skillAriaLabel, skillStarText } from '@yunhefc/shared';
+import { positionText } from '@yunhefc/shared';
 import { Button, Tag, showConfirmDialog } from 'vant';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
@@ -12,6 +12,7 @@ import ProfileEditPopup from '../components/ProfileEditPopup.vue';
 import { avatarPlaceholder, isDisplayableAvatarUrl } from '../features/profile/avatar';
 import { isPending } from '../features/auth/user-status';
 import { isWechatBrowser, requestWechatAuthorize } from '../features/auth/wechat';
+import SkillStars from '../components/SkillStars.vue';
 import { useSessionStore } from '../stores/session';
 
 const ROLE_TEXT: Readonly<Record<string, string>> = {
@@ -127,9 +128,7 @@ onMounted(() => {
             <div class="profile-identity__meta">
               <span>号码 {{ session.player.jersey ?? '—' }}</span>
               <span>位置 {{ positionText(session.player.position) }}</span>
-              <span :aria-label="skillAriaLabel(session.player.skill)">
-                {{ skillStarText(session.player.skill) }}
-              </span>
+              <SkillStars :skill="session.player.skill" />
             </div>
           </div>
 

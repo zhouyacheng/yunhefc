@@ -848,8 +848,35 @@ h3 {
 }
 
 .stars {
-  color: var(--gold);
-  letter-spacing: 1px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  line-height: 1;
+}
+
+.stars .skill-star {
+  display: block;
+  flex: none;
+  width: 1.12em;
+  height: 1.12em;
+}
+
+.stars .skill-star__empty {
+  fill: #f8fafc;
+  stroke: #cbd5e1;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.stars .skill-star__fill {
+  fill: var(--gold);
+  stroke: #b45309;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.stars .skill-star__fill--half {
+  clip-path: inset(0 50% 0 0);
 }
 
 /* ---------- Match detail ---------- */

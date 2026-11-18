@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { isApiError } from '@yunhefc/api-client';
 import type { PlayerStats, TeamStats } from '@yunhefc/shared';
-import { positionText, skillAriaLabel, skillStarText } from '@yunhefc/shared';
+import { positionText } from '@yunhefc/shared';
 import { Button, Empty, Loading } from 'vant';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
+import SkillStars from '../components/SkillStars.vue';
 import {
   avatarInitial,
   avatarSrc,
@@ -186,8 +187,8 @@ onMounted(() => {
                   <span>{{ player.region || '—' }}</span>
                 </div>
 
-                <div class="player-card__stars" :aria-label="skillAriaLabel(player.skill)">
-                  {{ skillStarText(player.skill) }}
+                <div class="player-card__stars">
+                  <SkillStars :skill="player.skill" />
                 </div>
 
                 <div class="player-card__stats small">

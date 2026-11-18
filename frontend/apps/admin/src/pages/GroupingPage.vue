@@ -735,17 +735,17 @@ function retryGrouping(): void {
 
         <div class="summary-grid">
           <div class="summary-card">
-            <span>A 队总分</span>
+            <span>{{ groupingTeamName(selectedMatch, 'A') }}</span>
             <b>{{ teamTotal('A') }}</b>
             <small>{{ draftTeams.A.length }} 人</small>
           </div>
           <div class="summary-card">
-            <span>B 队总分</span>
+            <span>{{ groupingTeamName(selectedMatch, 'B') }}</span>
             <b>{{ teamTotal('B') }}</b>
             <small>{{ draftTeams.B.length }} 人</small>
           </div>
           <div class="summary-card">
-            <span>总分差</span>
+            <span>分差</span>
             <b>{{ teamDiff }}</b>
             <small>目标：尽量接近 0</small>
           </div>

@@ -409,7 +409,7 @@ test('B 端：B06 生成分组并展示 A/B', async ({ page }) => {
 
   await expect(page.locator('.group-admin-column')).toHaveCount(2);
   await expect(page.getByText('测试门将01').first()).toBeVisible();
-  await expect(page.getByText('总分差')).toBeVisible();
+  await expect(page.getByText('分差')).toBeVisible();
 
   await page.getByRole('button', { name: /生成分组|重新生成/ }).click();
   await page
@@ -496,7 +496,7 @@ test('B 端：B06 调整 → 保存 → 清除 → 重新生成', async ({ page 
 
   await page.locator('.toolbar').getByRole('button', { name: '生成分组' }).click();
   await expect(page.locator('.group-admin-column')).toHaveCount(2);
-  await expect(page.getByText('总分差')).toBeVisible();
+  await expect(page.getByText('分差')).toBeVisible();
 
   expect(errors).toEqual([]);
 });

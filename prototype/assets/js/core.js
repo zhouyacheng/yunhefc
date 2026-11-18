@@ -476,7 +476,9 @@
     }
     if (patch.skill !== undefined && hasPermission('player:edit:any')) {
       const skill = Number(patch.skill);
-      if (!Number.isInteger(skill) || skill < 1 || skill > 5) return { ok: false, message: '星级必须为 1–5' };
+      if (!Number.isFinite(skill) || skill < 1 || skill > 5 || Number(skill.toFixed(2)) !== skill) {
+        return { ok: false, message: '星级必须为 1.00–5.00，最多两位小数' };
+      }
       if (skill !== player.skill) { before.skill = player.skill; player.skill = skill; after.skill = skill; }
     }
     player.updatedAt = new Date().toISOString();
@@ -831,8 +833,10 @@
   }
 
   function stars(skill) {
-    const value = Math.max(0, Math.min(5, Number(skill) || 0));
-    return `<span class="stars">${'★'.repeat(value)}${'☆'.repeat(5 - value)}</span>`;
+    const hundredths = Math.max(0, Math.min(500, Math.round((Number(skill) || 0) * 100)));
+    const full = Math.floor(hundredths / 100);
+    const half = hundredths % 100 >= 50;
+    return `<span class="stars">${'★'.repeat(full)}${half ? '½' : ''}${'☆'.repeat(5 - full - (half ? 1 : 0))}</span>`;
   }
 
   function maskPhone(phone) {

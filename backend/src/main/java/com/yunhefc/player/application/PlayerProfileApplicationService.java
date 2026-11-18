@@ -14,6 +14,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
 /**
@@ -33,7 +34,7 @@ public class PlayerProfileApplicationService {
         player.setType(type);
         player.setPosition(position);
         player.setSecondaryPositions("[]");
-        player.setSkill(3);
+        player.setSkill(new BigDecimal("3.00"));
         playerMapper.insert(player);
         return PlayerReadAdapter.toSnapshot(player);
     }

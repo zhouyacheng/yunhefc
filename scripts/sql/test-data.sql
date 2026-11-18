@@ -61,17 +61,17 @@ INSERT IGNORE INTO player
   (id, team_id, user_id, name, jersey, type, position, secondary_positions, region, avatar_url, skill)
 VALUES
   (1001, @team_id, 1001, '测试门将01', 21, 1, 0, '[]', '上海', NULL, 4),
-  (1002, @team_id, 1002, '测试后卫01', 22, 1, 1, '[2]', '上海', NULL, 4),
+  (1002, @team_id, 1002, '测试后卫01', 22, 1, 1, '[2]', '上海', NULL, 4.25),
   (1003, @team_id, 1003, '测试后卫02', 23, 1, 1, '[]', '苏州', NULL, 3),
   (1004, @team_id, 1004, '测试后卫03', 24, 1, 1, '[]', '上海', NULL, 3),
-  (1005, @team_id, 1005, '测试后卫04', 25, 1, 1, '[]', '南通', NULL, 4),
+  (1005, @team_id, 1005, '测试后卫04', 25, 1, 1, '[]', '南通', NULL, 4.50),
   (1006, @team_id, 1006, '测试中场01', 26, 1, 2, '[3]', '上海', NULL, 4),
   (1007, @team_id, 1007, '测试中场02', 27, 1, 2, '[]', '上海', NULL, 3),
   (1008, @team_id, 1008, '测试中场03', 28, 1, 2, '[1]', '杭州', NULL, 4),
   (1009, @team_id, 1009, '测试中场04', 29, 1, 2, '[]', '上海', NULL, 3),
   (1010, @team_id, 1010, '测试中场05', 30, 1, 2, '[]', '嘉兴', NULL, 3),
   (1011, @team_id, 1011, '测试前锋01', 31, 1, 3, '[2]', '上海', NULL, 5),
-  (1012, @team_id, 1012, '测试前锋02', 32, 1, 3, '[]', '昆山', NULL, 4),
+  (1012, @team_id, 1012, '测试前锋02', 32, 1, 3, '[]', '昆山', NULL, 4.99),
   (1013, @team_id, 1013, '测试前锋03', 33, 1, 3, '[]', '上海', NULL, 3),
   (1014, @team_id, 1014, '测试前锋04', 34, 1, 3, '[]', '宁波', NULL, 3),
   (1015, @team_id, 1015, '测试中场06', 35, 1, 2, '[1]', '上海', NULL, 2),
@@ -350,7 +350,7 @@ INSERT INTO player
 VALUES (1021, @team_id, 1021, '测试待审核01', NULL, 0, 2, '[]', '上海', NULL, 3)
 ON DUPLICATE KEY UPDATE
   name = VALUES(name), jersey = VALUES(jersey), type = 0, position = 2,
-  secondary_positions = '[]', region = '上海', avatar_url = NULL, skill = 3, is_deleted = 0;
+  secondary_positions = '[]', region = '上海', avatar_url = NULL, skill = 3.00, is_deleted = 0;
 
 DELETE FROM user_role WHERE user_id = 1021 AND role_id <> @guest_role_id;
 INSERT INTO user_role (user_id, role_id, is_deleted)

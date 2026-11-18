@@ -3,6 +3,8 @@ package com.yunhefc.player.dto;
 import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -11,12 +13,15 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 public final class PlayerDtos {
+
+    static final String SKILL_MESSAGE = "星级必须为 1.00–5.00，最多两位小数";
 
     private PlayerDtos() {
     }
@@ -28,7 +33,7 @@ public final class PlayerDtos {
             Boolean admin,
             Integer status,
             Integer position,
-            Integer skill,
+            Integer skillLevel,
             String sort,
             long page,
             long pageSize) {
@@ -44,7 +49,7 @@ public final class PlayerDtos {
             List<String> secondaryPositionLabels,
             String region,
             String avatarUrl,
-            Integer skill,
+            BigDecimal skill,
             Integer type,
             String typeLabel,
             Long userId,
@@ -76,7 +81,9 @@ public final class PlayerDtos {
             @Size(max = 64) String region,
             @Min(0) @Max(3) Integer position,
             @Size(max = 3) List<@NotNull @Min(0) @Max(3) Integer> secondaryPositions,
-            @Min(1) @Max(5) Integer skill,
+            @DecimalMin(value = "1.00", message = SKILL_MESSAGE)
+            @DecimalMax(value = "5.00", message = SKILL_MESSAGE)
+            BigDecimal skill,
             @Size(max = 512) String avatarUrl) {
     }
 
@@ -92,7 +99,7 @@ public final class PlayerDtos {
             List<String> secondaryPositionLabels,
             String region,
             String avatarUrl,
-            Integer skill) {
+            BigDecimal skill) {
 
         public static PlayerView from(PlayerAdminView view) {
             return new PlayerView(

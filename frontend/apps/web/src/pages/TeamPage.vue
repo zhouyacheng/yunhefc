@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isApiError } from '@yunhefc/api-client';
 import type { PlayerStats, TeamStats } from '@yunhefc/shared';
-import { positionText } from '@yunhefc/shared';
+import { positionText, skillAriaLabel, skillStarText } from '@yunhefc/shared';
 import { Button, Empty, Loading } from 'vant';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -109,11 +109,6 @@ watch(
   { immediate: true },
 );
 
-function skillStars(skill: number): string {
-  const filled = Math.max(0, Math.min(5, skill));
-  return `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`;
-}
-
 function onAvatarError(playerId: number): void {
   if (!failedAvatars.value.includes(playerId)) {
     failedAvatars.value = [...failedAvatars.value, playerId];
@@ -191,8 +186,8 @@ onMounted(() => {
                   <span>{{ player.region || '—' }}</span>
                 </div>
 
-                <div class="player-card__stars" :aria-label="`星级 ${player.skill}/5`">
-                  {{ skillStars(player.skill) }}
+                <div class="player-card__stars" :aria-label="skillAriaLabel(player.skill)">
+                  {{ skillStarText(player.skill) }}
                 </div>
 
                 <div class="player-card__stats small">

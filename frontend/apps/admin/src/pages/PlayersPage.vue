@@ -8,8 +8,10 @@ import {
   PLAYER_STATUS_TEXT,
   PLAYER_TYPE_TEXT,
   POSITION_TEXT,
+  SKILL_LEVELS,
   avatarPlaceholder,
   compressAvatar,
+  formatSkill,
   isDisplayableAvatarUrl,
   phoneError,
   playerApprovable,
@@ -37,7 +39,7 @@ interface PlayerFilters {
   admin: string | undefined;
   status: string | undefined;
   position: string | undefined;
-  skill: string | undefined;
+  skillLevel: string | undefined;
 }
 
 interface AvatarUploadView {
@@ -56,7 +58,6 @@ interface PlayerProfilePayload {
 }
 
 const POSITION_CODES = [0, 1, 2, 3];
-const SKILL_CODES = [1, 2, 3, 4, 5];
 const TYPE_OPTIONS = Object.entries(PLAYER_TYPE_TEXT).map(([value, label]) => ({
   value,
   label,
@@ -136,7 +137,7 @@ function emptyFilters(): PlayerFilters {
     admin: undefined,
     status: undefined,
     position: undefined,
-    skill: undefined,
+    skillLevel: undefined,
   };
 }
 
@@ -176,8 +177,8 @@ async function load(): Promise<void> {
     if (filters.position !== undefined && filters.position !== '') {
       query.position = Number(filters.position);
     }
-    if (filters.skill !== undefined && filters.skill !== '') {
-      query.skill = Number(filters.skill);
+    if (filters.skillLevel !== undefined && filters.skillLevel !== '') {
+      query.skillLevel = Number(filters.skillLevel);
     }
     const result = await api.get<Page<PlayerAdmin>>('/players', { query });
     if (seq !== requestSeq) {
@@ -731,12 +732,12 @@ onUnmounted(() => {
         </el-select>
       </el-form-item>
       <el-form-item label="星级">
-        <el-select v-model="filters.skill" class="filter-select" placeholder="全部" clearable>
+        <el-select v-model="filters.skillLevel" class="filter-select" placeholder="全部" clearable>
           <el-option
-            v-for="code in SKILL_CODES"
-            :key="code"
-            :label="`${code} 星`"
-            :value="String(code)"
+            v-for="level in SKILL_LEVELS"
+            :key="level.code"
+            :label="level.label"
+            :value="String(level.code)"
           />
         </el-select>
       </el-form-item>
@@ -792,7 +793,7 @@ onUnmounted(() => {
         <template #default="{ row }">{{ positionText(row.position) }}</template>
       </el-table-column>
       <el-table-column prop="skill" label="星级" width="92" sortable="custom">
-        <template #default="{ row }">{{ row.skill }}★</template>
+        <template #default="{ row }">{{ formatSkill(row.skill) }}★</template>
       </el-table-column>
       <el-table-column label="微信" width="92">
         <template #default="{ row }">{{ row.wechatBound ? '已绑定' : '未绑定' }}</template>
@@ -962,14 +963,16 @@ onUnmounted(() => {
           <span class="muted small">最多 3 个，不含主位置</span>
         </el-form-item>
         <el-form-item label="星级">
-          <el-select v-model="editForm.skill">
-            <el-option
-              v-for="code in SKILL_CODES"
-              :key="code"
-              :label="`${code} 星`"
-              :value="code"
-            />
-          </el-select>
+          <el-input-number
+            v-model="editForm.skill"
+            :min="1"
+            :max="5"
+            :precision="2"
+            :step="0.01"
+            :value-on-clear="3"
+            controls-position="right"
+          />
+          <span class="muted small">1.00–5.00，最多两位小数</span>
         </el-form-item>
       </el-form>
       <p v-if="editDialog.error" class="dialog-error">{{ editDialog.error }}</p>

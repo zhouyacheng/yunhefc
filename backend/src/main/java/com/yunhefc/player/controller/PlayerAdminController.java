@@ -33,12 +33,12 @@ public class PlayerAdminController {
             @RequestParam(required = false) Boolean admin,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) Integer position,
-            @RequestParam(required = false) Integer skill,
+            @RequestParam(required = false) Integer skillLevel,
             @RequestParam(required = false) String sort,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         PlayerAdminQuery query = new PlayerAdminQuery(
-                name, region, type, admin, status, position, skill, sort, page, pageSize);
+                name, region, type, admin, status, position, skillLevel, sort, page, pageSize);
         return ApiResponse.ok(playerAdminService.list(query));
     }
 

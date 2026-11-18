@@ -34,7 +34,7 @@ class TeamPageIT extends IntegrationTestSupport {
 
     @Test
     void teamPlayersGroupsByPositionAndSortsByAppearancesThenJersey() throws Exception {
-        Long forwardHigh = formalPlayer("13900000601", "M02球队前锋甲", 7, 3, 8);
+        Long forwardHigh = formalPlayer("13900000601", "M02球队前锋甲", 7, 3, 4.75);
         insertStats(forwardHigh, season(), 8, 4, 2);
         Long forwardLowJersey = formalPlayer("13900000602", "M02球队前锋乙", 9, 3, 4);
         insertStats(forwardLowJersey, season(), 5, 1, 0);
@@ -71,6 +71,7 @@ class TeamPageIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[0].secondaryPositions[0]").value(1))
                 .andExpect(jsonPath("$.data.items[0].secondaryPositionLabels[0]").value("DEFENDER"))
                 .andExpect(jsonPath("$.data.items[0].avatarUrl").value("mock://oss/" + forwardAvatarKey))
+                .andExpect(jsonPath("$.data.items[0].skill").value(4.75))
                 .andExpect(jsonPath("$.data.items[1].name").value("M02球队前锋乙"))
                 .andExpect(jsonPath("$.data.items[2].name").value("M02球队前锋丙"))
                 .andExpect(jsonPath("$.data.items[3].name").value("M02球队中场"))
@@ -253,11 +254,12 @@ class TeamPageIT extends IntegrationTestSupport {
         return userId;
     }
 
-    private Long formalPlayer(String phone, String name, Integer jersey, int position, int skill) {
+    private Long formalPlayer(String phone, String name, Integer jersey, int position, double skill) {
         return insertPlayer(insertUser(phone, 1), name, jersey, 1, position, skill);
     }
 
-    private Long insertPlayer(Long userId, String name, Integer jersey, int type, int position, int skill) {
+    private Long insertPlayer(Long userId, String name, Integer jersey, int type, int position,
+                              double skill) {
         String secondary = switch (position) {
             case 0 -> "[1,2]";
             case 1 -> "[2,3]";

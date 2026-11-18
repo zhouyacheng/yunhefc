@@ -1369,8 +1369,8 @@
         ${players.map((player) => {
           const score = scoreOf(player.id);
           const detail = score
-            ? `${Y.positionShort(player.position)} · 手动 ${score.manual ?? '—'}★ · 自动 ${score.auto ? score.auto.toFixed(1) : '—'} · 综合 ${Number(score.final).toFixed(2)}${score.manualOnly ? '（以手动分为准）' : ''}`
-            : `${Y.positionShort(player.position)} · ${player.skill}★`;
+            ? `${Y.positionShort(player.position)} · 手动 ${score.manual == null ? '—' : Number(score.manual).toFixed(2)}★ · 自动 ${score.auto ? score.auto.toFixed(2) : '—'} · 综合 ${Number(score.final).toFixed(2)}${score.manualOnly ? '（以手动分为准）' : ''}`
+            : `${Y.positionShort(player.position)} · ${Number(player.skill).toFixed(2)}★`;
           return `<div class="group-player" draggable="true" data-group-player="${player.id}" data-from="${team}">${Y.avatar(player, 'xs')}<span>${esc(player.name)}</span><small>${detail}</small></div>`;
         }).join('') || '<div class="empty-inline">拖球员到这里</div>'}
       </div>`;
@@ -1393,7 +1393,7 @@
         <label class="filter-field"><span>管理员</span><select class="input input-sm" data-player-filter="admin"><option value="ALL">全部</option><option value="YES"${selected('admin', 'YES')}>是</option><option value="NO"${selected('admin', 'NO')}>否</option></select></label>
         <label class="filter-field"><span>状态</span><select class="input input-sm" data-player-filter="status"><option value="ALL">全部</option><option value="ACTIVE"${selected('status', 'ACTIVE')}>正常</option><option value="PENDING"${selected('status', 'PENDING')}>待审核</option><option value="DISABLED"${selected('status', 'DISABLED')}>已注销</option></select></label>
         <label class="filter-field"><span>位置</span><select class="input input-sm" data-player-filter="position"><option value="ALL">全部</option>${Y.GROUP_POSITIONS.map((code) => `<option value="${code}"${selected('position', code)}>${Y.positionLabel(code)}</option>`).join('')}</select></label>
-        <label class="filter-field"><span>星级</span><select class="input input-sm" data-player-filter="skill"><option value="ALL">全部</option>${[1, 2, 3, 4, 5].map((value) => `<option value="${value}"${selected('skill', String(value))}>${value} 星</option>`).join('')}</select></label>
+        <label class="filter-field"><span>星级</span><select class="input input-sm" data-player-filter="skill"><option value="ALL">全部</option>${[['1', '1 星'], ['2', '1 星半'], ['3', '2 星'], ['4', '2 星半'], ['5', '3 星'], ['6', '3 星半'], ['7', '4 星'], ['8', '4 星半'], ['9', '5 星']].map(([value, label]) => `<option value="${value}"${selected('skill', value)}>${label}</option>`).join('')}</select></label>
         <label class="filter-field"><span>排序</span><select class="input input-sm" data-player-sort>
           ${[['default', '默认（号码 ↑）'], ['jersey:asc', '号码 ↑'], ['jersey:desc', '号码 ↓'], ['skill:desc', '星级 ↓'], ['skill:asc', '星级 ↑'], ['position:asc', '位置 ↑'], ['position:desc', '位置 ↓'], ['region:asc', '地区 ↑'], ['region:desc', '地区 ↓']].map(([value, label]) => `<option value="${value}"${playerSort === value ? ' selected' : ''}>${label}</option>`).join('')}
         </select></label>
@@ -1411,7 +1411,11 @@
           if (playerFilters.admin !== 'ALL' && (Y.rolesOf(player).includes('ADMIN') ? 'YES' : 'NO') !== playerFilters.admin) return false;
           if (playerFilters.status !== 'ALL' && player.status !== playerFilters.status) return false;
           if (playerFilters.position !== 'ALL' && player.position !== playerFilters.position) return false;
-          if (playerFilters.skill !== 'ALL' && Number(player.skill) !== Number(playerFilters.skill)) return false;
+          if (playerFilters.skill !== 'ALL') {
+            const level = Number(playerFilters.skill);
+            const value = Number(player.skill);
+            if (level === 9 ? value !== 5 : !(value >= 1 + 0.5 * (level - 1) && value < 1 + 0.5 * level)) return false;
+          }
           return true;
         });
         const [sortKey, sortDir] = playerSort.split(':');
@@ -1436,7 +1440,7 @@
             <td>${Y.rolesOf(player).includes('ADMIN') ? '是' : ''}</td>
             <td><span class="badge ${player.status === 'ACTIVE' ? 'badge-open' : player.status === 'PENDING' ? 'badge-postponed' : 'badge-cancelled'}">${player.status === 'ACTIVE' ? '正常' : player.status === 'PENDING' ? '待审核' : '已注销'}</span></td>
             <td>${Y.positionLabel(player.position)}</td>
-            <td>${Y.stars(player.skill)}</td>
+            <td>${Y.stars(player.skill)}<span class="muted small"> ${Number(player.skill).toFixed(2)}★</span></td>
             <td>${player.wechat ? '已绑定' : '未绑定'}</td>
             <td><div class="table-actions">
               ${canEdit ? `<button class="btn btn-ghost btn-sm" data-player-action="edit" data-player-id="${player.id}">编辑</button>` : ''}
@@ -1545,7 +1549,7 @@
         <label>号码<input class="input" type="number" name="jersey" min="0" value="${player.jersey}" required></label>
         <label>地区<input class="input" name="region" value="${esc(player.region || '')}"></label>
         <label>主位置<select class="input" name="position">${positions.map(([value, label]) => `<option value="${value}"${player.position === value ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
-        <label>星级<select class="input" name="skill">${[1, 2, 3, 4, 5].map((value) => `<option value="${value}"${Number(player.skill) === value ? ' selected' : ''}>${value} 星</option>`).join('')}</select></label>
+        <label>星级<input class="input" type="number" name="skill" min="1" max="5" step="0.01" value="${Number(player.skill).toFixed(2)}"></label>
         <div class="full"><span class="muted small">副位置</span><div class="chip-row">${positions.map(([value, label]) => `<label class="checkline"><input type="checkbox" name="secondary" value="${value}"${secondary.includes(value) ? ' checked' : ''}${player.position === value ? ' disabled' : ''}> ${label}</label>`).join('')}</div></div>
       </form>`;
       const modal = Y.openModal('编辑球员', body, '<button class="btn btn-primary" id="player-submit">保存</button><button class="btn btn-ghost" data-close-modal>取消</button>');

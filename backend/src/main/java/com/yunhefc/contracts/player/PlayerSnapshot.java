@@ -1,5 +1,7 @@
 package com.yunhefc.contracts.player;
 
+import java.math.BigDecimal;
+
 /**
  * 跨模块读取的球员档案快照。
  */
@@ -11,7 +13,7 @@ public record PlayerSnapshot(
         Integer jersey,
         Integer type,
         Integer position,
-        Integer skill,
+        BigDecimal skill,
         // 私有 OSS 原始对象键；读响应由调用方现签 URL。
         String avatarUrl) {
 }

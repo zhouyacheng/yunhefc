@@ -28,6 +28,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -37,6 +38,11 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class PlayerAdminApplicationService {
+
+    private static final BigDecimal MIN_SKILL = new BigDecimal("1.00");
+    private static final BigDecimal MAX_SKILL = new BigDecimal("5.00");
+    private static final BigDecimal HALF_STAR = new BigDecimal("0.50");
+    private static final int MAX_SKILL_LEVEL = 9;
 
     private final PlayerMapper playerMapper;
     private final UserAccountReadPort userAccountReadPort;
@@ -55,7 +61,7 @@ public class PlayerAdminApplicationService {
         PlayerType type = playerType(query.type());
         Position position = position(query.position());
         validateStatus(query.status());
-        validateSkill(query.skill());
+        validateSkillLevel(query.skillLevel());
 
         Set<Long> userIds = null;
         if (query.status() != null || query.admin() != null) {
@@ -68,8 +74,8 @@ public class PlayerAdminApplicationService {
                 .like(region != null, Player::getRegion, region)
                 .eq(type != null, Player::getType, type)
                 .eq(position != null, Player::getPosition, position)
-                .eq(query.skill() != null, Player::getSkill, query.skill())
                 .in(userIds != null, Player::getUserId, userIds);
+        applySkillLevel(wrapper, query.skillLevel());
         applySort(wrapper, query.sort());
         if (userIds != null && userIds.isEmpty()) {
             return PageResponse.of(List.of(), 0, page.page(), page.pageSize());
@@ -281,9 +287,35 @@ public class PlayerAdminApplicationService {
         }
     }
 
-    private void validateSkill(Integer skill) {
-        if (skill != null && (skill < 1 || skill > 5)) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "星级必须为 1–5");
+    private void validateSkillLevel(Integer skillLevel) {
+        if (skillLevel != null && (skillLevel < 1 || skillLevel > MAX_SKILL_LEVEL)) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "星级档位必须为 1–9");
+        }
+    }
+
+    /**
+     * 半星档筛选：第 1–8 档匹配 [下界, 下界 + 0.50)，第 9 档只匹配 5.00。
+     */
+    private void applySkillLevel(LambdaQueryWrapper<Player> wrapper, Integer skillLevel) {
+        if (skillLevel == null) {
+            return;
+        }
+        if (skillLevel == MAX_SKILL_LEVEL) {
+            wrapper.ge(Player::getSkill, MAX_SKILL).le(Player::getSkill, MAX_SKILL);
+            return;
+        }
+        BigDecimal lower = MIN_SKILL.add(HALF_STAR.multiply(BigDecimal.valueOf(skillLevel - 1L)));
+        wrapper.ge(Player::getSkill, lower).lt(Player::getSkill, lower.add(HALF_STAR));
+    }
+
+    private void validateSkill(BigDecimal skill) {
+        if (skill == null) {
+            return;
+        }
+        if (skill.compareTo(MIN_SKILL) < 0 || skill.compareTo(MAX_SKILL) > 0
+                || skill.stripTrailingZeros().scale() > 2) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                    "星级必须为 1.00–5.00，最多两位小数");
         }
     }
 

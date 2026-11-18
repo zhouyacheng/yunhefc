@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isApiError } from '@yunhefc/api-client';
 import type { Player } from '@yunhefc/shared';
-import { positionText } from '@yunhefc/shared';
+import { positionText, skillAriaLabel, skillStarText } from '@yunhefc/shared';
 import { Button, Tag, showConfirmDialog } from 'vant';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
@@ -41,11 +41,6 @@ const roleText = computed(() => {
   return roles.length ? roles.map((role) => ROLE_TEXT[role] ?? role).join(' / ') : '—';
 });
 const avatarSrc = computed(() => session.player?.avatarUrl ?? null);
-
-function skillStars(skill: number): string {
-  const filled = Math.max(0, Math.min(5, skill));
-  return `${'★'.repeat(filled)}${'☆'.repeat(5 - filled)}`;
-}
 
 function openEdit(): void {
   if (pending.value) {
@@ -132,8 +127,8 @@ onMounted(() => {
             <div class="profile-identity__meta">
               <span>号码 {{ session.player.jersey ?? '—' }}</span>
               <span>位置 {{ positionText(session.player.position) }}</span>
-              <span :aria-label="`星级 ${session.player.skill}/5`">
-                {{ skillStars(session.player.skill) }}
+              <span :aria-label="skillAriaLabel(session.player.skill)">
+                {{ skillStarText(session.player.skill) }}
               </span>
             </div>
           </div>

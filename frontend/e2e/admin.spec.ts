@@ -1071,6 +1071,12 @@ test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
 
   await dialog.getByPlaceholder('请输入姓名').fill('测试待审核01改');
   await dialog.getByPlaceholder('如：上海').fill('E2E上海');
+  const skillInput = dialog
+    .locator('.el-form-item')
+    .filter({ hasText: '星级' })
+    .locator('.el-input-number input');
+  await skillInput.fill('4.25');
+  await skillInput.blur();
 
   // 本地校验失败路径不需要真实 OSS。
   await dialog.locator('input[type=file]').setInputFiles({
@@ -1101,6 +1107,7 @@ test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
   const body = (await patched).postDataJSON() as Record<string, unknown>;
   expect(body.name).toBe('测试待审核01改');
   expect(body.region).toBe('E2E上海');
+  expect(body.skill).toBe(4.25);
   // 1021 无号码；未填写时不提交 jersey，后端保留 NULL。
   expect(body.jersey).toBeUndefined();
   expect(String(body.avatarUrl)).toMatch(/^avatar\/1021\/[0-9A-HJKMNP-TV-Z]{26}\.jpg$/);
@@ -1108,9 +1115,36 @@ test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
 
   await page.getByPlaceholder('搜索球员姓名').fill('测试待审核01改');
   await page.getByRole('button', { name: '搜索' }).click();
+  await expect(page.locator('.el-table__row').filter({ hasText: '测试待审核01改' })).toContainText(
+    '4.25★',
+  );
   const editedRow = page.locator('.el-table__row').filter({ hasText: '测试待审核01改' });
   await expect(editedRow).toBeVisible();
   await expect(editedRow).toContainText('E2E上海');
+
+  // 半星档筛选：4 星命中 4.00–4.49，4 星半命中 4.50–4.99；5 星不得混入。
+  await page.getByPlaceholder('搜索球员姓名').fill('');
+  const skillFilter = page
+    .locator('.el-form-item')
+    .filter({ hasText: '星级' })
+    .locator('.el-select');
+  await skillFilter.click();
+  await page
+    .locator('.el-select-dropdown__item:visible')
+    .filter({ hasText: /^4 星$/ })
+    .click();
+  await page.getByRole('button', { name: '搜索' }).click();
+  await expect(page.locator('.el-table__row').filter({ hasText: '测试待审核01改' })).toBeVisible();
+  await expect(page.locator('.el-table__row').filter({ hasText: '测试前锋01' })).toHaveCount(0);
+
+  await skillFilter.click();
+  await page
+    .locator('.el-select-dropdown__item:visible')
+    .filter({ hasText: /^4 星半$/ })
+    .click();
+  await page.getByRole('button', { name: '搜索' }).click();
+  await expect(page.locator('.el-table__row').filter({ hasText: '测试后卫04' })).toBeVisible();
+  await expect(page.locator('.el-table__row').filter({ hasText: '测试待审核01改' })).toHaveCount(0);
 
   // 同一会话重载 /b/me 验证只读权限，避免额外登录触发 AUTH-15 限流。
   await page.route('**/api/v1/b/me', async (route) => {

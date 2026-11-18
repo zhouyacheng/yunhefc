@@ -1,5 +1,6 @@
 package com.yunhefc.contracts.player;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -13,6 +14,6 @@ public record PlayerPublicSnapshot(
         List<Integer> secondaryPositions,
         String region,
         String avatarUrl,
-        Integer skill,
+        BigDecimal skill,
         Integer type) {
 }

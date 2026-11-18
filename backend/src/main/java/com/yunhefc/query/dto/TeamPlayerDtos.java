@@ -1,5 +1,6 @@
 package com.yunhefc.query.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public final class TeamPlayerDtos {
@@ -20,7 +21,7 @@ public final class TeamPlayerDtos {
             List<String> secondaryPositionLabels,
             String region,
             String avatarUrl,
-            Integer skill,
+            BigDecimal skill,
             Integer type,
             String typeLabel,
             int appearances) {

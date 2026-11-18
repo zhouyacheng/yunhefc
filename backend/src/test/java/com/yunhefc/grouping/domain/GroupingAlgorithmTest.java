@@ -129,7 +129,8 @@ class GroupingAlgorithmTest {
     }
 
     private static AssignedPlayer player(Long id, int position, String finalScore) {
-        GroupingCandidate candidate = new GroupingCandidate(id, "球员" + id, id.intValue(), position, 3);
+        GroupingCandidate candidate = new GroupingCandidate(id, "球员" + id, id.intValue(), position,
+                new BigDecimal("3.00"));
         GroupingScore score = new GroupingScore(id, BigDecimal.valueOf(3).setScale(1),
                 null, new BigDecimal(finalScore), true);
         return new AssignedPlayer(candidate, score);

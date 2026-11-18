@@ -47,6 +47,44 @@ export function playerStatusTone(status: number | null | undefined): PlayerStatu
   return 'info';
 }
 
+/** PLR-05 星级筛选档位：1–9 依次为 1 星、1 星半……5 星；max 为开区间上界，第 9 档闭区间 5.00。 */
+export const SKILL_LEVELS = [
+  { code: 1, label: '1 星', min: 1, max: 1.5 },
+  { code: 2, label: '1 星半', min: 1.5, max: 2 },
+  { code: 3, label: '2 星', min: 2, max: 2.5 },
+  { code: 4, label: '2 星半', min: 2.5, max: 3 },
+  { code: 5, label: '3 星', min: 3, max: 3.5 },
+  { code: 6, label: '3 星半', min: 3.5, max: 4 },
+  { code: 7, label: '4 星', min: 4, max: 4.5 },
+  { code: 8, label: '4 星半', min: 4.5, max: 5 },
+  { code: 9, label: '5 星', min: 5, max: 5 },
+] as const;
+
+export const MIN_SKILL = 1;
+export const MAX_SKILL = 5;
+
+/** 半星粒度展示：小数部分 <0.50 取整星，>=0.50 记半星。 */
+export function skillStarText(skill: number): string {
+  const value = Number(skill);
+  const hundredths = Number.isFinite(value)
+    ? Math.max(0, Math.min(500, Math.round(value * 100)))
+    : 0;
+  const full = Math.floor(hundredths / 100);
+  const half = hundredths % 100 >= 50;
+  const empty = MAX_SKILL - full - (half ? 1 : 0);
+  return `${'★'.repeat(full)}${half ? '½' : ''}${'☆'.repeat(empty)}`;
+}
+
+/** 原始星级保留两位小数，供列表与无障碍标签使用。 */
+export function formatSkill(skill: number): string {
+  const value = Number(skill);
+  return Number.isFinite(value) ? value.toFixed(2) : '0.00';
+}
+
+export function skillAriaLabel(skill: number): string {
+  return `星级 ${formatSkill(skill)}/5`;
+}
+
 /** PLR-05 sort 白名单；未知字段回退默认号码升序。 */
 export const PLAYER_SORTABLE_FIELDS = ['jersey', 'skill', 'position', 'region'] as const;
 
@@ -114,8 +152,13 @@ export function playerProfileError(input: PlayerProfileInput): string | null {
   if (input.secondaryPositions.includes(input.position)) {
     return '副位置不能包含主位置';
   }
-  if (!Number.isInteger(input.skill) || input.skill < 1 || input.skill > 5) {
-    return '星级必须为 1–5';
+  if (
+    !Number.isFinite(input.skill) ||
+    input.skill < MIN_SKILL ||
+    input.skill > MAX_SKILL ||
+    Number(input.skill.toFixed(2)) !== input.skill
+  ) {
+    return '星级必须为 1.00–5.00，最多两位小数';
   }
   return null;
 }

@@ -43,7 +43,9 @@
     const config = groupingConfig();
     const rows = players.map((player) => ({
       player,
-      manual: Number.isFinite(Number(player.skill)) ? Math.max(1, Math.min(5, Number(player.skill))) : null,
+      manual: Number.isFinite(Number(player.skill))
+        ? Math.floor(Math.max(1, Math.min(5, Number(player.skill))) * 2) / 2
+        : null,
       appearances: Math.max(0, Number(player.appearances) || 0),
       goals: Math.max(0, Number(player.goals) || 0),
       assists: Math.max(0, Number(player.assists) || 0)

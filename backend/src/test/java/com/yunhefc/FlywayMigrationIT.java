@@ -46,7 +46,7 @@ class FlywayMigrationIT {
 
     @Test
     void migratesEmptyDatabaseAndSeedsReferenceData() {
-        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(8);
+        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(9);
         assertThat(count("""
                 SELECT COUNT(*) FROM team
                 WHERE id = 1 AND ABS(TIMESTAMPDIFF(MINUTE, created_at, NOW())) <= 5
@@ -87,6 +87,19 @@ class FlywayMigrationIT {
                   AND table_name NOT LIKE 'QRTZ\\_%'
                   AND (column_comment IS NULL OR column_comment = '')
                 """)).isZero();
+
+        assertThat(count("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'player'
+                  AND column_name = 'skill' AND column_type = 'decimal(3,2)'
+                  AND is_nullable = 'NO' AND column_default = '3.00'
+                """)).isEqualTo(1);
+        assertThat(count("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'match_grouping_player'
+                  AND column_name = 'manual_score' AND column_type = 'decimal(3,2)'
+                  AND is_nullable = 'YES'
+                """)).isEqualTo(1);
 
         assertThat(count("SELECT COUNT(*) FROM team")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM app_role")).isEqualTo(3);

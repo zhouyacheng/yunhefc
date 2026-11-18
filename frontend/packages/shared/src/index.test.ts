@@ -50,7 +50,11 @@ import {
   SETTINGS_GROUPING_KEYS,
   SETTINGS_KEYS,
   SETTINGS_REGISTRATION_KEYS,
+  SKILL_LEVELS,
+  formatSkill,
   settingsErrors,
+  skillAriaLabel,
+  skillStarText,
   toSettingsPayload,
 } from './index';
 
@@ -275,8 +279,33 @@ describe('player management rules', () => {
     expect(playerProfileError({ ...profile, secondaryPositions: [1] })).toBe(
       '副位置不能包含主位置',
     );
-    expect(playerProfileError({ ...profile, skill: 0 })).toBe('星级必须为 1–5');
-    expect(playerProfileError({ ...profile, skill: 6 })).toBe('星级必须为 1–5');
+    expect(playerProfileError({ ...profile, skill: 4.25 })).toBeNull();
+    expect(playerProfileError({ ...profile, skill: 1 })).toBeNull();
+    expect(playerProfileError({ ...profile, skill: 5 })).toBeNull();
+    expect(playerProfileError({ ...profile, skill: 0.99 })).toBe(
+      '星级必须为 1.00–5.00，最多两位小数',
+    );
+    expect(playerProfileError({ ...profile, skill: 5.01 })).toBe(
+      '星级必须为 1.00–5.00，最多两位小数',
+    );
+    expect(playerProfileError({ ...profile, skill: 4.256 })).toBe(
+      '星级必须为 1.00–5.00，最多两位小数',
+    );
+  });
+
+  it('renders skill with half-star granularity', () => {
+    expect(SKILL_LEVELS).toHaveLength(9);
+    expect(SKILL_LEVELS[0]).toEqual({ code: 1, label: '1 星', min: 1, max: 1.5 });
+    expect(SKILL_LEVELS[7]).toEqual({ code: 8, label: '4 星半', min: 4.5, max: 5 });
+    expect(SKILL_LEVELS[8]).toEqual({ code: 9, label: '5 星', min: 5, max: 5 });
+    expect(skillStarText(4.01)).toBe('★★★★☆');
+    expect(skillStarText(4.49)).toBe('★★★★☆');
+    expect(skillStarText(4.5)).toBe('★★★★½');
+    expect(skillStarText(4.99)).toBe('★★★★½');
+    expect(skillStarText(5)).toBe('★★★★★');
+    expect(formatSkill(4)).toBe('4.00');
+    expect(formatSkill(4.25)).toBe('4.25');
+    expect(skillAriaLabel(4.25)).toBe('星级 4.25/5');
   });
 
   it('limits lifecycle actions to their source states', () => {

@@ -266,9 +266,6 @@ onMounted(load);
       <el-table-column label="对象 ID" width="110">
         <template #default="{ row }">{{ row.targetId ?? '—' }}</template>
       </el-table-column>
-      <el-table-column label="IP" width="140">
-        <template #default="{ row }">{{ row.ipMasked ?? '—' }}</template>
-      </el-table-column>
     </el-table>
 
     <div class="table-footer">

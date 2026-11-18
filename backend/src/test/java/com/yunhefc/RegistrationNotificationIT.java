@@ -78,6 +78,11 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
         assertThat(JsonPath.<Number>read(payload, "$.userId").longValue()).isEqualTo(userId);
         assertThat(JsonPath.<Number>read(payload, "$.matchId").longValue()).isEqualTo(matchId);
         assertThat(JsonPath.<String>read(payload, "$.matchTitle")).isEqualTo("M04报名通知");
+        assertThat(JsonPath.<String>read(payload, "$.season")).isEqualTo("2099");
+        assertThat(JsonPath.<Number>read(payload, "$.seasonMatchNo").intValue())
+                .isEqualTo(seasonMatchNo(matchId));
+        assertThat(JsonPath.<Number>read(payload, "$.totalMatchNo").intValue())
+                .isEqualTo(totalMatchNo(matchId));
         assertThat(payload).doesNotContain("13900001302");
 
         consume(event, 51L);
@@ -89,10 +94,26 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
         assertThat(notification.get("ref_type")).isEqualTo("MATCH");
         assertThat(((Number) notification.get("ref_id")).longValue()).isEqualTo(matchId);
         assertThat(notification.get("title")).isEqualTo("报名成功");
-        assertThat((String) notification.get("body")).contains("M04报名通知");
+        assertThat(notification.get("body")).isEqualTo(
+                "你已成功报名「" + seasonMatchText(matchId) + "M04报名通知」，请留意赛前通知。");
         assertThat(notification.get("title") + (String) notification.get("body"))
                 .doesNotContain("13900001302");
         assertThat(notificationCount(userId, NotificationType.REGISTRATION_CONFIRMED)).isEqualTo(1);
+    }
+
+    @Test
+    void legacyPayloadWithoutSeasonFieldsFallsBackToPlainBody() throws Exception {
+        Long userId = insertUser("13900001309", 1, roleId("PLAYER"));
+        OutboxMessage message = new OutboxMessage(
+                UUID.randomUUID().toString(), 1L, "MATCH", 424242L,
+                EventTypes.REGISTRATION_CONFIRMED,
+                "{\"userId\":" + userId + ",\"matchId\":424242,\"matchTitle\":\"旧载荷比赛\"}");
+
+        notificationEventConsumer.apply(objectMapper.writeValueAsString(message),
+                NOTIFICATION_TOPIC, 0, 91L);
+
+        assertThat(latestNotification(userId).get("body"))
+                .isEqualTo("你已成功报名「旧载荷比赛」，请留意赛前通知。");
     }
 
     @Test
@@ -211,7 +232,8 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
         assertThat(notification.get("ref_type")).isEqualTo("MATCH");
         assertThat(((Number) notification.get("ref_id")).longValue()).isEqualTo(matchId);
         assertThat(notification.get("title")).isEqualTo("候补递补成功");
-        assertThat((String) notification.get("body")).contains(matchTitle(matchId));
+        assertThat(notification.get("body")).isEqualTo("你已递补为「" + seasonMatchText(matchId)
+                + matchTitle(matchId) + "」的正式报名，请留意赛前通知。");
         assertThat(notification.get("title") + (String) notification.get("body"))
                 .doesNotContain(confirmedPhone, earlierPhone, laterPhone);
 
@@ -267,6 +289,20 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
 
     private String matchTitle(Long matchId) {
         return jdbc.queryForObject("SELECT title FROM team_match WHERE id = ?", String.class, matchId);
+    }
+
+    private int seasonMatchNo(Long matchId) {
+        return jdbc.queryForObject(
+                "SELECT season_match_no FROM team_match WHERE id = ?", Integer.class, matchId);
+    }
+
+    private int totalMatchNo(Long matchId) {
+        return jdbc.queryForObject(
+                "SELECT total_match_no FROM team_match WHERE id = ?", Integer.class, matchId);
+    }
+
+    private String seasonMatchText(Long matchId) {
+        return "2099赛季第" + seasonMatchNo(matchId) + "场（累计" + totalMatchNo(matchId) + "场） ";
     }
 
     private ResultActions signup(Cookie cookie, Long matchId) throws Exception {

@@ -125,6 +125,6 @@ class LineupRulesTest {
     private static MatchSnapshot match(int type, Integer ourSide, Integer status) {
         return new MatchSnapshot(1L, 1L, "测试比赛", null, null, null, null,
                 30, 4, 2, "测试场地", status, "橙队", "兰队", null,
-                "2026", type, ourSide, true);
+                "2026", type, ourSide, true, null, null);
     }
 }

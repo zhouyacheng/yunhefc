@@ -99,6 +99,19 @@ public class NotificationEventHandler {
         return START_AT_FORMAT.format(ShanghaiTime.parseLenient(String.valueOf(value)));
     }
 
+    /**
+     * 赛程场次前缀（末尾带空格），如“2026赛季第5场（累计5场） ”；旧载荷缺字段时省略，避免重放出残缺文案。
+     */
+    private static String seasonMatchText(Map<String, Object> payload) {
+        Object season = payload.get("season");
+        Object seasonMatchNo = payload.get("seasonMatchNo");
+        Object totalMatchNo = payload.get("totalMatchNo");
+        if (season == null || seasonMatchNo == null || totalMatchNo == null) {
+            return "";
+        }
+        return season + "赛季第" + seasonMatchNo + "场（累计" + totalMatchNo + "场） ";
+    }
+
     private Notification build(String eventType, Map<String, Object> payload) {
         Notification notification = new Notification();
         Long userId = longValue(payload.get("userId"));
@@ -107,14 +120,16 @@ public class NotificationEventHandler {
             case EventTypes.REGISTRATION_CONFIRMED -> {
                 notification.setType(NotificationType.REGISTRATION_CONFIRMED);
                 notification.setTitle("报名成功");
-                notification.setBody("你已成功报名「" + payload.get("matchTitle") + "」，请留意赛前通知。");
+                notification.setBody("你已成功报名「" + seasonMatchText(payload)
+                        + payload.get("matchTitle") + "」，请留意赛前通知。");
                 notification.setRefType("MATCH");
                 notification.setRefId(longValue(payload.get("matchId")));
             }
             case EventTypes.WAITLIST_PROMOTED -> {
                 notification.setType(NotificationType.WAITLIST_PROMOTED);
                 notification.setTitle("候补递补成功");
-                notification.setBody("你已递补为「" + payload.get("matchTitle") + "」的正式报名，请留意赛前通知。");
+                notification.setBody("你已递补为「" + seasonMatchText(payload)
+                        + payload.get("matchTitle") + "」的正式报名，请留意赛前通知。");
                 notification.setRefType("MATCH");
                 notification.setRefId(longValue(payload.get("matchId")));
             }

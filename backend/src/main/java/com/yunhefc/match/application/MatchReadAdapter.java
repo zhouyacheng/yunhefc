@@ -99,6 +99,8 @@ public class MatchReadAdapter implements MatchReadPort {
                 match.getSeason(),
                 match.getType().code(),
                 match.getOurSide() == null ? null : match.getOurSide().code(),
-                match.getIncludeGuests());
+                match.getIncludeGuests(),
+                match.getSeasonMatchNo(),
+                match.getTotalMatchNo());
     }
 }

@@ -1150,6 +1150,23 @@ test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
   await expect(page.locator('.el-table__row').filter({ hasText: '测试后卫04' })).toBeVisible();
   await expect(page.locator('.el-table__row').filter({ hasText: '测试待审核01改' })).toHaveCount(0);
 
+  // 类型、状态、管理员列头可排序，请求带对应 sort。
+  for (const [label, expected] of [
+    ['类型', 'type:asc'],
+    ['管理员', 'admin:asc'],
+    ['状态', 'status:asc'],
+  ] as const) {
+    const sorted = page.waitForRequest(
+      (request) =>
+        new URL(request.url()).pathname === '/api/v1/b/players' && request.method() === 'GET',
+    );
+    await page
+      .locator('.el-table__header th')
+      .filter({ hasText: label })
+      .click({ position: { x: 10, y: 14 } });
+    expect(new URL((await sorted).url()).searchParams.get('sort')).toBe(expected);
+  }
+
   // 同一会话重载 /b/me 验证只读权限，避免额外登录触发 AUTH-15 限流。
   await page.route('**/api/v1/b/me', async (route) => {
     const response = await route.fetch();

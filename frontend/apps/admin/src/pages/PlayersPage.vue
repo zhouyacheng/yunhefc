@@ -23,6 +23,7 @@ import {
   playerTypeText,
   positionText,
   skillAriaLabel,
+  skillLevelText,
   validateAvatarFile,
 } from '@yunhefc/shared';
 import type { TableInstance } from 'element-plus';
@@ -750,6 +751,7 @@ onUnmounted(() => {
 
     <el-table
       ref="tableRef"
+      class="players-table"
       v-loading="loading"
       :data="rows"
       empty-text="没有符合条件的球员"
@@ -773,17 +775,17 @@ onUnmounted(() => {
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="姓名" prop="name" min-width="120" />
+      <el-table-column label="姓名" prop="name" width="160" />
       <el-table-column prop="region" label="地区" width="110" sortable="custom">
         <template #default="{ row }">{{ row.region || '—' }}</template>
       </el-table-column>
-      <el-table-column label="类型" width="90">
+      <el-table-column prop="type" label="类型" width="90" sortable="custom">
         <template #default="{ row }">{{ playerTypeText(row.type) }}</template>
       </el-table-column>
-      <el-table-column label="管理员" width="90">
+      <el-table-column prop="admin" label="管理员" width="112" sortable="custom">
         <template #default="{ row }">{{ row.admin ? '是' : '' }}</template>
       </el-table-column>
-      <el-table-column label="状态" width="100">
+      <el-table-column prop="status" label="状态" width="100" sortable="custom">
         <template #default="{ row }">
           <el-tag :type="playerStatusTone(row.status)" effect="light">
             {{ playerStatusText(row.status) }}
@@ -975,7 +977,11 @@ onUnmounted(() => {
             :value-on-clear="3"
             controls-position="right"
           />
-          <span class="muted small">1.00–5.00，最多两位小数</span>
+          <span class="muted small skill-hint">1.00–5.00，最多两位小数。</span>
+          <span class="muted small skill-hint">
+            显示规则：小数部分 0.00–0.49 记为整星，0.50–0.99 记为半星；当前为
+            {{ skillLevelText(editForm.skill) }}。
+          </span>
         </el-form-item>
       </el-form>
       <p v-if="editDialog.error" class="dialog-error">{{ editDialog.error }}</p>
@@ -1061,6 +1067,14 @@ onUnmounted(() => {
 </template>
 
 <style scoped>
+.players-table :deep(.el-table__header .cell) {
+  white-space: nowrap;
+}
+
+.skill-hint {
+  width: 100%;
+  margin-top: 4px;
+}
 .page-head {
   margin-bottom: 16px;
 }

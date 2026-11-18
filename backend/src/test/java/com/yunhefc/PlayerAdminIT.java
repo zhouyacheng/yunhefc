@@ -190,6 +190,57 @@ class PlayerAdminIT extends IntegrationTestSupport {
     }
 
     @Test
+    void sortsByTypeStatusAndAdmin() throws Exception {
+        Cookie admin = adminLogin("13900000480");
+        Long playerRole = roleId("PLAYER");
+        Long guestRole = roleId("GUEST");
+        Long adminRole = roleId("ADMIN");
+
+        insertPlayer(insertUser("13900000481", 1, guestRole), "M02排序外挂", 751, 0, 2, 3, null);
+        insertPlayer(insertUser("13900000482", 0, playerRole), "M02排序待审", 752, 1, 2, 3, null);
+        insertPlayer(insertUser("13900000483", 1, playerRole), "M02排序正常", 753, 1, 2, 3, null);
+        insertPlayer(insertUser("13900000484", 2, playerRole), "M02排序注销", 754, 1, 2, 3, null);
+        insertPlayer(insertUser("13900000485", 1, adminRole), "M02排序管理员", 755, 1, 2, 3, null);
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "type:asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(5))
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序外挂"))
+                .andExpect(jsonPath("$.data.items[1].name").value("M02排序待审"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "type:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序待审"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "status:asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序待审"))
+                .andExpect(jsonPath("$.data.items[4].name").value("M02排序注销"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "status:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序注销"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "admin:desc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].name").value("M02排序管理员"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin)
+                        .param("name", "M02排序").param("sort", "admin:asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[4].name").value("M02排序管理员"));
+
+        mockMvc.perform(get("/api/v1/b/players").cookie(admin).param("sort", "admin:up"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
     void playerWithoutAccountReportsWechatUnbound() throws Exception {
         Cookie admin = adminLogin("13900000461");
         // 档案存在但账号行缺失：无 0 物理外键，接口按 userId 查不到账号即视为无账号

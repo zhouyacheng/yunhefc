@@ -29,6 +29,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -43,6 +44,8 @@ public class PlayerAdminApplicationService {
     private static final BigDecimal MAX_SKILL = new BigDecimal("5.00");
     private static final BigDecimal HALF_STAR = new BigDecimal("0.50");
     private static final int MAX_SKILL_LEVEL = 9;
+    private static final Set<String> SORT_FIELDS = Set.of(
+            "jersey", "skill", "position", "region", "type", "status", "admin");
 
     private final PlayerMapper playerMapper;
     private final UserAccountReadPort userAccountReadPort;
@@ -68,6 +71,9 @@ public class PlayerAdminApplicationService {
             userIds = userAccountReadPort.findUserIds(query.status(), query.admin());
         }
 
+        String sort = normalizeSort(query.sort());
+        boolean accountSort = isAccountSort(sort);
+
         LambdaQueryWrapper<Player> wrapper = new LambdaQueryWrapper<Player>()
                 .eq(Player::getTeamId, teamId)
                 .like(name != null, Player::getName, name)
@@ -76,9 +82,14 @@ public class PlayerAdminApplicationService {
                 .eq(position != null, Player::getPosition, position)
                 .in(userIds != null, Player::getUserId, userIds);
         applySkillLevel(wrapper, query.skillLevel());
-        applySort(wrapper, query.sort());
+        if (!accountSort) {
+            applyDbSort(wrapper, sort);
+        }
         if (userIds != null && userIds.isEmpty()) {
             return PageResponse.of(List.of(), 0, page.page(), page.pageSize());
+        }
+        if (accountSort) {
+            return listByAccountSort(wrapper, sort, page);
         }
 
         Page<Player> result = playerMapper.selectPage(new Page<>(page.page(), page.pageSize()), wrapper);
@@ -243,10 +254,79 @@ public class PlayerAdminApplicationService {
         }
     }
 
-    private void applySort(LambdaQueryWrapper<Player> wrapper, String sort) {
+    /**
+     * 状态与管理员不是 player 列：排序在应用层完成，避免为单队小数据量引入联表排序。
+     */
+    private PageResponse<PlayerAdminView> listByAccountSort(LambdaQueryWrapper<Player> wrapper,
+                                                            String sort, PageQuery page) {
+        List<Player> players = playerMapper.selectList(wrapper);
+        Map<Long, UserAccountSnapshot> accounts = userAccountReadPort.findByIds(
+                players.stream().map(Player::getUserId).toList());
+        List<Player> sorted = players.stream()
+                .sorted(accountComparator(sort, accounts))
+                .toList();
+        long total = sorted.size();
+        long offset = (page.page() - 1) * page.pageSize();
+        int from = (int) Math.min(offset, total);
+        int to = (int) Math.min(offset + page.pageSize(), total);
+        List<PlayerAdminView> items = sorted.subList(from, to).stream()
+                .map(player -> toView(player, accounts.get(player.getUserId())))
+                .toList();
+        return PageResponse.of(items, total, page.page(), page.pageSize());
+    }
+
+    private Comparator<Player> accountComparator(String sort,
+                                                  Map<Long, UserAccountSnapshot> accounts) {
+        boolean desc = sort.endsWith(":desc");
+        Comparator<Player> primary;
+        if (sort.startsWith("status:")) {
+            Comparator<Integer> order = desc ? Comparator.reverseOrder() : Comparator.naturalOrder();
+            primary = Comparator.comparing(
+                    (Player player) -> accountStatus(accounts.get(player.getUserId())),
+                    Comparator.nullsLast(order));
+        } else {
+            Comparator<Boolean> order = desc ? Comparator.reverseOrder() : Comparator.naturalOrder();
+            primary = Comparator.comparing(
+                    (Player player) -> accountAdmin(accounts.get(player.getUserId())),
+                    Comparator.nullsLast(order));
+        }
+        return primary
+                .thenComparing(Player::getJersey, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(Player::getId);
+    }
+
+    private static Integer accountStatus(UserAccountSnapshot account) {
+        return account == null ? null : account.status();
+    }
+
+    private static Boolean accountAdmin(UserAccountSnapshot account) {
+        return account != null && account.admin();
+    }
+
+    private String normalizeSort(String sort) {
         String value = sort == null || sort.isBlank() ? "jersey:asc" : sort.trim();
-        switch (value) {
-            case "default", "jersey:asc" -> wrapper.orderByAsc(Player::getJersey);
+        if ("default".equals(value)) {
+            return "jersey:asc";
+        }
+        int colon = value.indexOf(':');
+        if (colon <= 0 || colon == value.length() - 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
+        }
+        String field = value.substring(0, colon);
+        String direction = value.substring(colon + 1);
+        if (!SORT_FIELDS.contains(field) || !("asc".equals(direction) || "desc".equals(direction))) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
+        }
+        return field + ":" + direction;
+    }
+
+    private static boolean isAccountSort(String sort) {
+        return sort.startsWith("status:") || sort.startsWith("admin:");
+    }
+
+    private void applyDbSort(LambdaQueryWrapper<Player> wrapper, String sort) {
+        switch (sort) {
+            case "jersey:asc" -> wrapper.orderByAsc(Player::getJersey);
             case "jersey:desc" -> wrapper.orderByDesc(Player::getJersey);
             case "skill:asc" -> wrapper.orderByAsc(Player::getSkill);
             case "skill:desc" -> wrapper.orderByDesc(Player::getSkill);
@@ -254,6 +334,8 @@ public class PlayerAdminApplicationService {
             case "position:desc" -> wrapper.orderByDesc(Player::getPosition);
             case "region:asc" -> wrapper.orderByAsc(Player::getRegion);
             case "region:desc" -> wrapper.orderByDesc(Player::getRegion);
+            case "type:asc" -> wrapper.orderByAsc(Player::getType);
+            case "type:desc" -> wrapper.orderByDesc(Player::getType);
             default -> throw new BusinessException(ErrorCode.VALIDATION_FAILED, "排序参数不合法");
         }
         wrapper.orderByAsc(Player::getId);

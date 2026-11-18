@@ -91,8 +91,30 @@ export function skillAriaLabel(skill: number): string {
   return `星级 ${formatSkill(skill)}/5`;
 }
 
+/** 两位小数按半星规则映射到档位文案，如 4.25 → 4 星、4.75 → 4 星半。 */
+export function skillLevelText(skill: number): string {
+  const value = Number(skill);
+  const hundredths = Number.isFinite(value)
+    ? Math.max(0, Math.min(500, Math.round(value * 100)))
+    : 0;
+  const full = Math.floor(hundredths / 100);
+  const half = hundredths % 100 >= 50;
+  if (full >= MAX_SKILL) {
+    return '5 星';
+  }
+  return half ? `${full} 星半` : `${full} 星`;
+}
+
 /** PLR-05 sort 白名单；未知字段回退默认号码升序。 */
-export const PLAYER_SORTABLE_FIELDS = ['jersey', 'skill', 'position', 'region'] as const;
+export const PLAYER_SORTABLE_FIELDS = [
+  'jersey',
+  'skill',
+  'position',
+  'region',
+  'type',
+  'status',
+  'admin',
+] as const;
 
 export type PlayerSortOrder = 'ascending' | 'descending' | null | undefined;
 

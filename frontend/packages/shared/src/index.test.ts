@@ -54,6 +54,7 @@ import {
   formatSkill,
   settingsErrors,
   skillAriaLabel,
+  skillLevelText,
   skillStarParts,
   toSettingsPayload,
 } from './index';
@@ -258,6 +259,9 @@ describe('player management rules', () => {
     expect(playerSort('jersey', 'ascending')).toBe('jersey:asc');
     expect(playerSort('skill', 'descending')).toBe('skill:desc');
     expect(playerSort('region', 'ascending')).toBe('region:asc');
+    expect(playerSort('type', 'ascending')).toBe('type:asc');
+    expect(playerSort('status', 'descending')).toBe('status:desc');
+    expect(playerSort('admin', 'descending')).toBe('admin:desc');
     expect(playerSort('name', 'ascending')).toBe('jersey:asc');
     expect(playerSort('jersey', null)).toBe('jersey:asc');
     expect(playerSort(undefined, 'descending')).toBe('jersey:asc');
@@ -306,6 +310,11 @@ describe('player management rules', () => {
     expect(formatSkill(4)).toBe('4.00');
     expect(formatSkill(4.25)).toBe('4.25');
     expect(skillAriaLabel(4.25)).toBe('星级 4.25/5');
+    expect(skillLevelText(4.01)).toBe('4 星');
+    expect(skillLevelText(4.49)).toBe('4 星');
+    expect(skillLevelText(4.5)).toBe('4 星半');
+    expect(skillLevelText(4.99)).toBe('4 星半');
+    expect(skillLevelText(5)).toBe('5 星');
   });
 
   it('limits lifecycle actions to their source states', () => {

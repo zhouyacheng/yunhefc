@@ -3,6 +3,7 @@ import { ERROR_CODES, isApiError } from '@yunhefc/api-client';
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import beianUrl from '../assets/beian.png';
 import logoUrl from '../assets/logo.png';
 import { safeRouteRedirect } from '../router';
 import { useSessionStore } from '../stores/session';
@@ -107,9 +108,19 @@ async function submit(): Promise<void> {
 
     <footer class="admin-footer">
       <p class="admin-footer__copyright">© {{ copyrightYears }} 云河FC All Rights Reserved</p>
-      <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
-        苏ICP备2026090382号
-      </a>
+      <p class="admin-footer__beian">
+        <a
+          href="https://beian.mps.gov.cn/#/query/webSearch?code=32028102004219"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img :src="beianUrl" alt="" />
+          苏公网安备32028102004219号
+        </a>
+        <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">
+          苏ICP备2026090382号
+        </a>
+      </p>
     </footer>
   </div>
 </template>

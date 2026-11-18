@@ -189,6 +189,26 @@ h3 {
   color: var(--yh-green);
 }
 
+.admin-footer__beian {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+.admin-footer__beian a {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.admin-footer__beian img {
+  width: auto;
+  height: 16px;
+}
+
 /* ---------- 共享工具类 ---------- */
 .page-head {
   display: flex;

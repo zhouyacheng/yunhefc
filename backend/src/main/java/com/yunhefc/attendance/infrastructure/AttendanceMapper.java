@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -39,5 +39,5 @@ public interface AttendanceMapper extends BaseMapper<Attendance> {
                        @Param("playerIds") Collection<Long> playerIds,
                        @Param("status") int status,
                        @Param("source") int source,
-                       @Param("recordedAt") Instant recordedAt);
+                       @Param("recordedAt") LocalDateTime recordedAt);
 }

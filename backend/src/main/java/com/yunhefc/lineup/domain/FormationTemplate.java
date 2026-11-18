@@ -9,7 +9,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 阵型模板；预置模板 team_id 为空，自定义模板归属球队。删除为软删除，保留历史阵容引用。
@@ -26,9 +26,9 @@ public class FormationTemplate {
     private Integer isPreset;
     private Long baseTemplateId;
     private Long createdBy;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     @TableField(updateStrategy = FieldStrategy.NEVER)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

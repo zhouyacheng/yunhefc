@@ -1,6 +1,7 @@
 package com.yunhefc.registration.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
@@ -27,8 +28,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -43,7 +43,6 @@ public class RegistrationApplicationService {
     private final UserAccountReadPort userAccountReadPort;
     private final RegistrationCancellationService registrationCancellationService;
     private final OutboxService outboxService;
-    private final Clock clock;
 
     /**
      * 报名与名额判断在同一事务内：先共享锁账号、再锁定比赛行，后续报名写入按比赛串行化。
@@ -58,7 +57,7 @@ public class RegistrationApplicationService {
                 .lockForRegistration(matchId, principal.teamId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         requireSignupOpen(match, now);
 
         PlayerSnapshot player = playerReadPort.findByUserId(principal.userId())
@@ -114,7 +113,7 @@ public class RegistrationApplicationService {
                 .lockForRegistration(matchId, principal.teamId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         requireCancellationOpen(match, now);
 
         PlayerSnapshot player = playerReadPort.findByUserId(principal.userId())
@@ -136,7 +135,7 @@ public class RegistrationApplicationService {
         return new CancellationResult(true, promotedPlayerId.orElse(null), promotedPlayerId.isPresent());
     }
 
-    private void requireSignupOpen(MatchSnapshot match, Instant now) {
+    private void requireSignupOpen(MatchSnapshot match, LocalDateTime now) {
         if (!match.signupOpen()) {
             throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT, "比赛当前不可报名");
         }
@@ -163,7 +162,7 @@ public class RegistrationApplicationService {
     /**
      * 报名截止只停新增，锁定后才停取消（锁定后仅管理员可移除）；已取消/已延期的比赛不能取消。
      */
-    private void requireCancellationOpen(MatchSnapshot match, Instant now) {
+    private void requireCancellationOpen(MatchSnapshot match, LocalDateTime now) {
         if (!match.cancellationOpen()) {
             throw new BusinessException(ErrorCode.MATCH_STATE_CONFLICT, "比赛状态不允许取消报名");
         }

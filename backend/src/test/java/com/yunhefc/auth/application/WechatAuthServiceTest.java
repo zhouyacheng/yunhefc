@@ -31,7 +31,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.time.Clock;
 
 @ExtendWith(MockitoExtension.class)
 class WechatAuthServiceTest {
@@ -68,8 +67,6 @@ class WechatAuthServiceTest {
     private UserViewAssembler userViewAssembler;
     @Mock
     private AvatarUrlSigner avatarUrlSigner;
-    @Mock
-    private Clock clock;
 
     @InjectMocks
     private WechatAuthService service;

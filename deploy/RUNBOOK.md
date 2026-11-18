@@ -99,13 +99,28 @@ cp backend/src/main/resources/db/migration/*.sql /opt/yunhefc/migrations/
 docker run --rm --network host \
   -v /opt/yunhefc/migrations:/flyway/sql:ro \
   flyway/flyway:11.7.2 \
-  -url="jdbc:mysql://<rds-host>:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8" \
+  -url="jdbc:mysql://<rds-host>:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8" \
   -user=yunhefc_migrator -password='<migrator-pwd>' -connectRetries=10 migrate
 ```
 
 - 迁移失败：不发版，修复后重跑；禁止用应用账号执行 DDL。
 - 迁移成功后确认 `flyway_schema_history` 与目标版本一致。
 - 应用以 `spring.flyway.enabled=false` 启动；发布前若迁移未执行，应用不会补跑。
+
+#### 一次性迁移：DATETIME 转 Asia/Shanghai（P-63，仅本次发布）
+
+新镜像首次发布前，若目标库已有业务数据：
+
+1. 停止 backend，完成 RDS 备份或确认 PITR 时间点。
+2. 执行一次性脚本（**只执行一次**，重复执行会再次 +8h）：
+
+```bash
+mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/migrate-datetime-utc-to-shanghai.sql
+```
+
+3. 抽样确认 `team_match.start_at`、`audit_log.created_at` 等恰好 +8h，且 `updated_at` 未被 `NOW()` 覆盖。
+4. 确认 `/opt/yunhefc/.env` 的 `DB_URL` 已改为 `serverTimezone=Asia/Shanghai`（应用连接池会覆盖该参数，但保持一致便于排查），再启动新镜像。
+5. 历史 `fix-audit-log-utc.sql` 已作废，禁止再执行。
 
 ### 1.4 首次发布
 
@@ -257,6 +272,8 @@ SET NEXT_FIRE_TIME = UNIX_TIMESTAMP(NOW(3)) * 1000,
 WHERE TRIGGER_NAME = 'auditExportTrigger' AND TRIGGER_GROUP = 'yunhefc';
 ```
 
+`UNIX_TIMESTAMP(NOW(3))` 是 epoch 语义，与会话时区无关；本段不需要 `SET time_zone`。
+
 4. Quartz JDBC 下一轮取任务时会读到新的触发时间；确认 OSS 对象存在且大小非 0 后，把 `AUDIT_EXPORT_ENABLED` 恢复为 `false` 并再次 `compose_current up -d --no-deps --force-recreate backend`。
 
 ### 3.5 FAILED Outbox 处理
@@ -291,28 +308,30 @@ WHERE id = <id>;
 compose_current logs --since 48h backend 2>&1 | grep 'retention cleanup'
 ```
 
-确认失败原因后可按相同窗口手工分批补删（每批 1000，循环到 0）：
+确认失败原因后可按相同窗口手工分批补删（每批 1000，循环到 0）。手工 SQL 必须先固定会话时区，不要依赖 CLI/RDS 默认：
 
 ```sql
-DELETE FROM notification WHERE created_at < UTC_TIMESTAMP(3) - INTERVAL 90 DAY LIMIT 1000;
-DELETE FROM outbox_event WHERE status = 1 AND sent_at < UTC_TIMESTAMP(3) - INTERVAL 7 DAY LIMIT 1000;
-DELETE FROM outbox_event WHERE status = 2 AND created_at < UTC_TIMESTAMP(3) - INTERVAL 7 DAY LIMIT 1000;
-DELETE FROM consumed_event WHERE processed_at < UTC_TIMESTAMP(3) - INTERVAL 7 DAY LIMIT 1000;
-DELETE FROM idempotency_key WHERE expires_at < UTC_TIMESTAMP(3) LIMIT 1000;
+SET time_zone = '+08:00';
+DELETE FROM notification WHERE created_at < NOW(3) - INTERVAL 90 DAY LIMIT 1000;
+DELETE FROM outbox_event WHERE status = 1 AND sent_at < NOW(3) - INTERVAL 7 DAY LIMIT 1000;
+DELETE FROM outbox_event WHERE status = 2 AND created_at < NOW(3) - INTERVAL 7 DAY LIMIT 1000;
+DELETE FROM consumed_event WHERE processed_at < NOW(3) - INTERVAL 7 DAY LIMIT 1000;
+DELETE FROM idempotency_key WHERE expires_at < NOW(3) LIMIT 1000;
 ```
 
 邀请必须先删 `invite_use` 再删 `invite_link`（同一事务，每批 1000）：
 
 ```sql
+SET time_zone = '+08:00';
 START TRANSACTION;
 DELETE iu FROM invite_use iu
 JOIN invite_link il ON il.id = iu.invite_id
-WHERE (il.status = 2 AND il.expires_at < UTC_TIMESTAMP(3) - INTERVAL 30 DAY)
-   OR (il.status = 1 AND il.revoked_at < UTC_TIMESTAMP(3) - INTERVAL 30 DAY)
+WHERE (il.status = 2 AND il.expires_at < NOW(3) - INTERVAL 30 DAY)
+   OR (il.status = 1 AND il.revoked_at < NOW(3) - INTERVAL 30 DAY)
 LIMIT 1000;
 DELETE FROM invite_link
-WHERE (status = 2 AND expires_at < UTC_TIMESTAMP(3) - INTERVAL 30 DAY)
-   OR (status = 1 AND revoked_at < UTC_TIMESTAMP(3) - INTERVAL 30 DAY)
+WHERE (status = 2 AND expires_at < NOW(3) - INTERVAL 30 DAY)
+   OR (status = 1 AND revoked_at < NOW(3) - INTERVAL 30 DAY)
 LIMIT 1000;
 COMMIT;
 ```

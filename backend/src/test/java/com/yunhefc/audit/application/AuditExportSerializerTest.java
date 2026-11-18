@@ -5,13 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.domain.AuditLog;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.zip.GZIPInputStream;
 
@@ -29,10 +30,10 @@ class AuditExportSerializerTest {
     void writesOneJsonObjectPerLineWithObjectSnapshotsInGivenOrder() throws Exception {
         AuditLog first = row(7L, 1L, 11L, "张三", "MATCH_CREATE", "MATCH", 501L,
                 null, "{\"phone\":\"13812345678\"}", "req-a", "10.0.0.1",
-                Instant.parse("2026-03-01T10:00:00Z"));
+                ShanghaiTime.parseLenient("2026-03-01T10:00:00Z"));
         AuditLog second = row(9L, 2L, null, "系统", "INVITE_EXPIRE", "INVITE", 502L,
                 "{\"status\":0}", "{\"status\":2}", "req-b", null,
-                Instant.parse("2026-12-31T23:59:59.999Z"));
+                ShanghaiTime.parseLenient("2026-12-31T23:59:59.999Z"));
 
         String raw = gunzip(serializer.toJsonlGz(List.of(first, second)));
         assertThat(raw).endsWith("\n");
@@ -44,7 +45,7 @@ class AuditExportSerializerTest {
         assertThat(firstLine.get("before").isNull()).isTrue();
         assertThat(firstLine.get("after").isObject()).isTrue();
         assertThat(firstLine.get("after").get("phone").asText()).isEqualTo("13812345678");
-        assertThat(firstLine.get("createdAt").asText()).isEqualTo("2026-03-01T10:00:00Z");
+        assertThat(firstLine.get("createdAt").asText()).isEqualTo("2026-03-01T18:00:00+08:00");
         assertThat(firstLine.get("ip").asText()).isEqualTo("10.0.0.1");
 
         JsonNode secondLine = lines.get(1);
@@ -70,7 +71,7 @@ class AuditExportSerializerTest {
 
     private AuditLog row(Long id, Long teamId, Long actorUserId, String actorName, String action,
                          String targetType, Long targetId, String before, String after,
-                         String requestId, String ip, Instant createdAt) {
+                         String requestId, String ip, LocalDateTime createdAt) {
         AuditLog row = new AuditLog();
         row.setId(id);
         row.setTeamId(teamId);

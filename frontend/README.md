@@ -23,7 +23,7 @@ Vite dev 把 `/api` 代理到 `http://localhost:8080`，并去掉转发请求的
 
 ```bash
 cd backend
-DB_URL='jdbc:mysql://localhost:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8' \
+DB_URL='jdbc:mysql://localhost:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8' \
 REDIS_PORT=6379 \
 AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS=1000 \
 SPRING_PROFILES_ACTIVE=dev \

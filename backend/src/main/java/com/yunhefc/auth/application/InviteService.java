@@ -2,6 +2,7 @@ package com.yunhefc.auth.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.InviteLink;
@@ -39,8 +40,7 @@ import com.yunhefc.player.application.PlayerProfileApplicationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -61,7 +61,6 @@ public class InviteService {
     private final MatchRosterPort matchRosterPort;
     private final UserViewAssembler userViewAssembler;
     private final String publicBaseUrl;
-    private final Clock clock;
 
     public InviteService(
             InviteLinkMapper inviteLinkMapper,
@@ -76,8 +75,7 @@ public class InviteService {
             AuditRecorder auditRecorder,
             MatchRosterPort matchRosterPort,
             UserViewAssembler userViewAssembler,
-            AppProperties appProperties,
-            Clock clock) {
+            AppProperties appProperties) {
         this.inviteLinkMapper = inviteLinkMapper;
         this.inviteUseMapper = inviteUseMapper;
         this.userMapper = userMapper;
@@ -91,7 +89,6 @@ public class InviteService {
         this.matchRosterPort = matchRosterPort;
         this.userViewAssembler = userViewAssembler;
         this.publicBaseUrl = appProperties.getPublicBaseUrl();
-        this.clock = clock;
     }
 
     public InviteLink findUsableForRegistration(String rawToken) {
@@ -108,7 +105,7 @@ public class InviteService {
     public InviteLink findUsableForAccept(String rawToken, Long userId) {
         InviteLink invite = findByTokenForUpdate(rawToken);
         if (invite == null || invite.getStatus() != InviteStatus.ACTIVE
-                || invite.getExpiresAt().isBefore(Instant.now(clock))) {
+                || invite.getExpiresAt().isBefore(ShanghaiTime.now())) {
             throw new BusinessException(ErrorCode.INVITE_UNAVAILABLE);
         }
         boolean exhausted = invite.getMaxUses() != null && invite.getUsedCount() >= invite.getMaxUses();
@@ -132,7 +129,7 @@ public class InviteService {
             return;
         }
         // 条件更新同时校验状态、过期与次数，避免已撤销/过期邀请在并发接受时被消费
-        if (inviteLinkMapper.incrementUsedCount(invite.getId(), Instant.now(clock)) == 0) {
+        if (inviteLinkMapper.incrementUsedCount(invite.getId(), ShanghaiTime.now()) == 0) {
             throw new BusinessException(ErrorCode.INVITE_UNAVAILABLE);
         }
     }
@@ -262,7 +259,7 @@ public class InviteService {
         if (invite.getStatus() == InviteStatus.REVOKED) {
             return;
         }
-        inviteLinkMapper.revoke(id, Instant.now(clock));
+        inviteLinkMapper.revoke(id, ShanghaiTime.now());
         auditRecorder.recordCurrent("INVITE_REVOKE", "INVITE", id,
                 java.util.Map.of("status", invite.getStatus().code()),
                 java.util.Map.of("status", InviteStatus.REVOKED.code()));
@@ -278,7 +275,7 @@ public class InviteService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "使用次数上限必须大于 0");
         }
         String rawToken = UUID.randomUUID().toString().replace("-", "");
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         InviteLink invite = new InviteLink();
         invite.setTeamId(teamId);
         invite.setType(type);
@@ -316,7 +313,7 @@ public class InviteService {
 
     private boolean isUsable(InviteLink invite) {
         if (invite == null || invite.getStatus() != InviteStatus.ACTIVE
-                || invite.getExpiresAt().isBefore(Instant.now(clock))) {
+                || invite.getExpiresAt().isBefore(ShanghaiTime.now())) {
             return false;
         }
         return invite.getMaxUses() == null || invite.getUsedCount() < invite.getMaxUses();
@@ -341,7 +338,7 @@ public class InviteService {
             inviter = inviterUser == null ? null : userViewAssembler.toSummary(inviterUser);
         }
         InviteStatus effectiveStatus = invite.getStatus();
-        if (effectiveStatus == InviteStatus.ACTIVE && invite.getExpiresAt().isBefore(Instant.now(clock))) {
+        if (effectiveStatus == InviteStatus.ACTIVE && invite.getExpiresAt().isBefore(ShanghaiTime.now())) {
             effectiveStatus = InviteStatus.EXPIRED;
         }
         boolean exhausted = invite.getMaxUses() != null && invite.getUsedCount() >= invite.getMaxUses();

@@ -2,6 +2,7 @@ package com.yunhefc.match.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -21,17 +22,16 @@ import com.yunhefc.match.dto.MatchDtos.DerivedScore;
 import com.yunhefc.match.dto.MatchDtos.MatchDetail;
 import com.yunhefc.match.dto.MatchDtos.MatchPublicQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchSummary;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.match.dto.MatchDtos.RegistrationView;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Comparator;
@@ -48,13 +48,11 @@ import java.util.Set;
 public class MatchPublicApplicationService {
 
     private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM");
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
 
     private final TeamMatchMapper teamMatchMapper;
     private final TeamReadPort teamReadPort;
     private final RegistrationReadPort registrationReadPort;
     private final EventScoreReadPort eventScoreReadPort;
-    private final Clock clock;
 
     @Transactional(readOnly = true)
     public PageResponse<MatchSummary> list(MatchPublicQuery query) {
@@ -82,7 +80,7 @@ public class MatchPublicApplicationService {
         if (MatchQueryParsing.SCOPE_UPCOMING.equals(scope)) {
             // 状态机是主口径；再加时间下限，避免手工冻结或自动流转滞后的过期比赛占用待进行列表。
             wrapper.notIn(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED)
-                    .gt(TeamMatch::getEndAt, Instant.now(clock));
+                    .gt(TeamMatch::getEndAt, ShanghaiTime.now());
         } else if (MatchQueryParsing.SCOPE_HISTORY.equals(scope)) {
             wrapper.in(TeamMatch::getStatus, MatchStatus.FINISHED, MatchStatus.CANCELLED);
         }
@@ -91,8 +89,8 @@ public class MatchPublicApplicationService {
                     .lt(TeamMatch::getStartAt, monthStart(month.plusMonths(1)));
         }
         if (dateRange != null) {
-            wrapper.ge(TeamMatch::getStartAt, dateRange.startInstant())
-                    .lt(TeamMatch::getStartAt, dateRange.endExclusiveInstant());
+            wrapper.ge(TeamMatch::getStartAt, dateRange.startAt())
+                    .lt(TeamMatch::getStartAt, dateRange.endExclusiveAt());
         }
         if (ascending) {
             wrapper.orderByAsc(TeamMatch::getStartAt);
@@ -120,7 +118,7 @@ public class MatchPublicApplicationService {
     public List<String> seasons() {
         Set<String> seasons = new HashSet<>(
                 teamMatchMapper.selectEffectiveSeasons(teamReadPort.currentTeamId()));
-        seasons.add(String.valueOf(LocalDate.now(clock.withZone(BUSINESS_ZONE)).getYear()));
+        seasons.add(String.valueOf(LocalDate.now(ShanghaiTime.ZONE).getYear()));
         return seasons.stream()
                 .filter(season -> season.matches("\\d{4}"))
                 .sorted(Comparator.reverseOrder())
@@ -233,8 +231,8 @@ public class MatchPublicApplicationService {
                 mine);
     }
 
-    private Instant monthStart(YearMonth month) {
-        return month.atDay(1).atStartOfDay(MatchTimeRules.ZONE).toInstant();
+    private LocalDateTime monthStart(YearMonth month) {
+        return month.atDay(1).atStartOfDay();
     }
 
     private YearMonth month(String requested) {

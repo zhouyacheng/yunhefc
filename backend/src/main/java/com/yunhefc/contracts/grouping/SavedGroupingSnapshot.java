@@ -1,6 +1,6 @@
 package com.yunhefc.contracts.grouping;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 /**
@@ -8,6 +8,6 @@ import java.util.Map;
  */
 public record SavedGroupingSnapshot(
         Long matchId,
-        Instant savedAt,
+        LocalDateTime savedAt,
         Map<Long, Integer> playerTeams) {
 }

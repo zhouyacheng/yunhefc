@@ -2,16 +2,15 @@ package com.yunhefc.audit.application;
 
 import com.yunhefc.audit.domain.AuditLog;
 import com.yunhefc.audit.infrastructure.AuditExportProperties;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.infra.storage.OssGateway;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -21,21 +20,22 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AuditExportApplicationService {
 
-    static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
-
     private static final Logger log = LoggerFactory.getLogger(AuditExportApplicationService.class);
 
     private final AuditLogApplicationService auditLogApplicationService;
     private final AuditExportSerializer serializer;
     private final OssGateway ossGateway;
-    private final Clock clock;
     private final AuditExportProperties properties;
 
     public void exportPreviousYear() {
+        exportPreviousYear(LocalDate.now(ShanghaiTime.ZONE));
+    }
+
+    public void exportPreviousYear(LocalDate today) {
         if (!properties.isEnabled()) {
             return;
         }
-        int year = LocalDate.now(clock.withZone(ZONE)).minusYears(1).getYear();
+        int year = today.minusYears(1).getYear();
         try {
             exportYear(year);
         } catch (Exception ex) {
@@ -49,8 +49,8 @@ public class AuditExportApplicationService {
             log.debug("audit export already exists, year={}", year);
             return;
         }
-        Instant from = LocalDate.of(year, 1, 1).atStartOfDay(ZONE).toInstant();
-        Instant to = LocalDate.of(year + 1, 1, 1).atStartOfDay(ZONE).toInstant();
+        LocalDateTime from = LocalDate.of(year, 1, 1).atStartOfDay();
+        LocalDateTime to = LocalDate.of(year + 1, 1, 1).atStartOfDay();
         List<AuditLog> rows = auditLogApplicationService.exportRows(from, to);
         ossGateway.putObject(objectKey, serializer.toJsonlGz(rows), "application/gzip");
         log.debug("audit export written, year={}, rows={}", year, rows.size());

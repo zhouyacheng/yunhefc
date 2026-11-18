@@ -4,19 +4,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.EnumSet;
 
 class MatchStatusMachineTest {
 
-    private static final Instant SIGNUP_DEADLINE = Instant.parse("2026-03-01T16:00:00Z");
-    private static final Instant CANCEL_LOCK = Instant.parse("2026-03-01T17:00:00Z");
-    private static final Instant START_AT = Instant.parse("2026-03-02T12:00:00Z");
-    private static final Instant END_AT = Instant.parse("2026-03-02T14:00:00Z");
+    private static final LocalDateTime SIGNUP_DEADLINE = ShanghaiTime.parseLenient("2026-03-01T16:00:00Z");
+    private static final LocalDateTime CANCEL_LOCK = ShanghaiTime.parseLenient("2026-03-01T17:00:00Z");
+    private static final LocalDateTime START_AT = ShanghaiTime.parseLenient("2026-03-02T12:00:00Z");
+    private static final LocalDateTime END_AT = ShanghaiTime.parseLenient("2026-03-02T14:00:00Z");
 
     private static final EnumSet<MatchStatus> ORDINARY = EnumSet.of(
             MatchStatus.SIGNUP_OPEN,
@@ -102,7 +103,7 @@ class MatchStatusMachineTest {
                 .isEqualTo(MatchStatus.SIGNUP_OPEN);
         assertThat(autoTarget(MatchStatus.SIGNUP_OPEN, false, SIGNUP_DEADLINE))
                 .isEqualTo(MatchStatus.SIGNUP_CLOSED);
-        assertThat(autoTarget(MatchStatus.SIGNUP_CLOSED, false, CANCEL_LOCK.minusMillis(1)))
+        assertThat(autoTarget(MatchStatus.SIGNUP_CLOSED, false, CANCEL_LOCK.minusNanos(1_000_000)))
                 .isEqualTo(MatchStatus.SIGNUP_CLOSED);
         assertThat(autoTarget(MatchStatus.SIGNUP_CLOSED, false, CANCEL_LOCK))
                 .isEqualTo(MatchStatus.LOCKED);
@@ -142,7 +143,7 @@ class MatchStatusMachineTest {
                 .isEqualTo(MatchStatus.FINISHED);
     }
 
-    private MatchStatus autoTarget(MatchStatus current, boolean manualStatus, Instant now) {
+    private MatchStatus autoTarget(MatchStatus current, boolean manualStatus, LocalDateTime now) {
         return MatchStatusMachine.autoTarget(current, manualStatus, now,
                 SIGNUP_DEADLINE, CANCEL_LOCK, START_AT, END_AT);
     }

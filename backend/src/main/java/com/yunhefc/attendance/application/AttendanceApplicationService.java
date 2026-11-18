@@ -2,6 +2,7 @@ package com.yunhefc.attendance.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.attendance.domain.Attendance;
 import com.yunhefc.attendance.domain.AttendanceSource;
 import com.yunhefc.attendance.domain.AttendanceStatus;
@@ -33,8 +34,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +55,6 @@ public class AttendanceApplicationService {
     private final RegistrationReadPort registrationReadPort;
     private final UserAccountReadPort userAccountReadPort;
     private final AuditRecorder auditRecorder;
-    private final Clock clock;
 
     /**
      * ATT-01：仅本场 CONFIRMED 报名且处于签到窗口内可签；已有记录原样返回，
@@ -81,7 +80,7 @@ public class AttendanceApplicationService {
                 .findActiveByUser(matchId, principal.userId())
                 .filter(RegistrationSnapshot::confirmed)
                 .orElseThrow(() -> violation("仅已确认报名的球员可以签到"));
-        if (!CheckInWindow.isOpen(match.startAt(), Instant.now(clock))) {
+        if (!CheckInWindow.isOpen(match.startAt(), ShanghaiTime.now())) {
             throw violation("不在签到窗口内（开赛前 4 小时至比赛当天 23:59）");
         }
 
@@ -91,7 +90,7 @@ public class AttendanceApplicationService {
         attendance.setStatus(AttendanceStatus.PRESENT);
         attendance.setSource(AttendanceSource.SELF);
         attendance.setRecordedBy(principal.userId());
-        attendance.setRecordedAt(Instant.now(clock));
+        attendance.setRecordedAt(ShanghaiTime.now());
         try {
             attendanceMapper.insert(attendance);
         } catch (DuplicateKeyException ex) {
@@ -159,7 +158,7 @@ public class AttendanceApplicationService {
         AttendanceStatus target = parseMarkStatus(status);
         PlayerSnapshot player = requireTeamPlayer(playerId, principal.teamId());
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         Optional<Attendance> existing = findByMatchAndPlayer(matchId, player.id());
         Map<String, Object> before = existing.map(AttendanceApplicationService::auditSnapshot)
                 .orElse(null);
@@ -201,7 +200,7 @@ public class AttendanceApplicationService {
             return toView(existing.get());
         }
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         Map<String, Object> before = existing.map(AttendanceApplicationService::auditSnapshot)
                 .orElse(null);
         Attendance attendance = write(matchId, player.id(), AttendanceStatus.TEMP_PRESENT,
@@ -217,7 +216,7 @@ public class AttendanceApplicationService {
      * 先查再写；并发插入撞唯一键时回读并覆盖，保证同一球员只有一条记录。
      */
     private Attendance write(Long matchId, Long playerId, AttendanceStatus status,
-                             AttendanceSource source, Long userId, Instant now,
+                             AttendanceSource source, Long userId, LocalDateTime now,
                              Attendance existing) {
         Attendance attendance = existing != null ? existing : new Attendance();
         attendance.setMatchId(matchId);

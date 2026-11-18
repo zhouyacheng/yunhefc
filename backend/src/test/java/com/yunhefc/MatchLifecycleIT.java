@@ -14,12 +14,12 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class MatchLifecycleIT extends IntegrationTestSupport {
 
@@ -61,13 +61,13 @@ class MatchLifecycleIT extends IntegrationTestSupport {
                     .andExpect(jsonPath("$.data.confirmedCount").value(1))
                     .andReturn();
 
-            assertThat(Instant.parse(json(result, "$.data.startAt")))
+            assertThat(ShanghaiTime.parseLenient(json(result, "$.data.startAt")))
                     .isEqualTo(local("2026-12-20T19:00:00"));
-            assertThat(Instant.parse(json(result, "$.data.endAt")))
+            assertThat(ShanghaiTime.parseLenient(json(result, "$.data.endAt")))
                     .isEqualTo(local("2026-12-20T22:00:00"));
-            assertThat(Instant.parse(json(result, "$.data.signupDeadline")))
+            assertThat(ShanghaiTime.parseLenient(json(result, "$.data.signupDeadline")))
                     .isEqualTo(local("2026-12-20T00:00:00"));
-            assertThat(Instant.parse(json(result, "$.data.cancelLock")))
+            assertThat(ShanghaiTime.parseLenient(json(result, "$.data.cancelLock")))
                     .isEqualTo(local("2026-12-20T01:00:00"));
             assertThat(jdbc.queryForObject(
                     "SELECT status FROM registration WHERE match_id = ?", Integer.class, matchId)).isZero();
@@ -145,11 +145,11 @@ class MatchLifecycleIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.manualStatus").value(false))
                 .andExpect(jsonPath("$.data.version").value(2))
                 .andReturn();
-        assertThat(Instant.parse(json(result, "$.data.startAt")))
+        assertThat(ShanghaiTime.parseLenient(json(result, "$.data.startAt")))
                 .isEqualTo(local("2026-12-25T18:00:00"));
-        assertThat(Instant.parse(json(result, "$.data.signupDeadline")))
+        assertThat(ShanghaiTime.parseLenient(json(result, "$.data.signupDeadline")))
                 .isEqualTo(local("2026-12-25T00:00:00"));
-        assertThat(Instant.parse(json(result, "$.data.cancelLock")))
+        assertThat(ShanghaiTime.parseLenient(json(result, "$.data.cancelLock")))
                 .isEqualTo(local("2026-12-25T01:00:00"));
         assertThat(auditStatus(matchId, "MATCH_RESCHEDULE", true)).isEqualTo(5);
         assertThat(auditStatus(matchId, "MATCH_RESCHEDULE", false)).isZero();
@@ -507,8 +507,8 @@ class MatchLifecycleIT extends IntegrationTestSupport {
                                 {"title":"%s","type":1,"season":"2099","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                                 """.formatted(title, local(startAt),
-                                LocalDateTime.parse(startAt).plusHours(2)
-                                        .atZone(ZONE).toInstant().toString())))
+                                ShanghaiTime.parseLenient(startAt).plusHours(2)
+                                        .toString())))
                 .andExpect(status().isOk())
                 .andReturn();
         Long matchId = JsonPath.<Number>read(
@@ -557,8 +557,8 @@ class MatchLifecycleIT extends IntegrationTestSupport {
         return JsonPath.read(result.getResponse().getContentAsString(), path);
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private Long insertPlayer(String phone, String name) {

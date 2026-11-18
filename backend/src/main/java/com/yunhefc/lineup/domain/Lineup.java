@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 某场某一方的阵容版本；UK(match_id, side)，保存时按 version 乐观锁递增。
@@ -24,8 +24,8 @@ public class Lineup {
     private Long formationTemplateId;
     private Integer version;
     private Long updatedBy;
-    private Instant createdAt;
-    private Instant updatedAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

@@ -2,6 +2,7 @@ package com.yunhefc.auth.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
 import com.yunhefc.auth.domain.InviteLink;
@@ -47,8 +48,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -83,7 +83,6 @@ public class AuthService implements UserAccessPort {
     private final AuditRecorder auditRecorder;
     private final UserViewAssembler userViewAssembler;
     private final AvatarUrlSigner avatarUrlSigner;
-    private final Clock clock;
 
     public int sendSms(String phone, String purpose) {
         validatePhone(phone);
@@ -108,7 +107,7 @@ public class AuthService implements UserAccessPort {
         }
 
         Long teamId = teamReadPort.currentTeamId();
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         AppUser user = new AppUser();
         user.setPhone(request.phone());
         user.setPasswordHash(passwordEncoder.encode(request.password()));
@@ -163,7 +162,7 @@ public class AuthService implements UserAccessPort {
         if (backend) {
             requireBackendEligible(user, permissions);
         }
-        userMapper.updateLastLoginAt(user.getId(), Instant.now(clock));
+        userMapper.updateLastLoginAt(user.getId(), ShanghaiTime.now());
         return new AuthResult(userView(user), player(user.getId()), permissions);
     }
 

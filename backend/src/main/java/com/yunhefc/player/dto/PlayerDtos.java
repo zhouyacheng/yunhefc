@@ -11,7 +11,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -53,7 +53,7 @@ public final class PlayerDtos {
             String statusLabel,
             boolean admin,
             Set<String> roles,
-            Instant createdAt,
+            LocalDateTime createdAt,
             boolean wechatBound) {
     }
 

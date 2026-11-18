@@ -3,12 +3,12 @@ package com.yunhefc.match.domain;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
@@ -16,7 +16,7 @@ class MatchTimeRulesTest {
 
     @Test
     void acceptsTwoToFourHourDurationsInclusive() {
-        Instant start = local("2026-12-01T20:00:00");
+        LocalDateTime start = local("2026-12-01T20:00:00");
 
         assertThat(MatchTimeRules.validateAndDerive(start, start.plus(Duration.ofHours(2))).endAt())
                 .isEqualTo(start.plus(Duration.ofHours(2)));
@@ -26,19 +26,19 @@ class MatchTimeRulesTest {
 
     @Test
     void rejectsDurationsOutsideTwoToFourHours() {
-        Instant start = local("2026-12-01T20:00:00");
+        LocalDateTime start = local("2026-12-01T20:00:00");
 
-        assertRuleViolation(start, start.plus(Duration.ofHours(2)).minusMillis(1));
-        assertRuleViolation(start, start.plus(Duration.ofHours(4)).plusMillis(1));
+        assertRuleViolation(start, start.plus(Duration.ofHours(2)).minusNanos(1_000_000));
+        assertRuleViolation(start, start.plus(Duration.ofHours(4)).plusNanos(1_000_000));
         assertRuleViolation(start, start);
     }
 
     @Test
     void startMustBeStrictlyAfterOneOClock() {
-        Instant oneOClock = local("2026-12-01T01:00:00");
-        Instant justAfter = LocalDateTime.ofInstant(oneOClock, MatchTimeRules.ZONE)
+        LocalDateTime oneOClock = local("2026-12-01T01:00:00");
+        LocalDateTime justAfter = oneOClock
                 .toLocalDate().atTime(LocalTime.of(1, 0, 0, 1))
-                .atZone(MatchTimeRules.ZONE).toInstant();
+                ;
 
         assertRuleViolation(local("2026-12-01T00:30:00"), local("2026-12-01T02:30:00"));
         assertRuleViolation(oneOClock, oneOClock.plus(Duration.ofHours(2)));
@@ -55,13 +55,13 @@ class MatchTimeRulesTest {
         assertThat(schedule.cancelLock()).isEqualTo(local("2026-12-01T01:00:00"));
     }
 
-    private void assertRuleViolation(Instant start, Instant end) {
+    private void assertRuleViolation(LocalDateTime start, LocalDateTime end) {
         assertThatThrownBy(() -> MatchTimeRules.validateAndDerive(start, end))
                 .isInstanceOfSatisfying(BusinessException.class,
                         ex -> assertThat(ex.errorCode()).isEqualTo(ErrorCode.BUSINESS_RULE_VIOLATION));
     }
 
-    private Instant local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(MatchTimeRules.ZONE).toInstant();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 }

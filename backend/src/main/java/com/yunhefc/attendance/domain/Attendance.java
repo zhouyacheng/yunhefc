@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -21,7 +21,7 @@ public class Attendance {
     private AttendanceStatus status;
     private AttendanceSource source;
     private Long recordedBy;
-    private Instant recordedAt;
+    private LocalDateTime recordedAt;
     @TableLogic
     private Integer isDeleted;
 }

@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.match.MatchRegistrationContextPort;
@@ -28,9 +30,7 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneOffset;
+import java.time.LocalDateTime;
 import java.util.Optional;
 import java.util.Set;
 
@@ -41,7 +41,7 @@ class RegistrationApplicationServiceTest {
     private static final long USER_ID = 3L;
     private static final long PLAYER_ID = 4L;
     private static final long PROMOTED_PLAYER_ID = 5L;
-    private static final Instant NOW = Instant.parse("2026-01-01T00:00:00Z");
+    private static final LocalDateTime NOW = ShanghaiTime.now();
 
     private final RegistrationMapper registrationMapper = mock(RegistrationMapper.class);
     private final MatchRegistrationContextPort matchPort = mock(MatchRegistrationContextPort.class);
@@ -52,7 +52,7 @@ class RegistrationApplicationServiceTest {
     private final OutboxService outboxService = mock(OutboxService.class);
     private final RegistrationApplicationService service = new RegistrationApplicationService(
             registrationMapper, matchPort, playerReadPort, userAccountReadPort, cancellationService,
-            outboxService, Clock.fixed(NOW, ZoneOffset.UTC));
+            outboxService);
 
     @AfterEach
     void clearSecurityContext() {
@@ -96,7 +96,7 @@ class RegistrationApplicationServiceTest {
         when(playerReadPort.findByUserId(USER_ID)).thenReturn(Optional.of(formalPlayer()));
         Registration confirmed = registration(RegistrationStatus.CONFIRMED, RegistrationType.PLAYER);
         when(registrationMapper.selectOne(any())).thenReturn(confirmed);
-        when(cancellationService.cancelAndPromote(confirmed, USER_ID, NOW, openMatch()))
+        when(cancellationService.cancelAndPromote(eq(confirmed), eq(USER_ID), any(LocalDateTime.class), eq(openMatch())))
                 .thenReturn(Optional.of(PROMOTED_PLAYER_ID));
 
         CancellationResult result = service.cancelMyRegistration(MATCH_ID);
@@ -114,7 +114,7 @@ class RegistrationApplicationServiceTest {
         when(playerReadPort.findByUserId(USER_ID)).thenReturn(Optional.of(formalPlayer()));
         Registration waitlisted = registration(RegistrationStatus.WAITLISTED, RegistrationType.PLAYER);
         when(registrationMapper.selectOne(any())).thenReturn(waitlisted);
-        when(cancellationService.cancelAndPromote(waitlisted, USER_ID, NOW, openMatch()))
+        when(cancellationService.cancelAndPromote(eq(waitlisted), eq(USER_ID), any(LocalDateTime.class), eq(openMatch())))
                 .thenReturn(Optional.empty());
 
         CancellationResult result = service.cancelMyRegistration(MATCH_ID);
@@ -175,7 +175,7 @@ class RegistrationApplicationServiceTest {
         return matchAt(NOW, NOW.plusSeconds(7_200), 0);
     }
 
-    private MatchSnapshot matchAt(Instant now, Instant cancelLock, int status) {
+    private MatchSnapshot matchAt(LocalDateTime now, LocalDateTime cancelLock, int status) {
         return new MatchSnapshot(MATCH_ID, TEAM_ID, "测试比赛",
                 now.plusSeconds(86_400), now.plusSeconds(93_600),
                 now.plusSeconds(3_600), cancelLock,

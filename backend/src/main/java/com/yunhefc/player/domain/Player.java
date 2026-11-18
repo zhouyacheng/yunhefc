@@ -11,7 +11,7 @@ import com.yunhefc.contracts.player.Position;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -30,9 +30,9 @@ public class Player {
     private String region;
     private String avatarUrl;
     private Integer skill;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     @TableField(updateStrategy = FieldStrategy.NEVER)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

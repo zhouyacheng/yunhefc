@@ -894,6 +894,7 @@ onMounted(loadSeasons);
       :default-sort="{ prop: 'startAt', order: 'descending' }"
       @sort-change="onSortChange"
     >
+      <el-table-column label="ID" prop="id" width="80" />
       <el-table-column label="赛季" prop="season" width="90" sortable="custom" />
       <el-table-column label="场次" prop="seasonMatchNo" width="100" sortable="custom">
         <template #default="{ row }">{{ row.seasonMatchNo }}</template>
@@ -921,6 +922,9 @@ onMounted(loadSeasons);
         </template>
       </el-table-column>
       <el-table-column label="场地" prop="venue" min-width="150" />
+      <el-table-column label="创建时间" prop="createdAt" min-width="170">
+        <template #default="{ row }">{{ formatDateTime(row.createdAt) }}</template>
+      </el-table-column>
       <el-table-column
         v-if="canCreate || canEdit || canStatus"
         label="操作"

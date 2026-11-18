@@ -9,7 +9,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Component
 @Order(4)
@@ -27,8 +27,8 @@ public class OutboxFailedRetentionAdapter implements RetentionTask {
     }
 
     @Override
-    public int deleteBatch(Instant now, int limit) {
-        Instant cutoff = now.minus(Duration.ofDays(retentionProperties.getOutboxDays()));
+    public int deleteBatch(LocalDateTime now, int limit) {
+        LocalDateTime cutoff = now.minus(Duration.ofDays(retentionProperties.getOutboxDays()));
         int due = outboxEventMapper.countFailedBefore(cutoff);
         if (due > 0) {
             log.warn("outbox FAILED events due for retention purge, count={}", due);

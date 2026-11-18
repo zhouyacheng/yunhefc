@@ -18,6 +18,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class SettingsIT extends IntegrationTestSupport {
 
@@ -383,7 +384,7 @@ class SettingsIT extends IntegrationTestSupport {
         return cookie(result, "YHFC_B");
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 }

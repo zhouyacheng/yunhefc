@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -22,8 +22,8 @@ public class Notification {
     private String body;
     private String refType;
     private Long refId;
-    private Instant readAt;
-    private Instant createdAt;
+    private LocalDateTime readAt;
+    private LocalDateTime createdAt;
     @TableLogic
     private Integer isDeleted;
 }

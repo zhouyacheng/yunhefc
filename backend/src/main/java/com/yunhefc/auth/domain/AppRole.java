@@ -9,7 +9,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -22,9 +22,9 @@ public class AppRole {
     private String code;
     private String name;
     private Integer isDefault;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     @TableField(updateStrategy = FieldStrategy.NEVER)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

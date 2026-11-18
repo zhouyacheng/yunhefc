@@ -2,6 +2,7 @@ package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.match.application.MatchAutoStatusApplicationService;
 import com.yunhefc.match.infrastructure.MatchAutoStatusJob;
 import org.junit.jupiter.api.AfterEach;
@@ -14,8 +15,7 @@ import org.quartz.TriggerKey;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 
-import java.sql.Timestamp;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,7 +39,7 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
     @Test
     void advancesAtEachTimeBoundary() {
-        Instant now = Instant.now();
+        LocalDateTime now = ShanghaiTime.now();
         Long beforeDeadline = insertMatch("M03自动未到截止", 0, false,
                 now.plusSeconds(3_600), now.plusSeconds(7_200),
                 now.plusSeconds(10_800), now.plusSeconds(21_600));
@@ -90,15 +90,15 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
         assertThat(auditSnapshotFieldType(afterEnd, true, "statusUpdatedAt")).isEqualTo("NULL");
         assertThat(auditSnapshotFieldType(afterEnd, false, "statusUpdatedAt")).isEqualTo("STRING");
         assertThat(auditSnapshotFieldType(afterEnd, false, "statusUpdatedBy")).isEqualTo("NULL");
-        assertThat(Instant.parse(auditStatusUpdatedAt(afterEnd)))
-                .isEqualTo(statusUpdatedAt(afterEnd).toInstant());
+        assertThat(ShanghaiTime.parseLenient(auditStatusUpdatedAt(afterEnd)))
+                .isEqualTo(statusUpdatedAt(afterEnd));
         assertThat(auditAggregateType(afterEnd)).isEqualTo("AUDIT");
         assertThat(auditTeamId(afterEnd)).isEqualTo(1L);
     }
 
     @Test
     void catchesUpToHighestReachedStatusWhenTicksWereMissed() {
-        Instant now = Instant.now();
+        LocalDateTime now = ShanghaiTime.now();
         Long missed = insertMatch("M03自动补跑", 0, false,
                 now.minusSeconds(14_400), now.minusSeconds(10_800),
                 now.minusSeconds(7_200), now.minusSeconds(60));
@@ -112,7 +112,7 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
     @Test
     void skipsManualCancelledPostponedAndFinishedMatches() {
-        Instant now = Instant.now();
+        LocalDateTime now = ShanghaiTime.now();
         Long manual = insertMatch("M03自动跳过手动", 0, true,
                 now.minusSeconds(60), now.plusSeconds(3_600),
                 now.plusSeconds(7_200), now.plusSeconds(18_000));
@@ -139,7 +139,7 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
     @Test
     void doesNotAdvanceBeforeTimeBoundaries() {
-        Instant now = Instant.now();
+        LocalDateTime now = ShanghaiTime.now();
         Long locked = insertMatch("M03自动不回退锁定", 2, false,
                 now.plusSeconds(3_600), now.plusSeconds(7_200),
                 now.plusSeconds(10_800), now.plusSeconds(21_600));
@@ -157,7 +157,7 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
     @Test
     void nonAdvancingRowsWriteNoAudit() {
-        Instant now = Instant.now();
+        LocalDateTime now = ShanghaiTime.now();
         Long locked = insertMatch("M03自动候选无推进锁定", 2, false,
                 now.minusSeconds(60), now.plusSeconds(3_600),
                 now.plusSeconds(7_200), now.plusSeconds(18_000));
@@ -175,13 +175,13 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
 
     @Test
     void repeatedRunsHaveNoSideEffects() {
-        Instant now = Instant.now();
+        LocalDateTime now = ShanghaiTime.now();
         Long matchId = insertMatch("M03自动幂等", 0, false,
                 now.minusSeconds(14_400), now.minusSeconds(10_800),
                 now.minusSeconds(7_200), now.minusSeconds(60));
 
         assertThat(autoStatusService.advance()).isEqualTo(1);
-        Timestamp firstUpdatedAt = statusUpdatedAt(matchId);
+        LocalDateTime firstUpdatedAt = statusUpdatedAt(matchId);
         assertThat(autoAuditCount(matchId)).isEqualTo(1);
         int firstAuditTotal = auditTotal();
 
@@ -213,9 +213,9 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
         assertThat(statusUpdatedAt(matchId) != null).isEqualTo(statusUpdated);
     }
 
-    private Timestamp statusUpdatedAt(Long matchId) {
+    private LocalDateTime statusUpdatedAt(Long matchId) {
         return jdbc.queryForObject(
-                "SELECT status_updated_at FROM team_match WHERE id = ?", Timestamp.class, matchId);
+                "SELECT status_updated_at FROM team_match WHERE id = ?", LocalDateTime.class, matchId);
     }
 
     private int autoAuditCount(Long matchId) {
@@ -303,8 +303,8 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
     }
 
     private Long insertMatch(String title, int status, boolean manualStatus,
-                             Instant signupDeadline, Instant cancelLock,
-                             Instant startAt, Instant endAt) {
+                             LocalDateTime signupDeadline, LocalDateTime cancelLock,
+                             LocalDateTime startAt, LocalDateTime endAt) {
         int matchNo = nextMatchNo++;
         jdbc.update("""
                 INSERT INTO team_match (team_id, title, type, start_at, end_at, signup_deadline,
@@ -312,8 +312,8 @@ class MatchAutoStatusIT extends IntegrationTestSupport {
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, ?, 30, ?, ?, 1)
                 """,
-                title, Timestamp.from(startAt), Timestamp.from(endAt),
-                Timestamp.from(signupDeadline), Timestamp.from(cancelLock),
+                title, startAt, endAt,
+                signupDeadline, cancelLock,
                 status, manualStatus ? 1 : 0, matchNo, matchNo);
         Long matchId = jdbc.queryForObject(
                 "SELECT id FROM team_match WHERE title = ?", Long.class, title);

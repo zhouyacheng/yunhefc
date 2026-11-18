@@ -1,6 +1,6 @@
 package com.yunhefc.contracts.security;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Set;
 
 /**
@@ -13,6 +13,6 @@ public record UserAccountSnapshot(
         String statusLabel,
         boolean admin,
         Set<String> roles,
-        Instant createdAt,
+        LocalDateTime createdAt,
         boolean wechatBound) {
 }

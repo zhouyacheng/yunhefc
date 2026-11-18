@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -50,21 +50,21 @@ public interface InviteLinkMapper extends BaseMapper<InviteLink> {
               AND status = 0 AND expires_at > #{now}
               AND (max_uses IS NULL OR used_count < max_uses)
             """)
-    int incrementUsedCount(@Param("id") Long id, @Param("now") Instant now);
+    int incrementUsedCount(@Param("id") Long id, @Param("now") LocalDateTime now);
 
     @Update("""
             UPDATE invite_link
             SET status = 1, revoked_at = #{now}
             WHERE id = #{id} AND is_deleted = 0 AND status <> 1
             """)
-    int revoke(@Param("id") Long id, @Param("now") Instant now);
+    int revoke(@Param("id") Long id, @Param("now") LocalDateTime now);
 
     @Select("""
             SELECT id, team_id
             FROM invite_link
             WHERE status = 0 AND expires_at < #{now} AND is_deleted = 0
             """)
-    List<InviteLink> findOverdue(@Param("now") Instant now);
+    List<InviteLink> findOverdue(@Param("now") LocalDateTime now);
 
     @Update("""
             UPDATE invite_link
@@ -83,7 +83,7 @@ public interface InviteLinkMapper extends BaseMapper<InviteLink> {
             ORDER BY id
             LIMIT #{limit}
             """)
-    List<Long> findPurgeableIds(@Param("cutoff") Instant cutoff, @Param("limit") int limit);
+    List<Long> findPurgeableIds(@Param("cutoff") LocalDateTime cutoff, @Param("limit") int limit);
 
     @Delete("""
             <script>

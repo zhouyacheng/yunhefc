@@ -3,6 +3,7 @@ package com.yunhefc.settings.application;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -18,8 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -58,7 +58,6 @@ public class SettingsApplicationService {
     private final SystemSettingMapper systemSettingMapper;
     private final ObjectMapper objectMapper;
     private final AuditRecorder auditRecorder;
-    private final Clock clock;
 
     @Transactional(readOnly = true)
     public SettingsView get() {
@@ -72,7 +71,7 @@ public class SettingsApplicationService {
         SettingsView after = merge(before, patch);
         validate(after);
         systemSettingMapper.upsertBatch(actor.teamId(), toValues(after), actor.userId(),
-                Instant.now(clock));
+                ShanghaiTime.now());
         // 审计与配置写入同一事务；before/after 均为合并后的完整 9 键。
         auditRecorder.recordCurrent("SETTINGS_UPDATE", "SETTINGS", actor.teamId(), before, after);
         return after;

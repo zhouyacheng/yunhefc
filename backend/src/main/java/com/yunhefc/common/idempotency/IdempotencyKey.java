@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -22,8 +22,8 @@ public class IdempotencyKey {
     private String requestHash;
     private Integer responseStatus;
     private String responseBody;
-    private Instant createdAt;
-    private Instant expiresAt;
+    private LocalDateTime createdAt;
+    private LocalDateTime expiresAt;
     @TableLogic
     private Integer isDeleted;
 }

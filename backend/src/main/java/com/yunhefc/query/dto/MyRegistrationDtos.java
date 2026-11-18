@@ -2,7 +2,7 @@ package com.yunhefc.query.dto;
 
 import com.yunhefc.query.dto.RegistrationDtos.RegistrationRow;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 public final class MyRegistrationDtos {
 
@@ -17,8 +17,8 @@ public final class MyRegistrationDtos {
             String title,
             Integer type,
             String typeLabel,
-            Instant startAt,
-            Instant endAt,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
             String venue,
             Integer round,
             String season,
@@ -51,8 +51,8 @@ public final class MyRegistrationDtos {
             String typeLabel,
             Integer status,
             String statusLabel,
-            Instant registeredAt,
-            Instant cancelledAt,
+            LocalDateTime registeredAt,
+            LocalDateTime cancelledAt,
             boolean active) {
     }
 
@@ -63,6 +63,6 @@ public final class MyRegistrationDtos {
             String statusLabel,
             Integer source,
             String sourceLabel,
-            Instant recordedAt) {
+            LocalDateTime recordedAt) {
     }
 }

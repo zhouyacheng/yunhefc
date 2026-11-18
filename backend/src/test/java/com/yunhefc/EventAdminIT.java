@@ -17,11 +17,11 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 /**
  * M06 管理员事件与比分（EVT-04/05/06/07）：任意事件、软删除、独立比分、版本与状态门。
@@ -34,7 +34,7 @@ class EventAdminIT extends IntegrationTestSupport {
     void adminCreatesAnyEventTypeAndSubstitutionWithoutOwnershipLimit() throws Exception {
         Cookie admin = adminLogin("13900002701", "管理员事件");
         Long matchId = insertMatch("M06管理员任意事件", 0, 0, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002701");
         Long teammateId = insertPlayer("13900002702", "管理员事件队友", 1, 702);
         register(matchId, playerId, 0);
@@ -67,7 +67,7 @@ class EventAdminIT extends IntegrationTestSupport {
     void adminStillMustPickConfirmedActiveRegistrations() throws Exception {
         Cookie admin = adminLogin("13900002703", "管理员选人");
         Long matchId = insertMatch("M06管理员选人", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long confirmed = insertPlayer("13900002704", "管理员确认", 1, 704);
         Long waitlisted = insertPlayer("13900002705", "管理员候补", 1, 705);
         Long unregistered = insertPlayer("13900002706", "管理员未报名", 1, 706);
@@ -93,7 +93,7 @@ class EventAdminIT extends IntegrationTestSupport {
     void playerCannotUseAdminEventEndpoints() throws Exception {
         playerLogin("13900002708", "普通球员");
         Long matchId = insertMatch("M06后台权限", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002708");
         register(matchId, playerId, 0);
         // 正式球员有 attendance:view:any，可登录后台但不具备事件写权限。
@@ -134,7 +134,7 @@ class EventAdminIT extends IntegrationTestSupport {
         Cookie admin = adminLogin("13900002709", "管理员修改");
         Long playerId = playerId("13900002709");
         Long matchId = insertMatch("M06管理员修改", 1, null, 4,
-                Instant.now().minus(Duration.ofHours(27)), Instant.now().minus(Duration.ofHours(25)));
+                ShanghaiTime.now().minus(Duration.ofHours(27)), ShanghaiTime.now().minus(Duration.ofHours(25)));
         register(matchId, playerId, 0);
         Long eventId = insertEvent(matchId, 0, 0, playerId, null, null, null, 10, 0, false);
 
@@ -158,7 +158,7 @@ class EventAdminIT extends IntegrationTestSupport {
     void deleteSoftDeletesRemovesDerivedScoreAndKeepsHistory() throws Exception {
         Cookie admin = adminLogin("13900002710", "管理员删除");
         Long matchId = insertMatch("M06删除事件", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002710");
         register(matchId, playerId, 0);
         jdbc.update("UPDATE team_match SET score_home = 2, score_away = 1 WHERE id = ?", matchId);
@@ -214,7 +214,7 @@ class EventAdminIT extends IntegrationTestSupport {
         Long playerId = playerId("13900002711");
 
         Long active = insertMatch("M06删除版本", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(active, playerId, 0);
         Long eventId = insertEvent(active, 0, 0, playerId, null, null, null, 10, 0, false);
         adminDelete(admin, eventId, """
@@ -230,7 +230,7 @@ class EventAdminIT extends IntegrationTestSupport {
         for (int statusCode : new int[]{5, 6}) {
             String label = statusCode == 5 ? "延期" : "取消";
             Long matchId = insertMatch("M06删除" + label, 1, null, statusCode,
-                    Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                    ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
             register(matchId, playerId, 0);
             Long id = insertEvent(matchId, 0, 0, playerId, null, null, null, 10, 0, false);
             adminDelete(admin, id, """
@@ -245,7 +245,7 @@ class EventAdminIT extends IntegrationTestSupport {
     void fallbackScoreIsEditableWithoutScoringEvents() throws Exception {
         Cookie admin = adminLogin("13900002712", "管理员兜底比分");
         Long matchId = insertMatch("M06兜底比分", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
 
         adminScore(admin, matchId, """
                 {"scoreHome":3,"scoreAway":2,"version":0}
@@ -280,7 +280,7 @@ class EventAdminIT extends IntegrationTestSupport {
     void scoringEventsBlockFallbackScoreUpdate() throws Exception {
         Cookie admin = adminLogin("13900002714", "管理员计分事件");
         Long matchId = insertMatch("M06计分事件比分", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002714");
         register(matchId, playerId, 0);
         insertEvent(matchId, 0, 0, playerId, null, null, null, 12, 0, false);
@@ -309,7 +309,7 @@ class EventAdminIT extends IntegrationTestSupport {
     void nonScoringEventsDoNotBlockFallbackScore() throws Exception {
         Cookie admin = adminLogin("13900002715", "管理员非计分事件");
         Long matchId = insertMatch("M06非计分事件", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002715");
         register(matchId, playerId, 0);
         insertEvent(matchId, 0, 3, playerId, null, null, null, 12, 0, false);
@@ -338,7 +338,7 @@ class EventAdminIT extends IntegrationTestSupport {
         for (int statusCode : new int[]{5, 6}) {
             String label = statusCode == 5 ? "延期" : "取消";
             Long matchId = insertMatch("M06比分" + label, 1, null, statusCode,
-                    Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                    ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
             adminScore(admin, matchId, """
                     {"scoreHome":1,"scoreAway":0,"version":0}
                     """)
@@ -354,7 +354,7 @@ class EventAdminIT extends IntegrationTestSupport {
         for (int statusCode : new int[]{5, 6}) {
             String label = statusCode == 5 ? "延期" : "取消";
             Long matchId = insertMatch("M06事件" + label, 1, null, statusCode,
-                    Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                    ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
             register(matchId, playerId, 0);
             adminCreate(admin, matchId, goalJson(playerId))
                     .andExpect(status().isConflict())
@@ -373,7 +373,7 @@ class EventAdminIT extends IntegrationTestSupport {
     void adminWritesRequireIdempotencyKey() throws Exception {
         Cookie admin = adminLogin("13900002714", "管理员幂等");
         Long matchId = insertMatch("M06管理员幂等", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002714");
         register(matchId, playerId, 0);
         Long eventId = insertEvent(matchId, 0, 0, playerId, null, null, null, 10, 0, false);
@@ -460,10 +460,10 @@ class EventAdminIT extends IntegrationTestSupport {
     }
 
     private Long insertMatch(String title, int type, Integer ourSide, int status,
-                             Instant startAt, Instant endAt) {
-        Instant signupDeadline = startAt.atZone(SHANGHAI).toLocalDate()
-                .atStartOfDay(SHANGHAI).toInstant();
-        Instant cancelLock = signupDeadline.plus(Duration.ofHours(1));
+                             LocalDateTime startAt, LocalDateTime endAt) {
+        LocalDateTime signupDeadline = startAt.toLocalDate()
+                .atStartOfDay();
+        LocalDateTime cancelLock = signupDeadline.plus(Duration.ofHours(1));
         long seasonNo = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(season_match_no), 0) + 1
                 FROM team_match WHERE team_id = 1 AND season = '2099'
@@ -476,8 +476,8 @@ class EventAdminIT extends IntegrationTestSupport {
                     cancel_lock, venue, season, home_team_name, away_team_name, our_side, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, ?, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, ?, 1, 30, ?, ?, 1)
-                """, title, type, Timestamp.from(startAt), Timestamp.from(endAt),
-                Timestamp.from(signupDeadline), Timestamp.from(cancelLock), ourSide, status,
+                """, title, type, startAt, endAt,
+                signupDeadline, cancelLock, ourSide, status,
                 seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

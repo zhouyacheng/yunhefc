@@ -7,7 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
@@ -64,5 +64,5 @@ public interface MatchEventMapper extends BaseMapper<MatchEvent> {
             WHERE id = #{id} AND version = #{version} AND is_deleted = 0 AND deleted_at IS NULL
             """)
     int softDelete(@Param("id") Long id, @Param("version") int version,
-                   @Param("userId") Long userId, @Param("now") Instant now);
+                   @Param("userId") Long userId, @Param("now") LocalDateTime now);
 }

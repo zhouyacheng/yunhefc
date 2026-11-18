@@ -1,6 +1,6 @@
 package com.yunhefc.contracts.registration;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 跨模块读取的报名快照；active 标识是否仍为有效报名（CONFIRMED/WAITLISTED）。
@@ -13,8 +13,8 @@ public record RegistrationSnapshot(
         String typeLabel,
         Integer status,
         String statusLabel,
-        Instant registeredAt,
-        Instant cancelledAt,
+        LocalDateTime registeredAt,
+        LocalDateTime cancelledAt,
         boolean active) {
 
     /**

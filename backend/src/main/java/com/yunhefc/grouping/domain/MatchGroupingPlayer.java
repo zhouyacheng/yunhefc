@@ -7,7 +7,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 分组成员行；生成时按分组整体物理替换。
@@ -25,6 +25,6 @@ public class MatchGroupingPlayer {
     private BigDecimal manualScore;
     private BigDecimal autoScore;
     private BigDecimal finalScore;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     private Integer isDeleted;
 }

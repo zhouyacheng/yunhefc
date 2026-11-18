@@ -47,6 +47,8 @@ abstract class IntegrationTestSupport {
             .withDatabaseName("yunhefc")
             .withUsername("yunhefc")
             .withPassword("yunhefc")
+            // 与 RDS/本地容器保持一致，证明会话时区由连接池固定，而非依赖服务端默认值。
+            .withCommand("mysqld", "--default-time-zone=+08:00")
             .withReuse(REUSE);
 
     private static final GenericContainer<?> REDIS = new GenericContainer<>(DockerImageName.parse("redis:6.2.24"))

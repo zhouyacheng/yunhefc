@@ -11,6 +11,7 @@ import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class IdempotencyIT extends IntegrationTestSupport {
 
@@ -80,7 +81,7 @@ class IdempotencyIT extends IntegrationTestSupport {
         jdbc.update("""
                 UPDATE idempotency_key SET expires_at = ?
                 WHERE user_id = ? AND endpoint = 'INV-05' AND idem_key = 'idem-expired-1'
-                """, java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(60)), adminId);
+                """, ShanghaiTime.now().minusSeconds(60), adminId);
 
         mockMvc.perform(post("/api/v1/b/invites")
                         .cookie(admin)
@@ -114,7 +115,7 @@ class IdempotencyIT extends IntegrationTestSupport {
                 UPDATE idempotency_key
                 SET response_body = NULL, response_status = NULL, created_at = ?
                 WHERE user_id = ? AND endpoint = 'INV-05' AND idem_key = 'idem-stale-1'
-                """, java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(300)), adminId);
+                """, ShanghaiTime.now().minusSeconds(300), adminId);
 
         mockMvc.perform(post("/api/v1/b/invites")
                         .cookie(admin)
@@ -133,7 +134,7 @@ class IdempotencyIT extends IntegrationTestSupport {
                 UPDATE idempotency_key
                 SET response_body = NULL, response_status = NULL, created_at = ?
                 WHERE user_id = ? AND endpoint = 'INV-05' AND idem_key = 'idem-stale-1'
-                """, java.sql.Timestamp.from(java.time.Instant.now().minusSeconds(10)), adminId);
+                """, ShanghaiTime.now().minusSeconds(10), adminId);
 
         mockMvc.perform(post("/api/v1/b/invites")
                         .cookie(admin)

@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.OutboxMessage;
 import com.yunhefc.notification.application.NotificationEventConsumer;
@@ -293,7 +294,7 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
                                 {"title":"%s","type":1,"season":"2099","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                                 """.formatted(title, local(startAt), local(
-                                LocalDateTime.parse(startAt).plusHours(2).toString()))))
+                                ShanghaiTime.parseLenient(startAt).plusHours(2).toString()))))
                 .andExpect(status().isOk())
                 .andReturn();
         Long matchId = JsonPath.<Number>read(
@@ -302,8 +303,8 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
         return matchId;
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private Cookie playerLogin(String phone, String name) throws Exception {

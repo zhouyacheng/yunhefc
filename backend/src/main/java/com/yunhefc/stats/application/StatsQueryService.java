@@ -2,15 +2,14 @@ package com.yunhefc.stats.application;
 
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.player.PlayerPublicSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.stats.infrastructure.StatsCache;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Clock;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -24,19 +23,17 @@ import java.util.regex.Pattern;
 @RequiredArgsConstructor
 public class StatsQueryService {
 
-    private static final ZoneId BUSINESS_ZONE = ZoneId.of("Asia/Shanghai");
     private static final Pattern SEASON_PATTERN = Pattern.compile("\\d{4}");
 
     private final StatsSummaryReader summaryReader;
     private final PlayerReadPort playerReadPort;
     private final StatsCache statsCache;
-    private final Clock clock;
 
     /**
      * 本赛季：按 Asia/Shanghai 的当前年份。
      */
     public String currentSeason() {
-        return String.valueOf(LocalDate.now(clock.withZone(BUSINESS_ZONE)).getYear());
+        return String.valueOf(LocalDate.now(ShanghaiTime.ZONE).getYear());
     }
 
     /**

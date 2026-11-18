@@ -13,9 +13,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class AttendanceAdminIT extends IntegrationTestSupport {
 
@@ -379,17 +380,17 @@ class AttendanceAdminIT extends IntegrationTestSupport {
     }
 
     private Long insertMatch(String title, int status) {
-        Instant startAt = Instant.now().plus(2, ChronoUnit.HOURS);
+        LocalDateTime startAt = ShanghaiTime.now().plus(2, ChronoUnit.HOURS);
         long seasonNo = nextMatchNo();
         jdbc.update("""
                 INSERT INTO team_match (team_id, title, type, start_at, end_at, signup_deadline,
                     cancel_lock, venue, season, home_team_name, away_team_name, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, 1, 30, ?, ?, 1)
-                """, title, java.sql.Timestamp.from(startAt),
-                java.sql.Timestamp.from(startAt.plus(2, ChronoUnit.HOURS)),
-                java.sql.Timestamp.from(startAt.minus(1, ChronoUnit.DAYS)),
-                java.sql.Timestamp.from(startAt.minus(4, ChronoUnit.HOURS)),
+                """, title, startAt,
+                startAt.plus(2, ChronoUnit.HOURS),
+                startAt.minus(1, ChronoUnit.DAYS),
+                startAt.minus(4, ChronoUnit.HOURS),
                 status, seasonNo, seasonNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

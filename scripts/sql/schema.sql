@@ -3,14 +3,14 @@
 -- 说明：
 --   1. 仅 DDL，不含种子数据；球队/角色/权限/配置由 Flyway 种子脚本初始化。
 --   2. 主键统一 BIGINT UNSIGNED AUTO_INCREMENT；不建物理外键，关联字段建索引。
---   3. 时间字段统一 UTC，使用 DATETIME(3)。
+--   3. 时间字段统一 Asia/Shanghai（+08:00）墙钟，使用 DATETIME(3)。
 --   4. 表名单数 snake_case，避开 MySQL 保留字（team_match / app_user / app_role）。
 --   5. 枚举字段统一 TINYINT UNSIGNED，数字映射见列 COMMENT 与 docs/design/04 §2.4；数据库永久禁用 CHECK，枚举与跨字段业务规则均由应用层强校验。
 --   6. 所有业务表包含 is_deleted（0-未删除;1-伪删除）。
 --   7. 所有字段带中文 COMMENT；枚举/布尔字段同时写明数字含义。
 
 SET NAMES utf8mb4;
-SET time_zone = '+00:00';
+SET time_zone = '+08:00';
 
 -- ---------------------------------------------------------------------------
 -- 球队与账号

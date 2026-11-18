@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -30,8 +30,8 @@ public class InviteRetentionAdapter implements RetentionTask {
     }
 
     @Override
-    public int deleteBatch(Instant now, int limit) {
-        Instant cutoff = now.minus(Duration.ofDays(retentionProperties.getInviteDays()));
+    public int deleteBatch(LocalDateTime now, int limit) {
+        LocalDateTime cutoff = now.minus(Duration.ofDays(retentionProperties.getInviteDays()));
         return Objects.requireNonNullElse(transactionTemplate.execute(status -> {
             List<Long> ids = inviteLinkMapper.findPurgeableIds(cutoff, limit);
             if (ids.isEmpty()) {

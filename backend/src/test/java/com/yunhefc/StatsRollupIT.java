@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.attendance.AttendanceReadPort;
 import com.yunhefc.stats.application.PlayerStatsRow;
 import com.yunhefc.stats.application.StatsQueryService;
@@ -30,9 +31,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Map;
@@ -67,7 +67,7 @@ class StatsRollupIT extends IntegrationTestSupport {
         Long third = insertPlayer("13900006603", "汇总球员三");
         Long fourth = insertPlayer("13900006604", "汇总球员四");
 
-        Instant start = Instant.now().minus(Duration.ofHours(3));
+        LocalDateTime start = ShanghaiTime.now().minus(Duration.ofHours(3));
         Long counted = insertMatch("stats汇总本季", season, 4, start);
         Long cancelled = insertMatch("stats汇总取消", season, 6, start);
         Long previous = insertMatch("stats汇总上季", previousSeason(), 4, start);
@@ -120,7 +120,7 @@ class StatsRollupIT extends IntegrationTestSupport {
         String previous = previousSeason();
         Long player = insertPlayer("13900006606", "汇总隔离球员");
         insertStats(player, previous, 9, 8, 7);
-        Instant start = Instant.now().minus(Duration.ofHours(3));
+        LocalDateTime start = ShanghaiTime.now().minus(Duration.ofHours(3));
         Long currentMatch = insertMatch("stats隔离本季", currentSeason(), 4, start);
         Long previousMatch = insertMatch("stats隔离上季", previous, 4, start);
         attendance(currentMatch, player, 0);
@@ -141,7 +141,7 @@ class StatsRollupIT extends IntegrationTestSupport {
         String season = currentSeason();
         Long player = insertPlayer("13900006611", "汇总失败保留");
         insertStats(player, season, 9, 8, 7);
-        insertMatch("stats汇总失败", season, 4, Instant.now().minus(Duration.ofHours(3)));
+        insertMatch("stats汇总失败", season, 4, ShanghaiTime.now().minus(Duration.ofHours(3)));
 
         doThrow(new IllegalStateException("attendance read failed"))
                 .when(attendanceReadPort).findByMatchIds(any());
@@ -155,7 +155,7 @@ class StatsRollupIT extends IntegrationTestSupport {
     void refreshesCacheAndTeamStatsAndGroupingReadShareTheSummary() throws Exception {
         String season = currentSeason();
         Long player = insertPlayer("13900006621", "汇总缓存球员");
-        Instant start = Instant.now().minus(Duration.ofHours(3));
+        LocalDateTime start = ShanghaiTime.now().minus(Duration.ofHours(3));
         Long match = insertMatch("stats汇总缓存", season, 4, start);
         attendance(match, player, 0);
         event(match, 0, player, null);
@@ -267,11 +267,11 @@ class StatsRollupIT extends IntegrationTestSupport {
                 "SELECT id FROM player WHERE user_id = ?", Long.class, userId);
     }
 
-    private Long insertMatch(String title, String season, int status, Instant startAt) {
-        Instant endAt = startAt.plus(Duration.ofHours(2));
-        Instant signupDeadline = startAt.atZone(SHANGHAI).toLocalDate()
-                .atStartOfDay(SHANGHAI).toInstant();
-        Instant cancelLock = signupDeadline.plus(Duration.ofHours(1));
+    private Long insertMatch(String title, String season, int status, LocalDateTime startAt) {
+        LocalDateTime endAt = startAt.plus(Duration.ofHours(2));
+        LocalDateTime signupDeadline = startAt.toLocalDate()
+                .atStartOfDay();
+        LocalDateTime cancelLock = signupDeadline.plus(Duration.ofHours(1));
         long seasonNo = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(season_match_no), 0) + 1
                 FROM team_match WHERE team_id = 1 AND season = ?
@@ -284,8 +284,8 @@ class StatsRollupIT extends IntegrationTestSupport {
                     cancel_lock, venue, season, home_team_name, away_team_name, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', ?, '橙队', '兰队', ?, 1, 30, ?, ?, 1)
-                """, title, Timestamp.from(startAt), Timestamp.from(endAt),
-                Timestamp.from(signupDeadline), Timestamp.from(cancelLock), season, status,
+                """, title, startAt, endAt,
+                signupDeadline, cancelLock, season, status,
                 seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

@@ -4,12 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.grouping.SavedGroupingSnapshot;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 class EventRulesTest {
@@ -55,7 +56,7 @@ class EventRulesTest {
     @Test
     void savedGroupingChecksEachPlayerFieldAgainstEventTeam() {
         SavedGroupingSnapshot snapshot = new SavedGroupingSnapshot(
-                1L, Instant.now(), Map.of(6L, 0, 7L, 0, 8L, 1));
+                1L, ShanghaiTime.now(), Map.of(6L, 0, 7L, 0, 8L, 1));
         assertThatCode(() -> EventRules.validateGrouping(
                 fields(EventTeam.HOME, 6L, 7L, null, null), snapshot))
                 .doesNotThrowAnyException();
@@ -73,7 +74,7 @@ class EventRulesTest {
     @Test
     void ownGoalUsesEventTeamAndDraftGroupingDoesNotConstrain() {
         SavedGroupingSnapshot saved = new SavedGroupingSnapshot(
-                1L, Instant.now(), Map.of(6L, 0, 8L, 1));
+                1L, ShanghaiTime.now(), Map.of(6L, 0, 8L, 1));
         assertThatCode(() -> EventRules.validateGrouping(
                 fields(EventType.OWN_GOAL, EventTeam.HOME, 6L, null, null, null), saved))
                 .doesNotThrowAnyException();

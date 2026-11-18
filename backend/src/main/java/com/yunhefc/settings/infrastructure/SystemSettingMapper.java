@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Insert;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Map;
 
 @Mapper
@@ -32,5 +32,5 @@ public interface SystemSettingMapper extends BaseMapper<SystemSetting> {
             </script>
             """)
     int upsertBatch(@Param("teamId") Long teamId, @Param("values") Map<String, Integer> values,
-                    @Param("updatedBy") Long updatedBy, @Param("now") Instant now);
+                    @Param("updatedBy") Long updatedBy, @Param("now") LocalDateTime now);
 }

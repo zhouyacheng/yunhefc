@@ -4,11 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class MatchSnapshotTest {
 
-    private static final Instant START = Instant.parse("2026-03-01T04:00:00Z");
+    private static final LocalDateTime START = ShanghaiTime.parseLenient("2026-03-01T04:00:00Z");
 
     @Test
     void effectiveSeasonPrefersExplicitMatchSeason() {
@@ -20,7 +21,7 @@ class MatchSnapshotTest {
         assertThat(snapshot(null, START).effectiveSeason()).isEqualTo("2026");
         assertThat(snapshot("", START).effectiveSeason()).isEqualTo("2026");
         // UTC 2025-12-31T16:00Z 在上海已是 2026 年。
-        assertThat(snapshot(null, Instant.parse("2025-12-31T16:00:00Z")).effectiveSeason())
+        assertThat(snapshot(null, ShanghaiTime.parseLenient("2025-12-31T16:00:00Z")).effectiveSeason())
                 .isEqualTo("2026");
     }
 
@@ -29,7 +30,7 @@ class MatchSnapshotTest {
         assertThat(snapshot(null, null).effectiveSeason()).isNull();
     }
 
-    private static MatchSnapshot snapshot(String season, Instant startAt) {
+    private static MatchSnapshot snapshot(String season, LocalDateTime startAt) {
         return new MatchSnapshot(1L, 1L, "测试", startAt, startAt, null, null, 30, 4, 2,
                 "场地", 4, "橙队", "兰队", null, season, 1, null, true);
     }

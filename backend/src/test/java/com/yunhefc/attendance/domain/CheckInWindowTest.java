@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class CheckInWindowTest {
 
@@ -14,7 +14,7 @@ class CheckInWindowTest {
 
     @Test
     void opensFourHoursBeforeStartAndClosesAtEndOfMatchDay() {
-        Instant start = at("2026-11-15T20:00:00");
+        LocalDateTime start = at("2026-11-15T20:00:00");
 
         assertThat(CheckInWindow.opensAt(start)).isEqualTo(at("2026-11-15T16:00:00"));
         assertThat(CheckInWindow.closesAt(start)).isEqualTo(at("2026-11-16T00:00:00"));
@@ -26,13 +26,13 @@ class CheckInWindowTest {
 
     @Test
     void earlyMorningMatchOpensOnPreviousDay() {
-        Instant start = at("2026-11-16T01:00:00");
+        LocalDateTime start = at("2026-11-16T01:00:00");
 
         assertThat(CheckInWindow.opensAt(start)).isEqualTo(at("2026-11-15T21:00:00"));
         assertThat(CheckInWindow.isOpen(start, at("2026-11-15T23:00:00"))).isTrue();
     }
 
-    private static Instant at(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(SHANGHAI).toInstant();
+    private static LocalDateTime at(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 }

@@ -14,12 +14,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class MatchAdminIT extends IntegrationTestSupport {
 
@@ -100,20 +101,20 @@ class MatchAdminIT extends IntegrationTestSupport {
                         + "AND JSON_TYPE(JSON_EXTRACT(payload_json, '$.beforeJson')) = 'NULL'",
                 Integer.class, matchId)).isEqualTo(1);
 
-        Instant startAt = Instant.parse(com.jayway.jsonpath.JsonPath.read(
+        LocalDateTime startAt = ShanghaiTime.parseLenient(com.jayway.jsonpath.JsonPath.read(
                 result.getResponse().getContentAsString(), "$.data.startAt"));
-        Instant endAt = Instant.parse(com.jayway.jsonpath.JsonPath.read(
+        LocalDateTime endAt = ShanghaiTime.parseLenient(com.jayway.jsonpath.JsonPath.read(
                 result.getResponse().getContentAsString(), "$.data.endAt"));
-        Instant signupDeadline = Instant.parse(com.jayway.jsonpath.JsonPath.read(
+        LocalDateTime signupDeadline = ShanghaiTime.parseLenient(com.jayway.jsonpath.JsonPath.read(
                 result.getResponse().getContentAsString(), "$.data.signupDeadline"));
-        Instant cancelLock = Instant.parse(com.jayway.jsonpath.JsonPath.read(
+        LocalDateTime cancelLock = ShanghaiTime.parseLenient(com.jayway.jsonpath.JsonPath.read(
                 result.getResponse().getContentAsString(), "$.data.cancelLock"));
         assertThat(startAt).isEqualTo(local("2026-12-01T20:00:00"));
         assertThat(Duration.between(startAt, endAt)).isEqualTo(Duration.ofHours(2));
-        assertThat(signupDeadline).isEqualTo(startAt.atZone(ZONE).toLocalDate()
-                .atStartOfDay(ZONE).toInstant());
-        assertThat(cancelLock).isEqualTo(startAt.atZone(ZONE).toLocalDate()
-                .atTime(1, 0).atZone(ZONE).toInstant());
+        assertThat(signupDeadline).isEqualTo(startAt.toLocalDate()
+                .atStartOfDay());
+        assertThat(cancelLock).isEqualTo(startAt.toLocalDate()
+                .atTime(1, 0));
     }
 
     @Test
@@ -207,7 +208,7 @@ class MatchAdminIT extends IntegrationTestSupport {
                 status().isUnprocessableEntity(), 42201);
         MvcResult early = create(admin,
                 createBody("M03早场", 1, "2026-12-02T01:30:00", "2026-12-02T03:30:00"));
-        assertThat(Instant.parse(com.jayway.jsonpath.JsonPath.read(
+        assertThat(ShanghaiTime.parseLenient(com.jayway.jsonpath.JsonPath.read(
                 early.getResponse().getContentAsString(), "$.data.cancelLock")))
                 .isEqualTo(local("2026-12-02T01:00:00"));
         createExpecting(admin, """
@@ -682,10 +683,10 @@ class MatchAdminIT extends IntegrationTestSupport {
         // 模拟手工冻结或自动流转滞后的过期比赛：状态非终态，但结束时间已过。
         jdbc.update("""
                 UPDATE team_match
-                SET start_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR),
-                    end_at = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 HOUR),
-                    signup_deadline = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 4 HOUR),
-                    cancel_lock = DATE_SUB(UTC_TIMESTAMP(), INTERVAL 3 HOUR),
+                SET start_at = DATE_SUB(NOW(), INTERVAL 3 HOUR),
+                    end_at = DATE_SUB(NOW(), INTERVAL 1 HOUR),
+                    signup_deadline = DATE_SUB(NOW(), INTERVAL 4 HOUR),
+                    cancel_lock = DATE_SUB(NOW(), INTERVAL 3 HOUR),
                     status = 2, manual_status = 1
                 WHERE id = ?
                 """, id(stale));
@@ -751,7 +752,7 @@ class MatchAdminIT extends IntegrationTestSupport {
                 {"title":"%s","type":%d,"season":"%s","startAt":"%s","endAt":"%s",
                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                 """.formatted(title, type, season, local(startAt),
-                local(java.time.LocalDateTime.parse(startAt).plusHours(2).toString()));
+                local(ShanghaiTime.parseLenient(startAt).plusHours(2).toString()));
     }
 
     private String createBody(String title, int type, String startAt, String endAt) {
@@ -794,8 +795,8 @@ class MatchAdminIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(code));
     }
 
-    private String local(String localDateTime) {
-        return java.time.LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private Long insertRole(String code, String permissionCode) {

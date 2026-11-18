@@ -1,5 +1,6 @@
 package com.yunhefc.grouping.application;
 
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -53,8 +54,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -88,7 +88,6 @@ public class GroupingApplicationService {
     private final StatsQueryService statsQueryService;
     private final GroupingSettingsPort groupingSettingsPort;
     private final AuditRecorder auditRecorder;
-    private final Clock clock;
 
     @Transactional(readOnly = true)
     public GroupingView viewForPlayer(Long matchId) {
@@ -146,7 +145,7 @@ public class GroupingApplicationService {
         List<String> warnings = GroupingWarnings.compute(
                 assignment.teamA(), assignment.teamB(), candidates);
         String fingerprint = RosterFingerprint.of(candidateIds(candidates));
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
 
         MatchGrouping grouping = persist(existing, matchId, weights, fingerprint, now,
                 principal.userId(), assignment);
@@ -257,7 +256,7 @@ public class GroupingApplicationService {
         }
 
         Map<String, Object> before = auditSnapshot(grouping, rows);
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         groupingMapper.markSaved(grouping.getId(), now);
         grouping.setSavedAt(now);
         auditRecorder.recordCurrent("grouping.save", "team_match", matchId,
@@ -337,7 +336,7 @@ public class GroupingApplicationService {
     }
 
     private MatchGrouping persist(MatchGrouping existing, Long matchId, GroupingWeights weights,
-                                  String fingerprint, Instant now, Long userId,
+                                  String fingerprint, LocalDateTime now, Long userId,
                                   GroupingAssignment assignment) {
         MatchGrouping grouping = existing == null ? new MatchGrouping() : existing;
         if (existing == null) {
@@ -581,10 +580,10 @@ public class GroupingApplicationService {
             GroupingWeightsView weights,
             BigDecimal diff,
             List<String> warnings,
-            Instant savedAt,
+            LocalDateTime savedAt,
             GroupingScoresView scores,
             String rosterFingerprint,
-            Instant generatedAt,
+            LocalDateTime generatedAt,
             List<Long> ungroupedPlayerIds,
             GroupingRosterDiffView rosterDiff) {
     }

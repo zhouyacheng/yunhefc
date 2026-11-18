@@ -22,7 +22,7 @@ description: MySQL 表结构、命名、枚举、伪删除、索引、约束与 
 3. 主键统一 `id BIGINT UNSIGNED AUTO_INCREMENT`；关联字段使用 `{实体}_id`，例如 `team_id`、`player_id`、`match_id`。
 4. 关联表使用复合主键，例如 `user_role(user_id, role_id)`、`role_permission(role_id, permission_id)`。
 5. 字段类型准确表达业务含义：
-   - 时间：`DATETIME(3)`，统一 UTC。
+   - 时间：`DATETIME(3)`，统一 Asia/Shanghai（+08:00）墙钟。
    - 布尔：`TINYINT(1)`，0/1，`COMMENT` 写明含义。
    - 枚举：`TINYINT UNSIGNED`，`COMMENT` 写数字映射。
    - 标识/哈希：哈希用 `CHAR` + `ascii_bin`（如 `token_hash`、`request_hash`）；可变长度标识用 `VARCHAR` + `ascii_bin`（如 `openid`）。
@@ -81,7 +81,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 
 ## 6 审计、时间与保留
 
-1. 时间统一 `DATETIME(3)` UTC；业务边界（报名截止 00:00、锁定 01:00、签到窗口、缺勤 +6h）先在 Asia/Shanghai 推导，再转 UTC。应用连接池通过 Hikari `connection-init-sql` 强制会话 `time_zone='+00:00'`，禁止依赖 RDS 默认时区；`DEFAULT CURRENT_TIMESTAMP(3)` / `ON UPDATE CURRENT_TIMESTAMP(3)` 与驱动 `serverTimezone=UTC` 必须同标尺。
+1. 时间统一 `DATETIME(3)` 存 Asia/Shanghai（+08:00）墙钟；业务边界（报名截止 00:00、锁定 01:00、签到窗口、缺勤 +6h）直接在 Asia/Shanghai 推导后存储。应用连接池通过 Hikari `data-source-properties.connectionTimeZone=Asia/Shanghai` 与 `connection-init-sql` 固定驱动和会话时区，禁止依赖 RDS/容器默认时区；`DEFAULT CURRENT_TIMESTAMP(3)` / `ON UPDATE CURRENT_TIMESTAMP(3)` 必须与驱动时区同标尺。接口层输出 ISO-8601 `+08:00` 偏移。
 2. 业务主表包含 `created_at`；可变表包含 `updated_at`；关联表、子表与事件去重表可使用业务时间字段替代（如 `registered_at`、`recorded_at`、`used_at`、`processed_at`）；关键写操作记录 `created_by/updated_by` 等操作人字段。
 3. 事件修改历史写 `event_history`；审计日志不删除，年度导出 OSS 冷备。
 4. 保留策略：
@@ -102,7 +102,9 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
    - `V2__quartz_schema.sql`：11 张 Quartz 表；
    - `V3__seed_team_roles_permissions_settings.sql`：球队、角色、28 权限、9 项配置；
    - `V4__seed_formation_templates.sql`：8 套阵型、64 个槽位；
-   - `V5__add_table_comments.sql`：27 张业务表的表级中文注释。
+   - `V5__add_table_comments.sql`：27 张业务表的表级中文注释；
+   - `V6__backfill_cancel_lock_match_day_0100.sql`：取消锁定回填（P-51）；
+   - `V7__reset_session_and_align_seed_timezone.sql`：Flyway 会话重置与新库种子时区回填（P-65）。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。
@@ -137,7 +139,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - ❌ 为 `is_deleted` 单独建低选择性索引，或重复建已有索引前缀。
 - ❌ 手工改生产表；Flyway 迁移不可重复或依赖环境。
 - ❌ 使用 `SELECT *`、`${}` 拼接、循环单条查询。
-- ❌ 时间用本地时区写入，或 `DATETIME` 不带毫秒精度。
+- ❌ 会话、驱动与存储时区不一致（必须同为 Asia/Shanghai），或 `DATETIME` 不带毫秒精度。
 
 ---
 
@@ -152,7 +154,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 业务表 0 物理外键；Quartz 5 框架外键保留
 - [ ] 数据库无 CHECK（永久禁用）；应用层校验清单（04 §8.1）已实现并被测试覆盖
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
-- [ ] 时间 UTC、`DATETIME(3)`；业务边界按 Asia/Shanghai 推导
+- [ ] 时间存 Asia/Shanghai 墙钟、`DATETIME(3)`；业务边界直接在 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V6 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V7 顺序正确、可重复、无环境硬编码
 - [ ] 未执行生产 DDL、未手工改表

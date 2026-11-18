@@ -2,6 +2,7 @@ package com.yunhefc.notification.application;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.infra.outbox.ConsumedEventMapper;
@@ -15,8 +16,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +27,6 @@ public class NotificationEventHandler {
     public static final String GROUP = "yunhefc-notification";
 
     private static final Logger log = LoggerFactory.getLogger(NotificationEventHandler.class);
-    private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
     private static final DateTimeFormatter START_AT_FORMAT = DateTimeFormatter.ofPattern("M月d日 HH:mm");
 
     private final NotificationMapper notificationMapper;
@@ -98,7 +96,7 @@ public class NotificationEventHandler {
     }
 
     private static String formatStartAt(Object value) {
-        return START_AT_FORMAT.format(Instant.parse(String.valueOf(value)).atZone(ZONE));
+        return START_AT_FORMAT.format(ShanghaiTime.parseLenient(String.valueOf(value)));
     }
 
     private Notification build(String eventType, Map<String, Object> payload) {

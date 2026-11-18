@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.OutboxMessage;
 import com.yunhefc.infra.outbox.OutboxService;
@@ -87,8 +88,8 @@ class MatchNotificationIT extends IntegrationTestSupport {
         assertThat(JsonPath.<Number>read(payload, "$.matchId").longValue()).isEqualTo(matchId);
         assertThat(JsonPath.<String>read(payload, "$.matchTitle")).isEqualTo("M04延期通知");
         assertThat(JsonPath.<Boolean>read(payload, "$.rescheduled")).isFalse();
-        assertThat(JsonPath.<String>read(payload, "$.startAt"))
-                .isEqualTo(local("2026-12-20T19:00:00").toString());
+        assertThat(ShanghaiTime.parseLenient(JsonPath.<String>read(payload, "$.startAt")))
+                .isEqualTo(local("2026-12-20T19:00:00"));
         assertThat(payload).doesNotContain("13900001502", "13900001503");
 
         consume(event, 101L);
@@ -125,8 +126,8 @@ class MatchNotificationIT extends IntegrationTestSupport {
         Map<String, Object> event = latestEvent(MATCH_POSTPONED, matchId);
         String payload = (String) event.get("payload_json");
         assertThat(JsonPath.<Boolean>read(payload, "$.rescheduled")).isTrue();
-        assertThat(JsonPath.<String>read(payload, "$.startAt"))
-                .isEqualTo(local("2026-12-25T18:00:00").toString());
+        assertThat(ShanghaiTime.parseLenient(JsonPath.<String>read(payload, "$.startAt")))
+                .isEqualTo(local("2026-12-25T18:00:00"));
 
         consume(event, 111L);
 
@@ -361,7 +362,7 @@ class MatchNotificationIT extends IntegrationTestSupport {
                                 {"title":"%s","type":1,"season":"2099","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                                 """.formatted(title, local(startAt),
-                                local(LocalDateTime.parse(startAt).plusHours(2).toString()))))
+                                local(ShanghaiTime.parseLenient(startAt).plusHours(2).toString()))))
                 .andExpect(status().isOk())
                 .andReturn();
         Long matchId = JsonPath.<Number>read(
@@ -370,8 +371,8 @@ class MatchNotificationIT extends IntegrationTestSupport {
         return matchId;
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private void insertRegistration(Long matchId, Long playerId, int type, int status) {

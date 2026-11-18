@@ -8,7 +8,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Mapper
@@ -47,5 +47,5 @@ public interface NotificationMapper extends BaseMapper<Notification> {
      * 保留任务用物理删除；自定义 @Delete 绕过 @TableLogic 与默认伪删除。
      */
     @Delete("DELETE FROM notification WHERE created_at < #{before} LIMIT #{limit}")
-    int deleteCreatedBefore(@Param("before") Instant before, @Param("limit") int limit);
+    int deleteCreatedBefore(@Param("before") LocalDateTime before, @Param("limit") int limit);
 }

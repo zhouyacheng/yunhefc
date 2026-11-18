@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -20,10 +20,10 @@ public class Registration {
     private Long playerId;
     private RegistrationType type;
     private RegistrationStatus status;
-    private Instant registeredAt;
-    private Instant cancelledAt;
+    private LocalDateTime registeredAt;
+    private LocalDateTime cancelledAt;
     private Long cancelledBy;
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

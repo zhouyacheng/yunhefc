@@ -9,7 +9,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -23,14 +23,14 @@ public class InviteLink {
     private String tokenHash;
     private Long matchId;
     private Long inviterUserId;
-    private Instant expiresAt;
+    private LocalDateTime expiresAt;
     private Integer maxUses;
     private Integer usedCount;
     private InviteStatus status;
-    private Instant revokedAt;
-    private Instant createdAt;
+    private LocalDateTime revokedAt;
+    private LocalDateTime createdAt;
     @TableField(updateStrategy = FieldStrategy.NEVER)
-    private Instant updatedAt;
+    private LocalDateTime updatedAt;
     @TableLogic
     private Integer isDeleted;
 }

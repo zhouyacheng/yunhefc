@@ -12,7 +12,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
@@ -50,8 +50,8 @@ public final class MatchDtos {
     public record MatchCreateRequest(
             @NotBlank @Size(max = 128) String title,
             @NotNull @Min(0) @Max(3) Integer type,
-            @NotNull Instant startAt,
-            @NotNull Instant endAt,
+            @NotNull LocalDateTime startAt,
+            @NotNull LocalDateTime endAt,
             @NotBlank @Size(max = 128) String venue,
             @NotBlank @Size(max = 64) String homeTeamName,
             @NotBlank @Size(max = 64) String awayTeamName,
@@ -73,13 +73,13 @@ public final class MatchDtos {
             @NotNull @Min(0) Integer version,
             Boolean manualStatus,
             @Size(max = 200) String reason,
-            Instant startAt,
-            Instant endAt) {
+            LocalDateTime startAt,
+            LocalDateTime endAt) {
     }
 
     public record MatchScheduleRequest(
-            @NotNull Instant startAt,
-            @NotNull Instant endAt,
+            @NotNull LocalDateTime startAt,
+            @NotNull LocalDateTime endAt,
             @NotNull @Min(0) Integer version) {
     }
 
@@ -99,9 +99,9 @@ public final class MatchDtos {
         @Size(max = 128)
         private String title;
 
-        private Instant startAt;
+        private LocalDateTime startAt;
 
-        private Instant endAt;
+        private LocalDateTime endAt;
 
         @Size(max = 128)
         private String venue;
@@ -190,10 +190,10 @@ public final class MatchDtos {
             Integer type,
             String typeLabel,
             String format,
-            Instant startAt,
-            Instant endAt,
-            Instant signupDeadline,
-            Instant cancelLock,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
+            LocalDateTime signupDeadline,
+            LocalDateTime cancelLock,
             String venue,
             String competition,
             String season,
@@ -217,11 +217,11 @@ public final class MatchDtos {
             int guestCount,
             int waitlistCount,
             Integer version,
-            Instant statusUpdatedAt,
+            LocalDateTime statusUpdatedAt,
             Long statusUpdatedBy,
             Long createdBy,
-            Instant createdAt,
-            Instant updatedAt) {
+            LocalDateTime createdAt,
+            LocalDateTime updatedAt) {
     }
 
     public record MatchSummary(
@@ -229,8 +229,8 @@ public final class MatchDtos {
             String title,
             Integer type,
             String typeLabel,
-            Instant startAt,
-            Instant endAt,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
             String venue,
             Integer round,
             String season,
@@ -255,8 +255,8 @@ public final class MatchDtos {
             String title,
             Integer type,
             String typeLabel,
-            Instant startAt,
-            Instant endAt,
+            LocalDateTime startAt,
+            LocalDateTime endAt,
             String venue,
             Integer round,
             String season,
@@ -276,8 +276,8 @@ public final class MatchDtos {
             int waitlistCount,
             String format,
             String competition,
-            Instant signupDeadline,
-            Instant cancelLock,
+            LocalDateTime signupDeadline,
+            LocalDateTime cancelLock,
             Integer capacity,
             Integer guestCapacity,
             Integer waitlistCapacity,
@@ -296,8 +296,8 @@ public final class MatchDtos {
             String typeLabel,
             Integer status,
             String statusLabel,
-            Instant registeredAt,
-            Instant cancelledAt,
+            LocalDateTime registeredAt,
+            LocalDateTime cancelledAt,
             boolean active) {
     }
 }

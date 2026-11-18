@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -21,7 +21,7 @@ public class Permission {
     private String resource;
     private String action;
     private String scope;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     @TableLogic
     private Integer isDeleted;
 }

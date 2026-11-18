@@ -2,6 +2,7 @@ package com.yunhefc.lineup.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
@@ -41,8 +42,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Clock;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -73,7 +73,6 @@ public class LineupApplicationService {
     private final UserAccountReadPort userAccountReadPort;
     private final GroupingReadPort groupingReadPort;
     private final AuditRecorder auditRecorder;
-    private final Clock clock;
 
     @Transactional(readOnly = true)
     public LineupView viewForPlayer(Long matchId, Integer side) {
@@ -139,7 +138,7 @@ public class LineupApplicationService {
             throw versionConflict(currentVersion);
         }
 
-        Instant now = Instant.now(clock);
+        LocalDateTime now = ShanghaiTime.now();
         Long lineupId;
         int newVersion = currentVersion + 1;
         if (existing == null) {

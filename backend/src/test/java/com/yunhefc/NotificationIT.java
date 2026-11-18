@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.player.PlayerType;
@@ -24,8 +25,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
-import java.sql.Timestamp;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,7 +50,7 @@ class NotificationIT extends IntegrationTestSupport {
     void listReturnsOwnNotificationsWithFixedOrderAndUnreadFilter() throws Exception {
         Long userId = activePlayerUser(PLAYER_PHONE, "通知列表甲");
         Long otherUserId = activePlayerUser("13900002002", "通知列表乙");
-        Instant base = Instant.parse("2026-11-01T10:00:00Z");
+        LocalDateTime base = ShanghaiTime.parseLenient("2026-11-01T10:00:00Z");
         Long readOld = insertNotification(userId, NotificationType.MATCH_CANCELLED, "已读旧通知",
                 "旧的已读通知", "MATCH", 11L, base.minus(2, ChronoUnit.HOURS), base);
         Long older = insertNotification(userId, NotificationType.REGISTRATION_CONFIRMED, "报名成功",
@@ -95,7 +95,7 @@ class NotificationIT extends IntegrationTestSupport {
     @Test
     void listSupportsPaginationAndRejectsInvalidPageSize() throws Exception {
         Long userId = activePlayerUser("13900002009", "分页甲");
-        Instant base = Instant.parse("2026-10-01T10:00:00Z");
+        LocalDateTime base = ShanghaiTime.parseLenient("2026-10-01T10:00:00Z");
         List<Long> ids = new ArrayList<>();
         for (int i = 0; i < 12; i++) {
             ids.add(insertNotification(userId, NotificationType.ROLE_CHANGED, "通知" + i,
@@ -130,7 +130,7 @@ class NotificationIT extends IntegrationTestSupport {
     void unreadCountAgreesWithMeAndReadAllOnlyTouchesOwnRows() throws Exception {
         Long userId = activePlayerUser(PLAYER_PHONE, "未读统计甲");
         Long otherUserId = activePlayerUser("13900002003", "未读统计乙");
-        Instant now = Instant.now();
+        LocalDateTime now = ShanghaiTime.now();
         Long first = insertNotification(userId, NotificationType.REGISTRATION_CONFIRMED, "报名成功",
                 "未读一", "MATCH", 21L, now, null);
         insertNotification(userId, NotificationType.WAITLIST_PROMOTED, "候补递补成功",
@@ -184,7 +184,7 @@ class NotificationIT extends IntegrationTestSupport {
         Long userId = activePlayerUser(PLAYER_PHONE, "越权甲");
         Long otherUserId = activePlayerUser("13900002004", "越权乙");
         Long otherNotification = insertNotification(otherUserId, NotificationType.ROLE_CHANGED, "角色变更",
-                "他人通知", "USER", otherUserId, Instant.now(), null);
+                "他人通知", "USER", otherUserId, ShanghaiTime.now(), null);
         Cookie player = cLogin(PLAYER_PHONE, PLAYER_PASSWORD);
 
         mockMvc.perform(post("/api/v1/c/notifications/" + otherNotification + "/read")
@@ -219,9 +219,9 @@ class NotificationIT extends IntegrationTestSupport {
     void pendingAccountCanListCountAndMarkRead() throws Exception {
         Long userId = insertUser("13900002005", UserStatus.PENDING, "GUEST");
         Long first = insertNotification(userId, NotificationType.ACCOUNT_APPROVED, "账号审核通过",
-                "待审核可读", "USER", userId, Instant.now(), null);
+                "待审核可读", "USER", userId, ShanghaiTime.now(), null);
         insertNotification(userId, NotificationType.ROLE_CHANGED, "角色变更",
-                "待审核可读二", "USER", userId, Instant.now(), null);
+                "待审核可读二", "USER", userId, ShanghaiTime.now(), null);
         Cookie pending = cLogin("13900002005", PLAYER_PASSWORD);
 
         mockMvc.perform(get("/api/v1/c/notifications").cookie(pending))
@@ -291,7 +291,7 @@ class NotificationIT extends IntegrationTestSupport {
     @Test
     void deleteCreatedBeforePhysicallyRemovesExpiredNotifications() {
         Long userId = insertUser("13900002008", UserStatus.ACTIVE, "PLAYER");
-        Instant now = Instant.now();
+        LocalDateTime now = ShanghaiTime.now();
         Long expired = insertNotification(userId, NotificationType.ROLE_CHANGED, "过期通知",
                 "满 90 天", "USER", userId, now.minus(91, ChronoUnit.DAYS), null);
         Long retained = insertNotification(userId, NotificationType.ROLE_CHANGED, "保留通知",
@@ -317,12 +317,12 @@ class NotificationIT extends IntegrationTestSupport {
     }
 
     private Long insertNotification(Long userId, NotificationType type, String title, String body,
-                                    String refType, Long refId, Instant createdAt, Instant readAt) {
+                                    String refType, Long refId, LocalDateTime createdAt, LocalDateTime readAt) {
         jdbc.update("""
                 INSERT INTO notification (user_id, type, title, body, ref_type, ref_id, read_at, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, userId, type.code(), title, body, refType, refId,
-                readAt == null ? null : Timestamp.from(readAt), Timestamp.from(createdAt));
+                readAt == null ? null : readAt, createdAt);
         return jdbc.queryForObject("SELECT MAX(id) FROM notification WHERE user_id = ?", Long.class, userId);
     }
 

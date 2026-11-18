@@ -15,11 +15,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
-import java.sql.Timestamp;
 import java.time.Duration;
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 /**
  * M06 事件核心（EVT-01/02/03）：推导比分、时间线、权限窗口、字段矩阵、历史与审计。
@@ -33,7 +33,7 @@ class EventCoreIT extends IntegrationTestSupport {
         Cookie player = playerLogin("13900002601", "事件本人");
         Cookie teammate = playerLogin("13900002602", "事件队友");
         Long matchId = insertMatch("M06推导比分", 0, 0, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002601");
         Long teammateId = playerId("13900002602");
         register(matchId, playerId, 0);
@@ -95,7 +95,7 @@ class EventCoreIT extends IntegrationTestSupport {
     void timelineOrdersByHalfMinuteGoalPriorityThenIdAndHidesDeleted() throws Exception {
         Cookie admin = adminLogin("13900002603", "事件排序");
         Long matchId = insertMatch("M06时间线排序", 0, 0, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002603");
         register(matchId, playerId, 0);
 
@@ -122,7 +122,7 @@ class EventCoreIT extends IntegrationTestSupport {
     void fieldMatrixRejectsStructuralAndBusinessViolations() throws Exception {
         Cookie admin = adminLogin("13900002604", "事件字段矩阵");
         Long matchId = insertMatch("M06字段矩阵", 0, 0, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long playerId = playerId("13900002604");
         Long teammateId = insertPlayer("13900002605", "事件字段队友", 1, 605);
         register(matchId, playerId, 0);
@@ -203,7 +203,7 @@ class EventCoreIT extends IntegrationTestSupport {
         Long teammateId = playerId("13900002607");
 
         Long overdue = insertMatch("M06窗口外", 0, 0, 4,
-                Instant.now().minus(Duration.ofHours(27)), Instant.now().minus(Duration.ofHours(25)));
+                ShanghaiTime.now().minus(Duration.ofHours(27)), ShanghaiTime.now().minus(Duration.ofHours(25)));
         register(overdue, playerId, 0);
         register(overdue, teammateId, 0);
         createEvent(player, overdue, goalJson(playerId))
@@ -213,13 +213,13 @@ class EventCoreIT extends IntegrationTestSupport {
         createEvent(admin, overdue, goalJson(playerId)).andExpect(status().isOk());
 
         Long withinWindow = insertMatch("M06窗口内", 0, 0, 4,
-                Instant.now().minus(Duration.ofHours(25)), Instant.now().minus(Duration.ofHours(23)));
+                ShanghaiTime.now().minus(Duration.ofHours(25)), ShanghaiTime.now().minus(Duration.ofHours(23)));
         register(withinWindow, playerId, 0);
         register(withinWindow, teammateId, 0);
         createEvent(player, withinWindow, goalJson(playerId)).andExpect(status().isOk());
 
         Long official = insertMatch("M06对外锁定球队", 0, 0, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(official, playerId, 0);
         register(official, teammateId, 0);
         createEvent(player, official, goalJson(teammateId))
@@ -261,7 +261,7 @@ class EventCoreIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.event.outPlayer.id").value(teammateId));
 
         Long internal = insertMatch("M06队内任意球员", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(internal, playerId, 0);
         register(internal, teammateId, 0);
         createEvent(player, internal, """
@@ -283,7 +283,7 @@ class EventCoreIT extends IntegrationTestSupport {
     void selectedPlayersMustBeConfirmedActiveRegistrations() throws Exception {
         Cookie admin = adminLogin("13900002609", "事件选人校验");
         Long matchId = insertMatch("M06选人报名", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         Long confirmed = insertPlayer("13900002610", "事件确认", 1, 610);
         Long waitlisted = insertPlayer("13900002611", "事件候补", 1, 611);
         Long unregistered = insertPlayer("13900002612", "事件未报名", 1, 612);
@@ -320,7 +320,7 @@ class EventCoreIT extends IntegrationTestSupport {
         Long playerId = playerId("13900002615");
         Long otherId = playerId("13900002616");
         Long matchId = insertMatch("M06修改校验", 1, null, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(matchId, playerId, 0);
         register(matchId, otherId, 0);
 
@@ -375,7 +375,7 @@ class EventCoreIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.event.minute").value(31));
 
         Long overdue = insertMatch("M06修改超时", 1, null, 4,
-                Instant.now().minus(Duration.ofHours(27)), Instant.now().minus(Duration.ofHours(25)));
+                ShanghaiTime.now().minus(Duration.ofHours(27)), ShanghaiTime.now().minus(Duration.ofHours(25)));
         register(overdue, playerId, 0);
         Long overdueEvent = insertEvent(overdue, 0, 0, playerId, null, null, null, 10, 0, false);
         updateEvent(player, overdueEvent, """
@@ -390,7 +390,7 @@ class EventCoreIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.event.minute").value(11));
 
         Long cancelled = insertMatch("M06修改已取消", 1, null, 6,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(cancelled, playerId, 0);
         Long cancelledEvent = insertEvent(cancelled, 0, 0, playerId, null, null, null, 10, 0, false);
         updateEvent(admin, cancelledEvent, """
@@ -400,7 +400,7 @@ class EventCoreIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(40905));
 
         Long postponed = insertMatch("M06修改已延期", 1, null, 5,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(postponed, playerId, 0);
         Long postponedEvent = insertEvent(postponed, 0, 0, playerId, null, null, null, 10, 0, false);
         updateEvent(admin, postponedEvent, """
@@ -415,21 +415,21 @@ class EventCoreIT extends IntegrationTestSupport {
         Cookie admin = adminLogin("13900002618", "事件状态校验");
         Long playerId = playerId("13900002618");
         Long locked = insertMatch("M06锁定不可录", 1, null, 2,
-                Instant.now().plus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(3)));
+                ShanghaiTime.now().plus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(3)));
         register(locked, playerId, 0);
         createEvent(admin, locked, goalJson(playerId))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40905));
 
         Long cancelled = insertMatch("M06取消不可录", 1, null, 6,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(cancelled, playerId, 0);
         createEvent(admin, cancelled, goalJson(playerId))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40905));
 
         Long postponed = insertMatch("M06延期不可录", 1, null, 5,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(postponed, playerId, 0);
         createEvent(admin, postponed, goalJson(playerId))
                 .andExpect(status().isConflict())
@@ -447,7 +447,7 @@ class EventCoreIT extends IntegrationTestSupport {
         Long playerId = playerId("13900002619");
         Long teammateId = playerId("13900002620");
         Long matchId = insertMatch("M06合并更新", 0, 0, 3,
-                Instant.now().minus(Duration.ofHours(1)), Instant.now().plus(Duration.ofHours(1)));
+                ShanghaiTime.now().minus(Duration.ofHours(1)), ShanghaiTime.now().plus(Duration.ofHours(1)));
         register(matchId, playerId, 0);
         register(matchId, teammateId, 0);
 
@@ -503,10 +503,10 @@ class EventCoreIT extends IntegrationTestSupport {
     }
 
     private Long insertMatch(String title, int type, Integer ourSide, int status,
-                             Instant startAt, Instant endAt) {
-        Instant signupDeadline = startAt.atZone(SHANGHAI).toLocalDate()
-                .atStartOfDay(SHANGHAI).toInstant();
-        Instant cancelLock = signupDeadline.plus(Duration.ofHours(1));
+                             LocalDateTime startAt, LocalDateTime endAt) {
+        LocalDateTime signupDeadline = startAt.toLocalDate()
+                .atStartOfDay();
+        LocalDateTime cancelLock = signupDeadline.plus(Duration.ofHours(1));
         long seasonNo = jdbc.queryForObject("""
                 SELECT COALESCE(MAX(season_match_no), 0) + 1
                 FROM team_match WHERE team_id = 1 AND season = '2099'
@@ -519,8 +519,8 @@ class EventCoreIT extends IntegrationTestSupport {
                     cancel_lock, venue, season, home_team_name, away_team_name, our_side, status,
                     manual_status, capacity, season_match_no, total_match_no, created_by)
                 VALUES (1, ?, ?, ?, ?, ?, ?, '测试场地', '2099', '橙队', '兰队', ?, ?, 1, 30, ?, ?, 1)
-                """, title, type, Timestamp.from(startAt), Timestamp.from(endAt),
-                Timestamp.from(signupDeadline), Timestamp.from(cancelLock), ourSide, status,
+                """, title, type, startAt, endAt,
+                signupDeadline, cancelLock, ourSide, status,
                 seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
     }

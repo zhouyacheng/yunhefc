@@ -7,7 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -26,7 +26,7 @@ public class AuditLog {
     private String afterJson;
     private String requestId;
     private String ip;
-    private Instant createdAt;
+    private LocalDateTime createdAt;
     @TableLogic
     private Integer isDeleted;
 }

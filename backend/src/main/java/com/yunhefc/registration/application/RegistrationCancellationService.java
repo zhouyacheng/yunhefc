@@ -15,7 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Optional;
 
 /**
@@ -39,7 +39,7 @@ public class RegistrationCancellationService {
      * @return 被递补球员 ID；未触发递补返回空
      */
     public Optional<Long> cancelAndPromote(Registration registration, Long cancelledBy,
-                                           Instant now, MatchSnapshot match) {
+                                           LocalDateTime now, MatchSnapshot match) {
         return terminateAndPromote(registration, cancelledBy, now,
                 RegistrationStatus.CANCELLED, match);
     }
@@ -51,13 +51,13 @@ public class RegistrationCancellationService {
      * @return 被递补球员 ID；未触发递补返回空
      */
     public Optional<Long> removeAndPromote(Registration registration, Long removedBy,
-                                           Instant now, MatchSnapshot match) {
+                                           LocalDateTime now, MatchSnapshot match) {
         return terminateAndPromote(registration, removedBy, now,
                 RegistrationStatus.REMOVED, match);
     }
 
     private Optional<Long> terminateAndPromote(Registration registration, Long terminatedBy,
-                                               Instant now, RegistrationStatus terminalStatus,
+                                               LocalDateTime now, RegistrationStatus terminalStatus,
                                                MatchSnapshot match) {
         int terminated = registrationMapper.update(null, new LambdaUpdateWrapper<Registration>()
                 .eq(Registration::getId, registration.getId())

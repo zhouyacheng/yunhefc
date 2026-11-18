@@ -19,6 +19,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import com.yunhefc.common.time.ShanghaiTime;
 
 class MatchStatusIT extends IntegrationTestSupport {
 
@@ -309,8 +310,8 @@ class MatchStatusIT extends IntegrationTestSupport {
                                 {"title":"%s","type":1,"season":"2099","startAt":"%s","endAt":"%s",
                                  "venue":"聚龙足球场","homeTeamName":"橙队","awayTeamName":"兰队"}
                                 """.formatted(title, local(startAt),
-                                LocalDateTime.parse(startAt).plusHours(2)
-                                        .atZone(ZONE).toInstant().toString())))
+                                ShanghaiTime.parseLenient(startAt).plusHours(2)
+                                        .toString())))
                 .andExpect(status().isOk())
                 .andReturn();
         Long matchId = JsonPath.<Number>read(
@@ -338,8 +339,8 @@ class MatchStatusIT extends IntegrationTestSupport {
                 .content(body));
     }
 
-    private String local(String localDateTime) {
-        return LocalDateTime.parse(localDateTime).atZone(ZONE).toInstant().toString();
+    private LocalDateTime local(String localDateTime) {
+        return ShanghaiTime.parseLenient(localDateTime);
     }
 
     private Long insertRole(String code, String permissionCode) {

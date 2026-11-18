@@ -8,7 +8,7 @@ import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -41,7 +41,7 @@ public class MatchReadAdapter implements MatchReadPort {
     }
 
     @Override
-    public List<MatchSnapshot> findFinishedBefore(Instant cutoff) {
+    public List<MatchSnapshot> findFinishedBefore(LocalDateTime cutoff) {
         return teamMatchMapper.selectFinishedBefore(MatchStatus.FINISHED.code(), cutoff).stream()
                 .map(MatchReadAdapter::toSnapshot)
                 .toList();

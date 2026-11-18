@@ -110,7 +110,7 @@ com.yunhefc.<domain>/
 - 不使用通配符 import；不写无意义注释；注释解释“为什么”，不是“做了什么”。
 - 优先 Java 21 语法：`record`、`switch` 表达式、`var`（局部且类型明显时）。
 - 集合返回空集合，不返回 `null`；查找结果用 `Optional`，不要把 `Optional` 放进字段或参数。
-- 时间点统一 `Instant`；通过注入的 `Clock` 获取当前时间，禁止 `LocalDateTime.now()` 直接作为业务时间。持久化层显式按 UTC 转换。
+- 时间点统一 `LocalDateTime`（语义固定为 Asia/Shanghai 墙钟）；直接取当前时间（`LocalDateTime.now(Asia/Shanghai)` 或 `ShanghaiTime.now()`），不注入 `Clock`，不使用 `Instant`。持久化层由连接池统一按 Asia/Shanghai 转换。
 
 ### 4.3 Lombok 与 Hutool 边界
 
@@ -158,7 +158,7 @@ com.yunhefc.<domain>/
 - 唯一约束冲突（报名、球衣号、场次编号等）转换为明确业务错误码，不把 SQL 异常直接抛给前端。
 - 乐观锁：阵容、比赛状态、事件修改使用 `version` 条件更新；更新行数为 0 时抛版本冲突。
 - 所有业务表使用 `is_deleted` 伪删除（查询过滤 `is_deleted=0`，唯一键不自动释放）；事件另保留 `deleted_at`；账号/比赛/报名同时使用状态字段表达业务生命周期。
-- 时间字段统一 UTC；实体使用 `Instant`，Mapper 显式转换；不要依赖 JVM 默认时区。
+- 时间字段统一 Asia/Shanghai（+08:00）墙钟；实体使用 `LocalDateTime`；不要依赖 JVM 默认时区。
 - 不建物理外键；关联完整性由应用服务校验，查询依赖索引。
 - 批量写入使用批量 upsert/foreach，避免循环单条 SQL。
 
@@ -219,7 +219,7 @@ com.yunhefc.<domain>/
 - 单元测试：JUnit 5，覆盖领域规则、状态机、名额/递推、权限窗口。
 - 集成测试：Testcontainers 启动 MySQL/Redis/Kafka；禁止用 H2 替代 MySQL 验证 SQL。
 - 架构测试：ArchUnit 校验 controller 不访问 mapper、领域不跨域访问 infrastructure、common/contracts 不依赖业务域、query/stats 只依赖 read port；`event` 只经 `contracts.grouping` 只读 port 访问分组，不依赖 `grouping` 实现。
-- 测试命名：`<Class>Test`（单元）、`<Class>IT`（集成）；使用固定 Clock 与测试数据构建器。
+- 测试命名：`<Class>Test`（单元）、`<Class>IT`（集成）；使用相对时间与测试数据构建器。
 - 每个业务错误码至少有一个失败路径测试；唯一约束、版本冲突必须有测试。
 
 ## 16. 禁止事项

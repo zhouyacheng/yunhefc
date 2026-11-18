@@ -1440,7 +1440,7 @@
             <td>${Y.rolesOf(player).includes('ADMIN') ? '是' : ''}</td>
             <td><span class="badge ${player.status === 'ACTIVE' ? 'badge-open' : player.status === 'PENDING' ? 'badge-postponed' : 'badge-cancelled'}">${player.status === 'ACTIVE' ? '正常' : player.status === 'PENDING' ? '待审核' : '已注销'}</span></td>
             <td>${Y.positionLabel(player.position)}</td>
-            <td>${Y.stars(player.skill)}<span class="muted small"> ${Number(player.skill).toFixed(2)}★</span></td>
+            <td>${Y.stars(player.skill)}</td>
             <td>${player.wechat ? '已绑定' : '未绑定'}</td>
             <td><div class="table-actions">
               ${canEdit ? `<button class="btn btn-ghost btn-sm" data-player-action="edit" data-player-id="${player.id}">编辑</button>` : ''}

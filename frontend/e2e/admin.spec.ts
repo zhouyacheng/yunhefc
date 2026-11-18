@@ -1115,9 +1115,13 @@ test('B 端：B07 筛选 → 编辑 → 头像', async ({ page }) => {
 
   await page.getByPlaceholder('搜索球员姓名').fill('测试待审核01改');
   await page.getByRole('button', { name: '搜索' }).click();
-  await expect(page.locator('.el-table__row').filter({ hasText: '测试待审核01改' })).toContainText(
-    '4.25★',
-  );
+  const editedStars = page
+    .locator('.el-table__row')
+    .filter({ hasText: '测试待审核01改' })
+    .locator('.skill-stars');
+  await expect(editedStars).toHaveAttribute('aria-label', '星级 4.25/5');
+  await expect(editedStars.locator('.skill-star--full')).toHaveCount(4);
+  await expect(editedStars.locator('.skill-star--empty')).toHaveCount(1);
   const editedRow = page.locator('.el-table__row').filter({ hasText: '测试待审核01改' });
   await expect(editedRow).toBeVisible();
   await expect(editedRow).toContainText('E2E上海');

@@ -48,7 +48,7 @@ const parts = computed(() => skillStarParts(props.skill));
 
 .skill-star__empty {
   fill: #f8fafc;
-  stroke: #cbd5e1;
+  stroke: #94a3b8;
   stroke-width: 1.5;
   stroke-linejoin: round;
 }

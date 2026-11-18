@@ -11,7 +11,6 @@ import {
   SKILL_LEVELS,
   avatarPlaceholder,
   compressAvatar,
-  formatSkill,
   isDisplayableAvatarUrl,
   phoneError,
   playerApprovable,
@@ -23,6 +22,7 @@ import {
   playerStatusTone,
   playerTypeText,
   positionText,
+  skillAriaLabel,
   validateAvatarFile,
 } from '@yunhefc/shared';
 import type { TableInstance } from 'element-plus';
@@ -30,6 +30,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 
 import { api } from '../api/client';
+import SkillStars from '../components/SkillStars.vue';
 import { useSessionStore } from '../stores/session';
 
 interface PlayerFilters {
@@ -793,7 +794,9 @@ onUnmounted(() => {
         <template #default="{ row }">{{ positionText(row.position) }}</template>
       </el-table-column>
       <el-table-column prop="skill" label="星级" width="92" sortable="custom">
-        <template #default="{ row }">{{ formatSkill(row.skill) }}★</template>
+        <template #default="{ row }">
+          <SkillStars :skill="row.skill" :title="skillAriaLabel(row.skill)" />
+        </template>
       </el-table-column>
       <el-table-column label="微信" width="92">
         <template #default="{ row }">{{ row.wechatBound ? '已绑定' : '未绑定' }}</template>

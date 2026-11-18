@@ -1,11 +1,18 @@
 <script setup lang="ts">
 import { isApiError } from '@yunhefc/api-client';
 import type { MyRegistration, Page } from '@yunhefc/shared';
-import { MATCH_STATUS_CANCELLED, REGISTRATION_STATUS_TEXT, formatDateTime } from '@yunhefc/shared';
+import {
+  MATCH_STATUS_CANCELLED,
+  REGISTRATION_STATUS_TEXT,
+  formatDateTime,
+  matchStatusText,
+  seasonMatchText,
+} from '@yunhefc/shared';
 import { Button, Empty, Loading, Pagination, Tag } from 'vant';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 
 import { api } from '../api/client';
+import { statusTone as matchStatusTone } from '../features/matches/presentation';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
@@ -191,7 +198,12 @@ watch(
             <p class="muted small">
               {{ formatDateTime(row.match.startAt) }} · {{ row.match.venue }}
             </p>
-            <p class="muted small">{{ row.match.homeTeamName }} VS {{ row.match.awayTeamName }}</p>
+            <div class="registration-item__foot">
+              <p class="muted small">{{ seasonMatchText(row.match) }}</p>
+              <Tag class="status-tag" :class="`status-tag--${matchStatusTone(row.match.status)}`">
+                {{ matchStatusText(row.match.status) }}
+              </Tag>
+            </div>
           </RouterLink>
         </div>
 
@@ -249,6 +261,13 @@ watch(
 
 .registration-item p {
   margin: 2px 0;
+}
+
+.registration-item__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .registrations__footer {

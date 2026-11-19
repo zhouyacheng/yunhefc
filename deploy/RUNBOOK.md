@@ -122,9 +122,9 @@ docker run --rm --network host \
 - 迁移成功后确认 `flyway_schema_history` 与目标版本一致。
 - 应用以 `spring.flyway.enabled=false` 启动；发布前若迁移未执行，应用不会补跑。
 
-#### 迁移后校验（P-66：V8 操作时间；P-68：V9 星级精度；P-72：V10 分组分数）
+#### 迁移后校验（P-66：V8 操作时间；P-68：V9 星级精度；P-72：V10 分组分数；P-75：V11 微信注册手机号可空）
 
-`flyway migrate` 成功后执行，确认最新版本为 V10：
+`flyway migrate` 成功后执行，确认最新版本为 V11：
 
 ```bash
 docker run --rm --network host \
@@ -144,10 +144,12 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
   SELECT COUNT(*) AS invalid_manual_score FROM match_grouping_player
     WHERE manual_score IS NOT NULL AND (manual_score < 1 OR manual_score > 5);
   SELECT COUNT(*) AS grouping_settings FROM system_setting
-    WHERE setting_key LIKE 'grouping.%' AND is_deleted = 0;"
+    WHERE setting_key LIKE 'grouping.%' AND is_deleted = 0;
+  SHOW COLUMNS FROM app_user LIKE 'phone';
+  SHOW INDEX FROM app_user WHERE Key_name = 'uk_user_phone';"
 ```
 
-- 期望：最新版本 10 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）；`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`，`manual_score` 为 `decimal(3,2) NULL`；两个非法值计数均为 0；`grouping.*` 配置为 0 行。
+- 期望：最新版本 11 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）；`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`，`manual_score` 为 `decimal(3,2) NULL`；两个非法值计数均为 0；`grouping.*` 配置为 0 行；`app_user.phone` 为 `varchar(20) NULL` 且 `uk_user_phone` 仍存在。
 - 顺序：先 `migrate` 再部署新镜像。V8 只新增可空列与索引，V9 为无损值域扩展（TINYINT→DECIMAL、DECIMAL(3,1)→DECIMAL(3,2)），旧镜像可继续运行；但旧镜像以整数读取会截断小数，V9 执行后至新镜像完全切换前，避免在 B07 修改球员星级。V10 伪删除分组权重配置并更新列注释；旧镜像仍可运行，但分组分数以新镜像的球员星级为准。注意：旧镜像保存系统设置时会 upsert 全部 9 个键，可能把已伪删除的 `grouping.*` 重新写回 `is_deleted=0`，因此上述「`grouping.*` 为 0 行」校验必须在新镜像完全切换后执行；若被复活，执行 `UPDATE system_setting SET is_deleted = 1 WHERE setting_key LIKE 'grouping.%';` 后重新校验。回滚只回代码，不做逆向迁移。
 
 #### 一次性迁移：DATETIME 转 Asia/Shanghai（P-63，仅本次发布）
@@ -395,6 +397,8 @@ COMMIT;
 | 回调后回到站内失败页 `error=40001` | code 已用过或 state 过期/不匹配；重新发起授权；日志查 `wechat callback`，只记 errcode |
 | `error=50001` | 微信 token 接口失败或 AppID/Secret 错误；检查公众号配置与出口网络 |
 | 回调地址打开是 JSON | `WECHAT_CALLBACK_URL` 配置错误，或请求未带 `Accept: text/html`；恢复为上述固定地址 |
+
+生产首次启用微信注册/登录时，可在 ECS 仓库根运行 `scripts/wechat-production-wizard.sh`：逐步采集 AppID/AppSecret、写入 `/opt/yunhefc/.env`、处理 `MP_verify_*.txt`、重建 backend 并做生产预检与真机验收。
 
 ---
 

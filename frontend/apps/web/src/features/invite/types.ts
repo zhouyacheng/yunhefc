@@ -23,7 +23,7 @@ export interface InviteMatchSummary {
 export interface InviteInviter {
   id: number;
   name: string;
-  phoneMasked?: string;
+  phoneMasked?: string | null;
   status?: number;
   statusLabel?: string;
   roles?: string[];

@@ -20,13 +20,15 @@ export interface AuditLog {
   operatedAt: string | null;
 }
 
-/** 38 个已使用的动作码中文标签；未知码按原值展示。 */
+/** 40 个已使用的动作码中文标签；未知码按原值展示。 */
 export const AUDIT_ACTION_TEXT: Readonly<Record<string, string>> = {
   ACCOUNT_REGISTER: '账号注册',
   PASSWORD_RESET: '重置密码',
   PHONE_CHANGE: '更换手机号',
+  PHONE_BIND: '绑定手机号',
   WECHAT_UNBIND: '解绑微信',
   WECHAT_BIND: '绑定微信',
+  WECHAT_REGISTER: '微信注册',
   USER_APPROVE: '审核用户',
   PLAYER_CONVERT: '外挂转正',
   USER_DISABLE: '停用用户',

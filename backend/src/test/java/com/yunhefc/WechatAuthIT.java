@@ -1,9 +1,11 @@
 package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -13,6 +15,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.List;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -307,6 +312,554 @@ class WechatAuthIT extends IntegrationTestSupport {
     private static String stateOf(MvcResult result) throws Exception {
         String authorizeUrl = JsonPath.read(result.getResponse().getContentAsString(), "$.data.authorizeUrl");
         return authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+    }
+
+    @Test
+    void wechatRegistrationWithoutPhoneCreatesPendingGuest() throws Exception {
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", "reg-no-phone")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.needBindPhone").value(true))
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+
+        MvcResult bound = mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"微信新球员","position":2}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.status").value(0))
+                .andExpect(jsonPath("$.data.user.phoneMasked").value(nullValue()))
+                .andExpect(jsonPath("$.data.user.wechatBound").value(true))
+                .andExpect(jsonPath("$.data.player.type").value(0))
+                .andReturn();
+        Cookie session = cookie(bound, "YHFC_C");
+        String sessionCsrf = JsonPath.read(bound.getResponse().getContentAsString(), "$.data.csrfToken");
+
+        Long userId = jdbc.queryForObject(
+                "SELECT id FROM app_user WHERE openid = ?", Long.class, "mock-openid-reg-no-phone");
+        assertThat(jdbc.queryForObject("SELECT phone FROM app_user WHERE id = ?", String.class, userId)).isNull();
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED'
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'WECHAT_REGISTER'
+                  AND CAST(JSON_EXTRACT(payload_json, '$.targetId') AS SIGNED) = ?
+                """, Integer.class, userId)).isEqualTo(1);
+
+        mockMvc.perform(get("/api/v1/c/me").cookie(session))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.phoneMasked").value(nullValue()))
+                .andExpect(jsonPath("$.data.user.wechatBound").value(true));
+
+        // PENDING 账号仍被状态白名单拦截写操作。
+        mockMvc.perform(post("/api/v1/c/matches/1/registrations")
+                        .cookie(session)
+                        .header("X-XSRF-TOKEN", sessionCsrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(40303));
+    }
+
+    @Test
+    void wechatRegistrationRejectsUnusableInvite() throws Exception {
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", "reg-bad-invite")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+
+        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"无效邀请球员","position":2,"inviteToken":"not-a-real-token"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40910));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM app_user WHERE openid = ?", Integer.class,
+                "mock-openid-reg-bad-invite")).isZero();
+    }
+
+    @Test
+    void bindingExistingPhoneAccountWithInvitePromotesToPlayer() throws Exception {
+        Cookie admin = adminLogin("13900000973");
+        MvcResult invite = mockMvc.perform(post("/api/v1/b/invites")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "wechat-invite-existing")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":0,"expiresInDays":7}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        String inviteUrl = JsonPath.read(invite.getResponse().getContentAsString(), "$.data.inviteUrl");
+        String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
+
+        String phone = "13900000073";
+        jdbc.update("INSERT INTO app_user (phone, status) VALUES (?, 0)", phone);
+        Long userId = jdbc.queryForObject("SELECT id FROM app_user WHERE phone = ?", Long.class, phone);
+        jdbc.update("""
+                INSERT INTO player (team_id, user_id, name, type, position, skill)
+                VALUES (1, ?, '待审核老账号', 0, 2, 3)
+                """, userId);
+        Long guestRole = jdbc.queryForObject(
+                "SELECT id FROM app_role WHERE team_id = 1 AND code = 'GUEST'", Long.class);
+        jdbc.update("INSERT INTO user_role (user_id, role_id) VALUES (?, ?)", userId, guestRole);
+
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", "bind-existing-invite")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+
+        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","purpose":"BIND"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","code":"123456","inviteToken":"%s"}
+                                """.formatted(phone, token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.status").value(1))
+                .andExpect(jsonPath("$.data.player.type").value(1))
+                .andExpect(jsonPath("$.data.user.roles[0]").value("PLAYER"));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT used_count FROM invite_link WHERE token_hash = SHA2(?, 256)", Integer.class, token))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void wechatAccountCannotBindPhoneOwnedByAnotherUser() throws Exception {
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", "reg-taken-phone")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+        MvcResult bound = mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"占用手机号球员","position":2}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        Cookie session = cookie(bound, "YHFC_C");
+        String sessionCsrf = JsonPath.read(
+                bound.getResponse().getContentAsString(), "$.data.csrfToken");
+
+        jdbc.update("INSERT INTO app_user (phone, status) VALUES (?, 1)", "13900000064");
+        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
+                        .cookie(session)
+                        .header("X-XSRF-TOKEN", sessionCsrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000064","purpose":"BIND"}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/c/me/phone")
+                        .cookie(session)
+                        .header("X-XSRF-TOKEN", sessionCsrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000064","code":"123456"}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40907));
+    }
+
+    @Test
+    void teamInviteWithMaxUsesCannotBeReused() throws Exception {
+        Cookie admin = adminLogin("13900000974");
+        MvcResult invite = mockMvc.perform(post("/api/v1/b/invites")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "wechat-invite-max-uses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":0,"expiresInDays":7,"maxUses":1}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        String inviteUrl = JsonPath.read(invite.getResponse().getContentAsString(), "$.data.inviteUrl");
+        String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
+
+        registerWithInvite("reg-max-uses-1", token)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.status").value(1));
+
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", "reg-max-uses-2")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+
+        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"超次邀请球员","position":2,"inviteToken":"%s"}
+                                """.formatted(token)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40910));
+    }
+
+    private org.springframework.test.web.servlet.ResultActions registerWithInvite(
+            String code, String inviteToken) throws Exception {
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", code)
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+        return mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                .cookie(cookie)
+                .header("X-XSRF-TOKEN", csrf)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"name":"邀请注册球员","position":2,"inviteToken":"%s"}
+                        """.formatted(inviteToken)));
+    }
+
+    @Test
+    void duplicateOpenidRegistrationHitsUniqueKey() throws Exception {
+        WechatTempSession first = wechatTempSession("same-openid");
+        WechatTempSession second = wechatTempSession("same-openid");
+
+        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(first.cookie())
+                        .header("X-XSRF-TOKEN", first.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"同微信球员","position":2}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(second.cookie())
+                        .header("X-XSRF-TOKEN", second.csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"同微信球员二","position":2}
+                                """))
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.code").value(42201));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM app_user WHERE openid = ?", Integer.class,
+                "mock-openid-same-openid")).isEqualTo(1);
+    }
+
+    @Test
+    void wechatRegistrationRateLimitReturns429() throws Exception {
+        List<WechatTempSession> sessions = new ArrayList<>();
+        for (int i = 0; i < 6; i++) {
+            sessions.add(wechatTempSession("rate-limit-openid"));
+        }
+
+        for (int i = 0; i < 5; i++) {
+            mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                            .cookie(sessions.get(i).cookie())
+                            .header("X-XSRF-TOKEN", sessions.get(i).csrf())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"name":"限流球员%d","position":2}
+                                    """.formatted(i)))
+                    .andExpect(status().is(i == 0 ? 200 : 422));
+        }
+
+        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(sessions.get(5).cookie())
+                        .header("X-XSRF-TOKEN", sessions.get(5).csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"限流球员六","position":2}
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value(42901))
+                .andExpect(header().exists("Retry-After"));
+    }
+
+    private record WechatTempSession(Cookie cookie, String csrf) {
+    }
+
+    private WechatTempSession wechatTempSession(String code) throws Exception {
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", code)
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+        return new WechatTempSession(cookie, csrf);
+    }
+
+    @Test
+    void disabledWechatAccountCannotLogin() throws Exception {
+        jdbc.update("INSERT INTO app_user (phone, openid, status) VALUES (NULL, ?, 2)",
+                "mock-openid-disabled");
+
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+
+        mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie(authorize, "YHFC_C"))
+                        .param("code", "disabled")
+                        .param("state", state))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value(40104));
+    }
+
+    @Test
+    void wechatRegistrationWithTeamInviteIsActivePlayer() throws Exception {
+        Cookie admin = adminLogin("13900000971");
+        MvcResult invite = mockMvc.perform(post("/api/v1/b/invites")
+                        .cookie(admin)
+                        .with(csrf())
+                        .header("Idempotency-Key", "wechat-invite-1")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":0,"expiresInDays":7}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        String inviteUrl = JsonPath.read(invite.getResponse().getContentAsString(), "$.data.inviteUrl");
+        String token = inviteUrl.substring(inviteUrl.lastIndexOf('/') + 1);
+
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", "reg-invite")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+
+        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"邀请微信球员","position":1,"inviteToken":"%s"}
+                                """.formatted(token)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.user.status").value(1))
+                .andExpect(jsonPath("$.data.player.type").value(1))
+                .andExpect(jsonPath("$.data.user.roles[0]").value("PLAYER"));
+
+        assertThat(jdbc.queryForObject(
+                "SELECT used_count FROM invite_link WHERE token_hash = SHA2(?, 256)", Integer.class, token))
+                .isEqualTo(1);
+    }
+
+    @Test
+    void wechatAccountCanBindPhoneFromProfile() throws Exception {
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", "reg-then-bind-phone")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+        MvcResult registered = mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"补绑手机号球员","position":0}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        String sessionCsrf = JsonPath.read(
+                registered.getResponse().getContentAsString(), "$.data.csrfToken");
+        Cookie session = cookie(registered, "YHFC_C");
+
+        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
+                        .cookie(session)
+                        .header("X-XSRF-TOKEN", sessionCsrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000061","purpose":"BIND"}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(post("/api/v1/c/me/phone")
+                        .cookie(session)
+                        .header("X-XSRF-TOKEN", sessionCsrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000061","code":"000000"}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+
+        mockMvc.perform(post("/api/v1/c/me/phone")
+                        .cookie(session)
+                        .header("X-XSRF-TOKEN", sessionCsrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000061","code":"123456"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.phoneMasked").value("139****0061"));
+
+        mockMvc.perform(post("/api/v1/c/me/phone")
+                        .cookie(session)
+                        .header("X-XSRF-TOKEN", sessionCsrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000062","code":"123456"}
+                                """))
+                .andExpect(status().isUnprocessableEntity());
+    }
+
+    @Test
+    void adminCannotUnbindWechatFromPhoneLessAccount() throws Exception {
+        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
+                        .param("redirect", "/"))
+                .andExpect(status().isOk())
+                .andReturn();
+        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
+        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
+        Cookie cookie = cookie(authorize, "YHFC_C");
+        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
+                        .cookie(cookie)
+                        .param("code", "reg-unbind-guard")
+                        .param("state", state))
+                .andExpect(status().isOk())
+                .andReturn();
+        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
+                        .cookie(cookie)
+                        .header("X-XSRF-TOKEN", csrf)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"解绑保护球员","position":3}
+                                """))
+                .andExpect(status().isOk());
+
+        Long userId = jdbc.queryForObject(
+                "SELECT id FROM app_user WHERE openid = ?", Long.class, "mock-openid-reg-unbind-guard");
+        Cookie admin = adminLogin("13900000972");
+
+        mockMvc.perform(delete("/api/v1/b/users/" + userId + "/wechat-binding")
+                        .cookie(admin)
+                        .with(csrf()))
+                .andExpect(status().isUnprocessableEntity());
+
+        mockMvc.perform(patch("/api/v1/b/users/" + userId + "/phone")
+                        .cookie(admin)
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000072"}
+                                """))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(delete("/api/v1/b/users/" + userId + "/wechat-binding")
+                        .cookie(admin)
+                        .with(csrf()))
+                .andExpect(status().isOk());
     }
 
     private Cookie adminLogin(String phone) throws Exception {

@@ -39,6 +39,11 @@ public final class AuthDtos {
             @NotBlank String newPassword) {
     }
 
+    public record PhoneBindRequest(
+            @NotBlank @Size(max = 20) String phone,
+            @NotBlank @Size(max = 6) String code) {
+    }
+
     public record UserView(
             Long id,
             String name,

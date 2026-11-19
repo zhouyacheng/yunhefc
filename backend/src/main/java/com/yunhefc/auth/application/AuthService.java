@@ -50,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -224,7 +225,7 @@ public class AuthService implements UserAccessPort {
         loginAttemptService.clear(request.phone());
         PlayerSnapshot player = playerByUserId(user.getId());
         auditRecorder.record(player == null ? null : player.teamId(), user.getId(),
-                player == null ? UserViewAssembler.maskPhone(user.getPhone()) : player.name(),
+                player == null ? UserViewAssembler.fallbackName(user.getPhone()) : player.name(),
                 "PASSWORD_RESET", "USER", user.getId(), null, null);
     }
 
@@ -258,25 +259,53 @@ public class AuthService implements UserAccessPort {
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
+        String before = user.getPhone();
+        updatePhoneOrThrow(userId, phone);
+        user.setPhone(phone);
+        Map<String, Object> beforeSnapshot = new LinkedHashMap<>();
+        beforeSnapshot.put("phone", UserViewAssembler.maskPhone(before));
+        Map<String, Object> afterSnapshot = new LinkedHashMap<>();
+        afterSnapshot.put("phone", UserViewAssembler.maskPhone(phone));
+        auditRecorder.recordCurrent("PHONE_CHANGE", "USER", userId, beforeSnapshot, afterSnapshot);
+        return userView(user);
+    }
+
+    @Transactional
+    public UserView bindOwnPhone(Long userId, String phone, String code) {
+        validatePhone(phone);
+        AppUser user = userMapper.selectById(userId);
+        if (user == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        if (user.getStatus() == UserStatus.DISABLED) {
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
+        }
+        if (user.getPhone() != null && !user.getPhone().isBlank()) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "已绑定手机号，换绑请联系管理员");
+        }
+        smsCodeService.verify(phone, "BIND", code);
+        updatePhoneOrThrow(userId, phone);
+        user.setPhone(phone);
+        Map<String, Object> afterSnapshot = new LinkedHashMap<>();
+        afterSnapshot.put("phone", UserViewAssembler.maskPhone(phone));
+        auditRecorder.recordCurrent("PHONE_BIND", "USER", userId, null, afterSnapshot);
+        return userView(user);
+    }
+
+    private void updatePhoneOrThrow(Long userId, String phone) {
         Long count = userMapper.selectCount(new LambdaQueryWrapper<AppUser>()
                 .eq(AppUser::getPhone, phone)
                 .ne(AppUser::getId, userId));
         if (count > 0) {
             throw new BusinessException(ErrorCode.PHONE_EXISTS);
         }
-        String before = user.getPhone();
-        user.setPhone(phone);
         try {
             userMapper.updatePhone(userId, phone);
         } catch (DuplicateKeyException ex) {
-            log.warn("换绑手机号唯一键冲突, phone={}", MaskUtils.maskPhone(phone));
+            log.warn("手机号唯一键冲突, phone={}", MaskUtils.maskPhone(phone));
             throw new BusinessException(ErrorCode.PHONE_EXISTS);
         }
         loginAttemptService.clear(phone);
-        auditRecorder.recordCurrent("PHONE_CHANGE", "USER", userId,
-                java.util.Map.of("phone", UserViewAssembler.maskPhone(before)),
-                java.util.Map.of("phone", UserViewAssembler.maskPhone(phone)));
-        return userView(user);
     }
 
     @Transactional
@@ -284,6 +313,11 @@ public class AuthService implements UserAccessPort {
         AppUser user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
+        }
+        if (user.getStatus() != UserStatus.DISABLED
+                && (user.getPhone() == null || user.getPhone().isBlank())) {
+            throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
+                    "该账号未绑定手机号，解绑微信后将无法登录，请先换绑手机号");
         }
         String before = user.getOpenid();
         userMapper.clearOpenid(userId);
@@ -303,7 +337,7 @@ public class AuthService implements UserAccessPort {
                 row.getPhone(),
                 row.getStatus(),
                 player == null ? teamReadPort.currentTeamId() : player.teamId(),
-                player == null ? UserViewAssembler.maskPhone(row.getPhone()) : player.name(),
+                player == null ? UserViewAssembler.fallbackName(row.getPhone()) : player.name(),
                 splitCodes(row.getRoles()),
                 splitCodes(row.getPermissions())));
     }

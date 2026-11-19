@@ -103,7 +103,7 @@ deploy/            Docker Compose、Nginx、Dockerfile、RUNBOOK
 
 - `grep -c '^CREATE TABLE' scripts/sql/schema.sql` = 27；业务外键 = 0。
 - `quartz.sql` = 11 表、5 框架外键。
-- 05 = 96 接口、28 权限码；需求 = 114 ID / 112 MVP。
+- 05 = 97 接口、28 权限码；需求 = 114 ID / 112 MVP。
 - Markdown 表格列数检查通过；8 个原型 JS `node --check` 通过；Playwright 冒烟无 console error。
 - DB 改动：04 与 `schema.sql` 逐表核对字段/类型/默认/约束/表注释/字段注释。
 - 后端建立后：`mvn test` 通过；空库 Flyway 迁移幂等；接口契约与 05 一致。

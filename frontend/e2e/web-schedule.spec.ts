@@ -11,7 +11,7 @@ test('C02 赛程：状态筛选写入 URL，刷新后恢复', async ({ page }) =
   const errors = collectConsoleErrors(page);
 
   await page.goto('/matches');
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
   await expect(page.locator('.match-card__date').first()).toContainText(
     /\d{1,2}月\d{1,2}日 周. \d{2}:\d{2}$/,
   );
@@ -86,7 +86,7 @@ test('C02 赛程：重置清空 URL 与筛选', async ({ page }) => {
   await page.getByRole('button', { name: '重置', exact: true }).click();
 
   await expect(page).toHaveURL(/\/matches$/);
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
   await expect(page.locator('select[name="status"]')).toHaveValue('');
   await expect(page.locator('input[name="venue"]')).toHaveValue('');
   await expect(page.getByRole('button', { name: '选择月份' })).toHaveText(/^\d{4}-\d{2}$/);
@@ -107,7 +107,7 @@ test('C02 赛程：URL 已是默认值时重置也清空表单草稿', async ({ 
 
   await expect(page).toHaveURL(/\/matches$/);
   await expect(page.locator('input[name="venue"]')).toHaveValue('');
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   expect(errors).toEqual([]);
 });
@@ -125,7 +125,7 @@ test('C02 赛程：地点无匹配显示空态与重置入口', async ({ page })
 
   await page.getByRole('button', { name: '重置筛选', exact: true }).click();
   await expect(page).toHaveURL(/\/matches$/);
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   expect(errors).toEqual([]);
 });
@@ -139,7 +139,7 @@ test('C02 赛程：默认预填当月但不自动筛选', async ({ page }) => {
   await page.waitForTimeout(500);
   await expect(page).not.toHaveURL(/month=|startDate=|endDate=/);
   await expect(page.getByRole('button', { name: '选择月份' })).toHaveText(/^\d{4}-\d{2}$/);
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   expect(errors).toEqual([]);
 });
@@ -151,11 +151,11 @@ test('C02 赛程：清空月份查看全部时间并可刷新恢复', async ({ p
   await clearMonth(page);
 
   await expect(page).toHaveURL(/month=all/);
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   await page.reload();
   await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('全部月份');
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   expect(errors).toEqual([]);
 });
@@ -171,7 +171,7 @@ test('C02 赛程：月份筛选生效，重置后重新预填当月', async ({ p
 
   await expect(page).toHaveURL(/\/matches$/);
   await expect(page.getByRole('button', { name: '选择月份' })).toHaveText(/^\d{4}-\d{2}$/);
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   expect(errors).toEqual([]);
 });
@@ -221,7 +221,7 @@ test('C02 赛程：地点连续输入在防抖窗口内只请求一次', async (
   const errors = collectConsoleErrors(page);
 
   await page.goto('/matches');
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   const requests: string[] = [];
   page.on('request', (request) => {
@@ -243,7 +243,7 @@ test('C02 赛程：地点回车立即生效', async ({ page }) => {
   const errors = collectConsoleErrors(page);
 
   await page.goto('/matches');
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   const venue = page.locator('input[name="venue"]');
   await venue.fill('聚龙');
@@ -263,7 +263,7 @@ test('C02 赛程：改每页条数回到第 1 页', async ({ page }) => {
   await page.locator('select[name="pageSize"]').selectOption('20');
 
   await expect(page).not.toHaveURL(/[?&]page=/);
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   expect(errors).toEqual([]);
 });
@@ -275,7 +275,7 @@ test.describe('C02 赛程移动端', () => {
     const errors = collectConsoleErrors(page);
 
     await page.goto('/matches');
-    await expect(page.locator('.match-card')).toHaveCount(5);
+    await expect(page.locator('.match-card')).toHaveCount(6);
     await expect(page.locator('.schedule-filters')).toHaveCount(0);
 
     await page.locator('.schedule-filters__trigger').click();

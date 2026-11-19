@@ -13,7 +13,7 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
 
   await page.goto('/');
 
-  // Hero 取全部比赛里开赛时间最大的一条：种子数据中为 1001。
+  // Hero 取全部比赛里开赛时间最大的一条：种子数据中为 1006。
   await expect(page.locator('.home-hero__teams')).toContainText(/橙队.*兰队/);
   await expect(page.locator('.home-hero__meta span').first()).toContainText(
     /\d{1,2}月\d{1,2}日 周. \d{2}:\d{2} · /,
@@ -22,13 +22,13 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
     /赛季第\d+场（累计\d+场）/,
   );
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
-  // 最近比赛取 Hero 之后的 3 场：1003、1005、1004。
+  // 最近比赛取 Hero 之后的 3 场：1001、1003、1005。
   await expect(page.getByRole('heading', { name: '最近比赛' })).toBeVisible();
   await expect(page.locator('.home-section .match-card')).toHaveCount(3);
-  await expect(page.locator('.home-section .match-card-link[href="/matches/1001"]')).toHaveCount(0);
+  await expect(page.locator('.home-section .match-card-link[href="/matches/1006"]')).toHaveCount(0);
   await expect(page.locator('.home-section .match-card-link').first()).toHaveAttribute(
     'href',
-    '/matches/1003',
+    '/matches/1001',
   );
   await expect(page.locator('.van-tabbar-item--active')).toContainText('首页');
 
@@ -52,12 +52,12 @@ test('C01 首页：登录球员看到最近一场与报名队列', async ({ page
   await expect(page.locator('.van-tabbar-item--active')).toContainText('首页');
 
   const formalQueue = page.locator('.hero-queue__item').first();
-  await expect(formalQueue).toContainText('15 / 30');
+  await expect(formalQueue).toContainText('30 / 30');
   await expect(
     page.locator('.home-section .match-card').first().locator('.match-card__stat'),
   ).toHaveCount(3);
   await expect(page.locator('.hero-queue__item').nth(1)).toContainText('4 / 4');
-  // 1002 已在 1001 场报名，CTA 直接进入详情。
+  // 1002 已在 1006 场报名，CTA 直接进入详情。
   await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
   await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
 
@@ -68,7 +68,7 @@ test('C01 首页：报名后静默刷新失败可重试', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   let listCalls = 0;
 
-  // 种子 Hero 1001 已锁定，1002 无法报名；仅改写列表响应把可报名的 1005 置顶，
+  // 种子 Hero 1006 中 1002 已报名；仅改写列表响应把可报名的 1005 置顶，
   // 报名仍走真实 POST，静默刷新失败一次后验证「重试刷新」与队列恢复。
   // 报名保留给后续 web-match-detail 的递补用例复用，种子重放会清理。
   await page.route(

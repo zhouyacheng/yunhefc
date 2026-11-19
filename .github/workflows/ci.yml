@@ -6,6 +6,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # 手动跑 backend + e2e 全链路（不含 images/mirror-infra 推送）。
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -49,14 +51,14 @@ jobs:
         if: github.event_name == 'pull_request'
         working-directory: backend
         run: ./mvnw -B -ntp verify
-      # main 只产出 boot jar；测试已在 PR 阶段通过，不再重复 verify。
+      # main / 手动触发只产出 boot jar；测试已在 PR 阶段通过，不再重复 verify。
       - name: Package boot jar (skip tests)
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         working-directory: backend
         run: ./mvnw -B -ntp package -DskipTests
       # main 上产出唯一的 boot jar，供 e2e 与 images 复用，避免重复构建。
       - name: Upload boot jar
-        if: github.event_name == 'push'
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v7
         with:
           name: backend-jar
@@ -91,11 +93,18 @@ jobs:
         run: pnpm test
 
   e2e:
-    # 仅在 main：真实后端 + MySQL 8.4 + Redis 6.2.24，非 PR 必需检查。
-    if: github.event_name == 'push'
+    # 仅在 main（或手动 dispatch）：真实后端 + MySQL 8.4 + Redis 6.2.24，非 PR 必需检查。
+    if: github.event_name != 'pull_request'
     needs: backend
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    # Playwright 系统依赖、Chromium、JDK 21、mysql client 均预装；tag 与 frontend/pnpm-lock.yaml 的
+    # playwright 版本、镜像内 Node 版本必须一致（见 deploy/ci-base/ubuntu-v1.Dockerfile 头部）。
+    container:
+      image: danche1013/ubuntu:24.04_pw1.65.0_node24.22.3
+    defaults:
+      run:
+        shell: bash
     services:
       mysql:
         image: mysql:8.4
@@ -106,8 +115,7 @@ jobs:
           MYSQL_DATABASE: yunhefc
           MYSQL_USER: yunhefc
           MYSQL_PASSWORD: yunhefc
-        ports:
-          - 3306:3306
+        # 容器 job 内按服务名直连，无需端口映射。
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
           --health-interval=5s
@@ -115,8 +123,6 @@ jobs:
           --health-retries=30
       redis:
         image: redis:6.2.24
-        ports:
-          - 6379:6379
         options: >-
           --health-cmd="redis-cli ping"
           --health-interval=5s
@@ -124,37 +130,27 @@ jobs:
           --health-retries=20
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
-        with:
-          distribution: temurin
-          java-version: "21"
       - uses: actions/download-artifact@v8
         with:
           name: backend-jar
           path: backend/target
-      - uses: pnpm/action-setup@v6
+      # 镜像内已有 node/pnpm；只缓存依赖包，避免每次从 npm 重新下载。
+      - name: Cache pnpm store
+        uses: actions/cache@v4
         with:
-          version: ${{ env.PNPM_VERSION }}
-          run_install: false
-      - uses: actions/setup-node@v7
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: pnpm
-          cache-dependency-path: frontend/pnpm-lock.yaml
+          path: /root/.local/share/pnpm/store
+          key: pnpm-store-${{ hashFiles('frontend/pnpm-lock.yaml') }}
       - name: Install frontend deps
         working-directory: frontend
         run: pnpm install --frozen-lockfile
-      - name: Install Playwright Chromium
-        working-directory: frontend
-        run: pnpm exec playwright install --with-deps chromium
       - name: Start backend (dev profile)
         working-directory: backend
         env:
           SPRING_PROFILES_ACTIVE: dev
-          DB_URL: jdbc:mysql://127.0.0.1:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8
+          DB_URL: jdbc:mysql://mysql:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=utf8
           DB_USERNAME: yunhefc
           DB_PASSWORD: yunhefc
-          REDIS_HOST: 127.0.0.1
+          REDIS_HOST: redis
           REDIS_PORT: "6379"
           SMS_MOCK_ENABLED: "true"
           OSS_MODE: mock
@@ -184,12 +180,13 @@ jobs:
           cat "$RUNNER_TEMP/backend.log"
           exit 1
       # Flyway 已在后端启动时建表；种子可重复执行，重跑会复位 1021 等用例状态。
+      # 容器 job 无 docker socket，改用镜像内 mysql client 直连 service。
       - name: Seed test data
+        env:
+          MYSQL_PWD: yunhefc
         run: |
           set -euo pipefail
-          docker run --rm -i --network host -e MYSQL_PWD=yunhefc \
-            mysql:8.4 mysql -h 127.0.0.1 -P 3306 -u yunhefc yunhefc \
-            < scripts/sql/test-data.sql
+          mysql -h mysql -P 3306 -u yunhefc yunhefc < scripts/sql/test-data.sql
       - name: Run Playwright E2E
         working-directory: frontend
         env:

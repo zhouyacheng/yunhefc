@@ -3,6 +3,7 @@ package com.yunhefc.auth.sms;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.common.config.SmsProperties;
+import com.yunhefc.common.util.MaskUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -84,6 +85,8 @@ public final class MarketplaceSmsSender implements SmsSender {
             log.warn("sms send failed, reason=PROVIDER_ERROR, providerCode={}", providerCode);
             throw new SmsSendException(SmsSendException.Reason.PROVIDER_ERROR);
         }
+        log.info("sms send success, status={}, response={}",
+                status, MaskUtils.maskText(response.body()));
     }
 
     private URI requestUri(String phone, String code) {

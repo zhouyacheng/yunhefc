@@ -31,3 +31,4 @@ deploy/rc-acceptance-results.md
 .idea/
 .vscode/
 .DS_Store
+logs

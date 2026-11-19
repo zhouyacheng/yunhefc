@@ -1,7 +1,7 @@
 -- 云河FC 测试数据（测试球员及关联数据）
 -- 适用：MySQL 8.4，先执行 schema.sql；测试库使用，不要在生产执行。
 -- 枚举字段使用 04 §2.4 的数字编码；角色 code 仍为字符串 GUEST/PLAYER/ADMIN。
--- 假设：球队为“云河FC”，创建/审核人为测试账号 1001；球员 1001-1015 为正式，1016-1020 为外挂。
+-- 假设：球队为“云河FC”，创建/审核人为测试账号 1001；球员 1001-1015、1030-1035、1040-1059 为正式，1016-1020 为外挂。
 -- 说明：仅为 1001（ADMIN）/1002（PLAYER）/1016（GUEST）/1022（ADMIN）/1023（PLAYER）写入测试密码 Passw0rd!，其余账号 password_hash 为空。
 
 SET NAMES utf8mb4;
@@ -529,6 +529,124 @@ VALUES
    NOW(3) - INTERVAL 1 MINUTE, NULL);
 -- END B10 audit fixtures
 
+-- =========================================================================
+-- BEGIN 报名满员 fixture（1006 场：正式 30/30、外挂 4/4、候补 2/2）
+-- =========================================================================
+
+-- 1) 新增 20 名正式球员 1040-1059：号码 49-68 不与现有正式号码冲突；
+--    位置为门将 2、后卫 6、中场 7、前锋 5。测试库若已运行期占用该号段，INSERT IGNORE 会跳过。
+INSERT IGNORE INTO app_user (id, phone, password_hash, openid, status)
+VALUES
+  (1040, '13910000040', NULL, NULL, 1),
+  (1041, '13910000041', NULL, NULL, 1),
+  (1042, '13910000042', NULL, NULL, 1),
+  (1043, '13910000043', NULL, NULL, 1),
+  (1044, '13910000044', NULL, NULL, 1),
+  (1045, '13910000045', NULL, NULL, 1),
+  (1046, '13910000046', NULL, NULL, 1),
+  (1047, '13910000047', NULL, NULL, 1),
+  (1048, '13910000048', NULL, NULL, 1),
+  (1049, '13910000049', NULL, NULL, 1),
+  (1050, '13910000050', NULL, NULL, 1),
+  (1051, '13910000051', NULL, NULL, 1),
+  (1052, '13910000052', NULL, NULL, 1),
+  (1053, '13910000053', NULL, NULL, 1),
+  (1054, '13910000054', NULL, NULL, 1),
+  (1055, '13910000055', NULL, NULL, 1),
+  (1056, '13910000056', NULL, NULL, 1),
+  (1057, '13910000057', NULL, NULL, 1),
+  (1058, '13910000058', NULL, NULL, 1),
+  (1059, '13910000059', NULL, NULL, 1);
+
+INSERT IGNORE INTO player
+  (id, team_id, user_id, name, jersey, type, position, secondary_positions, region,
+   avatar_url, skill)
+VALUES
+  (1040, @team_id, 1040, '测试正式球员01', 49, 1, 0, '[]', '上海', NULL, 3.00),
+  (1041, @team_id, 1041, '测试正式球员02', 50, 1, 0, '[]', '苏州', NULL, 2.50),
+  (1042, @team_id, 1042, '测试正式球员03', 51, 1, 1, '[]', '杭州', NULL, 3.25),
+  (1043, @team_id, 1043, '测试正式球员04', 52, 1, 1, '[]', '南通', NULL, 3.00),
+  (1044, @team_id, 1044, '测试正式球员05', 53, 1, 1, '[]', '嘉兴', NULL, 4.00),
+  (1045, @team_id, 1045, '测试正式球员06', 54, 1, 1, '[]', '上海', NULL, 3.50),
+  (1046, @team_id, 1046, '测试正式球员07', 55, 1, 1, '[]', '苏州', NULL, 2.75),
+  (1047, @team_id, 1047, '测试正式球员08', 56, 1, 1, '[]', '杭州', NULL, 3.25),
+  (1048, @team_id, 1048, '测试正式球员09', 57, 1, 2, '[]', '南通', NULL, 4.25),
+  (1049, @team_id, 1049, '测试正式球员10', 58, 1, 2, '[]', '嘉兴', NULL, 3.00),
+  (1050, @team_id, 1050, '测试正式球员11', 59, 1, 2, '[]', '上海', NULL, 3.75),
+  (1051, @team_id, 1051, '测试正式球员12', 60, 1, 2, '[]', '苏州', NULL, 3.50),
+  (1052, @team_id, 1052, '测试正式球员13', 61, 1, 2, '[]', '杭州', NULL, 2.50),
+  (1053, @team_id, 1053, '测试正式球员14', 62, 1, 2, '[]', '南通', NULL, 4.00),
+  (1054, @team_id, 1054, '测试正式球员15', 63, 1, 2, '[]', '嘉兴', NULL, 3.25),
+  (1055, @team_id, 1055, '测试正式球员16', 64, 1, 3, '[]', '上海', NULL, 4.50),
+  (1056, @team_id, 1056, '测试正式球员17', 65, 1, 3, '[]', '苏州', NULL, 3.75),
+  (1057, @team_id, 1057, '测试正式球员18', 66, 1, 3, '[]', '杭州', NULL, 3.00),
+  (1058, @team_id, 1058, '测试正式球员19', 67, 1, 3, '[]', '南通', NULL, 2.75),
+  (1059, @team_id, 1059, '测试正式球员20', 68, 1, 3, '[]', '嘉兴', NULL, 4.25);
+
+INSERT IGNORE INTO user_role (user_id, role_id)
+SELECT id, @player_role_id FROM app_user WHERE id BETWEEN 1040 AND 1059;
+
+-- 2) 1006 场：队内赛、报名中，名额 30/4/2；重放复位时间、状态、容量与场次号。
+--    历史执行若因场次号冲突把同名比赛生成到其他自增 ID，这里先清理脚本自身产生的重复行，
+--    否则 INSERT 1006 会命中 uk_match_season_no/uk_match_total_no 并转为更新那一行。
+DELETE FROM attendance WHERE match_id IN (
+  SELECT id FROM team_match WHERE title = '报名满员联调赛' AND id <> 1006
+);
+DELETE FROM registration WHERE match_id IN (
+  SELECT id FROM team_match WHERE title = '报名满员联调赛' AND id <> 1006
+);
+DELETE FROM team_match WHERE title = '报名满员联调赛' AND id <> 1006;
+
+SET @full_start = DATE_ADD(NOW(), INTERVAL 2 DAY);
+
+INSERT INTO team_match
+  (id, team_id, title, type, format, start_at, end_at, signup_deadline, cancel_lock,
+   venue, competition, season, round, home_team_name, away_team_name, our_side,
+   status, manual_status, capacity, guest_capacity, waitlist_capacity, include_guests,
+   score_home, score_away, season_match_no, total_match_no, version, created_by)
+VALUES
+  (1006, @team_id, '报名满员联调赛', 1, '8人制',
+   @full_start, DATE_ADD(@full_start, INTERVAL 2 HOUR),
+   DATE_ADD(NOW(), INTERVAL 1 DAY),
+   DATE_ADD(DATE_ADD(NOW(), INTERVAL 1 DAY), INTERVAL 30 MINUTE),
+   '聚龙足球场', NULL, YEAR(NOW()), 6, '橙队', '兰队', NULL,
+   0, 0, 30, 4, 2, 1,
+   NULL, NULL, 6, 6, 0, 1001)
+ON DUPLICATE KEY UPDATE
+  title = VALUES(title), start_at = VALUES(start_at), end_at = VALUES(end_at),
+  signup_deadline = VALUES(signup_deadline), cancel_lock = VALUES(cancel_lock),
+  venue = VALUES(venue), season = VALUES(season), round = VALUES(round),
+  status = 0, manual_status = 0,
+  capacity = VALUES(capacity), guest_capacity = VALUES(guest_capacity),
+  waitlist_capacity = VALUES(waitlist_capacity), include_guests = VALUES(include_guests),
+  score_home = NULL, score_away = NULL,
+  season_match_no = VALUES(season_match_no), total_match_no = VALUES(total_match_no),
+  version = 0, is_deleted = 0;
+
+-- 3) 报名：先清空该场报名/考勤，保证重放后名额与状态确定。
+DELETE FROM attendance WHERE match_id = 1006;
+DELETE FROM registration WHERE match_id = 1006;
+
+-- 正式确认 30 人：1001-1010 + 1040-1059，占满 capacity=30。
+INSERT INTO registration (match_id, player_id, type, status, registered_at)
+SELECT 1006, id, type, 0, DATE_SUB(NOW(), INTERVAL 2 DAY)
+FROM player
+WHERE id BETWEEN 1001 AND 1010 OR id BETWEEN 1040 AND 1059;
+
+-- 正式候补 2 人：1011 早于 1012，占满 waitlist_capacity=2。
+INSERT INTO registration (match_id, player_id, type, status, registered_at)
+VALUES
+  (1006, 1011, 1, 1, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+  (1006, 1012, 1, 1, DATE_SUB(NOW(), INTERVAL 23 HOUR));
+
+-- 外挂确认 4 人：1016-1019，占满 guest_capacity=4。
+INSERT INTO registration (match_id, player_id, type, status, registered_at)
+SELECT 1006, id, type, 0, DATE_SUB(NOW(), INTERVAL 2 DAY)
+FROM player
+WHERE id BETWEEN 1016 AND 1019;
+
+-- END 报名满员 fixture
+
 COMMIT;
 
 -- 说明：
@@ -537,3 +655,5 @@ COMMIT;
 -- 3. 1001/1002 的测试密码为 Passw0rd!；重跑脚本只会覆盖这两个账号的密码哈希，其余账号保持不变。
 -- 4. 1001 场为状态 2（锁定）+ 已保存分组，可用于阵容/分组联调；1002 场为状态 4（已结束），可用于事件/考勤/统计联调；
 --    1003 场为状态 2（锁定）、开赛时间随脚本滚动到 2 小时后，用于 C 端签到黄金路径。
+-- 5. 1006 场为状态 0（报名中），正式 30/30、外挂 4/4、候补 2/2，用于满员报名联调；
+--    重放会先清空该场报名/考勤再重建，保证名额与状态确定。

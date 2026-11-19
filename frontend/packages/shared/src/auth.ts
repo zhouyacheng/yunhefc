@@ -6,6 +6,21 @@ export interface WechatAuthorizeResponse {
   authorizeUrl: string;
 }
 
+/** AUTH-09 请求：phone 缺省时为无手机号微信注册，存在时绑定已有/新建账号。 */
+export interface WechatRegisterPayload {
+  name?: string;
+  position?: number;
+  phone?: string;
+  code?: string;
+  inviteToken?: string;
+}
+
+/** AUTH-20 请求：已登录且手机号为空的账号补绑手机号。 */
+export interface PhoneBindPayload {
+  phone: string;
+  code: string;
+}
+
 /** AUTH-09 响应：会话已建立，权限与未读数由 AUTH-10 补取。 */
 export interface WechatBindPhoneResponse {
   user: User;
@@ -16,7 +31,8 @@ export interface WechatBindPhoneResponse {
 export interface User {
   id: number;
   name: string;
-  phoneMasked: string;
+  /** 纯微信注册账号未绑定手机号时为 null。 */
+  phoneMasked: string | null;
   status: number;
   statusLabel: string;
   roles: string[];
@@ -167,7 +183,8 @@ export interface TeamStats {
 export interface UserSummary {
   id: number;
   name: string;
-  phoneMasked: string;
+  /** 纯微信注册账号未绑定手机号时为 null。 */
+  phoneMasked: string | null;
   status: number;
   statusLabel: string;
   roles: string[];

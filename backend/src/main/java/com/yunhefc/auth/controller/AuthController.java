@@ -7,7 +7,9 @@ import com.yunhefc.auth.dto.AuthDtos.AuthResponse;
 import com.yunhefc.auth.dto.AuthDtos.AuthResult;
 import com.yunhefc.auth.dto.AuthDtos.LoginRequest;
 import com.yunhefc.auth.dto.AuthDtos.MeView;
+import com.yunhefc.auth.dto.AuthDtos.PhoneBindRequest;
 import com.yunhefc.auth.dto.AuthDtos.RegisterRequest;
+import com.yunhefc.auth.dto.AuthDtos.UserView;
 import com.yunhefc.auth.dto.AuthDtos.RegisterResult;
 import com.yunhefc.auth.dto.AuthDtos.ResetPasswordRequest;
 import com.yunhefc.auth.dto.AuthDtos.SessionResponse;
@@ -97,6 +99,12 @@ public class AuthController {
     @GetMapping("/me")
     public ApiResponse<MeView> me() {
         return ApiResponse.ok(authService.me(CurrentUser.principal().userId()));
+    }
+
+    @PostMapping("/me/phone")
+    public ApiResponse<UserView> bindOwnPhone(@Valid @RequestBody PhoneBindRequest request) {
+        return ApiResponse.ok(authService.bindOwnPhone(
+                CurrentUser.principal().userId(), request.phone(), request.code()));
     }
 
     private AuthResponse authResponse(AuthResult result, String sessionKey,

@@ -108,6 +108,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
    - `V8__add_audit_log_operated_at.sql`：审计操作时间列、历史回填与索引（P-66）；
    - `V9__player_skill_decimal.sql`：球员星级与分组手动分改为两位小数（P-68）。
    - `V10__remove_grouping_weight_settings.sql`：伪删除分组权重配置并更新分组分数列注释（P-72）。
+   - `V11__wechat_registration.sql`：`app_user.phone` 改为可空，支持无手机号微信注册（P-75）。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。
@@ -159,5 +160,5 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间存 Asia/Shanghai 墙钟、`DATETIME(3)`；业务边界直接在 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V10 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V11 顺序正确、可重复、无环境硬编码
 - [ ] 未执行生产 DDL、未手工改表

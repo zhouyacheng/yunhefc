@@ -488,8 +488,8 @@ describe('system settings', () => {
 });
 
 describe('audit labels', () => {
-  it('maps all 38 actions and 11 target types', () => {
-    expect(Object.keys(AUDIT_ACTION_TEXT)).toHaveLength(38);
+  it('maps all 40 actions and 11 target types', () => {
+    expect(Object.keys(AUDIT_ACTION_TEXT)).toHaveLength(40);
     expect(Object.keys(AUDIT_TARGET_TYPE_TEXT)).toHaveLength(11);
     expect(auditActionText('SETTINGS_UPDATE')).toBe('修改系统设置');
     expect(auditActionText('grouping.generate')).toBe('生成分组');

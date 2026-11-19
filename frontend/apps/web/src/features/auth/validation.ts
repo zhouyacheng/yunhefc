@@ -68,6 +68,12 @@ export function registerInviteToken(
   return token;
 }
 
+/** 从微信授权 redirect 中还原邀请 token；只接受 /invite/<token> 形状。 */
+export function inviteTokenFromRedirect(redirect: string | undefined): string | undefined {
+  const match = redirect?.match(/^\/invite\/([^/?#]+)$/);
+  return match?.[1] ? decodeURIComponent(match[1]) : undefined;
+}
+
 /** 6 类认证错误码统一转成可读文案；40102 不区分账号不存在与密码错误。 */
 export function authErrorMessage(code: number, message?: string): string {
   switch (code) {

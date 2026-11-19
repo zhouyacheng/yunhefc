@@ -51,6 +51,7 @@ public class PendingAccountFilter extends OncePerRequestFilter {
             new AllowedRoute("POST", "/api/v1/c/auth/logout"),
             new AllowedRoute("POST", "/api/v1/c/auth/password/reset"),
             new AllowedRoute("POST", "/api/v1/c/auth/wechat/bind-phone"),
+            new AllowedRoute("POST", "/api/v1/c/me/phone"),
             new AllowedRoute("POST", "/api/v1/c/invites/*/accept"),
             new AllowedRoute("POST", "/api/v1/c/files/avatar"),
             new AllowedRoute("POST", "/api/v1/c/notifications/*/read"),

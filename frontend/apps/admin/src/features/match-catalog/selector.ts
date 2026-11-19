@@ -28,7 +28,7 @@ export function seasonLabel(value: string | null | undefined): string {
 }
 
 export function optionLabel(match: MatchSummary): string {
-  return `${match.title} · ${formatDateTime(match.startAt)} · ${MATCH_STATUS_TEXT[match.status]}`;
+  return `第${match.seasonMatchNo}场（累计${match.totalMatchNo}场） · ${match.title} · ${formatDateTime(match.startAt)} · ${MATCH_STATUS_TEXT[match.status]}`;
 }
 
 /**

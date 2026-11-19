@@ -75,9 +75,10 @@ describe('seasonLabel', () => {
 });
 
 describe('optionLabel', () => {
-  it('包含标题与状态', () => {
-    expect(optionLabel(match(1, '2026'))).toContain('比赛1');
-    expect(optionLabel(match(1, '2026'))).toContain('已锁定');
+  it('依次展示场次、标题、时间与状态', () => {
+    expect(optionLabel(match(1, '2026'))).toBe(
+      '第1场（累计1场） · 比赛1 · 2026/11/17 20:00 · 已锁定',
+    );
   });
 });
 

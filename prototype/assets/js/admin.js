@@ -60,10 +60,20 @@
       ['settings', '⚙️', '系统设置'],
       ['audit', '🧾', '操作日志']
     ];
+    // 02 §2.4：侧栏按运营 / 战术 / 球队 / 系统分组。
+    const navGroups = [
+      ['运营', ['matches', 'registrations', 'events']],
+      ['战术', ['lineup', 'grouping']],
+      ['球队', ['players', 'roles']],
+      ['系统', ['invites', 'settings', 'audit']]
+    ];
     const visibleNav = navItems.filter(([key]) => {
       const permission = Y.ADMIN_SECTION_PERMISSIONS[key];
       return !permission || Y.hasPermission(permission);
     });
+    const visibleGroups = navGroups
+      .map(([label, keys]) => [label, visibleNav.filter(([key]) => keys.includes(key))])
+      .filter(([, items]) => items.length);
     const sections = visibleNav.map(([key]) => key);
     let section = sections.includes(params.get('section')) ? params.get('section') : sections[0];
 
@@ -91,7 +101,7 @@
       app.innerHTML = `<div class="admin-shell">
         <aside class="admin-sidebar">
           <div class="admin-brand"><img class="admin-brand-logo" src="assets/logo.png" alt="云河FC"><div><strong>云河FC</strong><span>TEAM CONSOLE</span></div></div>
-          <nav class="admin-nav">${visibleNav.map(([key, icon, label]) => `<button data-nav="${key}" class="${section === key ? 'active' : ''}"><span>${icon}</span>${label}</button>`).join('')}</nav>
+          <nav class="admin-nav">${visibleGroups.map(([groupLabel, items]) => `<div class="admin-nav-group"><span class="admin-nav-group-title">${groupLabel}</span>${items.map(([key, icon, label]) => `<button data-nav="${key}" class="${section === key ? 'active' : ''}"><span>${icon}</span>${label}</button>`).join('')}</div>`).join('')}</nav>
           <div class="admin-side-foot"><a class="btn btn-ghost btn-sm" href="index.html">返回前台</a></div>
         </aside>
         <div class="admin-main">
@@ -1368,9 +1378,9 @@
           const score = scoreOf(player.id);
           const starLevel = score && score.final != null ? Number(score.final) : Number(player.skill);
           const detail = score
-            ? `${Y.positionShort(player.position)} · ${Y.stars(starLevel)} · ${Number(score.final).toFixed(2)}`
-            : `${Y.positionShort(player.position)} · ${Y.stars(starLevel)}`;
-          return `<div class="group-player" draggable="true" data-group-player="${player.id}" data-from="${team}">${Y.avatar(player, 'xs')}<span>${esc(player.name)}</span><small>${detail}</small></div>`;
+            ? `${Y.stars(starLevel)} · ${Number(score.final).toFixed(2)}`
+            : `${Y.stars(starLevel)}`;
+          return `<div class="group-player" draggable="true" data-group-player="${player.id}" data-from="${team}">${Y.avatar(player, 'xs')}<span>${esc(player.name)} #${player.jersey ?? '—'} · ${Y.positionLabel(player.position)}</span><small>${detail}</small></div>`;
         }).join('') || '<div class="empty-inline">拖球员到这里</div>'}
       </div>`;
     }

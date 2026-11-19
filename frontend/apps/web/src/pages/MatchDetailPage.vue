@@ -73,6 +73,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
+import SkillStars from '../components/SkillStars.vue';
 import { adminUrl, openAdmin } from '../features/admin-handoff/admin-handoff';
 import { isPending } from '../features/auth/user-status';
 import InviteDialog from '../features/match-detail/InviteDialog.vue';
@@ -1193,7 +1194,7 @@ function groupingPlayers(team: GroupingTeam, position: number): GroupedPlayer[] 
 
 function groupingPlayerLabel(player: GroupedPlayer): string {
   const jersey = player.jersey === null || player.jersey === undefined ? '' : ` #${player.jersey}`;
-  return `${player.name}${jersey}`;
+  return `${player.name}${jersey} · ${positionText(player.position)}`;
 }
 
 async function loadGrouping(): Promise<void> {
@@ -1892,7 +1893,10 @@ onBeforeUnmount(() => {
                     class="grouping-row"
                   >
                     <span>{{ groupingPlayerLabel(player) }}</span>
-                    <small>{{ (player.finalScore ?? 0).toFixed(2) }}</small>
+                    <span class="grouping-row__meta">
+                      <SkillStars v-if="player.finalScore != null" :skill="player.finalScore" />
+                      <small>{{ (player.finalScore ?? 0).toFixed(2) }}</small>
+                    </span>
                   </div>
                   <p v-if="!groupingPlayers(team, bucket.key).length" class="muted small">—</p>
                 </div>

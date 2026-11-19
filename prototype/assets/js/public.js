@@ -603,8 +603,13 @@
       const posText = Y.GROUP_POSITIONS
         .map((key) => `${Y.positionLabel(key)} ${pos[key] || 0}`).join(' · ');
       const teamName = Y.groupingTeamName(match, team);
-      const scoreOf = (id) => (grouping.scores && grouping.scores[id] ? Number(grouping.scores[id].final).toFixed(2) : '—');
-      return `<div class="group-column"><div class="group-head"><strong>${teamName}</strong><span>${players.length} 人 · 总分 ${total.toFixed(2)}</span><small>${posText}</small></div>${players.map((player) => `<span class="player-chip">${Y.avatar(player, 'xs')}<span>${esc(player.name)}</span><small>#${player.jersey} · ${scoreOf(player.id)}</small></span>`).join('')}</div>`;
+      const metaOf = (player) => {
+        const score = grouping.scores && grouping.scores[player.id];
+        return score && score.final != null
+          ? `${Y.stars(Number(score.final))} ${Number(score.final).toFixed(2)}`
+          : '—';
+      };
+      return `<div class="group-column"><div class="group-head"><strong>${teamName}</strong><span>${players.length} 人 · 总分 ${total.toFixed(2)}</span><small>${posText}</small></div>${players.map((player) => `<span class="player-chip">${Y.avatar(player, 'xs')}<span>${esc(player.name)} #${player.jersey ?? '—'} · ${Y.positionLabel(player.position)}</span><small>${metaOf(player)}</small></span>`).join('')}</div>`;
     }
 
     function playerChip(player) {

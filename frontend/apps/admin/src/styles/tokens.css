@@ -174,8 +174,8 @@
   --el-menu-bg-color: transparent;
   --el-menu-hover-bg-color: rgba(255, 255, 255, 0.07);
   --el-menu-border-color: transparent;
-  --el-menu-item-height: 38px;
-  --el-menu-item-font-size: 13px;
+  --el-menu-item-height: 40px;
+  --el-menu-item-font-size: 14px;
   --el-menu-base-level-padding: 12px;
 
   --el-dialog-border-radius: 18px;

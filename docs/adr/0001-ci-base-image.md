@@ -34,7 +34,9 @@
 
 ## 后果
 
-- **正面**：e2e job 预计缩短 3–5 分钟（以 `workflow_dispatch` 实测为准）。
+- **正面（已实测）**：2026-11-19 手动触发 run 44485023408，e2e job 总时长 **237s**，
+  基线为 511–668s，节省约 4.5–7 分钟；其中 `Initialize containers`（镜像拉取 + service 启动）41s。
+  改动前后 `Run Playwright E2E` 均为 172s，说明节省全部来自被移除的 apt 安装阶段。
 - **负面**：镜像需人工维护。`frontend/pnpm-lock.yaml` 升级 Playwright 或 Node 后，必须重建镜像、
   换新 tag 并同步 `.github/workflows/ci.yml`。
 - **漂移的表现是"变慢"而不是"失败"**：镜像版本与 lockfile 不一致时，Playwright 会重新下载

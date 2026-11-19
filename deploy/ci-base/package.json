@@ -1,0 +1,8 @@
+{
+  "name": "yunhefc-ci-base",
+  "private": true,
+  "packageManager": "pnpm@12.16.1",
+  "dependencies": {
+    "playwright": "1.65.0"
+  }
+}

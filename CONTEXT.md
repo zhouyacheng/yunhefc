@@ -1,0 +1,12 @@
+# 术语表
+
+## CI 基础镜像
+
+供给 e2e job 的预装运行环境镜像：Node、pnpm、Playwright Chromium、JDK、mysql client 均已固化。
+版本由不可变 tag 编码（`24.04_pw<playwright>_node<node>`），与前端 lockfile 的对应关系见
+[ADR 0001](docs/adr/0001-ci-base-image.md)。
+
+## e2e job
+
+仅在 main 运行的真实后端冒烟链路：真实 JDK 后端 + MySQL + Redis + Playwright 浏览器用例。
+与 PR 三项必需检查不同，它可以失败重跑而不阻塞合并。

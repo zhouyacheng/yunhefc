@@ -11,7 +11,7 @@ test('C 端：登录后看到真实赛程', async ({ page }) => {
   await page.getByRole('button', { name: '登录' }).click();
 
   await expect(page).toHaveURL(/\/matches$/);
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
   await expect(page.locator('.match-card').getByText('已锁定').first()).toBeVisible();
 
   expect(errors).toEqual([]);

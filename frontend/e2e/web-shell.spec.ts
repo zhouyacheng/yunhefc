@@ -19,7 +19,7 @@ test('C 端壳层：访客打开赛程不请求 /c/me', async ({ page }) => {
   });
 
   await page.goto('/matches');
-  await expect(page.locator('.match-card')).toHaveCount(5);
+  await expect(page.locator('.match-card')).toHaveCount(6);
 
   expect(meRequests).toEqual([]);
   expect(unauthorized).toEqual([]);

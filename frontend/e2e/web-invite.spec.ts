@@ -11,8 +11,12 @@ test('C07：访客看到入队邀请并带邀请上下文去登录/注册', asyn
   const card = page.getByTestId('invite-team');
   await expect(card).toContainText('入队邀请');
   await expect(card).toContainText('云河FC');
-  await expect(card).toContainText('邀请人 测试后卫01');
-  await expect(card).toContainText('剩余次数：不限');
+
+  const facts = card.getByTestId('invite-facts');
+  await expect(facts).toContainText('邀请人');
+  await expect(facts).toContainText('测试后卫01');
+  await expect(facts).toContainText('剩余次数');
+  await expect(facts).toContainText('不限');
   await expect(page.getByRole('button', { name: '加入球队' })).toHaveCount(0);
 
   await page.getByRole('button', { name: '注册', exact: true }).click();

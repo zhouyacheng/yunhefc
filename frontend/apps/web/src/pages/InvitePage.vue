@@ -13,6 +13,7 @@ import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
+import logoUrl from '../assets/logo.png';
 import {
   type InviteLandingState,
   inviteInvalidText,
@@ -213,10 +214,13 @@ watch(token, () => void load(), { immediate: true });
 
         <div v-else-if="state === 'member'" class="card" data-testid="invite-member">
           <div class="card-head">
-            <h2>你已是球队成员，无需重复加入</h2>
+            <div class="invite-team-title">
+              <img class="invite-team-logo" :src="logoUrl" alt="" />
+              <h2>{{ invite.team?.name ?? '云河FC' }}</h2>
+            </div>
             <Tag class="status-tag status-tag--type">{{ inviteTypeText(invite.type) }}</Tag>
           </div>
-          <p class="muted">{{ invite.team?.name ?? '云河FC' }}</p>
+          <p class="muted">你已是球队成员，无需重复加入</p>
           <div class="invite-actions">
             <Button type="primary" block @click="goHome">返回首页</Button>
           </div>
@@ -224,12 +228,26 @@ watch(token, () => void load(), { immediate: true });
 
         <div v-else-if="state === 'team'" class="card" data-testid="invite-team">
           <div class="card-head">
-            <h2>{{ invite.team?.name ?? '未知球队' }}</h2>
+            <div class="invite-team-title">
+              <img class="invite-team-logo" :src="logoUrl" alt="" />
+              <h2>{{ invite.team?.name ?? '未知球队' }}</h2>
+            </div>
             <Tag class="status-tag status-tag--type">{{ inviteTypeText(invite.type) }}</Tag>
           </div>
-          <p class="muted">邀请人 {{ invite.inviter?.name ?? '未知' }}</p>
-          <p class="muted">有效期至 {{ formatDateTime(invite.expiresAt) }}</p>
-          <p class="muted">剩余次数：{{ remainingUsesText(invite) }}</p>
+          <div class="invite-facts" data-testid="invite-facts">
+            <div class="invite-fact">
+              <span>🤝 邀请人</span>
+              <strong>{{ invite.inviter?.name ?? '未知' }}</strong>
+            </div>
+            <div class="invite-fact">
+              <span>⏳ 有效期至</span>
+              <strong>{{ formatDateTime(invite.expiresAt) }}</strong>
+            </div>
+            <div class="invite-fact">
+              <span>🔁 剩余次数</span>
+              <strong>{{ remainingUsesText(invite) }}</strong>
+            </div>
+          </div>
           <p v-if="actionError" class="action-error">{{ actionError }}</p>
 
           <div class="invite-actions">
@@ -330,6 +348,22 @@ watch(token, () => void load(), { immediate: true });
 .invite-landing {
   width: min(560px, 100%);
   margin: 0 auto;
+}
+
+.invite-team-title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+
+.invite-team-logo {
+  width: 28px;
+  height: 28px;
+  object-fit: cover;
+  background: var(--yh-surface);
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
 }
 
 .invite-hero {

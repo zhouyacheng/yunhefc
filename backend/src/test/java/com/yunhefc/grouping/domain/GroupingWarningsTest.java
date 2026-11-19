@@ -38,7 +38,7 @@ class GroupingWarningsTest {
         List<GroupingCandidate> oneGoalkeeper = List.of(candidate(1L, 0), candidate(2L, 1));
         assertThat(GroupingWarnings.compute(
                 List.of(player(1L, 0), player(2L, 1)), List.of(), oneGoalkeeper))
-                .contains("名单中仅 1 名门将；0/1 名只提示不阻断");
+                .contains("名单中仅 1 名门将");
 
         List<GroupingCandidate> twoGoalkeepers = List.of(candidate(1L, 0), candidate(2L, 0));
         assertThat(GroupingWarnings.compute(

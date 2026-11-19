@@ -30,7 +30,7 @@ public final class GroupingWarnings {
         if (goalkeeperPool == 0) {
             warnings.add("名单中没有门将");
         } else if (goalkeeperPool == 1) {
-            warnings.add("名单中仅 1 名门将；0/1 名只提示不阻断");
+            warnings.add("名单中仅 1 名门将");
         } else if (teamGoalkeepersA == 0 || teamGoalkeepersB == 0) {
             warnings.add("有球队缺少门将");
         }

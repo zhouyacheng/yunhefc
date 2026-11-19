@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { ERROR_CODES, isApiError, isVersionConflict, newIdempotencyKey } from '@yunhefc/api-client';
-import { EVENT_DELETE_ANY, EVENT_EDIT_ANY, hasPermission } from '@yunhefc/permissions';
+import {
+  EVENT_DELETE_ANY,
+  EVENT_EDIT_ANY,
+  GROUPING_VIEW_ANY,
+  hasPermission,
+} from '@yunhefc/permissions';
 import type {
   DerivedScore,
   EventCreate,
@@ -10,6 +15,7 @@ import type {
   EventTimeline,
   EventType,
   EventUpdate,
+  GroupingAdmin,
   MatchAdmin,
   MatchEvent,
   MatchSummary,
@@ -24,11 +30,14 @@ import {
   MATCH_STATUS_POSTPONED,
   MATCH_STATUS_TEXT,
   eventHalfText,
+  eventTeamRoster,
   eventTypeText,
+  isInternalMatchType,
+  isOpponentLineupSide,
   positionText,
 } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 
 import { api, publicApi } from '../api/client';
 import MatchPicker from '../components/MatchPicker.vue';
@@ -50,6 +59,7 @@ const timelineError = ref('');
 const roster = ref<RegistrationRow[]>([]);
 const rosterError = ref('');
 const loadingRoster = ref(false);
+const grouping = ref<GroupingAdmin | null>(null);
 
 const scoreHome = ref<number | null>(0);
 const scoreAway = ref<number | null>(0);
@@ -104,6 +114,52 @@ const rosterPlayers = computed(() =>
     .filter((row) => row.status === 0)
     .map((row) => row.player)
     .filter((player, index, all) => all.findIndex((item) => item.id === player.id) === index),
+);
+
+const canViewGrouping = computed(() => hasPermission(session.permissions, GROUPING_VIEW_ANY));
+const internalMatch = computed(() => isInternalMatchType(selectedMatch.value?.type));
+const savedGrouping = computed(() =>
+  internalMatch.value && grouping.value?.savedAt ? grouping.value : null,
+);
+const opponentTeam = computed(() => isOpponentLineupSide(selectedMatch.value, form.team));
+const emptyTeamHint = computed(() => {
+  if (opponentTeam.value) {
+    return '对手方无球员资料';
+  }
+  if (savedGrouping.value) {
+    return '该队暂无已确认的分组成员，请到 B06 重新生成分组';
+  }
+  return '该队暂无可选球员';
+});
+const eventTeamPlayers = computed(() =>
+  eventTeamRoster({
+    match: selectedMatch.value,
+    team: form.team,
+    confirmed: rosterPlayers.value,
+    grouping: grouping.value,
+  }),
+);
+
+watch(
+  () => form.team,
+  () => {
+    if (!dialogVisible.value) {
+      return;
+    }
+    const ids = new Set(eventTeamPlayers.value.map((player) => player.id));
+    if (form.playerId !== null && !ids.has(form.playerId)) {
+      form.playerId = null;
+    }
+    if (form.assistPlayerId !== null && !ids.has(form.assistPlayerId)) {
+      form.assistPlayerId = null;
+    }
+    if (form.inPlayerId !== null && !ids.has(form.inPlayerId)) {
+      form.inPlayerId = null;
+    }
+    if (form.outPlayerId !== null && !ids.has(form.outPlayerId)) {
+      form.outPlayerId = null;
+    }
+  },
 );
 
 const hasScoringEvents = computed(() => derived.value !== null);
@@ -183,7 +239,8 @@ async function refreshSelected(): Promise<void> {
   timelineError.value = '';
   roster.value = [];
   rosterError.value = '';
-  await Promise.all([loadTimeline(), loadRoster()]);
+  grouping.value = null;
+  await Promise.all([loadTimeline(), loadRoster(), loadGrouping()]);
 }
 
 function onMatchChange(match: MatchSummary | null): void {
@@ -250,6 +307,24 @@ async function loadRoster(): Promise<void> {
   }
 }
 
+async function loadGrouping(): Promise<void> {
+  const matchId = selectedMatchId.value;
+  if (matchId === null || !internalMatch.value || !canViewGrouping.value) {
+    grouping.value = null;
+    return;
+  }
+  try {
+    const result = await api.get<GroupingAdmin>(`/matches/${matchId}/grouping`);
+    if (matchId === selectedMatchId.value) {
+      grouping.value = result;
+    }
+  } catch {
+    if (matchId === selectedMatchId.value) {
+      grouping.value = null;
+    }
+  }
+}
+
 async function saveScore(): Promise<void> {
   const match = selectedMatch.value;
   if (!match || readOnly.value || hasScoringEvents.value || scoreSaving.value) {
@@ -297,7 +372,7 @@ async function saveScore(): Promise<void> {
 
 function resetForm(): void {
   form.type = 0;
-  form.team = 0;
+  form.team = internalMatch.value ? 0 : ((selectedMatch.value?.ourSide ?? 0) as EventTeam);
   form.playerId = null;
   form.assistPlayerId = null;
   form.inPlayerId = null;
@@ -315,8 +390,8 @@ async function openCreate(): Promise<void> {
   }
   editingEvent.value = null;
   resetForm();
-  // 弹窗打开前刷新名单，避免展示已被移除或遗漏的确认报名球员。
-  await loadRoster();
+  // 弹窗打开前刷新名单与分组，避免展示已被移除或遗漏的确认报名球员。
+  await Promise.all([loadRoster(), loadGrouping()]);
   dialogVisible.value = true;
 }
 
@@ -336,7 +411,7 @@ async function openEdit(event: MatchEvent): Promise<void> {
   form.penalty = event.penalty;
   eventFormError.value = '';
   selectorError.value = '';
-  await loadRoster();
+  await Promise.all([loadRoster(), loadGrouping()]);
   dialogVisible.value = true;
 }
 
@@ -660,7 +735,7 @@ async function deleteEvent(event: MatchEvent): Promise<void> {
           <el-form-item label="换上球员">
             <el-select v-model="form.inPlayerId" filterable placeholder="选择换上球员">
               <el-option
-                v-for="player in rosterPlayers"
+                v-for="player in eventTeamPlayers"
                 :key="player.id"
                 :value="player.id"
                 :label="playerLabel(player)"
@@ -670,7 +745,7 @@ async function deleteEvent(event: MatchEvent): Promise<void> {
           <el-form-item label="换下球员">
             <el-select v-model="form.outPlayerId" filterable placeholder="选择换下球员">
               <el-option
-                v-for="player in rosterPlayers"
+                v-for="player in eventTeamPlayers"
                 :key="player.id"
                 :value="player.id"
                 :label="playerLabel(player)"
@@ -683,7 +758,7 @@ async function deleteEvent(event: MatchEvent): Promise<void> {
           <el-form-item label="球员">
             <el-select v-model="form.playerId" filterable placeholder="选择本场确认报名球员">
               <el-option
-                v-for="player in rosterPlayers"
+                v-for="player in eventTeamPlayers"
                 :key="player.id"
                 :value="player.id"
                 :label="playerLabel(player)"
@@ -695,7 +770,7 @@ async function deleteEvent(event: MatchEvent): Promise<void> {
             <el-form-item label="助攻球员">
               <el-select v-model="form.assistPlayerId" filterable clearable placeholder="可选">
                 <el-option
-                  v-for="player in rosterPlayers"
+                  v-for="player in eventTeamPlayers"
                   :key="player.id"
                   :value="player.id"
                   :label="playerLabel(player)"
@@ -738,6 +813,7 @@ async function deleteEvent(event: MatchEvent): Promise<void> {
         <p v-if="!loadingRoster && !rosterPlayers.length" class="hint">
           本场暂无确认报名球员，请先到报名/考勤确认名单。
         </p>
+        <p v-else-if="!eventTeamPlayers.length" class="hint">{{ emptyTeamHint }}</p>
       </el-form>
 
       <template #footer>

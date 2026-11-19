@@ -56,6 +56,7 @@ import {
   eventEditWindowOpen,
   eventEntryOpen,
   eventHalfText,
+  eventTeamRoster,
   eventTypeText,
   formatDateTime,
   formatDateWithYear,
@@ -69,7 +70,7 @@ import {
   seasonMatchText,
 } from '@yunhefc/shared';
 import { Button, Empty, Loading, Popup, Tag } from 'vant';
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
@@ -425,12 +426,42 @@ const rosterPlayers = computed(() =>
     .filter((player, index, all) => all.findIndex((item) => item.id === player.id) === index),
 );
 const ownPlayerId = computed(() => session.player?.id ?? null);
+const eventTeamPlayers = computed(() =>
+  eventTeamRoster({
+    match: match.value,
+    team: form.team,
+    confirmed: rosterPlayers.value,
+    grouping: grouping.value,
+  }),
+);
 const playerOptions = computed(() => {
   if (teamLocked.value) {
-    return rosterPlayers.value.filter((player) => player.id === ownPlayerId.value);
+    return eventTeamPlayers.value.filter((player) => player.id === ownPlayerId.value);
   }
-  return rosterPlayers.value;
+  return eventTeamPlayers.value;
 });
+
+watch(
+  () => form.team,
+  () => {
+    if (!eventModalOpen.value) {
+      return;
+    }
+    const ids = new Set(eventTeamPlayers.value.map((player) => player.id));
+    if (form.playerId !== null && !ids.has(form.playerId)) {
+      form.playerId = null;
+    }
+    if (form.assistPlayerId !== null && !ids.has(form.assistPlayerId)) {
+      form.assistPlayerId = null;
+    }
+    if (form.inPlayerId !== null && !ids.has(form.inPlayerId)) {
+      form.inPlayerId = null;
+    }
+    if (form.outPlayerId !== null && !ids.has(form.outPlayerId)) {
+      form.outPlayerId = null;
+    }
+  },
+);
 
 function displayedScoreText(): string {
   return displayedScore.value ? scoreText(displayedScore.value) : 'VS';
@@ -1040,9 +1071,25 @@ function onVisibilityChange(): void {
   }
 }
 
+function defaultEventTeam(): EventTeam {
+  if (!internalMatch.value) {
+    return (match.value?.ourSide ?? 0) as EventTeam;
+  }
+  const saved = grouping.value?.savedAt ? grouping.value : null;
+  if (
+    !isEventAdmin.value &&
+    saved &&
+    ownPlayerId.value !== null &&
+    saved.teams.B.some((player) => player.playerId === ownPlayerId.value)
+  ) {
+    return 1;
+  }
+  return 0;
+}
+
 function resetForm(): void {
   form.type = 0;
-  form.team = teamLocked.value ? ((match.value?.ourSide ?? 0) as EventTeam) : 0;
+  form.team = defaultEventTeam();
   form.playerId = teamLocked.value ? ownPlayerId.value : null;
   form.assistPlayerId = null;
   form.inPlayerId = null;
@@ -1059,8 +1106,9 @@ async function openCreate(): Promise<void> {
     return;
   }
   editingEvent.value = null;
+  // 先刷新报名与分组，再重置表单，默认球队才能落到本人所在分组。
+  await Promise.all([loadRoster(), canViewGrouping.value ? loadGrouping() : Promise.resolve()]);
   resetForm();
-  await loadRoster();
   const onlyPlayer = playerOptions.value.length === 1 ? playerOptions.value[0] : undefined;
   if (!teamLocked.value && form.playerId === null && onlyPlayer) {
     form.playerId = onlyPlayer.id;
@@ -1084,7 +1132,7 @@ async function openEdit(event: MatchEvent): Promise<void> {
   form.penalty = event.penalty;
   eventFormError.value = '';
   selectorError.value = '';
-  await loadRoster();
+  await Promise.all([loadRoster(), canViewGrouping.value ? loadGrouping() : Promise.resolve()]);
   eventModalOpen.value = true;
 }
 
@@ -1942,7 +1990,7 @@ onBeforeUnmount(() => {
             <span>换上</span>
             <select v-model.number="form.inPlayerId">
               <option :value="null">请选择</option>
-              <option v-for="player in playerOptions" :key="player.id" :value="player.id">
+              <option v-for="player in eventTeamPlayers" :key="player.id" :value="player.id">
                 {{ player.name }} #{{ player.jersey }}
               </option>
             </select>
@@ -1951,7 +1999,7 @@ onBeforeUnmount(() => {
             <span>换下</span>
             <select v-model.number="form.outPlayerId">
               <option :value="null">请选择</option>
-              <option v-for="player in playerOptions" :key="player.id" :value="player.id">
+              <option v-for="player in eventTeamPlayers" :key="player.id" :value="player.id">
                 {{ player.name }} #{{ player.jersey }}
               </option>
             </select>
@@ -1972,7 +2020,7 @@ onBeforeUnmount(() => {
             <span>助攻（可选）</span>
             <select v-model.number="form.assistPlayerId">
               <option :value="null">无</option>
-              <option v-for="player in rosterPlayers" :key="player.id" :value="player.id">
+              <option v-for="player in eventTeamPlayers" :key="player.id" :value="player.id">
                 {{ player.name }} #{{ player.jersey }}
               </option>
             </select>

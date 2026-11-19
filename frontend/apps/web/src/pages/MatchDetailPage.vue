@@ -1894,7 +1894,7 @@ onBeforeUnmount(() => {
                   >
                     <span>{{ groupingPlayerLabel(player) }}</span>
                     <span class="grouping-row__meta">
-                      <SkillStars v-if="player.manualScore != null" :skill="player.manualScore" />
+                      <SkillStars v-if="player.finalScore != null" :skill="player.finalScore" />
                       <small>{{ (player.finalScore ?? 0).toFixed(2) }}</small>
                     </span>
                   </div>

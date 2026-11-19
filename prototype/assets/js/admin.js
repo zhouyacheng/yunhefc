@@ -1370,7 +1370,7 @@
           const detail = score
             ? `${Y.stars(starLevel)} · ${Number(score.final).toFixed(2)}`
             : `${Y.stars(starLevel)}`;
-          return `<div class="group-player" draggable="true" data-group-player="${player.id}" data-from="${team}">${Y.avatar(player, 'xs')}<span>${esc(player.name)} #${player.jersey ?? '—'} · ${Y.positionShort(player.position)}</span><small>${detail}</small></div>`;
+          return `<div class="group-player" draggable="true" data-group-player="${player.id}" data-from="${team}">${Y.avatar(player, 'xs')}<span>${esc(player.name)} #${player.jersey ?? '—'} · ${Y.positionLabel(player.position)}</span><small>${detail}</small></div>`;
         }).join('') || '<div class="empty-inline">拖球员到这里</div>'}
       </div>`;
     }

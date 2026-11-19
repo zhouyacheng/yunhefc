@@ -827,11 +827,11 @@ function retryGrouping(): void {
                     @dragstart="onDragStart($event, player, team)"
                     @click="toggleSelect(player.playerId, team)"
                   >
-                    <strong>{{ player.name }} #{{ player.jersey ?? '—' }} · {{ positionText(player.position) }}</strong>
+                    <strong>{{ playerLabel(player) }}</strong>
                     <SkillStars
-                      v-if="player.manualScore != null"
-                      :skill="player.manualScore"
-                      :title="skillAriaLabel(player.manualScore)"
+                      v-if="player.finalScore != null"
+                      :skill="player.finalScore"
+                      :title="skillAriaLabel(player.finalScore)"
                     />
                     <span class="score">{{ (player.finalScore ?? 0).toFixed(2) }}</span>
                   </div>

@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ADMIN_SECTIONS } from '@yunhefc/permissions';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
 import beianUrl from '../assets/beian.png';
 import logoUrl from '../assets/logo.png';
-import { SECTION_LABELS } from '../sections';
+import { ADMIN_NAV_GROUPS, SECTION_LABELS } from '../sections';
 import { useSessionStore } from '../stores/session';
 import { webUrl } from '../web-url';
 
@@ -15,12 +14,17 @@ const router = useRouter();
 
 const copyrightYears = `2026-${new Date().getFullYear()}`;
 
-const navItems = computed(() =>
-  ADMIN_SECTIONS.filter((section) => session.sections.includes(section)).map((section) => ({
-    section,
-    label: SECTION_LABELS[section],
-    path: `/${section}`,
-  })),
+const navGroups = computed(() =>
+  ADMIN_NAV_GROUPS.map((group) => ({
+    label: group.label,
+    items: group.sections
+      .filter((section) => session.sections.includes(section))
+      .map((section) => ({
+        section,
+        label: SECTION_LABELS[section],
+        path: `/${section}`,
+      })),
+  })).filter((group) => group.items.length > 0),
 );
 
 const currentLabel = computed(() => {
@@ -48,9 +52,11 @@ async function onCommand(command: string): Promise<void> {
         </div>
       </div>
       <el-menu :default-active="route.path" router class="admin-menu">
-        <el-menu-item v-for="item in navItems" :key="item.section" :index="item.path">
-          {{ item.label }}
-        </el-menu-item>
+        <el-menu-item-group v-for="group in navGroups" :key="group.label" :title="group.label">
+          <el-menu-item v-for="item in group.items" :key="item.section" :index="item.path">
+            {{ item.label }}
+          </el-menu-item>
+        </el-menu-item-group>
       </el-menu>
       <div v-if="webUrl" class="admin-side-foot">
         <el-button tag="a" :href="webUrl">返回前台</el-button>

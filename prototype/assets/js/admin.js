@@ -86,7 +86,7 @@
       }
       const options = [...groups]
         .map(([season, matches]) => `<optgroup label="${esc(season)} 赛季">${matches
-          .map((match) => `<option value="${match.id}" ${match.id === selectedId ? 'selected' : ''}>${esc(match.title)} · ${Y.formatDate(match.start)}</option>`)
+          .map((match) => `<option value="${match.id}" ${match.id === selectedId ? 'selected' : ''}>第${match.seasonMatchNo}场（累计${match.totalMatchNo}场） · ${esc(match.title)} · ${Y.formatDate(match.start)}</option>`)
           .join('')}</optgroup>`)
         .join('');
       return `<select class="input input-sm" ${attr}>${options}</select>`;
@@ -1254,7 +1254,7 @@
       host.innerHTML = `<div class="admin-section-head">
         <div><h1>队内分组</h1><p class="muted">按球员星级均衡；仅锁定状态可生成、调整和保存。</p></div>
         <div class="table-actions">
-          <select class="input input-sm" data-group-match>${candidates.map((item) => `<option value="${item.id}" ${item.id === match.id ? 'selected' : ''}>${esc(item.title)} · ${Y.formatDate(item.start)}</option>`).join('')}</select>
+          <select class="input input-sm" data-group-match>${candidates.map((item) => `<option value="${item.id}" ${item.id === match.id ? 'selected' : ''}>第${item.seasonMatchNo}场（累计${item.totalMatchNo}场） · ${esc(item.title)} · ${Y.formatDate(item.start)}</option>`).join('')}</select>
           ${canGenerate ? `<button class="btn btn-primary btn-sm" data-action="generate-grouping"${locked ? '' : ' disabled title="仅锁定状态可生成/重新分组"'}>${grouping ? '重新分组' : '生成分组'}</button>${grouping ? `<button class="btn btn-ghost btn-sm" data-action="clear-grouping"${locked ? '' : ' disabled title="仅锁定状态可清除分组"'}>清除分组</button>` : ''}` : '<span class="muted small">只读</span>'}
         </div>
       </div>

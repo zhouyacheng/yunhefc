@@ -57,6 +57,7 @@ test('C 端：比赛详情分组 Tab 只读展示', async ({ page }) => {
   await expect(page.locator('.grouping-column')).toHaveCount(2);
   await expect(page.getByText('测试门将01').first()).toBeVisible();
   await expect(page.getByText('分差')).toBeVisible();
+  await expect(page.locator('.grouping-row').first().locator('.skill-star')).toHaveCount(5);
   await expect(page.getByRole('button', { name: /生成分组|保存分组/ })).toHaveCount(0);
 
   expect(errors).toEqual([]);

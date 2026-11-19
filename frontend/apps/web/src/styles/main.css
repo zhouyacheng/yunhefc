@@ -1647,6 +1647,13 @@ textarea {
   color: var(--yh-muted);
 }
 
+.grouping-row__meta {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+}
+
 .grouping-distribution {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));

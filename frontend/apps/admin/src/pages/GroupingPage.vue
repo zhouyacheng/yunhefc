@@ -827,8 +827,7 @@ function retryGrouping(): void {
                     @dragstart="onDragStart($event, player, team)"
                     @click="toggleSelect(player.playerId, team)"
                   >
-                    <strong>{{ player.name }}</strong>
-                    <small>#{{ player.jersey ?? '—' }} · {{ positionText(player.position) }}</small>
+                    <strong>{{ player.name }} #{{ player.jersey ?? '—' }} · {{ positionText(player.position) }}</strong>
                     <SkillStars
                       v-if="player.manualScore != null"
                       :skill="player.manualScore"
@@ -1073,9 +1072,8 @@ function retryGrouping(): void {
   border-color: var(--yh-blue);
 }
 
-.group-player small {
-  margin-left: auto;
-  color: var(--yh-muted);
+.group-player strong {
+  margin-right: auto;
 }
 
 .group-player .score {

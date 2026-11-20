@@ -1,6 +1,6 @@
 # 02 让 typed client 成为唯一 seam
 
-Status: needs-triage
+Status: resolved
 Blocked by: none
 
 ## 目标
@@ -58,3 +58,4 @@ Blocked by: none
 
 - 2026-11-20 实施：`utils/match-api.ts` 重命名为 `utils/api-client.ts`（`git mv`，保留历史），按域暴露函数；home / schedule / profile / team / profile-edit / match-detail 与 `utils/notifications.ts` 全部改走 client。schedule 的请求串组装移入 client 并删除 `scheduleRequestPath`，页面以 `appliedForm` 作为筛选唯一来源；认证端点上收，`session.ts` 只保留会话编排。新增 `tests/api-client.test.ts` 覆盖分页、幂等键（报名/取消/签到/状态/事件）、错误透传、考勤降级与各域 URL。`pages/spike` 是自验证 Cookie 的实验页，仍用原生 `wx.request`，不在本 seam 范围（README 标注验证后可删）。
   验证：`pnpm --filter @yunhefc/miniprogram typecheck`、`test`（25 文件 / 214 用例）、`pnpm exec eslint apps/miniprogram`、`prettier --check` 均通过；真机走查待补。
+- 2026-11-21 状态更正为 resolved：实现已于 `bca9e5d` 提交，此前漏改 `Status`；真机走查仍待补。

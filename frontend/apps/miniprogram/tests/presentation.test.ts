@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  eventHalfText,
+  eventTypeText,
+  isCancelledStatus,
+  isPostponedStatus,
+  isSubstitutionType,
   matchStatusText,
   matchTypeText,
   queuePercent,
+  resolveDisplayedScore,
   resultTone,
   scoreText,
   seasonMatchText,
@@ -87,5 +93,31 @@ describe('match presentation', () => {
     expect(
       seasonMatchText({ season: '2026', seasonMatchNo: 5, totalMatchNo: 5 }),
     ).toBe('2026赛季第5场（累计5场）');
+  });
+
+  it('maps event type and half labels with the same wording as Web', () => {
+    expect([0, 1, 2, 3, 4].map(eventTypeText)).toEqual(['进球', '乌龙球', '换人', '黄牌', '红牌']);
+    expect(eventTypeText(9)).toBe('');
+    expect([0, 1].map(eventHalfText)).toEqual(['上半场', '下半场']);
+    expect(eventHalfText(null)).toBe('');
+  });
+
+  it('exposes named predicates for terminal statuses and substitutions', () => {
+    expect(isCancelledStatus(6)).toBe(true);
+    expect(isCancelledStatus(5)).toBe(false);
+    expect(isPostponedStatus(5)).toBe(true);
+    expect(isPostponedStatus(6)).toBe(false);
+    expect(isSubstitutionType(2)).toBe(true);
+    expect(isSubstitutionType(0)).toBe(false);
+  });
+
+  it('prefers the event-derived score over the stored score', () => {
+    const stored = { scoreHome: 1, scoreAway: 0 };
+    expect(resolveDisplayedScore(stored, null)).toBe(stored);
+    expect(resolveDisplayedScore(stored, { scoreHome: 2, scoreAway: 1 })).toEqual({
+      scoreHome: 2,
+      scoreAway: 1,
+    });
+    expect(resolveDisplayedScore(null, null)).toBeNull();
   });
 });

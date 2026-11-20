@@ -1,10 +1,11 @@
 {
   "navigationBarTitleText": "比赛详情",
+  "navigationBarBackgroundColor": "#0b1220",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#f4f6fa",
+  "enablePullDownRefresh": true,
   "usingComponents": {
-    "van-cell": "@vant/weapp/cell/index",
-    "van-cell-group": "@vant/weapp/cell-group/index",
     "van-empty": "@vant/weapp/empty/index",
-    "van-loading": "@vant/weapp/loading/index",
-    "van-tag": "@vant/weapp/tag/index"
+    "van-loading": "@vant/weapp/loading/index"
   }
 }

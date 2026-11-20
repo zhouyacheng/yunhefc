@@ -29,6 +29,35 @@ export function formatDayStartTime(value: string | null | undefined): string {
   return `${month}月${day}日 ${weekday} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
+/** 当前年月（Asia/Shanghai），输出 `YYYY-MM`。 */
+export function currentShanghaiMonth(now: number | Date = Date.now()): string {
+  const time = typeof now === 'number' ? now : now.getTime();
+  const date = new Date(time + SHANGHAI_OFFSET_MS);
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}`;
+}
+
+/** 展示文案：按 Asia/Shanghai 输出 `YYYY/MM/DD 周X`，无效值返回占位符 `—`。 */
+export function formatDateWithYear(value: string | null | undefined): string {
+  const date = shanghaiDate(value);
+  if (!date) {
+    return '—';
+  }
+  const month = pad(date.getUTCMonth() + 1);
+  const day = pad(date.getUTCDate());
+  return `${date.getUTCFullYear()}/${month}/${day} ${WEEKDAYS[date.getUTCDay()]}`;
+}
+
+/** 展示文案：按 Asia/Shanghai 输出 `YYYY/MM/DD HH:mm`，无效值返回占位符 `—`。 */
+export function formatDateTimeWithYear(value: string | null | undefined): string {
+  const date = shanghaiDate(value);
+  if (!date) {
+    return '—';
+  }
+  const month = pad(date.getUTCMonth() + 1);
+  const day = pad(date.getUTCDate());
+  return `${date.getUTCFullYear()}/${month}/${day} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}
+
 /**
  * 数据字段：按 Asia/Shanghai 输出 `YYYY-MM-DD`；无效值返回空串，由调用方决定兜底文案。
  */

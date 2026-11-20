@@ -1,23 +1,75 @@
-<view class="container">
-  <van-loading wx:if="{{loading}}" />
-  <van-empty wx:if="{{!loading && error}}" description="{{error}}" />
+<view class="container detail">
+  <view wx:if="{{loading}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
 
-  <block wx:if="{{detail}}">
-    <view class="card hero">
-      <view class="row-between">
-        <text class="title">{{detail.title}}</text>
-        <van-tag type="primary">{{detail.statusLabel}}</van-tag>
+  <view wx:elif="{{notFound}}" class="state">
+    <van-empty description="比赛不存在" />
+    <view class="btn btn--small btn--outline" bindtap="goBack" hover-class="btn--pressed">返回</view>
+  </view>
+
+  <view wx:elif="{{error}}" class="state">
+    <text class="muted">{{error}}</text>
+    <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+  </view>
+
+  <block wx:if="{{header}}">
+    <view class="detail-hero">
+      <view class="detail-hero__top">
+        <text class="detail-hero__type">{{header.typeText}}</text>
+        <text class="status-pill status-pill--{{header.statusTone}}">{{header.statusText}}</text>
       </view>
-      <view class="score">{{detail.scoreHome === null || detail.scoreAway === null ? '—' : detail.scoreHome + ' : ' + detail.scoreAway}}</view>
-      <view class="muted">{{detail.homeTeamName}} vs {{detail.awayTeamName}}</view>
-      <view class="muted">{{detail.timeText}} · {{detail.venue}}</view>
-      <view class="muted">赛季 {{detail.season}} · {{detail.typeLabel}}</view>
+
+      <view class="detail-hero__teams">
+        <text class="team-name {{header.homeWinner ? 'team-name--winner' : ''}}">{{header.homeTeamName}}</text>
+        <text class="detail-hero__score">{{header.scoreText}}</text>
+        <text class="team-name {{header.awayWinner ? 'team-name--winner' : ''}}">{{header.awayTeamName}}</text>
+      </view>
+
+      <view wx:if="{{header.resultText}}" class="detail-hero__result">
+        <text class="status-pill status-pill--{{header.resultTone}}">{{header.resultText}}</text>
+      </view>
+
+      <view wx:if="{{header.isCancelled}}" class="detail-hero__banner detail-hero__banner--danger">
+        <text>比赛已取消，报名作废，不占名额、不计考勤</text>
+        <text class="detail-hero__banner-sub">{{header.cancelledCountsText}}</text>
+      </view>
+      <view wx:elif="{{header.isPostponed}}" class="detail-hero__banner">
+        比赛已延期，等待管理员重新排期；报名记录保留。
+      </view>
+
+      <view class="detail-hero__meta">
+        <text>📅 {{header.dateText}}</text>
+        <text>🕐 {{header.timeRangeText}}</text>
+        <text>⏰ 报名截止 {{header.signupDeadlineText}}</text>
+        <text>🔒 报名锁定 {{header.cancelLockText}}</text>
+        <text>⚽ {{header.ordinalText}}</text>
+        <text>📍 {{header.venue}}</text>
+      </view>
     </view>
 
-    <view class="section-title">事件</view>
-    <van-cell-group inset>
-      <van-cell wx:for="{{events}}" wx:key="id" title="{{item.minuteText}} {{item.label}}" value="{{item.playerName}}" />
-    </van-cell-group>
-    <van-empty wx:if="{{events.length === 0}}" description="暂无事件" />
+    <view class="section-title">比赛事件</view>
+
+    <view wx:if="{{eventsLoading && events.length === 0}}" class="state state--inline">
+      <van-loading size="18px">事件加载中…</van-loading>
+    </view>
+
+    <view wx:elif="{{eventsError && events.length === 0}}" class="state state--inline">
+      <text class="muted">{{eventsError}}</text>
+      <view class="btn btn--small btn--outline" bindtap="retryEvents" hover-class="btn--pressed">重试</view>
+    </view>
+
+    <van-empty wx:elif="{{events.length === 0}}" description="还没有事件记录" />
+
+    <view wx:else class="timeline">
+      <view class="timeline__row timeline__row--{{item.side}}" wx:for="{{events}}" wx:key="id">
+        <text class="timeline__time">{{item.timeText}}</text>
+        <view class="event-card event-card--{{item.side}}">
+          <text class="event-card__type">{{item.typeText}}</text>
+          <text class="event-card__detail">{{item.detailText}}</text>
+          <text class="event-card__team">{{item.teamText}}</text>
+        </view>
+      </view>
+    </view>
   </block>
 </view>

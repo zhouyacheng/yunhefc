@@ -1,28 +1,123 @@
-<view class="container">
-  <view class="tabs">
-    <view class="tab {{feed.key === 'upcoming' ? 'active' : ''}}" data-scope="upcoming" bindtap="switchScope">即将开始</view>
-    <view class="tab {{feed.key === 'history' ? 'active' : ''}}" data-scope="history" bindtap="switchScope">历史比赛</view>
+<import src="../../templates/match-card.wxml" />
+
+<view class="container schedule">
+  <view class="page-head">
+    <text class="page-head__eyebrow">MATCHDAY</text>
+    <view class="page-head__title">比赛</view>
+    <text class="muted">共 {{feed.loaded ? feed.total : '—'}} 场比赛 · 按开赛时间降序</text>
   </view>
 
-  <view class="user-bar">
-    <text wx:if="{{user}}">{{user.name}} · 已登录</text>
-    <text wx:else class="muted" bindtap="goLogin">未登录，点此微信登录</text>
+  <view class="schedule-filters__trigger" bindtap="openFilters" hover-class="card--pressed">
+    <text>筛选</text>
   </view>
 
-  <van-loading wx:if="{{feed.loading && feed.items.length === 0}}" />
+  <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
 
-  <van-cell-group inset>
-    <van-cell
+  <view wx:elif="{{feed.error && feed.items.length === 0}}" class="state">
+    <text class="muted">{{feed.error}}</text>
+    <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+  </view>
+
+  <view wx:elif="{{feed.loaded && feed.items.length === 0}}" class="state">
+    <van-empty description="暂无符合条件的比赛" />
+    <view class="btn btn--small btn--outline" bindtap="resetFilters" hover-class="btn--pressed">重置筛选</view>
+  </view>
+
+  <view wx:else class="match-list">
+    <view
+      class="match-card"
       wx:for="{{feed.items}}"
       wx:key="id"
       data-id="{{item.id}}"
-      bind:click="goDetail"
-      title="{{item.title}}"
-      value="{{item.scoreText || item.statusLabel}}"
-      label="{{item.dateText}} {{item.timeText}} · {{item.venue}} · {{item.typeLabel}}"
-      is-link
-    />
-  </van-cell-group>
+      bindtap="goDetail"
+      hover-class="card--pressed"
+    >
+      <template is="match-card" data="{{match: item}}" />
+    </view>
+  </view>
 
-  <van-empty wx:if="{{!feed.loading && feed.items.length === 0}}" description="{{feed.error || '暂无比赛'}}" />
+  <view wx:if="{{feed.items.length > 0}}" class="feed-footer">
+    <van-loading wx:if="{{feed.loadingMore}}" size="18px">加载中…</van-loading>
+    <block wx:elif="{{feed.error}}">
+      <text class="muted">{{feed.error}}</text>
+      <view class="btn btn--small btn--outline" bindtap="retryFooter" hover-class="btn--pressed">重试加载</view>
+    </block>
+    <text wx:elif="{{feed.page >= feed.totalPages}}" class="muted">已显示全部</text>
+    <text wx:else class="muted">上拉加载更多</text>
+  </view>
 </view>
+
+<van-popup show="{{filtersOpen}}" position="bottom" round custom-style="max-height: 80vh;" bind:close="closeFilters">
+  <scroll-view scroll-y class="filter-drawer">
+    <view class="filter-drawer__head">
+      <text class="filter-drawer__title">筛选</text>
+    </view>
+
+    <view class="filter-field">
+      <text class="filter-field__label">类型</text>
+      <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
+        <view class="filter-field__value">{{typeOptions[typeIndex].label}}</view>
+      </picker>
+    </view>
+
+    <view class="filter-field">
+      <text class="filter-field__label">地点</text>
+      <input
+        class="filter-field__input"
+        value="{{form.venue}}"
+        placeholder="如：聚龙"
+        confirm-type="search"
+        adjust-position="{{false}}"
+        bindinput="onVenueInput"
+        bindconfirm="onVenueConfirm"
+      />
+    </view>
+
+    <view class="filter-field">
+      <text class="filter-field__label">状态</text>
+      <picker mode="selector" range="{{statusOptions}}" range-key="label" value="{{statusIndex}}" bindchange="onStatusChange">
+        <view class="filter-field__value">{{statusOptions[statusIndex].label}}</view>
+      </picker>
+    </view>
+
+    <view class="filter-field">
+      <text class="filter-field__label">月份</text>
+      <view class="filter-field__control">
+        <picker mode="date" fields="month" start="2000-01-01" end="2100-12-31" value="{{monthPickerValue}}" bindchange="onMonthChange">
+          <view class="filter-field__value">{{form.month || '全部月份'}}</view>
+        </picker>
+        <text wx:if="{{form.month}}" class="filter-field__clear" bindtap="clearMonth">清除</text>
+      </view>
+    </view>
+
+    <view class="filter-field">
+      <text class="filter-field__label">自定义时间</text>
+      <view class="filter-field__control">
+        <view class="filter-field__value" bindtap="openRange">{{rangeText || '选择日期范围'}}</view>
+        <text wx:if="{{form.startDate && form.endDate}}" class="filter-field__clear" bindtap="clearRange">清除</text>
+      </view>
+    </view>
+
+    <view class="filter-drawer__actions">
+      <view class="btn btn--small btn--outline" bindtap="resetFilters" hover-class="btn--pressed">重置</view>
+    </view>
+  </scroll-view>
+</van-popup>
+
+<van-popup show="{{rangeOpen}}" position="bottom" round z-index="{{200}}" bind:close="closeRange">
+  <view class="range-sheet">
+    <van-calendar
+      wx:if="{{rangeOpen}}"
+      poppable="{{false}}"
+      type="range"
+      allow-same-day="{{true}}"
+      min-date="{{rangeMin}}"
+      max-date="{{rangeMax}}"
+      default-date="{{defaultRange}}"
+      title="选择时间范围"
+      bind:confirm="onRangeConfirm"
+    />
+  </view>
+</van-popup>

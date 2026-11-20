@@ -26,9 +26,10 @@ export const HOME_FEATURES = [
   { icon: '🏆', title: '资产与荣誉', text: '器材台账、球队里程碑' },
 ];
 
-/** Hero 与最近比赛卡片共用的比赛展示字段。 */
+/** Hero、最近比赛卡片与比赛详情头部共用的比赛展示字段。 */
 export interface MatchCoreView {
   typeText: string;
+  typeTone: TypeTone;
   statusText: string;
   statusTone: StatusTone;
   homeTeamName: string;
@@ -54,12 +55,11 @@ export interface HeroView extends MatchCoreView {
   cta: HomeCtaResult;
 }
 
-export interface RecentView extends MatchCoreView {
+export interface MatchCardView extends MatchCoreView {
   id: number;
   dateText: string;
   resultText: string;
   resultTone: ResultTone;
-  typeTone: TypeTone;
   venue: string;
 }
 
@@ -89,17 +89,27 @@ export function queuesOf(match: MatchSummary): QueueView[] {
   ];
 }
 
-function coreOf(match: MatchSummary): MatchCoreView {
-  const winner = winnerSide(match);
+/** displayed 用于事件推导比分等覆盖值；缺省使用比赛自身比分。 */
+export function coreOf(
+  match: MatchSummary,
+  displayed?: Pick<MatchSummary, 'scoreHome' | 'scoreAway'> | null,
+): MatchCoreView {
+  const score = displayed ?? match;
+  const winner = winnerSide({
+    status: match.status,
+    scoreHome: score.scoreHome,
+    scoreAway: score.scoreAway,
+  });
   return {
     typeText: matchTypeText(match.type),
+    typeTone: typeTone(match.type),
     statusText: matchStatusText(match.status),
     statusTone: statusTone(match.status),
     homeTeamName: match.homeTeamName,
     awayTeamName: match.awayTeamName,
     homeWinner: winner === 0,
     awayWinner: winner === 1,
-    scoreText: scoreText(match),
+    scoreText: scoreText(score),
     ordinalText: seasonMatchText(match),
     queues: queuesOf(match),
   };
@@ -128,14 +138,13 @@ export function buildHero(
   };
 }
 
-export function buildRecent(match: MatchSummary): RecentView {
+export function buildMatchCard(match: MatchSummary): MatchCardView {
   return {
     ...coreOf(match),
     id: match.id,
     dateText: formatDayStartTime(match.startAt),
     resultText: match.resultText ?? '',
     resultTone: resultTone(match.resultText),
-    typeTone: typeTone(match.type),
     venue: match.venue,
   };
 }

@@ -1,25 +1,26 @@
 # 云河FC 微信小程序
 
-原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛 / 比赛详情 / 球队 / 我的（通知、我的报名只读、资料编辑、退出登录）。不提供报名/取消报名、签到、分享与订阅消息；报名类 CTA 只提示前往网页版，不发起报名请求。
+原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03 头部与事件）/ 球队 / 我的（通知、我的报名只读、资料编辑、退出登录）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；不提供报名/取消报名、签到、分享与订阅消息；报名类 CTA 只提示前往网页版，不发起报名请求。
 
 ## 结构
 
 ```text
 frontend/apps/miniprogram/
 ├── scripts/prepare-vant.mjs     # 把 @vant/weapp 平铺到 miniprogram_npm（见下）
-├── tests/                       # Vitest：请求/上传封装、会话、展示/CTA/个人中心纯函数、设计 token
+├── tests/                       # Vitest：请求/上传封装、会话、展示/CTA/筛选/详情/个人中心纯函数、设计 token
 └── miniprogram/
     ├── app.ts|json|wxss
-    ├── styles/{tokens,controls}.wxss  # --yh-* 变量与跨页按钮/pill
+    ├── styles/{tokens,controls,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、比赛卡片
+    ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
-    ├── utils/{config,request,session,notifications,datetime,presentation,home-cta,home-view,profile-view}.ts
+    ├── utils/{config,request,session,notifications,datetime,presentation,paged-feed,schedule-query,home-cta,home-view,match-detail-view,profile-view}.ts
     └── pages/
         ├── home/                # tab：首页（镜像 Web C01）
-        ├── schedule/            # tab：比赛
+        ├── schedule/            # tab：比赛（C02 筛选、富卡片、下拉/上拉）
         ├── team/                # tab：球队
         ├── profile/             # tab：我的（通知/我的报名/账号）
         ├── profile-edit/        # 编辑资料与头像
-        ├── match-detail/        # 比赛详情（只读）
+        ├── match-detail/        # 比赛详情（C03 头部 + 事件时间线，只读）
         ├── login/               # wx.login → AUTH-20
         ├── phone-bind/          # 手机号 + 短信 → AUTH-21
         └── spike/               # Phase 0 会话实验页，仅用于真机验证
@@ -60,4 +61,4 @@ pnpm --filter @yunhefc/miniprogram typecheck
 pnpm --filter @yunhefc/miniprogram test
 ```
 
-真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 状态 → 浏览首页/比赛/详情/球队 → 我的（通知已读、我的报名、编辑资料、头像）→ 退出登录 → 冷启动重登。iOS、Android 各一台。
+真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 状态 → 比赛（首屏无月份参数、筛选合并/互斥/清空、抽屉与选择层、下拉/上拉、返回不丢分页）→ 详情（头部元信息、取消/延期横幅、事件球员与中文标签、404）→ 球队 → 我的（通知已读、我的报名、编辑资料、头像）→ 退出登录 → 冷启动重登。iOS、Android 各一台。

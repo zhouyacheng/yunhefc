@@ -1,5 +1,6 @@
 @import "styles/tokens.wxss";
 @import "styles/controls.wxss";
+@import "styles/match-card.wxss";
 
 page {
   background: var(--yh-bg);

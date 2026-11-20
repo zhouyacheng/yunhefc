@@ -62,17 +62,18 @@ Blocked by: none
   - `load()` 开始与 `onUnload` 调用 `invalidateAll()`，保持“重载/卸载后旧响应不落地”的既有语义；页面 `seq` 只再用于详情请求自身的代次。`loadGrouping` 仍返回 Promise，`ensureEventGrouping` 继续 await。
   - `actions.ts` 的 `MatchActionPage` 去掉不再使用的 `seq`，`loadRoster/loadGrouping/loadEvents` 改为无参。
   - 新增 `tests/guarded-load.test.ts`（10 例）：loading/映射/复位顺序、`begin` 合并、失败回退与默认文案、逐 key 空态回退、迟到响应丢弃、阵容主客乱序、旧请求不提前复位 loading、`invalidateAll`、`after` 只对最新响应执行。
-  - 验证：`pnpm --filter @yunhefc/miniprogram typecheck`、`test`（26 文件 / 224 用例）、`pnpm lint`、`prettier --check`（改动文件）通过；开发者工具/真机走查待补。
+  - 验证：`pnpm --filter @yunhefc/miniprogram typecheck`、`test`（26 文件 / 224 用例）、`pnpm lint`、`prettier --check`（改动文件）通过；开发者工具/真机走查见下。
 - 2026-11-21 code-review（Standards / Spec 两轴）：
   - 已改：`EMPTY_ROSTER_VIEW` 统一 data 初始化、重载与 404 三处旧字面量；页面字段改名 `loadRegistry`；`frontend/apps/miniprogram/README.md` 的 utils 清单补 `guarded-load`；补两例测试（阵容主客乱序 + `begin.lineupSide`、逐 key 空态回退）；`invalidateAll` 注明“只让在途过期、不写 loading”的契约。
   - 保留：`key: string` 而非字面量联合——module 是通用接口，票面要求新 tab 直接复用；代次实现与 `paged-feed` 保持各自独立——后者的代次与分页 state 绑定，抽取共用代价大于收益。
   - 行为差异（有意，README“行为保持不变”的唯一例外）：同一 key 的并发运行现在一律 `last-request-wins`；旧代码只在阵容主客不同时丢弃旧响应，同目标重复重试是 `last-settled-wins`。仅影响双击重试等罕见竞态，且与“迟到响应丢弃”不变量一致。
   - `actions.ts` 的 `MatchActionPage` 去 `seq` 是接口改动的必要涟漪，未触碰 ticket 04 的 actions 深化。
   - `CONTEXT.md` 新增 guarded-load 术语，按批次 README 的“事实源”约定登记。
+- 2026-11-21 人工走查（开发者工具/真机）：清单 8 项全部通过，票 03 收口。
 
-## 走查清单（开发者工具/真机，待执行）
+## 走查清单（开发者工具/真机，2026-11-21 人工走查通过）
 
-本机 WeChat DevTools 服务端口未开启（`cli islogin` 报“服务端口已关闭”），无法自动化驱动 GUI，以下需人工执行并回报结果；可与 P-78/P-79/P-80 的验收同场进行。
+本机 WeChat DevTools 服务端口未开启（`cli islogin` 报“服务端口已关闭”），无法自动化驱动 GUI，以下由人工执行；2026-11-21 用户人工走查，8 项全部通过。
 
 1. 冷启动进入任意比赛详情：概览与事件内容正常，名单/事件 loading 各自出现后消失。
 2. 下拉刷新：数据更新，名单/事件/阵容/分组 loading 全部复位，无残留“加载中”。

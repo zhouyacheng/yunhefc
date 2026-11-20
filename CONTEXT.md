@@ -19,6 +19,10 @@
 
 小程序 `utils/guarded-load.ts`：按 key 维护代次的加载 module，负责迟到响应丢弃、loading/error 复位与失败空态回退；页面只提供 fetcher、成功映射与回退字段。
 
+## 跨页 invalidation module
+
+小程序 `utils/invalidation.ts`：写入方用 `invalidate('my-registrations')` 声明命名资源已失效，订阅方用 `subscribe(...).consume()` 在刷新时机消费一次即复位；资源名是接口的一部分，不再暴露隐藏布尔。
+
 ## 写操作 outcome
 
 小程序 `pages/match-detail/actions.ts`：比赛详情写操作只接收领域输入（比赛 id、版本、报名状态、事件 payload），返回 `WriteOutcome`（patch/toast/error/reload/refreshEventId）；setData、忙闲标记、确认弹窗与弹层开关由页面负责。

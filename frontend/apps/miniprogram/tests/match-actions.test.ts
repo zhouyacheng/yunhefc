@@ -13,8 +13,8 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../miniprogram/utils/api-client', () => mocks);
 
+import { subscribe } from '../miniprogram/utils/invalidation';
 import { ApiError } from '../miniprogram/utils/request';
-import { consumeMyRegistrationsDirty } from '../miniprogram/utils/registration-signal';
 import {
   cancel,
   changeStatus,
@@ -25,6 +25,8 @@ import {
 } from '../miniprogram/pages/match-detail/actions';
 
 const CONFLICT = new ApiError(40901, '比赛信息已更新，请刷新后重试', 409);
+
+const myRegistrations = subscribe('my-registrations');
 
 function registration(status: number): Registration {
   return {
@@ -73,16 +75,16 @@ beforeEach(() => {
   for (const mock of Object.values(mocks)) {
     mock.mockReset();
   }
-  consumeMyRegistrationsDirty();
+  myRegistrations.consume();
 });
 
 describe('signup', () => {
-  it('toasts 报名成功 and marks my registrations dirty', async () => {
+  it('toasts 报名成功 and invalidates my registrations', async () => {
     mocks.signupMatch.mockResolvedValue(registration(0));
 
     await expect(signup(7)).resolves.toEqual({ ok: true, patch: {}, toast: '报名成功' });
     expect(mocks.signupMatch).toHaveBeenCalledWith(7);
-    expect(consumeMyRegistrationsDirty()).toBe(true);
+    expect(myRegistrations.consume()).toBe(true);
   });
 
   it('toasts 已加入候补 for a waitlisted registration', async () => {
@@ -100,7 +102,7 @@ describe('signup', () => {
       reload: true,
       refreshEventId: null,
     });
-    expect(consumeMyRegistrationsDirty()).toBe(false);
+    expect(myRegistrations.consume()).toBe(false);
   });
 
   it('keeps the page without reload for other failures', async () => {
@@ -130,7 +132,7 @@ describe('cancel', () => {
       patch: { actionMessage: '已取消报名' },
       toast: '',
     });
-    expect(consumeMyRegistrationsDirty()).toBe(true);
+    expect(myRegistrations.consume()).toBe(true);
   });
 
   it('uses the waitlist wording when a waitlisted registration is cancelled', async () => {

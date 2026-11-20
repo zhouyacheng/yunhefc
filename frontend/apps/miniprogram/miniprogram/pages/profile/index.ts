@@ -12,10 +12,7 @@ import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors
 import { promotionText, registrationDecision } from '../../utils/registration';
 import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
 import { createPagedFeed, emptyPagedFeedState, type PagedFeed } from '../../utils/paged-feed';
-import {
-  consumeMyRegistrationsDirty,
-  markMyRegistrationsDirty,
-} from '../../utils/registration-signal';
+import { invalidate, subscribe } from '../../utils/invalidation';
 import {
   decorateNotification,
   decorateRegistration,
@@ -33,6 +30,9 @@ import {
 } from '../../utils/session';
 
 const PAGE_SIZE = 10;
+
+/** 首页/详情改动报名后失效此资源，本页在 onShow 重载报名列表。 */
+const myRegistrations = subscribe('my-registrations');
 
 let notificationFeed: PagedFeed<NotificationRow> | null = null;
 let registrationFeed: PagedFeed<RegistrationRowView> | null = null;
@@ -155,7 +155,7 @@ Page({
     });
 
     // 已加载过的列表保留分页位置；下拉刷新、切换账号、其他页面改动报名或首次进入时才重载。
-    const forceRegistrations = consumeMyRegistrationsDirty();
+    const forceRegistrations = myRegistrations.consume();
     const shouldLoadNotifications = force || switchedUser || !this.data.notifications.loaded;
     const shouldLoadRegistrations =
       !pending && (force || switchedUser || forceRegistrations || !this.data.registrations.loaded);
@@ -199,7 +199,7 @@ Page({
         await notificationFeed?.load();
       }
       if (item.refType === 'MATCH' && typeof item.refId === 'number' && item.refId > 0) {
-        markMyRegistrationsDirty();
+        invalidate('my-registrations');
         await wx.navigateTo({ url: `/pages/match-detail/index?id=${item.refId}` });
       }
     } finally {
@@ -239,7 +239,7 @@ Page({
   goMatch(event: WechatMiniprogram.BaseEvent) {
     const id = Number(event.currentTarget.dataset.id);
     // 详情页可能取消报名；返回时强制重载进行中/历史列表。
-    markMyRegistrationsDirty();
+    invalidate('my-registrations');
     void wx.navigateTo({ url: `/pages/match-detail/index?id=${id}` });
   },
 

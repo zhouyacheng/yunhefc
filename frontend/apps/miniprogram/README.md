@@ -7,13 +7,13 @@
 ```text
 frontend/apps/miniprogram/
 ├── scripts/prepare-vant.mjs     # 把 @vant/weapp 平铺到 miniprogram_npm（见下）
-├── tests/                       # Vitest：请求/上传封装、会话、展示/CTA/筛选/详情/个人中心纯函数、设计 token
+├── tests/                       # Vitest：请求/上传封装、会话、展示/CTA/筛选/详情/个人中心纯函数、跨页失效、设计 token
 └── miniprogram/
     ├── app.ts|json|wxss
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
-    ├── utils/{config,request,api-client,session,notifications,datetime,presentation,paged-feed,guarded-load,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view}.ts
+    ├── utils/{config,request,api-client,session,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view}.ts
     │   ├── request.ts      # 传输层：Cookie jar、CSRF、ApiError
     │   └── api-client.ts   # 唯一请求入口：按域暴露函数，路径/分页/幂等键集中于此
     ├── components/

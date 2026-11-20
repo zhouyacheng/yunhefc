@@ -3,8 +3,8 @@ import { fetchMatchDetail, listRecentMatches, signupMatch } from '../../utils/ap
 import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
 import { buildHero, HOME_FEATURES, type HeroView } from '../../utils/home-view';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
+import { invalidate } from '../../utils/invalidation';
 import { REGISTRATION_STATUS } from '../../utils/registration';
-import { markMyRegistrationsDirty } from '../../utils/registration-signal';
 import { getPermissions, getPlayer, getUser, sessionReady } from '../../utils/session';
 
 let requestSeq = 0;
@@ -145,7 +145,7 @@ Page({
     this.setData({ signupBusy: true });
     try {
       const registration = await signupMatch(hero.id);
-      markMyRegistrationsDirty();
+      invalidate('my-registrations');
       wx.showToast({
         title: registration.status === REGISTRATION_STATUS.WAITLISTED ? '已加入候补' : '报名成功',
         icon: 'none',

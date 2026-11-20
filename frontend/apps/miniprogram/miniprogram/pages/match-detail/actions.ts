@@ -10,9 +10,9 @@ import {
   signupMatch,
   updateMatchEvent,
 } from '../../utils/api-client';
+import { invalidate } from '../../utils/invalidation';
 import { MATCH_STATUS_TEXT, attendanceText } from '../../utils/presentation';
 import { REGISTRATION_STATUS, promotionText } from '../../utils/registration';
-import { markMyRegistrationsDirty } from '../../utils/registration-signal';
 
 /** 写操作成功后要写入页面的字段；页面其余 data 字段不由写操作触碰。 */
 export type WritePatch = {
@@ -65,7 +65,7 @@ function failed(
 export async function signup(matchId: number): Promise<WriteOutcome> {
   try {
     const registration = await signupMatch(matchId);
-    markMyRegistrationsDirty();
+    invalidate('my-registrations');
     return succeeded(
       {},
       registration.status === REGISTRATION_STATUS.WAITLISTED ? '已加入候补' : '报名成功',
@@ -84,7 +84,7 @@ export interface CancelInput {
 export async function cancel(input: CancelInput): Promise<WriteOutcome> {
   try {
     const result = await cancelMyRegistration(input.matchId);
-    markMyRegistrationsDirty();
+    invalidate('my-registrations');
     return succeeded({ actionMessage: promotionText(result, null, input.cancelledStatus) });
   } catch (error) {
     return failed(error, '取消报名失败，请稍后重试');

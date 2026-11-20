@@ -407,7 +407,7 @@ COMMIT;
 
 小程序发布流程：微信开发者工具上传 → 小程序后台提交审核 → 审核通过后发布。后端镜像不包含小程序代码。
 
-> Phase 4 删除旧公众号链路后，`WECHAT_*` 旧变量不再读取；在此之前 `auth/wechat/**` 仍在运行并继续绑定这些变量，`.env` 里保留旧值用于回滚。`MP_verify_*.txt` 仅保留用于域名验证与历史申诉材料。
+> 公众号网页授权已随 P-74 删除，`WECHAT_*` 旧变量不再读取；`.env` 里的旧值可以安全移除。`MP_verify_*.txt` 仅保留用于域名验证与历史申诉材料。
 
 ---
 
@@ -464,7 +464,7 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 - 无 tag 发布、无路径过滤；PR 的三项检查均为必需检查，失败即阻断合并（分支保护见 §6.3）。
 - PR 并发组 `ci-<ref>` 取消旧运行；main 不取消，避免镜像/E2E 半途中断。
 - `workflow_dispatch`：手动跑 `backend`（package + 上传 jar）与 `e2e`，不触发 `images`/`mirror-infra`，用于验证 E2E 链路改动；可对任意 ref 触发。
-- `e2e`：下载 main 的 boot jar，以 `dev` profile 启动并轮询 `/actuator/health` ≤180s；注入 `SMS_MOCK_ENABLED=true`、`OSS_MODE=mock`、`WECHAT_MODE=mock`、`WECHAT_MINI_MODE=mock`、`KAFKA_LISTENER_ENABLED=false`、`OUTBOX_ENABLED=false`；Flyway 建表后重放 `scripts/sql/test-data.sql`（可重复执行），再跑 Playwright Chromium。失败上传 `frontend/test-results` 与 `frontend/playwright-report`，保留 7 天。
+- `e2e`：下载 main 的 boot jar，以 `dev` profile 启动并轮询 `/actuator/health` ≤180s；注入 `SMS_MOCK_ENABLED=true`、`OSS_MODE=mock`、`WECHAT_MINI_MODE=mock`、`KAFKA_LISTENER_ENABLED=false`、`OUTBOX_ENABLED=false`；Flyway 建表后重放 `scripts/sql/test-data.sql`（可重复执行），再跑 Playwright Chromium。失败上传 `frontend/test-results` 与 `frontend/playwright-report`，保留 7 天。
 - `e2e` 运行在自建公开镜像 `danche1013/ubuntu:<tag>` 内（见 §6.6）；services 按服务名 `mysql`/`redis` 直连，不再映射端口；seed 用镜像内 `mysql` 客户端（容器 job 无 docker socket）。
 - `images`：`linux/amd64`，tag 固定为该 commit 的 `sha-<7>`（`github.sha` 前 7 位），双仓库 `yunhefc-backend`、`yunhefc-nginx`；两个 manifest 都校验存在；禁止 `latest`。构建期变量：`ADMIN_BASE_URL=/admin/`、`VITE_WEB_URL=https://www.<PUBLIC_DOMAIN>`、`VITE_ADMIN_URL=/admin/`。
 

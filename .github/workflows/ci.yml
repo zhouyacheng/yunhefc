@@ -154,7 +154,6 @@ jobs:
           REDIS_PORT: "6379"
           SMS_MOCK_ENABLED: "true"
           OSS_MODE: mock
-          WECHAT_MODE: mock
           WECHAT_MINI_ENABLED: "true"
           WECHAT_MINI_MODE: mock
           KAFKA_LISTENER_ENABLED: "false"

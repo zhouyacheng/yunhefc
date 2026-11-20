@@ -18,9 +18,9 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
 
     @Test
     void firstLoginRequiresPhoneBindingThenLogsInDirectly() throws Exception {
-        PendingLogin pending = loginTicket("dev-1");
+        MiniLoginTicket pending = miniLogin("dev-1");
 
-        sendSmsCode("13900000051");
+        sendBindSmsCode("13900000051");
         MvcResult bound = bindPhone(pending, """
                 {"bindTicket":"%s","phone":"13900000051","code":"123456","name":"小程序球员","position":2}
                 """.formatted(pending.ticket()))
@@ -58,8 +58,8 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
     void existingPhoneBindsToExistingAccount() throws Exception {
         jdbc.update("INSERT INTO app_user (id, phone, status) VALUES (?, ?, ?)", 9001L, "13900000052", 1);
 
-        PendingLogin pending = loginTicket("existing-1");
-        sendSmsCode("13900000052");
+        MiniLoginTicket pending = miniLogin("existing-1");
+        sendBindSmsCode("13900000052");
 
         bindPhone(pending, """
                 {"bindTicket":"%s","phone":"13900000052","code":"123456"}
@@ -77,8 +77,8 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
     void disabledAccountIsRejected() throws Exception {
         jdbc.update("INSERT INTO app_user (id, phone, status) VALUES (?, ?, ?)", 9002L, "13900000053", 2);
 
-        PendingLogin pending = loginTicket("disabled-1");
-        sendSmsCode("13900000053");
+        MiniLoginTicket pending = miniLogin("disabled-1");
+        sendBindSmsCode("13900000053");
 
         bindPhone(pending, """
                 {"bindTicket":"%s","phone":"13900000053","code":"123456"}
@@ -89,8 +89,8 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
 
     @Test
     void replayedBindTicketIsRejected() throws Exception {
-        PendingLogin pending = loginTicket("replay-1");
-        sendSmsCode("13900000054");
+        MiniLoginTicket pending = miniLogin("replay-1");
+        sendBindSmsCode("13900000054");
 
         String payload = """
                 {"bindTicket":"%s","phone":"13900000054","code":"123456","name":"重放","position":1}
@@ -107,7 +107,7 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
 
     @Test
     void bindWithoutTheLoginSessionIsRejected() throws Exception {
-        PendingLogin pending = loginTicket("no-session");
+        MiniLoginTicket pending = miniLogin("no-session");
 
         mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -123,8 +123,8 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
         jdbc.update("INSERT INTO app_user (id, phone, mp_openid, status) VALUES (?, ?, ?, ?)",
                 9003L, "13900000055", "mock-openid-other", 1);
 
-        PendingLogin pending = loginTicket("conflict-1");
-        sendSmsCode("13900000055");
+        MiniLoginTicket pending = miniLogin("conflict-1");
+        sendBindSmsCode("13900000055");
 
         bindPhone(pending, """
                 {"bindTicket":"%s","phone":"13900000055","code":"123456"}
@@ -135,8 +135,8 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
 
     @Test
     void newPhoneRequiresNameAndPosition() throws Exception {
-        PendingLogin pending = loginTicket("missing-name");
-        sendSmsCode("13900000056");
+        MiniLoginTicket pending = miniLogin("missing-name");
+        sendBindSmsCode("13900000056");
 
         bindPhone(pending, """
                 {"bindTicket":"%s","phone":"13900000056","code":"123456"}
@@ -160,37 +160,8 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(42901));
     }
 
-    private record PendingLogin(String ticket, Cookie cookie) {
-    }
 
-    private PendingLogin loginTicket(String code) throws Exception {
-        MvcResult result = mockMvc.perform(post("/api/v1/c/auth/mini/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"code\":\"" + code + "\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.needBindPhone").value(true))
-                .andExpect(jsonPath("$.data.user").value(nullValue()))
-                .andReturn();
-        String ticket = JsonPath.read(result.getResponse().getContentAsString(), "$.data.bindTicket");
-        assertThat(ticket).isNotBlank();
-        return new PendingLogin(ticket, cookie(result, "YHFC_C"));
-    }
-
-    private void sendSmsCode(String phone) throws Exception {
-        MvcResult csrf = mockMvc.perform(get("/api/v1/c/auth/csrf"))
-                .andExpect(status().isOk())
-                .andReturn();
-        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
-                        .cookie(cookie(csrf, "YHFC_C"))
-                        .header("X-XSRF-TOKEN", csrfToken(csrf))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"phone":"%s","purpose":"BIND"}
-                                """.formatted(phone)))
-                .andExpect(status().isOk());
-    }
-
-    private ResultActions bindPhone(PendingLogin pending, String payload) throws Exception {
+    private ResultActions bindPhone(MiniLoginTicket pending, String payload) throws Exception {
         return mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
                 .cookie(pending.cookie())
                 .contentType(MediaType.APPLICATION_JSON)

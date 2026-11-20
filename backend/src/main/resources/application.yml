@@ -110,14 +110,6 @@ yunhefc:
     access-key-id: ${OSS_ACCESS_KEY_ID:}
     access-key-secret: ${OSS_ACCESS_KEY_SECRET:}
   wechat:
-    enabled: ${WECHAT_ENABLED:false}
-    mode: ${WECHAT_MODE:mock}
-    app-id: ${WECHAT_APP_ID:}
-    app-secret: ${WECHAT_APP_SECRET:}
-    callback-url: ${WECHAT_CALLBACK_URL:}
-    allowed-redirect-prefixes: ${WECHAT_ALLOWED_REDIRECT_PREFIXES:/}
-    require-wechat-ua: ${WECHAT_REQUIRE_UA:true}
-    state-ttl-seconds: ${WECHAT_STATE_TTL_SECONDS:300}
     mini:
       enabled: ${WECHAT_MINI_ENABLED:false}
       mode: ${WECHAT_MINI_MODE:mock}

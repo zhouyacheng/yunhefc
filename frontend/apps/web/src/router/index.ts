@@ -36,11 +36,6 @@ export const router = createRouter({
       component: () => import('../pages/LoginPage.vue'),
     },
     {
-      path: '/auth/wechat/callback',
-      name: 'wechat-callback',
-      component: () => import('../pages/WechatCallbackPage.vue'),
-    },
-    {
       path: '/',
       component: () => import('../components/AppShell.vue'),
       children: [

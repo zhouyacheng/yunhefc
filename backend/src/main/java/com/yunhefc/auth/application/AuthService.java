@@ -285,9 +285,7 @@ public class AuthService implements UserAccessPort {
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        // 过渡期同时清空公众号 openid 与小程序 mp_openid，保证解绑语义一致。
-        String before = user.getMpOpenid() != null ? user.getMpOpenid() : user.getOpenid();
-        userMapper.clearOpenid(userId);
+        String before = user.getMpOpenid();
         userMapper.clearMpOpenid(userId);
         auditRecorder.recordCurrent("WECHAT_UNBIND", "USER", userId,
                 java.util.Map.of("openid", before == null ? "" : "***"), null);

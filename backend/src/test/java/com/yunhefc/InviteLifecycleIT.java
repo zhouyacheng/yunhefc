@@ -74,82 +74,33 @@ class InviteLifecycleIT extends IntegrationTestSupport {
         jdbc.update("INSERT INTO app_user (phone, password_hash, status) VALUES (?, ?, 1)",
                 "13900000221", passwordEncoder.encode("Passw0rd!"));
 
-        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
-                        .param("redirect", "/"))
-                .andExpect(status().isOk())
-                .andReturn();
-        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
-        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
-        Cookie authorizeCookie = cookie(authorize, "YHFC_C");
-        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
-                        .cookie(authorizeCookie)
-                        .param("code", "bind-existing")
-                        .param("state", state))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.needBindPhone").value(true))
-                .andReturn();
-        Cookie cookie = authorizeCookie;
-        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+        MiniLoginTicket pending = miniLogin("bind-existing");
+        sendBindSmsCode("13900000221");
 
-        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
-                        .cookie(cookie)
-                        .header("X-XSRF-TOKEN", csrf)
+        mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
+                        .cookie(pending.cookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"phone":"13900000221","purpose":"BIND"}
-                                """))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
-                        .cookie(cookie)
-                        .header("X-XSRF-TOKEN", csrf)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"phone":"13900000221","code":"123456"}
-                                """))
+                                {"bindTicket":"%s","phone":"13900000221","code":"123456"}
+                                """.formatted(pending.ticket())))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0221"))
-                .andExpect(jsonPath("$.data.permissions").doesNotExist());
+                .andExpect(jsonPath("$.data.user.phoneMasked").value("139****0221"));
 
         assertThat(jdbc.queryForObject(
-                "SELECT openid FROM app_user WHERE phone = '13900000221'", String.class)).isNotBlank();
+                "SELECT mp_openid FROM app_user WHERE phone = '13900000221'", String.class)).isNotBlank();
     }
 
     @Test
     void bindPhoneForNewAccountStillRequiresNameAndPosition() throws Exception {
-        MvcResult authorize = mockMvc.perform(get("/api/v1/c/auth/wechat/authorize")
-                        .param("redirect", "/"))
-                .andExpect(status().isOk())
-                .andReturn();
-        String authorizeUrl = JsonPath.read(authorize.getResponse().getContentAsString(), "$.data.authorizeUrl");
-        String state = authorizeUrl.substring(authorizeUrl.indexOf("state=") + 6);
-        Cookie authorizeCookie = cookie(authorize, "YHFC_C");
-        MvcResult callback = mockMvc.perform(get("/api/v1/c/auth/wechat/callback")
-                        .cookie(authorizeCookie)
-                        .param("code", "bind-new")
-                        .param("state", state))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.needBindPhone").value(true))
-                .andReturn();
-        Cookie cookie = authorizeCookie;
-        String csrf = JsonPath.read(callback.getResponse().getContentAsString(), "$.data.csrfToken");
+        MiniLoginTicket pending = miniLogin("bind-new");
+        sendBindSmsCode("13900000251");
 
-        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
-                        .cookie(cookie)
-                        .header("X-XSRF-TOKEN", csrf)
+        mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
+                        .cookie(pending.cookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"phone":"13900000251","purpose":"BIND"}
-                                """))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(post("/api/v1/c/auth/wechat/bind-phone")
-                        .cookie(cookie)
-                        .header("X-XSRF-TOKEN", csrf)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"phone":"13900000251","code":"123456"}
-                                """))
+                                {"bindTicket":"%s","phone":"13900000251","code":"123456"}
+                                """.formatted(pending.ticket())))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
     }

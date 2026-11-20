@@ -12,12 +12,6 @@ import java.time.LocalDateTime;
 @Mapper
 public interface AppUserMapper extends BaseMapper<AppUser> {
 
-    /**
-     * updateById 默认忽略 null 字段，解绑微信必须显式清空 openid。
-     */
-    @Update("UPDATE app_user SET openid = NULL WHERE id = #{id} AND is_deleted = 0")
-    int clearOpenid(@Param("id") Long id);
-
     @Update("UPDATE app_user SET last_login_at = #{lastLoginAt} WHERE id = #{id} AND is_deleted = 0")
     int updateLastLoginAt(@Param("id") Long id, @Param("lastLoginAt") LocalDateTime lastLoginAt);
 
@@ -26,9 +20,6 @@ public interface AppUserMapper extends BaseMapper<AppUser> {
 
     @Update("UPDATE app_user SET phone = #{phone} WHERE id = #{id} AND is_deleted = 0")
     int updatePhone(@Param("id") Long id, @Param("phone") String phone);
-
-    @Update("UPDATE app_user SET openid = #{openid} WHERE id = #{id} AND is_deleted = 0")
-    int updateOpenid(@Param("id") Long id, @Param("openid") String openid);
 
     @Update("UPDATE app_user SET mp_openid = NULL WHERE id = #{id} AND is_deleted = 0")
     int clearMpOpenid(@Param("id") Long id);

@@ -20,7 +20,6 @@ public class AppUser {
     private Long id;
     private String phone;
     private String passwordHash;
-    private String openid;
     private String mpOpenid;
     private UserStatus status;
     private LocalDateTime lastLoginAt;
@@ -30,9 +29,9 @@ public class AppUser {
     @TableLogic
     private Integer isDeleted;
 
-    /** 过渡期：公众号 openid 与小程序 mp_openid 任一非空即视为已绑定。 */
+    /** 微信绑定状态由小程序 mp_openid 派生。 */
     public boolean isWechatBound() {
-        return notBlank(openid) || notBlank(mpOpenid);
+        return notBlank(mpOpenid);
     }
 
     private static boolean notBlank(String value) {

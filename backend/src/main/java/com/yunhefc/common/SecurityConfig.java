@@ -54,10 +54,6 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/c/auth/csrf", "/api/v1/b/auth/csrf").permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/c/auth/wechat/authorize",
-                                "/api/v1/c/auth/wechat/callback",
-                                "/api/v1/c/auth/wechat/mock-authorize").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/c/auth/sms-codes",
                                 "/api/v1/c/auth/register",
@@ -65,7 +61,6 @@ public class SecurityConfig {
                                 "/api/v1/c/auth/password/reset",
                                 "/api/v1/c/auth/mini/login",
                                 "/api/v1/c/auth/mini/bind-phone",
-                                "/api/v1/c/auth/wechat/bind-phone",
                                 "/api/v1/b/auth/login",
                                 "/api/v1/b/auth/admin-ticket/exchange").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/c/invites/**").permitAll()

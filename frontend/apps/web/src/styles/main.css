@@ -1081,36 +1081,6 @@ textarea {
   font-size: 13px;
 }
 
-.login-or {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  margin: 16px 0 10px;
-  color: var(--yh-muted);
-  font-size: 12px;
-}
-
-.login-or::before,
-.login-or::after {
-  flex: 1;
-  height: 1px;
-  content: '';
-  background: rgba(148, 163, 184, 0.35);
-}
-
-.login-or__error {
-  margin-top: 10px;
-}
-
-.wechat-alt {
-  display: block;
-  margin-top: 16px;
-  color: var(--yh-green);
-  font-size: 13px;
-  font-weight: 600;
-  text-align: center;
-}
-
 .login-footnote {
   margin: 18px 0 0;
   color: var(--yh-muted);

@@ -3,9 +3,6 @@ yunhefc:
   sms:
     mock-enabled: true
   wechat:
-    enabled: true
-    mode: mock
-    require-wechat-ua: false
     mini:
       enabled: true
       mode: mock

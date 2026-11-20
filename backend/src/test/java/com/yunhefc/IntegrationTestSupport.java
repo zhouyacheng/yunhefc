@@ -1,6 +1,9 @@
 package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.Filter;
@@ -12,6 +15,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.init.DatabasePopulatorUtils;
 import org.springframework.jdbc.datasource.init.ResourceDatabasePopulator;
@@ -32,7 +36,7 @@ import org.testcontainers.utility.DockerImageName;
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 
-@SpringBootTest(properties = {"management.health.redis.enabled=false", "yunhefc.kafka.listener-enabled=false", "yunhefc.outbox.enabled=false", "yunhefc.sms.mock-enabled=true", "yunhefc.wechat.enabled=true", "yunhefc.wechat.mode=mock", "yunhefc.wechat.require-wechat-ua=false", "yunhefc.wechat.mini.enabled=true", "yunhefc.wechat.mini.mode=mock", "spring.quartz.auto-startup=false"})
+@SpringBootTest(properties = {"management.health.redis.enabled=false", "yunhefc.kafka.listener-enabled=false", "yunhefc.outbox.enabled=false", "yunhefc.sms.mock-enabled=true", "yunhefc.wechat.mini.enabled=true", "yunhefc.wechat.mini.mode=mock", "spring.quartz.auto-startup=false"})
 @AutoConfigureMockMvc
 abstract class IntegrationTestSupport {
 
@@ -131,5 +135,34 @@ abstract class IntegrationTestSupport {
 
     protected String csrfToken(MvcResult result) throws Exception {
         return JsonPath.read(result.getResponse().getContentAsString(), "$.data.token");
+    }
+
+    /** 小程序登录结果：一次性票据 + 承载它的会话 Cookie（AUTH-21 必须带）。 */
+    protected record MiniLoginTicket(String ticket, Cookie cookie) {
+    }
+
+    protected MiniLoginTicket miniLogin(String code) throws Exception {
+        MvcResult result = mockMvc.perform(post("/api/v1/c/auth/mini/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"code\":\"" + code + "\"}"))
+                .andExpect(status().isOk())
+                .andReturn();
+        Object ticket = JsonPath.read(result.getResponse().getContentAsString(), "$.data.bindTicket");
+        return new MiniLoginTicket(ticket == null ? null : ticket.toString(), cookie(result, "YHFC_C"));
+    }
+
+    /** AUTH-02 仍需 CSRF；小程序端会先取 /auth/csrf，这里等价模拟。 */
+    protected void sendBindSmsCode(String phone) throws Exception {
+        MvcResult csrf = mockMvc.perform(get("/api/v1/c/auth/csrf"))
+                .andExpect(status().isOk())
+                .andReturn();
+        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
+                        .cookie(cookie(csrf, "YHFC_C"))
+                        .header("X-XSRF-TOKEN", csrfToken(csrf))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"%s","purpose":"BIND"}
+                                """.formatted(phone)))
+                .andExpect(status().isOk());
     }
 }

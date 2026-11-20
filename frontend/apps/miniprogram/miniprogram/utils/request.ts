@@ -26,6 +26,12 @@ export class ApiError extends Error {
 let cookieHeader = '';
 let csrfToken = '';
 let csrfHeaderName = 'X-XSRF-TOKEN';
+let unauthorizedHandler: (() => void) | null = null;
+
+/** 由会话模块注册：401 时清理用户/球员/会话缓存，避免首页保留已登录状态。 */
+export function setUnauthorizedHandler(handler: (() => void) | null): void {
+  unauthorizedHandler = handler;
+}
 
 export function setCsrf(token: string | null | undefined, headerName?: string | null): void {
   csrfToken = token || '';
@@ -88,6 +94,7 @@ export function request<T>(method: HttpMethod, path: string, data?: unknown): Pr
         const code = body && typeof body.code === 'number' ? body.code : statusCode;
         if (statusCode === 401) {
           resetAuth();
+          unauthorizedHandler?.();
         }
         reject(
           new ApiError(

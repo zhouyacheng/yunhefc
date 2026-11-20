@@ -18,7 +18,7 @@ Page({
         void wx.redirectTo({ url: '/pages/phone-bind/index' });
         return;
       }
-      void wx.switchTab({ url: '/pages/schedule/index' });
+      void wx.switchTab({ url: '/pages/home/index' });
     } catch (error) {
       this.setData({
         status: 'error',
@@ -32,6 +32,6 @@ Page({
   },
 
   skip() {
-    void wx.switchTab({ url: '/pages/schedule/index' });
+    void wx.switchTab({ url: '/pages/home/index' });
   },
 });

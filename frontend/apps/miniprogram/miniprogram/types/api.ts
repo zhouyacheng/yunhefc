@@ -38,9 +38,15 @@ export interface MiniLoginResult {
   csrfToken: string | null;
 }
 
+/** C 端比赛详情里的当前用户报名；小程序目前只读 status。 */
+export interface RegistrationView {
+  status: number;
+}
+
 export interface MatchSummary {
   id: number;
   title: string;
+  type: number;
   typeLabel: string;
   startAt: string;
   endAt: string;
@@ -50,17 +56,24 @@ export interface MatchSummary {
   awayTeamName: string;
   scoreHome: number | null;
   scoreAway: number | null;
+  resultText?: string | null;
   status: number;
   statusLabel: string;
+  totalMatchNo: number;
+  seasonMatchNo: number;
   capacity: number;
   guestCapacity: number;
   waitlistCapacity: number;
+  confirmedCount: number;
+  guestCount: number;
+  waitlistCount: number;
 }
 
 export interface MatchDetail extends MatchSummary {
-  signupDeadline?: string;
+  signupDeadline: string;
   cancelLock?: string;
   version?: number;
+  myRegistration?: RegistrationView | null;
 }
 
 export interface MatchDetailView extends MatchDetail {

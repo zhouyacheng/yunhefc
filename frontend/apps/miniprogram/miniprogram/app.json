@@ -1,5 +1,6 @@
 {
   "pages": [
+    "pages/home/index",
     "pages/schedule/index",
     "pages/team/index",
     "pages/match-detail/index",
@@ -20,6 +21,10 @@
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
     "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "首页"
+      },
       {
         "pagePath": "pages/schedule/index",
         "text": "赛程"

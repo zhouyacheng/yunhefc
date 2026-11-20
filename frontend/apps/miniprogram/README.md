@@ -1,19 +1,20 @@
 # 云河FC 微信小程序
 
-原生小程序 + Vant Weapp。首发范围：微信登录、绑定手机号、浏览赛程 / 比赛详情 / 球队页；不提供报名、通知、分享与订阅消息。
+原生小程序 + Vant Weapp。首发范围：微信登录、绑定手机号、浏览首页 / 赛程 / 比赛详情 / 球队页；不提供报名、通知、分享与订阅消息。首页的报名类 CTA 只提示前往网页版，不发起报名请求。
 
 ## 结构
 
 ```text
 frontend/apps/miniprogram/
 ├── scripts/prepare-vant.mjs     # 把 @vant/weapp 平铺到 miniprogram_npm（见下）
-├── tests/                       # Vitest：请求封装、Cookie jar、设计 token 一致性
+├── tests/                       # Vitest：请求封装、会话、展示/CTA 纯函数、设计 token 一致性
 └── miniprogram/
     ├── app.ts|json|wxss
     ├── styles/tokens.wxss       # 与 web 的 --yh-* 变量一致
     ├── types/api.ts
-    ├── utils/{config,request,session}.ts
+    ├── utils/{config,request,session,datetime,presentation,home-cta,home-view}.ts
     └── pages/
+        ├── home/                # tab：首页（镜像 Web C01）
         ├── schedule/            # tab：赛程
         ├── team/                # tab：球队
         ├── match-detail/        # 比赛详情（只读）
@@ -57,4 +58,4 @@ pnpm --filter @yunhefc/miniprogram typecheck
 pnpm --filter @yunhefc/miniprogram test
 ```
 
-真机验收：`wx.login` → 首次绑定手机号 → 浏览赛程/详情/球队 → 冷启动重登。iOS、Android 各一台。
+真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 状态 → 浏览首页/赛程/详情/球队 → 冷启动重登。iOS、Android 各一台。

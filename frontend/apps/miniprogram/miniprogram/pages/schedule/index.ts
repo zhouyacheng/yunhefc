@@ -1,4 +1,5 @@
 import type { AuthUser, MatchSummary, Page } from '../../types/api';
+import { formatDateYmd, formatHourMinute } from '../../utils/datetime';
 import { request } from '../../utils/request';
 import { getUser } from '../../utils/session';
 
@@ -10,19 +11,11 @@ interface Row extends MatchSummary {
 
 const PAGE_SIZE = 10;
 
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
 function decorate(match: MatchSummary): Row {
-  const start = new Date(match.startAt);
-  const valid = !Number.isNaN(start.getTime());
   return {
     ...match,
-    dateText: valid
-      ? `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`
-      : match.startAt,
-    timeText: valid ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '',
+    dateText: formatDateYmd(match.startAt) || match.startAt,
+    timeText: formatHourMinute(match.startAt),
     scoreText:
       match.scoreHome === null || match.scoreAway === null
         ? ''

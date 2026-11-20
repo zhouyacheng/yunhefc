@@ -5,6 +5,7 @@ import {
   request,
   resetAuth,
   setCsrf,
+  setUnauthorizedHandler,
 } from '../miniprogram/utils/request';
 
 type WxOptions = {
@@ -26,6 +27,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetAuth();
+  setUnauthorizedHandler(null);
 });
 
 describe('extractSessionCookie', () => {
@@ -88,7 +90,7 @@ describe('request', () => {
     expect(seen[1].header['X-XSRF-TOKEN']).toBe('t-1');
   });
 
-  it('clears auth state on 401', async () => {
+  it('clears auth state and notifies the session on 401', async () => {
     responder = (options) =>
       options.success({
         statusCode: 200,
@@ -97,9 +99,14 @@ describe('request', () => {
       });
     await request('GET', '/auth/csrf');
 
+    let cleared = 0;
+    setUnauthorizedHandler(() => {
+      cleared += 1;
+    });
     responder = (options) =>
       options.success({ statusCode: 401, data: { code: 40101 }, header: {} });
     await expect(request('GET', '/me')).rejects.toBeInstanceOf(ApiError);
+    expect(cleared).toBe(1);
 
     responder = (options) => {
       expect(options.header.Cookie).toBeUndefined();

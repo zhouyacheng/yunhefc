@@ -1,0 +1,137 @@
+<view class="home">
+  <view wx:if="{{loading && !hero}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
+
+  <view wx:elif="{{error}}" class="state">
+    <text class="muted">{{error}}</text>
+    <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{hero}}" class="hero">
+      <view class="hero__copy">
+        <text class="hero__eyebrow">YUNHE FC · 2026</text>
+        <view class="hero__title">云河FC</view>
+        <view class="hero__tagline">一支球队的运营台，也是一群人的比赛日记</view>
+        <view class="hero__actions">
+          <view class="btn btn--primary" bindtap="goSchedule" hover-class="btn--pressed">查看比赛</view>
+          <view class="btn btn--ghost" bindtap="goTeam" hover-class="btn--pressed">球队名单</view>
+        </view>
+      </view>
+
+      <view class="hero-card">
+        <view class="hero-card__meta-row">
+          <text class="hero-card__eyebrow">{{hero.typeText}}</text>
+          <text class="status-pill status-pill--{{hero.statusTone}}">{{hero.statusText}}</text>
+        </view>
+
+        <view class="hero-card__teams">
+          <text class="team-name {{hero.homeWinner ? 'team-name--winner' : ''}}">{{hero.homeTeamName}}</text>
+          <text class="hero-card__score">{{hero.scoreText}}</text>
+          <text class="team-name {{hero.awayWinner ? 'team-name--winner' : ''}}">{{hero.awayTeamName}}</text>
+        </view>
+
+        <view class="hero-card__meta">
+          <text>{{hero.metaText}}</text>
+          <text class="hero-card__ordinal">{{hero.ordinalText}}</text>
+        </view>
+
+        <view class="queue">
+          <view class="queue__item" wx:for="{{hero.queues}}" wx:key="key" wx:for-item="queue">
+            <view class="queue__row">
+              <text>{{queue.label}}</text>
+              <text class="queue__count">{{queue.count}} / {{queue.capacity}}</text>
+            </view>
+            <view class="progress">
+              <view class="progress__bar" style="width: {{queue.percent}}%;"></view>
+            </view>
+          </view>
+        </view>
+
+        <view
+          class="cta {{hero.cta.disabled ? 'cta--disabled' : ''}}"
+          bindtap="onCtaTap"
+          hover-class="btn--pressed"
+        >{{hero.cta.label}}</view>
+        <text wx:if="{{hero.cta.reason}}" class="hint">{{hero.cta.reason}}</text>
+
+        <view class="ghost-link" data-id="{{hero.id}}" bindtap="goDetail" hover-class="link--pressed">
+          查看比赛详情 →
+        </view>
+      </view>
+    </view>
+
+    <view class="home-body">
+      <view wx:if="{{!hero}}" class="card home-empty">
+        <van-empty description="暂无比赛" />
+        <text class="muted home-empty__text">还没有比赛记录，等管理员排期后这里会显示最近一场。</text>
+        <view class="btn btn--primary btn--small" bindtap="goSchedule" hover-class="btn--pressed">去比赛</view>
+      </view>
+
+      <view wx:if="{{recent.length > 0}}" class="section">
+        <view class="section-head">
+          <text class="section-head__title">最近比赛</text>
+          <view class="ghost-link" bindtap="goSchedule" hover-class="link--pressed">全部比赛 →</view>
+        </view>
+
+        <view class="match-list">
+          <view
+            class="match-card"
+            wx:for="{{recent}}"
+            wx:key="id"
+            data-id="{{item.id}}"
+            bindtap="goDetail"
+            hover-class="card--pressed"
+          >
+            <view class="match-card__top">
+              <text class="match-card__date">{{item.dateText}}</text>
+              <text wx:if="{{item.resultText}}" class="status-pill status-pill--{{item.resultTone}}">{{item.resultText}}</text>
+              <text class="match-card__ordinal">{{item.ordinalText}}</text>
+            </view>
+
+            <view class="match-card__teams">
+              <text class="team-name {{item.homeWinner ? 'team-name--winner' : ''}}">{{item.homeTeamName}}</text>
+              <text class="match-card__score">{{item.scoreText}}</text>
+              <text class="team-name {{item.awayWinner ? 'team-name--winner' : ''}}">{{item.awayTeamName}}</text>
+            </view>
+
+            <view class="match-card__foot">
+              <text class="type-pill type-pill--{{item.typeTone}}">{{item.typeText}}</text>
+              <text class="match-card__venue">{{item.venue}}</text>
+              <text class="status-pill status-pill--{{item.statusTone}}">{{item.statusText}}</text>
+            </view>
+
+            <view class="match-card__stats">
+              <view
+                class="match-card__stat"
+                wx:for="{{item.queues}}"
+                wx:key="key"
+                wx:for-item="queue"
+              >
+                <text>{{queue.label}}</text>
+                <text class="match-card__stat-value">{{queue.count}} / {{queue.capacity}}</text>
+              </view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="section">
+        <view class="section-head section-head--column">
+          <text class="section-head__title">二期能力</text>
+          <text class="section-head__sub">球队数据与运营能力将在二期上线。</text>
+        </view>
+
+        <view class="features">
+          <view class="feature-card" wx:for="{{features}}" wx:key="title">
+            <text class="feature-card__icon">{{item.icon}}</text>
+            <text class="feature-card__title">{{item.title}}</text>
+            <text class="feature-card__text">{{item.text}}</text>
+            <text class="status-pill status-pill--soon">二期</text>
+          </view>
+        </view>
+      </view>
+    </view>
+  </block>
+</view>

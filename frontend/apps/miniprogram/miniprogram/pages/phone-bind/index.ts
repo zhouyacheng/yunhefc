@@ -87,7 +87,7 @@ Page({
     this.setData({ submitting: true, error: '' });
     try {
       await bindPhone({ phone, code, name: name.trim(), position: positionIndex });
-      void wx.switchTab({ url: '/pages/schedule/index' });
+      void wx.switchTab({ url: '/pages/home/index' });
     } catch (error) {
       if (error instanceof ApiError && error.code === 40101) {
         this.setData({ error: '登录已过期，正在重新登录…' });
@@ -105,7 +105,7 @@ Page({
   },
 
   skip() {
-    void wx.switchTab({ url: '/pages/schedule/index' });
+    void wx.switchTab({ url: '/pages/home/index' });
   },
 });
 

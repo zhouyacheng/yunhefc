@@ -30,6 +30,20 @@ const MATCH_TYPE_TEXT: Readonly<Record<number, string>> = {
   3: '友谊赛',
 };
 
+export const POSITION_TEXT: Readonly<Record<number, string>> = {
+  0: '门将',
+  1: '后卫',
+  2: '中场',
+  3: '前锋',
+};
+
+export const REGISTRATION_STATUS_TEXT: Readonly<Record<number, string>> = {
+  0: '已确认',
+  1: '候补中',
+  2: '已取消',
+  3: '已移除',
+};
+
 export function statusTone(status: number | null | undefined): StatusTone {
   switch (status) {
     case 0:
@@ -118,6 +132,14 @@ export function matchStatusText(code: number | null | undefined): string {
 
 export function matchTypeText(code: number | null | undefined): string {
   return code === null || code === undefined ? '' : (MATCH_TYPE_TEXT[code] ?? '');
+}
+
+export function positionText(code: number | null | undefined): string {
+  return code === null || code === undefined ? '—' : (POSITION_TEXT[code] ?? '—');
+}
+
+export function registrationStatusText(code: number | null | undefined): string {
+  return code === null || code === undefined ? '—' : (REGISTRATION_STATUS_TEXT[code] ?? '—');
 }
 
 /** 赛程场次文案：2026赛季第5场（累计5场）；比赛缺失时返回空串。 */

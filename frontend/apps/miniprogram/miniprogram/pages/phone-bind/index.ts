@@ -1,3 +1,4 @@
+import { refreshUnreadBadge } from '../../utils/notifications';
 import { ApiError } from '../../utils/request';
 import { bindPhone, getBindTicket, sendSmsCode } from '../../utils/session';
 
@@ -87,6 +88,7 @@ Page({
     this.setData({ submitting: true, error: '' });
     try {
       await bindPhone({ phone, code, name: name.trim(), position: positionIndex });
+      void refreshUnreadBadge();
       void wx.switchTab({ url: '/pages/home/index' });
     } catch (error) {
       if (error instanceof ApiError && error.code === 40101) {

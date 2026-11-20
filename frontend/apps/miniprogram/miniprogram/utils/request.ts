@@ -1,6 +1,6 @@
 import { BASE_URL } from './config';
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE';
+type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 interface Envelope<T> {
   code: number;
@@ -65,19 +65,39 @@ export function extractSessionCookie(header: Record<string, unknown>): string {
   return '';
 }
 
+function authHeader(includeCsrf: boolean): Record<string, string> {
+  const header: Record<string, string> = {};
+  if (cookieHeader) {
+    header.Cookie = cookieHeader;
+  }
+  if (includeCsrf && csrfToken) {
+    header[csrfHeaderName] = csrfToken;
+  }
+  return header;
+}
+
+function handleUnauthorized(): void {
+  resetAuth();
+  unauthorizedHandler?.();
+}
+
 export function request<T>(method: HttpMethod, path: string, data?: unknown): Promise<T> {
   return new Promise<T>((resolve, reject) => {
-    const header: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (cookieHeader) {
-      header.Cookie = cookieHeader;
-    }
-    if (csrfToken && method !== 'GET') {
-      header[csrfHeaderName] = csrfToken;
-    }
+    const header = authHeader(method !== 'GET');
+    header['Content-Type'] = 'application/json';
 
     wx.request({
       url: BASE_URL + path,
-      method,
+      // 官方类型/文档未列 PATCH，但运行时支持；保留 05 的 PATCH 契约，真机验收覆盖。
+      method: method as unknown as
+        | 'GET'
+        | 'POST'
+        | 'PUT'
+        | 'DELETE'
+        | 'OPTIONS'
+        | 'HEAD'
+        | 'TRACE'
+        | 'CONNECT',
       data: data as unknown as WechatMiniprogram.IAnyObject,
       header,
       success: (res) => {
@@ -93,13 +113,52 @@ export function request<T>(method: HttpMethod, path: string, data?: unknown): Pr
         }
         const code = body && typeof body.code === 'number' ? body.code : statusCode;
         if (statusCode === 401) {
-          resetAuth();
-          unauthorizedHandler?.();
+          handleUnauthorized();
         }
         reject(
           new ApiError(
             code,
             (body && body.message) || '请求失败',
+            statusCode,
+            body && body.requestId,
+          ),
+        );
+      },
+      fail: (error) => {
+        reject(new ApiError(-1, error.errMsg || '网络异常', -1));
+      },
+    });
+  });
+}
+
+/** multipart 上传；复用 Cookie/CSRF，401 与普通请求一致清理会话。 */
+export function uploadFile<T>(path: string, filePath: string, name = 'file'): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    wx.uploadFile({
+      url: BASE_URL + path,
+      filePath,
+      name,
+      header: authHeader(true),
+      success: (res) => {
+        let body: Envelope<T> | undefined;
+        try {
+          body = JSON.parse(res.data) as Envelope<T>;
+        } catch {
+          body = undefined;
+        }
+        const statusCode = res.statusCode;
+        if (statusCode >= 200 && statusCode < 300 && body && body.code === 0) {
+          resolve(body.data);
+          return;
+        }
+        const code = body && typeof body.code === 'number' ? body.code : statusCode;
+        if (statusCode === 401) {
+          handleUnauthorized();
+        }
+        reject(
+          new ApiError(
+            code,
+            (body && body.message) || '上传失败',
             statusCode,
             body && body.requestId,
           ),

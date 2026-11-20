@@ -1,0 +1,77 @@
+<view class="container edit">
+  <view wx:if="{{loading}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
+
+  <block wx:else>
+    <view class="card avatar-card">
+      <view class="avatar-picker" bindtap="chooseAvatar" hover-class="item--pressed">
+        <image
+          wx:if="{{avatarPreview}}"
+          class="avatar-img"
+          src="{{avatarPreview}}"
+          mode="aspectFill"
+        />
+        <text wx:else class="avatar-placeholder">{{initial}}</text>
+      </view>
+      <view class="avatar-meta">
+        <text class="muted small">点击更换头像</text>
+        <text class="muted small">JPG/PNG/WebP，不超过 2MB</text>
+        <text wx:if="{{uploading}}" class="hint">头像上传中…</text>
+      </view>
+    </view>
+
+    <view class="card form">
+      <view class="field">
+        <text class="field__label">姓名</text>
+        <input
+          class="field__input"
+          value="{{name}}"
+          maxlength="32"
+          placeholder="请输入姓名"
+          bindinput="onNameInput"
+        />
+      </view>
+
+      <view class="field">
+        <text class="field__label">地区</text>
+        <input
+          class="field__input"
+          value="{{region}}"
+          maxlength="64"
+          placeholder="如：上海"
+          bindinput="onRegionInput"
+        />
+      </view>
+
+      <view class="field">
+        <text class="field__label">主位置</text>
+        <picker range="{{positionLabels}}" value="{{positionIndex}}" bindchange="onPositionChange">
+          <view class="field__value">{{positionLabels[positionIndex]}} ▾</view>
+        </picker>
+      </view>
+
+      <view class="field field--column">
+        <text class="field__label">副位置（最多 3 个）</text>
+        <view class="chips">
+          <view
+            wx:for="{{secondaryOptions}}"
+            wx:key="code"
+            class="chip {{item.checked ? 'chip--active' : ''}} {{item.disabled ? 'chip--disabled' : ''}}"
+            data-code="{{item.code}}"
+            bindtap="toggleSecondary"
+          >{{item.label}}</view>
+        </view>
+      </view>
+
+      <text wx:if="{{warning}}" class="hint">{{warning}}</text>
+      <text wx:if="{{error}}" class="action-error">{{error}}</text>
+
+      <view
+        class="btn btn--primary btn--block {{saving || uploading ? 'btn--disabled' : ''}}"
+        bindtap="save"
+        hover-class="btn--pressed"
+      >{{saving ? '保存中…' : '保存'}}</view>
+    </view>
+  </block>
+</view>

@@ -20,6 +20,10 @@ export function getPlayer(): PlayerView | null {
   return currentPlayer;
 }
 
+export function setPlayer(player: PlayerView | null): void {
+  currentPlayer = player;
+}
+
 /** 启动探测与等待共用：先 restore，未登录再静默 wx.login；并发只执行一次，永不 reject。 */
 export function sessionReady(): Promise<AuthUser | null> {
   if (!sessionPromise) {
@@ -54,6 +58,12 @@ setUnauthorizedHandler(() => {
     clearSession();
   }
 });
+
+export async function logout(): Promise<void> {
+  await ensureCsrf();
+  await request('POST', '/auth/logout');
+  clearSession();
+}
 
 /** 静默探测登录态；未登录返回 null，不抛出。 */
 export async function restore(): Promise<AuthUser | null> {

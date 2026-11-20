@@ -1,0 +1,211 @@
+<view class="container profile">
+  <view wx:if="{{loading}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
+
+  <block wx:else>
+    <view class="page-head">
+      <text class="page-head__eyebrow">PROFILE</text>
+      <view class="page-head__title">我的</view>
+      <text class="muted">个人资料、通知与报名记录</text>
+    </view>
+
+    <view wx:if="{{pending}}" class="notice">账号待审核</view>
+
+    <view wx:if="{{!user}}" class="card empty-account">
+      <van-empty description="尚未登录" />
+      <view class="btn btn--primary btn--small" bindtap="goLogin" hover-class="btn--pressed">
+        微信登录
+      </view>
+    </view>
+
+    <block wx:if="{{user}}">
+      <view class="card identity">
+        <view class="avatar">
+          <image
+            wx:if="{{identity.avatarUrl}}"
+            class="avatar__img"
+            src="{{identity.avatarUrl}}"
+            mode="aspectFill"
+            binderror="onAvatarError"
+          />
+          <text wx:else class="avatar__initial">{{identity.initial}}</text>
+        </view>
+
+        <view class="identity__info">
+          <view class="identity__name-row">
+            <text class="identity__name">{{identity.name}}</text>
+            <text class="status-pill status-pill--admin">{{identity.roleText}}</text>
+          </view>
+          <text class="muted identity__phone">{{identity.phoneMasked}}</text>
+          <view class="identity__meta">
+            <text>号码 {{identity.jerseyText}}</text>
+            <text>位置 {{identity.positionText}}</text>
+            <view class="stars">
+              <text class="stars__base">★★★★★</text>
+              <view class="stars__fill" style="width: {{identity.skillPercent}}%;">
+                <text>★★★★★</text>
+              </view>
+            </view>
+          </view>
+        </view>
+
+        <view
+          wx:if="{{!pending}}"
+          class="btn btn--small btn--outline identity__edit"
+          bindtap="goEdit"
+          hover-class="btn--pressed"
+        >
+          编辑资料
+        </view>
+      </view>
+
+      <view class="card section">
+        <view class="section-head">
+          <text class="section-head__title">通知</text>
+          <text class="muted small">{{notifications.total}} 条</text>
+        </view>
+
+        <view class="toolbar">
+          <view class="segmented">
+            <view
+              class="segmented__item {{notifications.key === 'all' ? 'segmented__item--active' : ''}}"
+              data-filter="all"
+              bindtap="switchNotificationFilter"
+            >全部</view>
+            <view
+              class="segmented__item {{notifications.key === 'unread' ? 'segmented__item--active' : ''}}"
+              data-filter="unread"
+              bindtap="switchNotificationFilter"
+            >只看未读</view>
+          </view>
+          <view class="text-action" bindtap="markAllRead">{{markingAll ? '处理中…' : '全部已读'}}</view>
+        </view>
+
+        <text wx:if="{{actionMessage}}" class="hint">{{actionMessage}}</text>
+        <text wx:if="{{actionError}}" class="action-error">{{actionError}}</text>
+
+        <view wx:if="{{notifications.loading && notifications.items.length === 0}}" class="state state--inline">
+          <van-loading size="20px">通知加载中…</van-loading>
+        </view>
+        <view wx:elif="{{notifications.error && notifications.items.length === 0}}" class="state state--inline">
+          <text class="muted">{{notifications.error}}</text>
+          <view class="btn btn--small btn--outline" bindtap="retryNotifications" hover-class="btn--pressed">重试</view>
+        </view>
+        <van-empty
+          wx:elif="{{notifications.items.length === 0}}"
+          description="{{notifications.key === 'unread' ? '暂无未读通知' : '暂无通知'}}"
+        />
+        <block wx:else>
+          <view class="list">
+            <view
+              wx:for="{{notifications.items}}"
+              wx:key="id"
+              class="notification {{item.unread ? 'notification--unread' : ''}}"
+              data-id="{{item.id}}"
+              bindtap="openNotification"
+              hover-class="item--pressed"
+            >
+              <view wx:if="{{item.unread}}" class="notification__dot"></view>
+              <view class="notification__main">
+                <text class="notification__title">{{item.title}}</text>
+                <text class="notification__body">{{item.body}}</text>
+                <text class="notification__meta">{{item.timeText}}<text wx:if="{{item.refType === 'MATCH'}}"> · 查看比赛</text></text>
+              </view>
+            </view>
+          </view>
+          <view
+            wx:if="{{notifications.page < notifications.totalPages}}"
+            class="btn btn--small btn--outline list-more"
+            bindtap="loadMoreNotifications"
+            hover-class="btn--pressed"
+          >{{notifications.loadingMore ? '加载中…' : '加载更多'}}</view>
+        </block>
+      </view>
+
+      <view class="card section">
+        <view class="section-head">
+          <text class="section-head__title">我的报名</text>
+          <text wx:if="{{!pending}}" class="muted small">{{registrations.total}} 条</text>
+        </view>
+
+        <text wx:if="{{pending}}" class="hint">审核通过后可查看我的报名</text>
+        <block wx:else>
+          <view class="segmented section__segment">
+            <view
+              class="segmented__item {{registrations.key === 'active' ? 'segmented__item--active' : ''}}"
+              data-scope="active"
+              bindtap="switchRegistrationScope"
+            >进行中</view>
+            <view
+              class="segmented__item {{registrations.key === 'history' ? 'segmented__item--active' : ''}}"
+              data-scope="history"
+              bindtap="switchRegistrationScope"
+            >历史</view>
+          </view>
+
+          <view wx:if="{{registrations.loading && registrations.items.length === 0}}" class="state state--inline">
+            <van-loading size="20px">报名记录加载中…</van-loading>
+          </view>
+          <view wx:elif="{{registrations.error && registrations.items.length === 0}}" class="state state--inline">
+            <text class="muted">{{registrations.error}}</text>
+            <view class="btn btn--small btn--outline" bindtap="retryRegistrations" hover-class="btn--pressed">重试</view>
+          </view>
+          <van-empty
+            wx:elif="{{registrations.items.length === 0}}"
+            description="{{registrations.key === 'active' ? '暂无进行中报名' : '暂无历史报名'}}"
+          />
+          <block wx:else>
+            <view class="list">
+              <view
+                wx:for="{{registrations.items}}"
+                wx:key="matchId"
+                class="registration"
+                data-id="{{item.matchId}}"
+                bindtap="goMatch"
+                hover-class="item--pressed"
+              >
+                <view class="registration__head">
+                  <text class="registration__title">{{item.title}}</text>
+                  <text class="status-pill status-pill--{{item.statusTone}}">{{item.statusText}}</text>
+                </view>
+                <text class="muted small">{{item.timeText}} · {{item.venue}}</text>
+                <view class="registration__foot">
+                  <text class="muted small">{{item.seasonText}}</text>
+                  <text class="status-pill status-pill--{{item.matchStatusTone}}">{{item.matchStatusText}}</text>
+                </view>
+              </view>
+            </view>
+            <view
+              wx:if="{{registrations.page < registrations.totalPages}}"
+              class="btn btn--small btn--outline list-more"
+              bindtap="loadMoreRegistrations"
+              hover-class="btn--pressed"
+            >{{registrations.loadingMore ? '加载中…' : '加载更多'}}</view>
+          </block>
+        </block>
+      </view>
+
+      <view class="card section">
+        <view class="section-head">
+          <text class="section-head__title">账号与安全</text>
+        </view>
+        <view class="security-row">
+          <text>手机号</text>
+          <text class="muted">{{user.phoneMasked}}</text>
+        </view>
+        <view class="security-row">
+          <text>微信绑定</text>
+          <text class="muted">{{user.wechatBound ? '已绑定' : '未绑定'}}</text>
+        </view>
+        <view class="security-row security-row--action" bindtap="copyPasswordReset">
+          <text>找回密码</text>
+          <text class="muted">复制网页地址 →</text>
+        </view>
+        <view class="btn btn--block btn--danger-plain" bindtap="confirmLogout" hover-class="btn--pressed">
+          退出登录
+        </view>
+      </view>
+    </block>
+  </block>
+</view>

@@ -25,6 +25,8 @@ export interface PlayerView {
   typeLabel: string;
   position: number;
   positionLabel: string;
+  secondaryPositions?: number[];
+  region?: string | null;
   skill: number;
   avatarUrl: string | null;
 }
@@ -96,7 +98,52 @@ export interface PlayerPublic {
   jersey: number | null;
   position: number;
   positionLabel: string;
+  secondaryPositions?: number[];
+  region?: string | null;
   skill: number;
   type: number;
   appearances: number;
+}
+
+export interface Notification {
+  id: number;
+  type: number;
+  typeLabel: string;
+  title: string;
+  body: string;
+  refType?: string | null;
+  refId?: number | null;
+  readAt?: string | null;
+  createdAt: string;
+}
+
+export interface NotificationReadResult {
+  readAt: string;
+}
+
+export interface NotificationUnreadCount {
+  count: number;
+}
+
+export interface NotificationReadAllResult {
+  updated: number;
+}
+
+export interface RegistrationSummary {
+  id: number;
+  type: number;
+  status: number;
+  statusLabel?: string;
+  registeredAt: string;
+  cancelledAt?: string | null;
+}
+
+export interface MyRegistration {
+  registration: RegistrationSummary;
+  match: MatchSummary;
+}
+
+export interface AvatarUploadView {
+  objectKey: string;
+  signedUrl: string;
 }

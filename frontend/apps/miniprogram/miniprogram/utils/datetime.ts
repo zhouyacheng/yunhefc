@@ -49,6 +49,12 @@ export function formatHourMinute(value: string | null | undefined): string {
   return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
+/** 数据字段：按 Asia/Shanghai 输出 `YYYY-MM-DD HH:mm`；无效值返回空串。 */
+export function formatDateTime(value: string | null | undefined): string {
+  const date = formatDateYmd(value);
+  return date ? `${date} ${formatHourMinute(value)}` : '';
+}
+
 function formatMonthDay(value: string | null | undefined): string {
   const date = shanghaiDate(value);
   return date ? `${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}` : '';

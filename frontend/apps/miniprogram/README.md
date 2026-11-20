@@ -1,22 +1,24 @@
 # 云河FC 微信小程序
 
-原生小程序 + Vant Weapp。首发范围：微信登录、绑定手机号、浏览首页 / 赛程 / 比赛详情 / 球队页；不提供报名、通知、分享与订阅消息。首页的报名类 CTA 只提示前往网页版，不发起报名请求。
+原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛 / 比赛详情 / 球队 / 我的（通知、我的报名只读、资料编辑、退出登录）。不提供报名/取消报名、签到、分享与订阅消息；报名类 CTA 只提示前往网页版，不发起报名请求。
 
 ## 结构
 
 ```text
 frontend/apps/miniprogram/
 ├── scripts/prepare-vant.mjs     # 把 @vant/weapp 平铺到 miniprogram_npm（见下）
-├── tests/                       # Vitest：请求封装、会话、展示/CTA 纯函数、设计 token 一致性
+├── tests/                       # Vitest：请求/上传封装、会话、展示/CTA/个人中心纯函数、设计 token
 └── miniprogram/
     ├── app.ts|json|wxss
-    ├── styles/tokens.wxss       # 与 web 的 --yh-* 变量一致
+    ├── styles/{tokens,controls}.wxss  # --yh-* 变量与跨页按钮/pill
     ├── types/api.ts
-    ├── utils/{config,request,session,datetime,presentation,home-cta,home-view}.ts
+    ├── utils/{config,request,session,notifications,datetime,presentation,home-cta,home-view,profile-view}.ts
     └── pages/
         ├── home/                # tab：首页（镜像 Web C01）
-        ├── schedule/            # tab：赛程
+        ├── schedule/            # tab：比赛
         ├── team/                # tab：球队
+        ├── profile/             # tab：我的（通知/我的报名/账号）
+        ├── profile-edit/        # 编辑资料与头像
         ├── match-detail/        # 比赛详情（只读）
         ├── login/               # wx.login → AUTH-20
         ├── phone-bind/          # 手机号 + 短信 → AUTH-21
@@ -58,4 +60,4 @@ pnpm --filter @yunhefc/miniprogram typecheck
 pnpm --filter @yunhefc/miniprogram test
 ```
 
-真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 状态 → 浏览首页/赛程/详情/球队 → 冷启动重登。iOS、Android 各一台。
+真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 状态 → 浏览首页/比赛/详情/球队 → 我的（通知已读、我的报名、编辑资料、头像）→ 退出登录 → 冷启动重登。iOS、Android 各一台。

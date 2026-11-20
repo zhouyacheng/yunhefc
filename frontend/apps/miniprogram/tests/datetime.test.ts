@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   formatDateYmd,
+  formatDateTime,
   formatDayStartTime,
   formatHourMinute,
   formatTimeRange,
@@ -36,6 +37,11 @@ describe('formatDateYmd / formatHourMinute', () => {
     expect(formatDateYmd('bad')).toBe('');
     expect(formatHourMinute('')).toBe('');
     expect(formatHourMinute(undefined)).toBe('');
+  });
+
+  it('formatDateTime 组合日期与时刻', () => {
+    expect(formatDateTime('2026-12-03T20:00:00+08:00')).toBe('2026-12-03 20:00');
+    expect(formatDateTime(null)).toBe('');
   });
 });
 

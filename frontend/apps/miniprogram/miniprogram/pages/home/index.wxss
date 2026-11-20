@@ -54,41 +54,11 @@
   margin-top: 36rpx;
 }
 
-/* Buttons */
-
-.btn {
-  box-sizing: border-box;
-  display: inline-block;
-  min-height: 88rpx;
-  padding: 0 32rpx;
-  line-height: 88rpx;
-  color: #ffffff;
-  font-size: 28rpx;
-  font-weight: 600;
-  text-align: center;
-  border-radius: var(--yh-radius-sm);
-}
-
-.btn--primary {
-  background: linear-gradient(135deg, var(--yh-green-bright), var(--yh-green));
-  box-shadow: var(--yh-green-shadow);
-}
+/* Buttons: 基础与主色按钮见 styles/controls.wxss；此处仅 Hero 深色底变体。 */
 
 .btn--ghost {
   background: rgba(255, 255, 255, 0.06);
   border: 1rpx solid rgba(255, 255, 255, 0.28);
-}
-
-.btn--small {
-  min-height: 72rpx;
-  padding: 0 28rpx;
-  font-size: 26rpx;
-  line-height: 72rpx;
-}
-
-.btn--pressed {
-  opacity: 0.86;
-  transform: translateY(1rpx);
 }
 
 /* Hero card */
@@ -247,91 +217,12 @@
   opacity: 0.7;
 }
 
-/* Pills */
-
-.status-pill,
-.type-pill {
-  box-sizing: border-box;
-  display: inline-block;
-  padding: 8rpx 16rpx;
-  font-size: 22rpx;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-  border-radius: 999rpx;
-}
-
-.status-pill {
-  color: var(--yh-slate-ink);
-  background: var(--yh-slate-soft);
-}
-
-.status-pill--open {
-  color: var(--yh-green-ink);
-  background: var(--yh-green-soft);
-}
-
-.status-pill--closed,
-.status-pill--loss {
-  color: var(--yh-slate-ink);
-  background: var(--yh-line);
-}
-
-.status-pill--locked {
-  color: var(--yh-blue-ink);
-  background: var(--yh-blue-soft);
-}
-
-.status-pill--live,
-.status-pill--win {
-  color: #ffffff;
-  background: var(--yh-red);
-}
-
-.status-pill--finished {
-  color: var(--yh-indigo-ink);
-  background: var(--yh-indigo-soft);
-}
-
-.status-pill--postponed,
-.status-pill--draw,
-.status-pill--soon {
-  color: var(--yh-amber-ink);
-  background: var(--yh-amber-soft);
-}
-
-.status-pill--cancelled,
-.status-pill--muted {
-  color: var(--yh-muted);
-  background: var(--yh-slate-soft);
-}
-
-/* Hero 常展示已结束比赛，状态标签更醒目。 */
+/* Pills: 基础与状态/类型配色见 styles/controls.wxss；此处仅 Hero 强调。 */
 .hero-card .status-pill--finished {
   color: #ffffff;
   background: var(--yh-indigo-ink);
   font-size: 24rpx;
   font-weight: 800;
-}
-
-.type-pill--external {
-  color: var(--yh-indigo-ink);
-  background: var(--yh-indigo-soft);
-}
-
-.type-pill--internal {
-  color: var(--yh-green-ink);
-  background: var(--yh-green-soft);
-}
-
-.type-pill--training {
-  color: var(--yh-blue-ink);
-  background: var(--yh-blue-soft);
-}
-
-.type-pill--friendly {
-  color: var(--yh-amber-ink);
-  background: var(--yh-amber-soft);
 }
 
 /* Body sections */

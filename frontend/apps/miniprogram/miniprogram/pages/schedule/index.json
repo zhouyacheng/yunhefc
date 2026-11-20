@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "赛程",
+  "navigationBarTitleText": "比赛",
   "enablePullDownRefresh": true,
   "usingComponents": {
     "van-cell": "@vant/weapp/cell/index",

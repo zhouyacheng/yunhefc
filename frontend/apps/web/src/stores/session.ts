@@ -1,13 +1,5 @@
 import { isUnauthorized } from '@yunhefc/api-client';
-import type {
-  AuthResponse,
-  MeView,
-  NotificationUnreadCount,
-  PhoneBindPayload,
-  Player,
-  User,
-  WechatRegisterPayload,
-} from '@yunhefc/shared';
+import type { AuthResponse, MeView, NotificationUnreadCount, Player, User } from '@yunhefc/shared';
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 
@@ -124,8 +116,9 @@ export const useSessionStore = defineStore('session', () => {
     markSessionHint();
   }
 
-  /** 注册成功后建立会话并补取 AUTH-10 的权限与未读数。 */
-  async function completeRegistration(response: RegisterResponse): Promise<void> {
+  /** AUTH-03：建立待审核/邀请注册会话，再补取 AUTH-10 的权限与未读数。 */
+  async function register(payload: RegisterPayload): Promise<void> {
+    const response = await api.post<RegisterResponse>('/auth/register', payload);
     sessionVersion += 1;
     api.setCsrfToken(response.csrfToken);
     apply({
@@ -141,24 +134,6 @@ export const useSessionStore = defineStore('session', () => {
       // 注册已成功；保持 loaded=false，后续守卫的 ensureLoaded() 会重试补权限。
       loaded.value = false;
     }
-  }
-
-  /** AUTH-03：手机号注册。 */
-  async function register(payload: RegisterPayload): Promise<void> {
-    await completeRegistration(await api.post<RegisterResponse>('/auth/register', payload));
-  }
-
-  /** AUTH-09：微信注册或绑定已有手机号账号。 */
-  async function registerViaWechat(payload: WechatRegisterPayload): Promise<void> {
-    await completeRegistration(
-      await api.post<RegisterResponse>('/auth/wechat/bind-phone', payload),
-    );
-  }
-
-  /** AUTH-20：补绑手机号；服务端返回后刷新 AUTH-10 的用户视图。 */
-  async function bindPhone(payload: PhoneBindPayload): Promise<void> {
-    await api.post('/me/phone', payload);
-    await refresh();
   }
 
   async function logout(): Promise<void> {
@@ -183,8 +158,6 @@ export const useSessionStore = defineStore('session', () => {
     refreshUnreadCount,
     login,
     register,
-    registerViaWechat,
-    bindPhone,
     logout,
     clearSession,
   };

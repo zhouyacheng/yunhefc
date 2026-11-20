@@ -630,9 +630,7 @@ onMounted(() => {
 
       <el-table v-loading="usersLoading" :data="userRows" empty-text="没有符合条件的用户" stripe>
         <el-table-column prop="name" label="姓名" min-width="120" />
-        <el-table-column label="手机号" width="130">
-          <template #default="{ row }">{{ row.phoneMasked ?? '未绑定' }}</template>
-        </el-table-column>
+        <el-table-column prop="phoneMasked" label="手机号" width="130" />
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
             <el-tag :type="playerStatusTone(row.status)" effect="light">

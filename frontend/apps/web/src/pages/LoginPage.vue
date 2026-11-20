@@ -12,7 +12,6 @@ import {
   authErrorMessage,
   isInviteUsable,
   queryString,
-  inviteTokenFromRedirect,
   registerInviteToken,
   validateName,
   validatePassword,
@@ -327,22 +326,9 @@ async function startWechatLogin(): Promise<void> {
   clearMessages();
   wechatLoading.value = true;
   try {
-    const usableInviteToken = registerInviteToken(
-      inviteToken.value,
-      invite.value,
-      inviteUnavailable.value,
+    const authorizeUrl = await requestWechatAuthorize(
+      safeRouteRedirect(route.query.redirect) ?? '/',
     );
-    const storedRedirect = safeRouteRedirect(route.query.redirect);
-    const redirectInviteToken = inviteTokenFromRedirect(storedRedirect);
-    // 邀请流通常把 /invite/<token> 放在 redirect 中；邀请不可用时降级为首页自助注册。
-    const effectiveInviteToken = redirectInviteToken
-      ? registerInviteToken(redirectInviteToken, invite.value, inviteUnavailable.value)
-      : usableInviteToken;
-    const target = redirectInviteToken
-      ? (effectiveInviteToken ? `/invite/${encodeURIComponent(effectiveInviteToken)}` : '/')
-      : (storedRedirect
-        ?? (usableInviteToken ? `/invite/${encodeURIComponent(usableInviteToken)}` : '/'));
-    const authorizeUrl = await requestWechatAuthorize(target);
     // 成功后后端 302 直达站内页面，先写会话提示，落地页才能恢复登录态。
     markSessionHint();
     window.location.assign(authorizeUrl);
@@ -519,23 +505,6 @@ function selectPosition(action: { code?: number }): void {
         <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
 
         <Button type="primary" block native-type="submit" :loading="submitting">注册</Button>
-
-        <template v-if="wechatBrowser">
-          <p class="login-or"><span>或</span></p>
-          <Button
-            block
-            plain
-            data-testid="wechat-register"
-            :loading="wechatLoading"
-            @click="startWechatLogin"
-          >
-            微信注册
-          </Button>
-          <p class="login-hint">微信注册只需姓名与主位置，手机号可稍后在个人中心补绑。</p>
-          <p v-if="wechatError" class="login-error login-or__error">{{ wechatError }}</p>
-        </template>
-        <p v-else class="login-hint">微信注册请在微信内打开，可使用手机号注册。</p>
-        <p class="login-hint">已是球队成员？请先用手机号登录，再到个人中心绑定微信。</p>
       </form>
 
       <form v-else class="login-form" @submit.prevent="submitReset">

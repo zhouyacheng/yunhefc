@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** done
+**Status:** wontfix（2026-11-20 微信注册已移除）
 
 - [ ] 新增 `POST /c/me/phone`，请求 `{phone, code}`，响应 `{user}`
 - [ ] 仅 `phone IS NULL` 可绑定；已有手机号拒绝；占用返回 40907

@@ -45,9 +45,6 @@ public class LoginAttemptService {
     }
 
     public void clear(String phone) {
-        if (phone == null || phone.isBlank()) {
-            return;
-        }
         redis.delete(key(phone));
     }
 

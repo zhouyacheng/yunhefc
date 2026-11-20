@@ -17,7 +17,8 @@ import java.sql.Statement;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 必须使用全新空库：先迁到 V5 造存量数据，再迁移到 V6/V7 验证回填范围；V10 清理分组权重。
+ * 必须使用全新空库：先迁到 V5 造存量数据，再迁移到 V6/V7 验证回填范围；V10 清理分组权重；
+ * V12 清理无手机号账号并恢复 phone NOT NULL。
  */
 @Testcontainers
 class FlywayBackfillIT {
@@ -71,7 +72,7 @@ class FlywayBackfillIT {
             assertThat(lockOf(connection, 6)).isEqualTo("2099-07-07 02:00:00");
             assertThat(lockOf(connection, 7)).isEqualTo("2099-07-08 02:00:00");
             assertThat(lockOf(connection, 8)).isEqualTo("2099-07-08 17:00:00");
-            assertThat(schemaVersion(connection)).isEqualTo("11");
+            assertThat(schemaVersion(connection)).isEqualTo("12");
         }
     }
 

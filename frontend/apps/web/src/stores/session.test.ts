@@ -111,46 +111,6 @@ describe('session store', () => {
     expect(store.loaded).toBe(true);
   });
 
-  it('registers via WeChat without a phone and hydrates permissions', async () => {
-    const wechatUser: User = {
-      ...user,
-      phoneMasked: null,
-      status: 0,
-      statusLabel: 'PENDING',
-      wechatBound: true,
-    };
-    postMock.mockResolvedValueOnce({ user: wechatUser, player, csrfToken: 'csrf-wechat' });
-    getMock.mockResolvedValueOnce({ ...me, user: wechatUser, permissions: [] });
-
-    const store = useSessionStore();
-    await store.registerViaWechat({ name: '微信球员', position: 2, inviteToken: 'tok' });
-
-    expect(api.post).toHaveBeenCalledWith('/auth/wechat/bind-phone', {
-      name: '微信球员',
-      position: 2,
-      inviteToken: 'tok',
-    });
-    expect(api.setCsrfToken).toHaveBeenCalledWith('csrf-wechat');
-    expect(store.user?.phoneMasked).toBeNull();
-    expect(store.user?.wechatBound).toBe(true);
-    expect(store.user?.status).toBe(0);
-  });
-
-  it('binds a phone and refreshes the session', async () => {
-    const boundUser: User = { ...user, phoneMasked: '139****0061' };
-    postMock.mockResolvedValueOnce(boundUser);
-    getMock.mockResolvedValueOnce({ ...me, user: boundUser });
-
-    const store = useSessionStore();
-    await store.bindPhone({ phone: '13900000061', code: '123456' });
-
-    expect(api.post).toHaveBeenCalledWith('/me/phone', {
-      phone: '13900000061',
-      code: '123456',
-    });
-    expect(store.user?.phoneMasked).toBe('139****0061');
-  });
-
   it('clears unreadCount with the rest of the session', async () => {
     getMock.mockResolvedValueOnce(me);
 

@@ -26,6 +26,10 @@ public class WechatConfig {
             throw new IllegalStateException(
                     "生产环境微信 real 模式缺少 WECHAT_APP_ID/WECHAT_APP_SECRET/WECHAT_CALLBACK_URL");
         }
+        if (prod && properties.isEnabled() && !properties.isAppIdFormatValid()) {
+            throw new IllegalStateException(
+                    "生产环境 WECHAT_APP_ID 格式非法：必须为 wx 开头的 18 位公众号 AppID（32 位十六进制通常是 AppSecret）");
+        }
         if (properties.isReal()) {
             return new RealWechatOAuthClient(properties, objectMapper, wechatRestClient(properties));
         }

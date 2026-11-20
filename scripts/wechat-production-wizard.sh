@@ -213,7 +213,7 @@ compose_current() {
       -f /opt/yunhefc/current/docker-compose.prod.yml "$@"
 }
 
-banner "云河FC — 微信注册生产启用与真机验收"
+banner "云河FC — 微信登录生产启用与真机验收"
 
 stage "生产信息确认"
 say "本向导只改微信相关配置，不动数据库与业务数据。"
@@ -343,15 +343,16 @@ note "health：${health:-不可访问}"
 pause
 
 stage "微信真机验收"
-open_url "https://${PUBLIC_DOMAIN}/login?mode=register"
+open_url "https://${PUBLIC_DOMAIN}/login"
 step "用手机微信打开或扫码上述地址（必须是微信内置浏览器）"
-step "1) 点「微信注册」→ 授权 → 只填姓名/主位置 → 看到「账号待审核」提示"
-step "2) 进入个人中心 → 绑定手机号（短信验证码）→ 显示脱敏手机号"
-step "3) 退出或换设备重新授权 → 直接登录，不再要求补资料"
+step "1) 手机号+密码登录 → 个人中心 → 绑定微信 → 显示已绑定"
+step "2) 退出或换设备 → 点「微信登录」授权 → 直接登录并恢复身份"
+step "3) 未注册手机号首次微信授权 → 进入「绑定手机号」表单 → 填写手机号/验证码/姓名/位置"
 step "4) 管理员在 B07 审核通过后可报名；审核前写操作应被拒绝"
-step "5) 检查没有 error= 回调失败页；日志无 openid/secret 明文"
+step "5) 管理员解绑微信后重新授权，应回到绑定手机号页"
+step "6) 检查没有 error= 回调失败页；日志无 openid/secret 明文"
 if confirm "以上真机步骤全部通过？"; then
-  note "✓ 微信注册生产验收完成"
+  note "✓ 微信登录生产验收完成"
 else
   warn "未通过：记录失败步骤与 error 码，按 RUNBOOK §3.7 排查后重跑本向导。"
   SKIPPED+=("微信真机验收未通过")

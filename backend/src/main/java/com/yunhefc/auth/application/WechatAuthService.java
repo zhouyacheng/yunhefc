@@ -4,8 +4,6 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.auth.domain.AppRole;
 import com.yunhefc.auth.domain.AppUser;
-import com.yunhefc.auth.domain.InviteLink;
-import com.yunhefc.auth.domain.InviteType;
 import com.yunhefc.auth.domain.RoleCodes;
 import com.yunhefc.auth.domain.Team;
 import com.yunhefc.auth.domain.UserStatus;
@@ -27,9 +25,7 @@ import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.api.RequestContext;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
-import com.yunhefc.common.ratelimit.RedisRateLimiter;
 import com.yunhefc.common.security.AuthSessionService;
-import com.yunhefc.common.security.Hashing;
 import com.yunhefc.common.util.MaskUtils;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
@@ -52,7 +48,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -80,8 +75,6 @@ public class WechatAuthService {
     private final PlayerProfileApplicationService playerProfileService;
     private final SmsCodeService smsCodeService;
     private final LoginAttemptService loginAttemptService;
-    private final InviteService inviteService;
-    private final RedisRateLimiter rateLimiter;
     private final AuditRecorder auditRecorder;
     private final TransactionTemplate transactionTemplate;
     private final AuthSessionService sessionService;
@@ -199,83 +192,44 @@ public class WechatAuthService {
         if (openid == null || openid.isBlank()) {
             throw new BusinessException(ErrorCode.UNAUTHENTICATED, "微信临时会话不存在");
         }
-
-        String phone = normalizePhone(request.phone());
-        AppUser user;
-        if (phone == null) {
-            // 微信注册：不取手机号，phone 为空
-            requireProfile(request.name(), request.position());
-            InviteLink invite = resolveInvite(request.inviteToken());
-            rateLimiter.check("wechat-register:" + Hashing.sha256(openid), 5, Duration.ofHours(1));
-            user = createWechatUser(request.name(), request.position(), openid, null, invite);
-            recordWechatRegister(user);
-        } else {
-            smsCodeService.verify(phone, "BIND", request.code());
-            user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>().eq(AppUser::getPhone, phone));
-            if (user != null) {
-                if (user.getStatus() == UserStatus.DISABLED) {
-                    throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
-                }
-                bindOpenid(user, openid);
-                // bindOpenid/accept 直接写库，重新加载以返回最新状态、角色与 wechatBound。
-                user = userMapper.selectById(user.getId());
-                if (request.inviteToken() != null && !request.inviteToken().isBlank()) {
-                    // 绑定已有手机号账号时若带入队邀请，复用 INV-02：PENDING→ACTIVE、外挂→正式并消费邀请。
-                    inviteService.acceptForWechat(request.inviteToken(), user.getId());
-                    user = userMapper.selectById(user.getId());
-                }
-                recordWechatBind(user);
-            } else {
-                requireProfile(request.name(), request.position());
-                InviteLink invite = resolveInvite(request.inviteToken());
-                user = createWechatUser(request.name(), request.position(), openid, phone, invite);
-                recordWechatRegister(user);
-            }
+        if (request.phone() == null || !PHONE.matcher(request.phone()).matches()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "手机号格式不正确");
         }
+        smsCodeService.verify(request.phone(), "BIND", request.code());
+
+        AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
+                .eq(AppUser::getPhone, request.phone()));
+        if (user != null) {
+            if (user.getStatus() == UserStatus.DISABLED) {
+                throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
+            }
+            bindOpenid(user, openid);
+        } else {
+            if (request.name() == null || request.name().isBlank()
+                    || request.position() == null || request.position() < 0 || request.position() > 3) {
+                throw new BusinessException(ErrorCode.VALIDATION_FAILED, "新账号必须提供姓名和位置");
+            }
+            user = createUser(request, openid);
+        }
+        recordWechatBind(user);
 
         session.removeAttribute(SessionKeys.WECHAT_OPENID);
         AuthResponse result = login(user, servletRequest, response);
         return new SessionResponse(result.user(), result.player(), result.csrfToken());
     }
 
-    private String normalizePhone(String phone) {
-        if (phone == null || phone.isBlank()) {
-            return null;
-        }
-        if (!PHONE.matcher(phone).matches()) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "手机号格式不正确");
-        }
-        return phone;
-    }
-
-    private void requireProfile(String name, Integer position) {
-        if (name == null || name.isBlank()
-                || position == null || position < 0 || position > 3) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "新账号必须提供姓名和位置");
-        }
-    }
-
-    private InviteLink resolveInvite(String inviteToken) {
-        return inviteToken == null || inviteToken.isBlank()
-                ? null
-                : inviteService.findUsableForRegistration(inviteToken);
-    }
-
-    private AppUser createWechatUser(String name, Integer position, String openid, String phone,
-                                     InviteLink invite) {
+    private AppUser createUser(BindPhoneRequest request, String openid) {
         Long teamId = teamId();
-        boolean teamInvite = invite != null && invite.getType() == InviteType.TEAM;
-
         AppUser user = new AppUser();
-        user.setPhone(phone);
+        user.setPhone(request.phone());
         user.setOpenid(openid);
-        user.setStatus(teamInvite ? UserStatus.ACTIVE : UserStatus.PENDING);
+        user.setStatus(UserStatus.PENDING);
         user.setCreatedAt(ShanghaiTime.now());
         try {
             userMapper.insert(user);
         } catch (DuplicateKeyException ex) {
             // 唯一键异常文本含原始手机号/openid，只记录脱敏手机号
-            log.warn("微信注册唯一键冲突, phone={}", MaskUtils.maskPhone(phone));
+            log.warn("微信绑定记录唯一键冲突, phone={}", MaskUtils.maskPhone(request.phone()));
             String cause = ex.getMostSpecificCause().getMessage();
             if (cause != null && cause.contains("uk_user_phone")) {
                 throw new BusinessException(ErrorCode.PHONE_EXISTS);
@@ -283,29 +237,17 @@ public class WechatAuthService {
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "该微信已绑定其他账号");
         }
 
-        playerProfileService.createProfile(teamId, user.getId(), name,
-                teamInvite ? PlayerType.PLAYER : PlayerType.GUEST, Position.of(position));
+        playerProfileService.createProfile(teamId, user.getId(), request.name(),
+                PlayerType.GUEST, Position.of(request.position()));
 
         AppRole role = roleMapper.selectOne(new LambdaQueryWrapper<AppRole>()
                 .eq(AppRole::getTeamId, teamId)
-                .eq(AppRole::getCode, teamInvite ? RoleCodes.PLAYER : RoleCodes.GUEST));
+                .eq(AppRole::getCode, RoleCodes.GUEST));
         if (role == null) {
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "默认角色未初始化");
+            throw new BusinessException(ErrorCode.INTERNAL_ERROR, "GUEST 角色未初始化");
         }
         userRoleMapper.upsert(user.getId(), role.getId());
-        if (invite != null) {
-            // 与 AUTH-03 一致：任何可用邀请都消费；TEAM 额外决定状态与角色。
-            inviteService.consume(invite, user.getId());
-        }
         return user;
-    }
-
-    private void recordWechatRegister(AppUser user) {
-        PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
-        Long teamId = player == null ? teamId() : player.teamId();
-        String actorName = player == null ? UserViewAssembler.fallbackName(user.getPhone()) : player.name();
-        auditRecorder.record(teamId, user.getId(), actorName, "WECHAT_REGISTER", "USER", user.getId(),
-                null, Map.of("openid", "***", "status", user.getStatus().code()));
     }
 
     private void bindOpenid(AppUser user, String openid) {
@@ -328,7 +270,9 @@ public class WechatAuthService {
     private void recordWechatBind(AppUser user) {
         PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
         Long teamId = player == null ? teamId() : player.teamId();
-        String actorName = player != null ? player.name() : UserViewAssembler.fallbackName(user.getPhone());
+        String actorName = player == null
+                ? UserViewAssembler.maskPhone(user.getPhone())
+                : player.name();
         auditRecorder.record(teamId, user.getId(), actorName, "WECHAT_BIND", "USER", user.getId(),
                 null, Map.of("openid", "***"));
     }
@@ -348,9 +292,7 @@ public class WechatAuthService {
         if (user.getStatus() == UserStatus.DISABLED) {
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
-        if (user.getPhone() != null && !user.getPhone().isBlank()) {
-            loginAttemptService.clear(user.getPhone());
-        }
+        loginAttemptService.clear(user.getPhone());
         PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
         Set<String> permissions = new LinkedHashSet<>(userRoleMapper.findPermissionCodes(user.getId()));
         String csrf = sessionService.establish(request, response, SessionKeys.C_USER_ID, user.getId());

@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** done
+**Status:** wontfix（2026-11-20 微信注册已移除）
 
 - [ ] AUTH-09 请求增加可选 `inviteToken`
 - [ ] 可用 TEAM 邀请 → ACTIVE+PLAYER、消费邀请、player.type=PLAYER；与 AUTH-03 判定一致

@@ -1,9 +1,16 @@
 import type { MatchDetail } from '../../types/api';
-import { fetchMatchDetail, listRecentMatches, signupMatch } from '../../utils/api-client';
+import { adminEntryUrl } from '../../utils/admin-entry';
+import {
+  fetchMatchDetail,
+  issueAdminTicket,
+  listRecentMatches,
+  signupMatch,
+} from '../../utils/api-client';
 import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
 import { buildHero, HOME_FEATURES, type HeroView } from '../../utils/home-view';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import { invalidate } from '../../utils/invalidation';
+import { hasBackendPermission } from '../../utils/permissions';
 import { REGISTRATION_STATUS } from '../../utils/registration';
 import { getPermissions, getPlayer, getUser, sessionReady } from '../../utils/session';
 
@@ -40,6 +47,8 @@ Page({
     recent: [] as MatchCardView[],
     features: HOME_FEATURES,
     signupBusy: false,
+    canEnterAdmin: false,
+    adminBusy: false,
   },
 
   onShow() {
@@ -66,6 +75,7 @@ Page({
   async bootstrap() {
     // 等启动静默登录结束再加载，保证 myRegistration 与 CTA 使用当前身份。
     await sessionReady();
+    this.setData({ canEnterAdmin: hasBackendPermission(getPermissions()) });
     await this.load(true);
   },
 
@@ -159,6 +169,42 @@ Page({
     } finally {
       this.setData({ signupBusy: false });
     }
+  },
+
+  /** 与 C 端一致：先签一次性票据；个人主体不支持 web-view，复制链接由浏览器打开。 */
+  async onAdminTap() {
+    if (!this.data.canEnterAdmin || this.data.adminBusy) {
+      return;
+    }
+    this.setData({ adminBusy: true });
+    let url = adminEntryUrl(null);
+    let hint = '请在浏览器打开，并用手机号 + 密码登录后台。';
+    try {
+      const { ticket } = await issueAdminTicket();
+      url = adminEntryUrl(ticket);
+      hint = '链接 60 秒内有效，请在浏览器打开自动登录。';
+    } catch {
+      // 票据签发失败回退 B 端登录页，由后台自行登录（与 C 端一致）。
+    }
+    wx.setClipboardData({
+      data: url,
+      success: () => {
+        wx.showModal({
+          title: '管理后台',
+          content: `链接已复制，${hint}`,
+          showCancel: false,
+          confirmText: '知道了',
+        });
+      },
+      fail: () => {
+        wx.showModal({
+          title: '管理后台',
+          content: `复制失败，请手动访问：${url}`,
+          showCancel: false,
+        });
+      },
+      complete: () => this.setData({ adminBusy: false }),
+    });
   },
 
   goDetail(event: WechatMiniprogram.BaseEvent) {

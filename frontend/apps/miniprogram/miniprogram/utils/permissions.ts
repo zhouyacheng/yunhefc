@@ -17,6 +17,21 @@ export function hasPermission(
   return Boolean(permissions && permissions.includes(code));
 }
 
+/** 仅 C 端使用、不构成后台准入的权限（与 `packages/permissions` 的 C_ONLY_PERMISSIONS 一致）。 */
+const C_ONLY_PERMISSIONS: ReadonlySet<string> = new Set([
+  ATTENDANCE_CHECKIN_OWN,
+  EVENT_CREATE_OWN,
+  EVENT_EDIT_OWN,
+  'player:edit:own',
+  REGISTRATION_CREATE_OWN,
+  'invite:create:match',
+]);
+
+/** 含任一后台权限时展示「管理后台」入口；与 C 端 `hasBackendPermission` 同口径。 */
+export function hasBackendPermission(permissions: readonly string[] | null | undefined): boolean {
+  return Boolean(permissions && permissions.some((code) => !C_ONLY_PERMISSIONS.has(code)));
+}
+
 /** app_user.status：0-待审核；1-正常；2-已注销。 */
 export function isPending(status: number | null | undefined): boolean {
   return status === 0;

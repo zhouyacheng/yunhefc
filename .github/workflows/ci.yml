@@ -155,6 +155,8 @@ jobs:
           SMS_MOCK_ENABLED: "true"
           OSS_MODE: mock
           WECHAT_MODE: mock
+          WECHAT_MINI_ENABLED: "true"
+          WECHAT_MINI_MODE: mock
           KAFKA_LISTENER_ENABLED: "false"
           OUTBOX_ENABLED: "false"
           # 套件按账号多次登录；避免默认 50 次/分钟限流造成 429 抖动。

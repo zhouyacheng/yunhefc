@@ -25,7 +25,7 @@ description: MySQL 表结构、命名、枚举、伪删除、索引、约束与 
    - 时间：`DATETIME(3)`，统一 Asia/Shanghai（+08:00）墙钟。
    - 布尔：`TINYINT(1)`，0/1，`COMMENT` 写明含义。
    - 枚举：`TINYINT UNSIGNED`，`COMMENT` 写数字映射。
-   - 标识/哈希：哈希用 `CHAR` + `ascii_bin`（如 `token_hash`、`request_hash`）；可变长度标识用 `VARCHAR` + `ascii_bin`（如 `openid`）。
+   - 标识/哈希：哈希用 `CHAR` + `ascii_bin`（如 `token_hash`、`request_hash`）；可变长度标识用 `VARCHAR` + `ascii_bin`（如 `mp_openid`）。
    - 结构化数据：`JSON`，例如副位置数组、前后快照、事件载荷。
    - 金额：`DECIMAL`；本期无账本表，二期再引入。
 6. 不使用逗号、分号拼接多值；多值使用 JSON 或关联表。
@@ -72,7 +72,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 1. 高频查询、分页排序、逻辑关联字段建立索引；索引以实际查询与执行计划为依据。
 2. 列表分页优先使用 `(过滤列, 排序列)` 组合索引，并带稳定 tie-breaker。
 3. 唯一约束由唯一索引实现；不要为同一列重复建普通索引。
-4. 业务表现有 59 条 KEY/UNIQUE 定义；复核未发现完全重复或前缀可覆盖项，保持现状，不重复建可覆盖索引（P-66 新增 `idx_audit_team_operated`）。
+4. 业务表现有 60 条 KEY/UNIQUE 定义（P-74 V13 新增 `uk_user_mp_openid`；V14 删除旧 `openid` 后回到 59）；复核未发现完全重复或前缀可覆盖项，不重复建可覆盖索引（P-66 新增 `idx_audit_team_operated`）。
 5. `is_deleted` 作为通用过滤条件，不单独建低选择性索引；查询在现有索引前缀后附加 `is_deleted=0`。
 6. Quartz 官方索引随框架保留，不做业务索引收敛。
 7. 索引变更通过 Flyway 迁移；不在生产环境手工 `CREATE INDEX`。
@@ -110,6 +110,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
    - `V10__remove_grouping_weight_settings.sql`：伪删除分组权重配置并更新分组分数列注释（P-72）。
    - `V11__wechat_registration.sql`：历史迁移，`app_user.phone` 曾改为可空。
    - `V12__restore_user_phone_not_null.sql`：清理无手机号账号及相关数据，恢复 `app_user.phone NOT NULL`。
+   - `V13__add_user_mp_openid.sql`：新增 `app_user.mp_openid` 与 `uk_user_mp_openid`；旧 `openid` 保留只读（P-74）。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。
@@ -161,5 +162,5 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间存 Asia/Shanghai 墙钟、`DATETIME(3)`；业务边界直接在 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V12 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V13 顺序正确、可重复、无环境硬编码
 - [ ] 未执行生产 DDL、未手工改表

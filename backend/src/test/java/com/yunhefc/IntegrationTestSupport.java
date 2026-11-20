@@ -32,7 +32,7 @@ import org.testcontainers.utility.DockerImageName;
 import javax.sql.DataSource;
 import java.nio.charset.StandardCharsets;
 
-@SpringBootTest(properties = {"management.health.redis.enabled=false", "yunhefc.kafka.listener-enabled=false", "yunhefc.outbox.enabled=false", "yunhefc.sms.mock-enabled=true", "yunhefc.wechat.enabled=true", "yunhefc.wechat.mode=mock", "yunhefc.wechat.require-wechat-ua=false", "spring.quartz.auto-startup=false"})
+@SpringBootTest(properties = {"management.health.redis.enabled=false", "yunhefc.kafka.listener-enabled=false", "yunhefc.outbox.enabled=false", "yunhefc.sms.mock-enabled=true", "yunhefc.wechat.enabled=true", "yunhefc.wechat.mode=mock", "yunhefc.wechat.require-wechat-ua=false", "yunhefc.wechat.mini.enabled=true", "yunhefc.wechat.mini.mode=mock", "spring.quartz.auto-startup=false"})
 @AutoConfigureMockMvc
 abstract class IntegrationTestSupport {
 

@@ -45,7 +45,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfTokenRepository())
                         .csrfTokenRequestHandler(csrfHandler)
-                        .ignoringRequestMatchers("/actuator/**"))
+                        .ignoringRequestMatchers("/actuator/**",
+                                "/api/v1/c/auth/mini/login",
+                                "/api/v1/c/auth/mini/bind-phone"))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .sessionFixation(fixation -> fixation.none()))
@@ -61,6 +63,8 @@ public class SecurityConfig {
                                 "/api/v1/c/auth/register",
                                 "/api/v1/c/auth/login",
                                 "/api/v1/c/auth/password/reset",
+                                "/api/v1/c/auth/mini/login",
+                                "/api/v1/c/auth/mini/bind-phone",
                                 "/api/v1/c/auth/wechat/bind-phone",
                                 "/api/v1/b/auth/login",
                                 "/api/v1/b/auth/admin-ticket/exchange").permitAll()

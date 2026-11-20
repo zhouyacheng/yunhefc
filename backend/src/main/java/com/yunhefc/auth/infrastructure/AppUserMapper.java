@@ -30,6 +30,12 @@ public interface AppUserMapper extends BaseMapper<AppUser> {
     @Update("UPDATE app_user SET openid = #{openid} WHERE id = #{id} AND is_deleted = 0")
     int updateOpenid(@Param("id") Long id, @Param("openid") String openid);
 
+    @Update("UPDATE app_user SET mp_openid = NULL WHERE id = #{id} AND is_deleted = 0")
+    int clearMpOpenid(@Param("id") Long id);
+
+    @Update("UPDATE app_user SET mp_openid = #{mpOpenid} WHERE id = #{id} AND is_deleted = 0")
+    int updateMpOpenid(@Param("id") Long id, @Param("mpOpenid") String mpOpenid);
+
     @Update("UPDATE app_user SET status = #{status} WHERE id = #{id} AND is_deleted = 0")
     int updateStatus(@Param("id") Long id, @Param("status") int status);
 

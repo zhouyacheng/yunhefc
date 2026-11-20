@@ -29,7 +29,7 @@ SET @admin_role_id = (SELECT id FROM app_role WHERE team_id = @team_id AND code 
 -- 账号：1001-1015 正式，1016-1020 外挂
 -- 1001（ADMIN）、1002（PLAYER）、1022（ADMIN）与 1023（PLAYER）写入测试密码 Passw0rd!，供 dev profile + Playwright 冒烟登录；1016 的密码由 B4 区块追加；其余账号保留 NULL。
 -- 1022 为 B07/B08/B09/B10 共用管理员，1023 为 B 端只读用例专用球员，分摊 AUTH-15 每手机号 50 次/分钟限流。
-INSERT INTO app_user (id, phone, password_hash, openid, status)
+INSERT INTO app_user (id, phone, password_hash, mp_openid, status)
 VALUES
   (1001, '13910000001', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1),
   (1002, '13910000002', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1),
@@ -95,7 +95,7 @@ INSERT IGNORE INTO user_role (user_id, role_id)
 VALUES (1022, @player_role_id), (1022, @admin_role_id), (1023, @player_role_id);
 
 -- B07 微信列：1003 预置已绑定状态；重放保持幂等，供球员页展示与解绑入口联调。
-UPDATE app_user SET openid = 'seed-openid-b07-1003' WHERE id = 1003;
+UPDATE app_user SET mp_openid = 'seed-openid-b07-1003' WHERE id = 1003;
 
 -- B02 Playwright 黄金路径会创建无法通过接口删除的比赛；重放种子时清理，避免影响 C 端精确计数用例。
 DELETE FROM team_match WHERE title LIKE 'E2E比赛%' OR title LIKE 'E2E基准%';
@@ -338,10 +338,10 @@ SET status = 4, manual_status = 0,
 WHERE id = 1004;
 
 -- 2) 待审核账号 1021：status=0、GUEST、外挂球员；重放复位状态/角色并清理邀请使用。
-INSERT INTO app_user (id, phone, password_hash, openid, status)
+INSERT INTO app_user (id, phone, password_hash, mp_openid, status)
 VALUES (1021, '13910000021', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 0)
 ON DUPLICATE KEY UPDATE
-  phone = VALUES(phone), password_hash = VALUES(password_hash), openid = NULL,
+  phone = VALUES(phone), password_hash = VALUES(password_hash), mp_openid = NULL,
   status = 0, is_deleted = 0;
 
 INSERT INTO player
@@ -360,7 +360,7 @@ ON DUPLICATE KEY UPDATE is_deleted = 0;
 DELETE FROM invite_use WHERE user_id = 1021;
 
 -- 3) 球员 1030-1035：补 6 名正式中场，使中场组超过 10 人。
-INSERT IGNORE INTO app_user (id, phone, password_hash, openid, status)
+INSERT IGNORE INTO app_user (id, phone, password_hash, mp_openid, status)
 VALUES
   (1030, '13910000030', NULL, NULL, 1),
   (1031, '13910000031', NULL, NULL, 1),
@@ -535,7 +535,7 @@ VALUES
 
 -- 1) 新增 20 名正式球员 1040-1059：号码 49-68 不与现有正式号码冲突；
 --    位置为门将 2、后卫 6、中场 7、前锋 5。测试库若已运行期占用该号段，INSERT IGNORE 会跳过。
-INSERT IGNORE INTO app_user (id, phone, password_hash, openid, status)
+INSERT IGNORE INTO app_user (id, phone, password_hash, mp_openid, status)
 VALUES
   (1040, '13910000040', NULL, NULL, 1),
   (1041, '13910000041', NULL, NULL, 1),

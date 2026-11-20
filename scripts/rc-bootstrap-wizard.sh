@@ -338,8 +338,8 @@ if [[ -z "$REDIS_PASSWORD" ]]; then REDIS_PASSWORD=$(openssl rand -hex 16); say 
 ask_secret SMS_APPCODE "短信 APPCODE："
 ask SMS_TEMPLATE_ID "短信模板 ID："
 ask SMS_SIGN_ID "短信签名 ID："
-ask WECHAT_APP_ID "微信 AppID："
-ask_secret WECHAT_APP_SECRET "微信 AppSecret："
+ask WECHAT_MINI_APP_ID "微信小程序 AppID："
+ask_secret WECHAT_MINI_APP_SECRET "微信小程序 AppSecret："
 ask OSS_ENDPOINT "OSS Endpoint [https://oss-cn-shanghai.aliyuncs.com]："
 OSS_ENDPOINT="${OSS_ENDPOINT:-https://oss-cn-shanghai.aliyuncs.com}"
 ask OSS_BUCKET "OSS Bucket："
@@ -364,13 +364,10 @@ ask_secret OSS_ACCESS_KEY_SECRET "OSS AccessKeySecret："
   printf 'SMS_APPCODE=%s\n' "$SMS_APPCODE"
   printf 'SMS_TEMPLATE_ID=%s\n' "$SMS_TEMPLATE_ID"
   printf 'SMS_SIGN_ID=%s\n' "$SMS_SIGN_ID"
-  printf 'WECHAT_ENABLED=true\n'
-  printf 'WECHAT_MODE=real\n'
-  printf 'WECHAT_APP_ID=%s\n' "$WECHAT_APP_ID"
-  printf 'WECHAT_APP_SECRET=%s\n' "$WECHAT_APP_SECRET"
-  printf 'WECHAT_CALLBACK_URL=https://www.%s/api/v1/c/auth/wechat/callback\n' "$RC_DOMAIN"
-  printf 'WECHAT_ALLOWED_REDIRECT_PREFIXES=/\n'
-  printf 'WECHAT_REQUIRE_UA=true\n'
+  printf 'WECHAT_MINI_ENABLED=true\n'
+  printf 'WECHAT_MINI_MODE=real\n'
+  printf 'WECHAT_MINI_APP_ID=%s\n' "$WECHAT_MINI_APP_ID"
+  printf 'WECHAT_MINI_APP_SECRET=%s\n' "$WECHAT_MINI_APP_SECRET"
   printf 'OSS_MODE=real\n'
   printf 'OSS_ENDPOINT=%s\n' "$OSS_ENDPOINT"
   printf 'OSS_BUCKET=%s\n' "$OSS_BUCKET"

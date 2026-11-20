@@ -2,9 +2,9 @@
 
 ## 0. 当前阶段
 
-- **设计冻结**：需求 v1.17；设计文档 01 v0.15、02 v0.28、03 v1.23、04 v0.21、05 v0.38、06 v1.64。
-- **评审通过**：P-01~P-43 已确认；设计成果不再主动变更。
-- **代码状态**：MVP 功能已全部实现。`backend/` 单部署单元覆盖 M01–M11 与横切支撑（认证/RBAC/邀请/Redis 会话/Outbox/Kafka、球员档案与球队页、比赛与状态机、报名/候补/递补、考勤与签到、事件与比分、阵容、分组、通知 NTF-01~04 + 7 类触发 + 90 天物理删除、审计查询与年度导出、系统设置、OSS 上传与签名读、真实短信与微信网页授权、prod 配置 fail-fast 与保留任务）；`frontend/` pnpm workspace 覆盖 C 端 C01–C09 与 B 端 B02–B11（B01 已下线），含 api-client/permissions/shared 与 Vitest + Playwright；`deploy/`（Docker Compose、Nginx、Dockerfile、RUNBOOK）与 `.github/workflows/ci.yml`、`deploy.yml` 已建立。
+- **设计冻结**：需求 v1.27；设计文档 01 v0.24、02 v0.53、03 v1.31、04 v0.29、05 v0.56、06 v1.95。
+- **评审通过**：P-01~P-74 已确认；设计成果不再主动变更。
+- **代码状态**：MVP 功能已全部实现。`backend/` 单部署单元覆盖 M01–M11 与横切支撑（认证/RBAC/邀请/Redis 会话/Outbox/Kafka、球员档案与球队页、比赛与状态机、报名/候补/递补、考勤与签到、事件与比分、阵容、分组、通知 NTF-01~04 + 7 类触发 + 90 天物理删除、审计查询与年度导出、系统设置、OSS 上传与签名读、真实短信、小程序登录接口与公众号网页授权（网页授权待移除）、prod 配置 fail-fast 与保留任务）；`frontend/` pnpm workspace 覆盖 C 端 C01–C09 与 B 端 B02–B11（B01 已下线），含 api-client/permissions/shared 与 Vitest + Playwright；`frontend/apps/miniprogram` 为微信小程序端（P-74，登录与公开浏览，进行中）；`deploy/`（Docker Compose、Nginx、Dockerfile、RUNBOOK）与 `.github/workflows/ci.yml`、`deploy.yml` 已建立。
 - **原型定位**：`prototype/` 仅演示交互与信息架构，不是生产代码；正式实现以设计文档为准。
 - **下一步**：`.scratch/` 下实施票已全部关闭；下一阶段是生产 RC 验收——按 `.scratch/mvp-release/release-checklist.md` 与 `scripts/rc-acceptance-wizard.sh` 执行，先确认 cutover 窗口、外部凭证与验收证据口径；新的功能批次需先明确终点与范围再出票。
 
@@ -38,7 +38,7 @@
   - `registration.active` 为 0/1（1-有效；0-无效）；`active_unique` 承担唯一键。
   - 业务表 0 物理外键；Quartz 11 表、5 个框架外键为官方例外。
   - **永不使用 `CHECK`**：数据库永久禁用任何 `CHECK`/`chk_` 约束；枚举、范围与跨字段规则全部由应用层强校验（04 §8.1）。
-  - 伪删除不释放唯一键；现有 59 条业务索引保留，不重复建可覆盖索引。
+  - 伪删除不释放唯一键；现有 60 条业务索引保留（P-74 V13 新增 `uk_user_mp_openid`；旧 `openid` 删除后回到 59），不重复建可覆盖索引。
 - **API 约定**：
   - 路径 `/api/v1/c/**`（C 端）、`/api/v1/b/**`（B 端）；统一 envelope，成功 `code=0`。
   - HTTP 状态码表达类别；body 返回 `code/message/data/requestId`。
@@ -69,6 +69,7 @@ backend/           Spring Boot 单部署单元
 frontend/          pnpm workspace
 frontend/apps/web/     C 端 Vue 3 + Vant
 frontend/apps/admin/   B 端 Vue 3 + Element Plus
+frontend/apps/miniprogram/ 微信小程序（原生 + Vant Weapp）
 frontend/packages/     共享 API、权限与类型
 deploy/            Docker Compose、Nginx、Dockerfile、RUNBOOK
 ```
@@ -103,7 +104,7 @@ deploy/            Docker Compose、Nginx、Dockerfile、RUNBOOK
 
 - `grep -c '^CREATE TABLE' scripts/sql/schema.sql` = 27；业务外键 = 0。
 - `quartz.sql` = 11 表、5 框架外键。
-- 05 = 96 接口、28 权限码；需求 = 114 ID / 112 MVP。
+- 05 = 95 接口、28 权限码；需求 = 114 ID / 112 MVP。
 - Markdown 表格列数检查通过；8 个原型 JS `node --check` 通过；Playwright 冒烟无 console error。
 - DB 改动：04 与 `schema.sql` 逐表核对字段/类型/默认/约束/表注释/字段注释。
 - 后端建立后：`mvn test` 通过；空库 Flyway 迁移幂等；接口契约与 05 一致。

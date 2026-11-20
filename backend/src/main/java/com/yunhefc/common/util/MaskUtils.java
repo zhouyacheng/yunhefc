@@ -16,7 +16,8 @@ import java.util.regex.Pattern;
  */
 public final class MaskUtils {
 
-    private static final Set<String> SECRET_KEYS = Set.of("openid", "passwordhash", "tokenhash", "token");
+    private static final Set<String> SECRET_KEYS =
+            Set.of("openid", "mpopenid", "mp_openid", "passwordhash", "tokenhash", "token");
     private static final Pattern IPV6_LITERAL = Pattern.compile("^[0-9A-Fa-f:.]+$");
     private static final Pattern TEXT_PHONE = Pattern.compile("(?<!\\d)1[3-9]\\d{9}(?!\\d)");
     private static final Pattern TEXT_ID_CARD = Pattern.compile("(?<!\\d)\\d{17}[\\dXx](?!\\d)");

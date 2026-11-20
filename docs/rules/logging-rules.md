@@ -103,8 +103,9 @@ e.printStackTrace();
 
 - 手机号、身份证号、邮箱、地址、银行账号
 - 密码、短信验证码、会话 ID、CSRF token
-- 微信 openid / unionid
-- OSS、微信、短信、ACR 等外部凭证
+- 微信 mp_openid / openid / unionid
+- `wx.login` code、code2Session 的 `session_key`
+- OSS、微信小程序、短信、ACR 等外部凭证
 
 注：身份证号、邮箱、地址、银行账号当前 MVP 数据模型未包含，按预留敏感字段一并保护；二期账本上线后必须沿用。
 

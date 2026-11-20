@@ -221,6 +221,7 @@ com.yunhefc.<domain>/
 - 架构测试：ArchUnit 校验 controller 不访问 mapper、领域不跨域访问 infrastructure、common/contracts 不依赖业务域、query/stats 只依赖 read port；`event` 只经 `contracts.grouping` 只读 port 访问分组，不依赖 `grouping` 实现。
 - 测试命名：`<Class>Test`（单元）、`<Class>IT`（集成）；使用相对时间与测试数据构建器。
 - 每个业务错误码至少有一个失败路径测试；唯一约束、版本冲突必须有测试。
+- 本地同一时间只允许一个 Maven 测试进程：Testcontainers 以 `withReuse=true` 共享 MySQL/Redis，并发的 fork JVM 会互相 `TRUNCATE` 种子数据，表现为随机的 401/403 或 `EmptyResultDataAccess`。出现异常先 `ps -eo command | grep surefirebooter` 确认没有残留进程。
 
 ## 16. 禁止事项
 

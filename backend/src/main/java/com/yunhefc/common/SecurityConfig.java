@@ -45,23 +45,22 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(csrfTokenRepository())
                         .csrfTokenRequestHandler(csrfHandler)
-                        .ignoringRequestMatchers("/actuator/**"))
+                        .ignoringRequestMatchers("/actuator/**",
+                                "/api/v1/c/auth/mini/login",
+                                "/api/v1/c/auth/mini/bind-phone"))
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .sessionFixation(fixation -> fixation.none()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/c/auth/csrf", "/api/v1/b/auth/csrf").permitAll()
-                        .requestMatchers(HttpMethod.GET,
-                                "/api/v1/c/auth/wechat/authorize",
-                                "/api/v1/c/auth/wechat/callback",
-                                "/api/v1/c/auth/wechat/mock-authorize").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/v1/c/auth/sms-codes",
                                 "/api/v1/c/auth/register",
                                 "/api/v1/c/auth/login",
                                 "/api/v1/c/auth/password/reset",
-                                "/api/v1/c/auth/wechat/bind-phone",
+                                "/api/v1/c/auth/mini/login",
+                                "/api/v1/c/auth/mini/bind-phone",
                                 "/api/v1/b/auth/login",
                                 "/api/v1/b/auth/admin-ticket/exchange").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/c/invites/**").permitAll()

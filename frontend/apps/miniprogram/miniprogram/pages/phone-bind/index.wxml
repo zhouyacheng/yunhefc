@@ -1,0 +1,60 @@
+<view class="container">
+  <view class="card">
+    <view class="title">绑定手机号</view>
+    <view class="muted">手机号已注册时会直接关联已有账号；姓名与位置仅首次注册需要填写。</view>
+
+    <view class="form">
+      <view class="field">
+        <text class="label">手机号</text>
+        <input
+          class="input"
+          type="number"
+          maxlength="11"
+          value="{{phone}}"
+          placeholder="请输入手机号"
+          bindinput="onPhoneInput"
+        />
+      </view>
+
+      <view class="field">
+        <text class="label">验证码</text>
+        <view class="code-row">
+          <input
+            class="input code-input"
+            type="number"
+            maxlength="6"
+            value="{{code}}"
+            placeholder="6 位验证码"
+            bindinput="onCodeInput"
+          />
+          <button class="send-btn" size="mini" disabled="{{countdown > 0 || sending}}" bindtap="sendCode">
+            {{countdown > 0 ? countdown + 's' : (sending ? '发送中' : '获取验证码')}}
+          </button>
+        </view>
+      </view>
+
+      <view class="field">
+        <text class="label">姓名</text>
+        <input
+          class="input"
+          maxlength="32"
+          value="{{name}}"
+          placeholder="首次注册必填"
+          bindinput="onNameInput"
+        />
+      </view>
+
+      <view class="field">
+        <text class="label">主位置</text>
+        <picker mode="selector" range="{{positionLabels}}" value="{{positionIndex}}" bindchange="onPositionChange">
+          <view class="picker">{{positionLabels[positionIndex]}} ▾</view>
+        </picker>
+      </view>
+    </view>
+
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+
+    <van-button class="btn" type="primary" block loading="{{submitting}}" bind:click="submit">绑定并浏览</van-button>
+    <van-button class="btn" block bind:click="skip">先逛逛</van-button>
+  </view>
+</view>

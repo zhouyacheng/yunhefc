@@ -1,0 +1,55 @@
+.tabs {
+  display: flex;
+  background: var(--yh-surface);
+  border-radius: var(--yh-radius-sm);
+  padding: 6rpx;
+  margin-bottom: 16rpx;
+}
+
+.tab {
+  flex: 1;
+  text-align: center;
+  padding: 14rpx 0;
+  border-radius: var(--yh-radius-sm);
+  color: var(--yh-muted);
+}
+
+.tab.active {
+  background: var(--yh-green-soft);
+  color: var(--yh-green-ink);
+  font-weight: 600;
+}
+
+.user-bar {
+  margin-bottom: 16rpx;
+  font-size: 24rpx;
+}
+
+.row-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.status {
+  font-size: 22rpx;
+  color: var(--yh-green-ink);
+  background: var(--yh-green-soft);
+  border-radius: 999rpx;
+  padding: 4rpx 14rpx;
+}
+
+.meta {
+  margin: 10rpx 0 6rpx;
+  color: var(--yh-muted);
+  font-size: 24rpx;
+}
+
+.score {
+  color: var(--yh-ink);
+  font-weight: 600;
+}

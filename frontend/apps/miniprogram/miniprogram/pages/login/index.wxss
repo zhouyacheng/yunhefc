@@ -1,0 +1,24 @@
+.center {
+  margin-top: 120rpx;
+  text-align: center;
+}
+
+.brand {
+  font-size: 40rpx;
+  font-weight: 700;
+  color: var(--yh-green);
+  margin-bottom: 24rpx;
+}
+
+.error {
+  color: var(--yh-red-ink);
+  background: var(--yh-red-soft);
+  border-radius: var(--yh-radius-sm);
+  padding: 16rpx;
+  margin-bottom: 20rpx;
+  font-size: 24rpx;
+}
+
+.btn {
+  margin-top: 20rpx;
+}

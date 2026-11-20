@@ -1,0 +1,11 @@
+<view class="container">
+  <view class="card center">
+    <view class="brand">云河FC</view>
+    <van-loading wx:if="{{status === 'loading'}}" size="20px">正在微信登录…</van-loading>
+    <block wx:else>
+      <view class="error">{{message}}</view>
+      <van-button class="btn" type="primary" block bind:click="retry">重试</van-button>
+      <van-button class="btn" block bind:click="skip">先逛逛</van-button>
+    </block>
+  </view>
+</view>

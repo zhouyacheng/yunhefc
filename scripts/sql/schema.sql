@@ -31,7 +31,8 @@ CREATE TABLE app_user (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   phone         VARCHAR(20)     NOT NULL COMMENT '登录手机号',
   password_hash VARCHAR(100)    NULL COMMENT '密码哈希',
-  openid        VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '微信openid',
+  openid        VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '历史公众号openid;只读;后续版本删除',
+  mp_openid     VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '微信小程序openid;唯一;大小写敏感',
   status        TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-待审核;1-正常;2-已注销',
   last_login_at DATETIME(3)     NULL COMMENT '最近登录时间',
   created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
@@ -40,6 +41,7 @@ CREATE TABLE app_user (
   PRIMARY KEY (id),
   UNIQUE KEY uk_user_phone (phone),
   UNIQUE KEY uk_user_openid (openid),
+  UNIQUE KEY uk_user_mp_openid (mp_openid),
   KEY idx_user_status (status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='账号';
 

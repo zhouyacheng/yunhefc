@@ -11,6 +11,8 @@ frontend/.pnpm-store/
 frontend/**/*.tsbuildinfo
 frontend/test-results/
 frontend/playwright-report/
+frontend/apps/miniprogram/miniprogram/miniprogram_npm/
+frontend/apps/miniprogram/project.private.config.json
 
 # Local config and secrets
 .env

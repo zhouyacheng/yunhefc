@@ -1,0 +1,70 @@
+.title {
+  font-size: 34rpx;
+  font-weight: 700;
+  margin-bottom: 8rpx;
+}
+
+.form {
+  margin-top: 24rpx;
+}
+
+.field {
+  margin-top: 24rpx;
+}
+
+.label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--yh-muted);
+  margin-bottom: 8rpx;
+}
+
+.input,
+.picker {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--yh-surface-soft);
+  border: 1rpx solid var(--yh-line);
+  border-radius: var(--yh-radius-sm);
+  padding: 18rpx 20rpx;
+  font-size: 28rpx;
+  min-height: 76rpx;
+  line-height: 40rpx;
+}
+
+.code-row {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.code-input {
+  flex: 1;
+}
+
+.send-btn {
+  flex-shrink: 0;
+  margin: 0;
+  background: var(--yh-green);
+  color: #ffffff;
+  font-size: 24rpx;
+  line-height: 2.4;
+}
+
+.send-btn[disabled] {
+  background: var(--yh-muted);
+  color: #ffffff;
+}
+
+.error {
+  margin-top: 20rpx;
+  color: var(--yh-red-ink);
+  background: var(--yh-red-soft);
+  border-radius: var(--yh-radius-sm);
+  padding: 16rpx;
+  font-size: 24rpx;
+}
+
+.btn {
+  margin-top: 24rpx;
+}

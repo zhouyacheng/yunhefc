@@ -30,9 +30,6 @@ public class PendingAccountFilter extends OncePerRequestFilter {
 
     private static final List<AllowedRoute> ALLOWED_READS = List.of(
             new AllowedRoute("GET", "/api/v1/c/auth/csrf"),
-            new AllowedRoute("GET", "/api/v1/c/auth/wechat/authorize"),
-            new AllowedRoute("GET", "/api/v1/c/auth/wechat/callback"),
-            new AllowedRoute("GET", "/api/v1/c/auth/wechat/mock-authorize"),
             new AllowedRoute("GET", "/api/v1/b/auth/csrf"),
             new AllowedRoute("GET", "/api/v1/c/invites/*"),
             new AllowedRoute("GET", "/api/v1/c/team/players"),
@@ -50,7 +47,8 @@ public class PendingAccountFilter extends OncePerRequestFilter {
             new AllowedRoute("POST", "/api/v1/c/auth/login"),
             new AllowedRoute("POST", "/api/v1/c/auth/logout"),
             new AllowedRoute("POST", "/api/v1/c/auth/password/reset"),
-            new AllowedRoute("POST", "/api/v1/c/auth/wechat/bind-phone"),
+            new AllowedRoute("POST", "/api/v1/c/auth/mini/login"),
+            new AllowedRoute("POST", "/api/v1/c/auth/mini/bind-phone"),
             new AllowedRoute("POST", "/api/v1/c/invites/*/accept"),
             new AllowedRoute("POST", "/api/v1/c/files/avatar"),
             new AllowedRoute("POST", "/api/v1/c/notifications/*/read"),

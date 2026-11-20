@@ -1,0 +1,23 @@
+<view class="container">
+  <van-loading wx:if="{{loading}}" />
+  <van-empty wx:if="{{!loading && error}}" description="{{error}}" />
+
+  <block wx:if="{{detail}}">
+    <view class="card hero">
+      <view class="row-between">
+        <text class="title">{{detail.title}}</text>
+        <van-tag type="primary">{{detail.statusLabel}}</van-tag>
+      </view>
+      <view class="score">{{detail.scoreHome === null || detail.scoreAway === null ? '—' : detail.scoreHome + ' : ' + detail.scoreAway}}</view>
+      <view class="muted">{{detail.homeTeamName}} vs {{detail.awayTeamName}}</view>
+      <view class="muted">{{detail.timeText}} · {{detail.venue}}</view>
+      <view class="muted">赛季 {{detail.season}} · {{detail.typeLabel}}</view>
+    </view>
+
+    <view class="section-title">事件</view>
+    <van-cell-group inset>
+      <van-cell wx:for="{{events}}" wx:key="id" title="{{item.minuteText}} {{item.label}}" value="{{item.playerName}}" />
+    </van-cell-group>
+    <van-empty wx:if="{{events.length === 0}}" description="暂无事件" />
+  </block>
+</view>

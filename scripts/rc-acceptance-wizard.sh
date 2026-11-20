@@ -273,11 +273,12 @@ expect_code "B 端 /admin/ 200" "200" "$ADMIN/"
 expect_code "公开读接口 200" "200" "$WEB/api/v1/c/matches?scope=upcoming&page=1&pageSize=1"
 expect_code "敏感端点 /actuator/env 404" "404" "$WEB/actuator/env"
 expect_code "/api 根路径 404" "404" "$WEB/api"
-wechat_code=$(curl -s -o /dev/null -w '%{http_code}' -H 'Accept: text/html' --max-time 10 "$WEB/api/v1/c/auth/wechat/callback" 2>/dev/null || true)
-if [[ "$wechat_code" == "302" ]]; then
-  say "  ${GREEN}✓${RESET} 微信回调 HTML 导航 302"; record "§5.3 微信回调 302" "PASS"
+mini_code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' \
+  -d '{"code":""}' --max-time 10 "$WEB/api/v1/c/auth/mini/login" 2>/dev/null || true)
+if [[ "$mini_code" == "400" ]]; then
+  say "  ${GREEN}✓${RESET} 小程序登录端点拒绝空 code（400）"; record "§5.3 小程序登录端点" "PASS"
 else
-  warn "微信回调期望 302，实际 ${wechat_code:-无响应}"; record "§5.3 微信回调 302" "FAIL"
+  warn "小程序登录端点期望 400，实际 ${mini_code:-无响应}"; record "§5.3 小程序登录端点" "FAIL"
 fi
 open_url "$ADMIN/"
 if confirm "C 端 / 与 B 端 /admin/ 登录成功、无重定向循环？"; then

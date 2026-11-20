@@ -20,10 +20,8 @@ import {
   validateSmsCode,
 } from '../features/auth/validation';
 import { isPending } from '../features/auth/user-status';
-import { isWechatBrowser, requestWechatAuthorize } from '../features/auth/wechat';
 import { safeRouteRedirect } from '../router';
 import { useSessionStore } from '../stores/session';
-import { markSessionHint } from '../stores/session-hint';
 
 type AuthMode = 'login' | 'register' | 'reset';
 
@@ -91,10 +89,6 @@ const invite = ref<InviteContext | null>(null);
 const inviteLoading = ref(false);
 const inviteUnavailable = ref(false);
 
-const wechatBrowser = isWechatBrowser(navigator.userAgent);
-const wechatLoading = ref(false);
-const wechatError = ref('');
-
 const positionLabel = computed(() =>
   position.value === null ? '' : (POSITION_TEXT[position.value] ?? ''),
 );
@@ -141,7 +135,6 @@ function clearMessages(): void {
   successMessage.value = '';
   registeredNotice.value = '';
   smsHint.value = '';
-  wechatError.value = '';
   fieldErrors.value = {};
 }
 
@@ -321,25 +314,6 @@ async function submitReset(): Promise<void> {
   }
 }
 
-/** AUTH-07：微信内静默授权，redirect 只接受站内路径，非法回首页。 */
-async function startWechatLogin(): Promise<void> {
-  clearMessages();
-  wechatLoading.value = true;
-  try {
-    const authorizeUrl = await requestWechatAuthorize(
-      safeRouteRedirect(route.query.redirect) ?? '/',
-    );
-    // 成功后后端 302 直达站内页面，先写会话提示，落地页才能恢复登录态。
-    markSessionHint();
-    window.location.assign(authorizeUrl);
-  } catch (error) {
-    wechatError.value = isApiError(error)
-      ? authErrorMessage(error.code, error.message)
-      : '无法发起微信授权，请稍后重试';
-    wechatLoading.value = false;
-  }
-}
-
 function selectPosition(action: { code?: number }): void {
   if (typeof action.code === 'number') {
     position.value = action.code;
@@ -420,20 +394,6 @@ function selectPosition(action: { code?: number }): void {
         <p v-if="errorMessage" class="login-error">{{ errorMessage }}</p>
 
         <Button type="primary" block native-type="submit" :loading="submitting">登录</Button>
-
-        <template v-if="wechatBrowser">
-          <p class="login-or"><span>或</span></p>
-          <Button
-            block
-            plain
-            data-testid="wechat-login"
-            :loading="wechatLoading"
-            @click="startWechatLogin"
-          >
-            微信登录
-          </Button>
-          <p v-if="wechatError" class="login-error login-or__error">{{ wechatError }}</p>
-        </template>
       </form>
 
       <form v-else-if="mode === 'register'" class="login-form" @submit.prevent="submitRegister">

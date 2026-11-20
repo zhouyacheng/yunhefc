@@ -26,7 +26,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
    - `PATCH`：部分更新资源。
    - `DELETE`：删除或撤销资源。
 4. 路径参数标识资源；查询参数用于筛选、排序、分页；请求体用于创建/更新数据。
-5. 敏感信息（密码、令牌、验证码、openid）只放请求体或请求头，不放入 URL 查询参数。C→B 交接票据是唯一窄例外：仅放 URL fragment（服务端不可见、不进入 access log/Referer），60 秒有效、一次性、绑定 `userId`、兑换后立即清除，且不得写入日志或错误响应；不得降级为 query 参数。
+5. 敏感信息（密码、令牌、验证码、openid、wx.login code、session_key）只放请求体或请求头，不放入 URL 查询参数。C→B 交接票据是唯一窄例外：仅放 URL fragment（服务端不可见、不进入 access log/Referer），60 秒有效、一次性、绑定 `userId`、兑换后立即清除，且不得写入日志或错误响应；不得降级为 query 参数。
 6. 破坏性变更通过新版本表达，不直接改变既有接口语义。
 7. API 文档的接口 ID（如 `MAT-12`）与需求 ID（如 `MATCH-12`）是两套编号；以 `05.API接口设计.md` 为准。
 
@@ -95,7 +95,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 1. C/B 端分别使用 `YHFC_C` / `YHFC_B` 会话 Cookie；C 端滑动 7 天，B 端 2 小时，同一账号两端互不影响。
 2. 登录前获取 CSRF token；登录成功后轮换 Session ID 与 CSRF token；登出/过期后重新获取。
 3. 权限码统一 `资源:动作:范围`；服务端按权限码校验，B 端额外校验后台分区权限。
-4. 待审核（PENDING）只允许公开读、登录/登出、AUTH-01/14、AUTH-10、短信/微信、邀请落地、自助资料/头像、通知只读与标记已读（NTF-01~04）；其他写接口返回 `ACCOUNT_PENDING`。
+4. 待审核（PENDING）只允许公开读、登录/登出、AUTH-01/14、AUTH-10、短信/小程序登录、邀请落地、自助资料/头像、通知只读与标记已读（NTF-01~04）；其他写接口返回 `ACCOUNT_PENDING`。
 5. 未登录返回 401，无权限返回 403；不用 404 隐藏权限。
 6. 前端路由守卫只做导航控制，真实权限必须由后端校验。
 
@@ -125,8 +125,8 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 ## 10 文件、敏感数据与外部依赖
 
 1. 头像上传经后端校验后写 OSS；响应返回 `{objectKey,signedUrl}`，不返回 OSS 密钥；业务表只存 `objectKey`，读响应现签短期 URL。
-2. 手机号只返回脱敏值；不返回 openid、passwordHash、邀请 token、会话 ID、CSRF token。
-3. 日志与错误响应不得包含密码、验证码、token、openid、手机号明文。
+2. 手机号只返回脱敏值；不返回 mp_openid（或历史 openid）、passwordHash、邀请 token、会话 ID、CSRF token。
+3. 日志与错误响应不得包含密码、验证码、token、mp_openid、wx.login code、session_key、手机号明文。
 4. 外部 HTTP 调用设置连接/读取超时与重试上限；失败返回明确业务错误。
 5. CORS 只允许 `https://www.<domain>` 单一 Origin（B 端同源，不再需要 admin Origin），允许携带凭证；不使用通配符。
 

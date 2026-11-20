@@ -1,0 +1,35 @@
+{
+  "pages": [
+    "pages/schedule/index",
+    "pages/team/index",
+    "pages/match-detail/index",
+    "pages/login/index",
+    "pages/phone-bind/index",
+    "pages/spike/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "云河FC",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f4f6fa",
+    "backgroundTextStyle": "light"
+  },
+  "tabBar": {
+    "color": "#64748b",
+    "selectedColor": "#0f7a4d",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/schedule/index",
+        "text": "赛程"
+      },
+      {
+        "pagePath": "pages/team/index",
+        "text": "球队"
+      }
+    ]
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

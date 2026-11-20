@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isApiError } from '@yunhefc/api-client';
 import type { Player } from '@yunhefc/shared';
 import { positionText } from '@yunhefc/shared';
 import { Button, Tag, showConfirmDialog } from 'vant';
@@ -11,7 +10,6 @@ import NotificationList from '../components/NotificationList.vue';
 import ProfileEditPopup from '../components/ProfileEditPopup.vue';
 import { avatarPlaceholder, isDisplayableAvatarUrl } from '../features/profile/avatar';
 import { isPending } from '../features/auth/user-status';
-import { isWechatBrowser, requestWechatAuthorize } from '../features/auth/wechat';
 import SkillStars from '../components/SkillStars.vue';
 import { useSessionStore } from '../stores/session';
 
@@ -27,14 +25,6 @@ const router = useRouter();
 const editing = ref(false);
 const avatarBroken = ref(false);
 const savedHint = ref('');
-
-const wechatBrowser = isWechatBrowser(navigator.userAgent);
-const wechatLoading = ref(false);
-const wechatError = ref('');
-
-const canBindWechat = computed(
-  () => wechatBrowser && session.user !== null && !session.user.wechatBound,
-);
 
 const pending = computed(() => isPending(session.user?.status ?? 1));
 const roleText = computed(() => {
@@ -69,19 +59,6 @@ async function logout(): Promise<void> {
   }
   await session.logout();
   await router.replace('/login');
-}
-
-/** C06：微信内且未绑定时发起 AUTH-07，redirect 回个人中心。 */
-async function bindWechat(): Promise<void> {
-  wechatError.value = '';
-  wechatLoading.value = true;
-  try {
-    const authorizeUrl = await requestWechatAuthorize('/profile');
-    window.location.assign(authorizeUrl);
-  } catch (error) {
-    wechatError.value = isApiError(error) ? error.message : '无法发起微信绑定，请稍后重试';
-    wechatLoading.value = false;
-  }
 }
 
 watch(avatarSrc, () => {
@@ -165,20 +142,6 @@ onMounted(() => {
             <span>微信绑定</span>
             <span class="muted">{{ session.user.wechatBound ? '已绑定' : '未绑定' }}</span>
           </div>
-          <Button
-            v-if="canBindWechat"
-            class="wechat-bind"
-            size="small"
-            type="primary"
-            plain
-            :loading="wechatLoading"
-            @click="bindWechat"
-          >
-            绑定微信
-          </Button>
-          <p v-if="wechatError" class="notice notice--danger wechat-bind__error">
-            {{ wechatError }}
-          </p>
           <RouterLink
             class="security-row security-row--link"
             :to="{ name: 'login', query: { mode: 'reset' } }"

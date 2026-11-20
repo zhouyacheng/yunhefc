@@ -285,8 +285,8 @@ public class AuthService implements UserAccessPort {
         if (user == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
         }
-        String before = user.getOpenid();
-        userMapper.clearOpenid(userId);
+        String before = user.getMpOpenid();
+        userMapper.clearMpOpenid(userId);
         auditRecorder.recordCurrent("WECHAT_UNBIND", "USER", userId,
                 java.util.Map.of("openid", before == null ? "" : "***"), null);
     }

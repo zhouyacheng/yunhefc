@@ -4,13 +4,11 @@ import {
   STATUS_OPTIONS,
   TYPE_OPTIONS,
   emptyScheduleFilters,
-  formatCalendarYmd,
   fromScheduleForm,
   sameForm,
   scheduleFeedKey,
   scheduleRequestPath,
   toScheduleForm,
-  ymdToLocalDate,
   type ScheduleForm,
 } from '../miniprogram/utils/schedule-query';
 
@@ -118,22 +116,6 @@ describe('venue and request path', () => {
       '/matches?scope=all&sort=startAt:desc&page=3&pageSize=20&status=4',
     );
     expect(scheduleRequestPath('', 0)).toContain('page=1');
-  });
-});
-
-describe('calendar helpers', () => {
-  it('formats local calendar days without shifting the day', () => {
-    expect(formatCalendarYmd(new Date(2026, 11, 3))).toBe('2026-12-03');
-    expect(formatCalendarYmd(new Date(2026, 0, 1))).toBe('2026-01-01');
-  });
-
-  it('parses YYYY-MM-DD into a local date', () => {
-    const date = ymdToLocalDate('2026-12-03');
-    expect(date?.getFullYear()).toBe(2026);
-    expect(date?.getMonth()).toBe(11);
-    expect(date?.getDate()).toBe(3);
-    expect(ymdToLocalDate('2026-02-30')).toBeNull();
-    expect(ymdToLocalDate('')).toBeNull();
   });
 });
 

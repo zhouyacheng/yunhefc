@@ -183,20 +183,3 @@ export function sameForm(a: ScheduleForm, b: ScheduleForm): boolean {
     a.endDate === b.endDate
   );
 }
-
-/** 日历回传的本地 Date → YYYY-MM-DD；用本地 getter，避免 toISOString 少一天。 */
-export function formatCalendarYmd(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
-}
-
-/** YYYY-MM-DD → 本地 Date（用于日历 default-date）。 */
-export function ymdToLocalDate(value: string): Date | null {
-  const text = parseDate(value);
-  if (!text) {
-    return null;
-  }
-  const [year = 0, month = 1, day = 1] = text.split('-').map(Number);
-  return new Date(year, month - 1, day);
-}

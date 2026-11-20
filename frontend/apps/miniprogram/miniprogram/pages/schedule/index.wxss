@@ -127,6 +127,9 @@
 
 .range-sheet {
   box-sizing: border-box;
-  height: 70vh;
-  overflow: hidden;
+  padding: 32rpx var(--yh-page-pad-x) calc(32rpx + env(safe-area-inset-bottom));
+}
+
+.range-sheet__actions {
+  justify-content: space-between;
 }

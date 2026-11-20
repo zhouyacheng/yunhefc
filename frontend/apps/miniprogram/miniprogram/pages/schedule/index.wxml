@@ -95,7 +95,7 @@
     <view class="filter-field">
       <text class="filter-field__label">自定义时间</text>
       <view class="filter-field__control">
-        <view class="filter-field__value" bindtap="openRange">{{rangeText || '选择日期范围'}}</view>
+        <view class="filter-field__value" bindtap="openRange">{{form.startDate && form.endDate ? form.startDate + ' 至 ' + form.endDate : '选择日期范围'}}</view>
         <text wx:if="{{form.startDate && form.endDate}}" class="filter-field__clear" bindtap="clearRange">清除</text>
       </view>
     </view>
@@ -108,16 +108,27 @@
 
 <van-popup show="{{rangeOpen}}" position="bottom" round z-index="{{200}}" bind:close="closeRange">
   <view class="range-sheet">
-    <van-calendar
-      wx:if="{{rangeOpen}}"
-      poppable="{{false}}"
-      type="range"
-      allow-same-day="{{true}}"
-      min-date="{{rangeMin}}"
-      max-date="{{rangeMax}}"
-      default-date="{{defaultRange}}"
-      title="选择时间范围"
-      bind:confirm="onRangeConfirm"
-    />
+    <view class="filter-drawer__head">
+      <text class="filter-drawer__title">自定义时间</text>
+    </view>
+
+    <view class="filter-field">
+      <text class="filter-field__label">开始日期</text>
+      <picker mode="date" value="{{rangeStart}}" start="2000-01-01" end="2100-12-31" bindchange="onRangeStartChange">
+        <view class="filter-field__value">{{rangeStart || '选择开始日期'}}</view>
+      </picker>
+    </view>
+
+    <view class="filter-field">
+      <text class="filter-field__label">结束日期</text>
+      <picker mode="date" value="{{rangeEnd}}" start="2000-01-01" end="2100-12-31" bindchange="onRangeEndChange">
+        <view class="filter-field__value">{{rangeEnd || '选择结束日期'}}</view>
+      </picker>
+    </view>
+
+    <view class="filter-drawer__actions range-sheet__actions">
+      <view class="btn btn--small btn--outline" bindtap="clearRange" hover-class="btn--pressed">清除</view>
+      <view class="btn btn--small btn--primary" bindtap="confirmRange" hover-class="btn--pressed">确定</view>
+    </view>
   </view>
 </van-popup>

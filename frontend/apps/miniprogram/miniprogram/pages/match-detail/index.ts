@@ -11,6 +11,7 @@ import type {
 import { errorMessage } from '../../utils/api-errors';
 import { eventCreateAllowed, eventEditAllowed } from '../../utils/event-form';
 import { buildGroupingBoard, type GroupingBoardView } from '../../utils/grouping-view';
+import { createGuardedLoads, type GuardedLoads } from '../../utils/guarded-load';
 import { buildLineupBoard, type LineupBoardView } from '../../utils/lineup-view';
 import {
   buildEventRows,
@@ -58,6 +59,15 @@ import type { QueueView } from '../../utils/match-view';
 import { queuesOf } from '../../utils/match-view';
 
 type TabKey = 'overview' | 'events' | 'lineup' | 'grouping';
+
+/** 名单 loader 的返回值：完整名单或本人视角，都是空态之外的成功结果。 */
+interface RosterLoad {
+  sections: RosterSections;
+  confirmed: RegistrationRow[];
+  attendanceError?: string;
+}
+
+const EMPTY_ROSTER_VIEW = buildRosterView(buildRoster([], [], []));
 
 let nowTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -143,6 +153,26 @@ function ownRosterRows(
   };
 }
 
+/** 事件表单球员候选：确认名单去重后转成精简球员。 */
+function eventPlayersOf(confirmed: RegistrationRow[]): EventFormPlayer[] {
+  const seen = new Set<number>();
+  const players: EventFormPlayer[] = [];
+  for (const row of confirmed) {
+    if (seen.has(row.player.id)) {
+      continue;
+    }
+    seen.add(row.player.id);
+    players.push({
+      id: row.player.id,
+      name: row.player.name,
+      jersey: row.player.jersey,
+      position: row.player.position,
+      positionLabel: row.player.positionLabel,
+    });
+  }
+  return players;
+}
+
 Page({
   data: {
     id: 0,
@@ -187,7 +217,7 @@ Page({
     signupBusy: false,
     cancelBusy: false,
     checkInBusy: false,
-    roster: buildRosterView(buildRoster([], [], [])) as RosterView,
+    roster: EMPTY_ROSTER_VIEW as RosterView,
     rosterLoading: false,
     rosterError: '',
     attendanceError: '',
@@ -217,6 +247,16 @@ Page({
     statusError: '',
   },
 
+  /** 四个 loader 共用的代次登记表；懒创建，卸载后连同页面实例一起回收。 */
+  loadRegistry: null as GuardedLoads | null,
+
+  guardedLoads(): GuardedLoads {
+    if (!this.loadRegistry) {
+      this.loadRegistry = createGuardedLoads((patch) => this.setData(patch));
+    }
+    return this.loadRegistry;
+  },
+
   onLoad(query: Record<string, string | undefined>) {
     const id = Number(query.id || 0);
     this.setData({ id });
@@ -241,8 +281,9 @@ Page({
 
   onUnload() {
     stopTimer();
-    // 递增后迟到的响应会被丢弃；页面已卸载，无需 setData。
+    // 递增后迟到的详情响应会被丢弃；loader 的在途请求同时过期，页面已卸载，无需 setData。
     this.data.seq += 1;
+    this.guardedLoads().invalidateAll();
   },
 
   onPullDownRefresh() {
@@ -251,6 +292,7 @@ Page({
 
   async load(silent: boolean): Promise<void> {
     const seq = this.data.seq + 1;
+    this.guardedLoads().invalidateAll();
     this.setData({
       seq,
       rosterLoading: false,
@@ -265,7 +307,7 @@ Page({
             notFound: false,
             detail: null,
             header: null,
-            roster: buildRosterView(buildRoster([], [], [])),
+            roster: EMPTY_ROSTER_VIEW,
             events: [],
             rawEvents: [],
           }),
@@ -355,14 +397,14 @@ Page({
       });
       this.syncWindowState();
 
-      void this.loadRoster(seq);
+      void this.loadRoster();
       // 等待事件刷新完成，冲突重试时 rawEvents 已是最新，editingVersion 不会拿到旧值。
-      await this.loadEvents(seq);
+      await this.loadEvents();
       if (this.data.lineup) {
-        void this.loadLineup(this.data.lineupSide, seq);
+        void this.loadLineup(this.data.lineupSide);
       }
       if (this.data.grouping) {
-        void this.loadGrouping(seq);
+        void this.loadGrouping();
       }
     } catch (error) {
       if (seq !== this.data.seq) {
@@ -378,7 +420,7 @@ Page({
           notFound: true,
           detail: null,
           header: null,
-          roster: buildRosterView(buildRoster([], [], [])),
+          roster: EMPTY_ROSTER_VIEW,
           events: [],
           rawEvents: [],
           eventPlayers: [],
@@ -399,97 +441,66 @@ Page({
     }
   },
 
-  async loadRoster(seq: number): Promise<void> {
+  async loadRoster(): Promise<void> {
     const detail = this.data.detail;
     if (!detail) {
       return;
     }
-    this.setData({ rosterLoading: true, rosterError: '', attendanceError: '' });
-    try {
-      let sections: RosterSections;
-      let confirmed: RegistrationRow[] = [];
-      if (!this.data.authenticated || this.data.pending || detail.status === 6) {
-        sections = buildRoster([], [], []);
-      } else if (this.data.canViewRoster) {
-        const full = await fetchFullRoster(this.data.id);
-        if (seq !== this.data.seq) {
-          return;
+    await this.guardedLoads().run<RosterLoad>({
+      key: 'roster',
+      errorText: '名单加载失败，请稍后重试',
+      begin: { attendanceError: '' },
+      fallback: { roster: EMPTY_ROSTER_VIEW },
+      fetch: async () => {
+        if (!this.data.authenticated || this.data.pending || detail.status === 6) {
+          return { sections: buildRoster([], [], []), confirmed: [] };
         }
-        sections = buildRoster(full.confirmed, full.waitlist, full.attendance);
-        confirmed = full.confirmed;
-        this.setData({ attendanceError: full.attendanceError });
-      } else {
+        if (this.data.canViewRoster) {
+          const full = await fetchFullRoster(this.data.id);
+          return {
+            sections: buildRoster(full.confirmed, full.waitlist, full.attendance),
+            confirmed: full.confirmed,
+            attendanceError: full.attendanceError,
+          };
+        }
         const own = ownRosterRows(this.data.registration, this.data.attendance);
-        sections = buildRoster(own.confirmed, own.waitlist, own.attendance);
-        confirmed = own.confirmed;
-      }
-      if (seq !== this.data.seq) {
-        return;
-      }
-      const seen = new Set<number>();
-      const eventPlayers: EventFormPlayer[] = [];
-      for (const row of confirmed) {
-        if (seen.has(row.player.id)) {
-          continue;
-        }
-        seen.add(row.player.id);
-        eventPlayers.push({
-          id: row.player.id,
-          name: row.player.name,
-          jersey: row.player.jersey,
-          position: row.player.position,
-          positionLabel: row.player.positionLabel,
-        });
-      }
-      this.setData({ roster: buildRosterView(sections), eventPlayers });
-      this.syncWindowState();
-    } catch (error) {
-      if (seq !== this.data.seq) {
-        return;
-      }
-      this.setData({
-        roster: buildRosterView(buildRoster([], [], [])),
-        rosterError: errorMessage(error, '名单加载失败，请稍后重试'),
-      });
-    } finally {
-      if (seq === this.data.seq) {
-        this.setData({ rosterLoading: false });
-      }
-    }
+        return {
+          sections: buildRoster(own.confirmed, own.waitlist, own.attendance),
+          confirmed: own.confirmed,
+        };
+      },
+      map: (loaded) => ({
+        roster: buildRosterView(loaded.sections),
+        eventPlayers: eventPlayersOf(loaded.confirmed),
+        ...(loaded.attendanceError === undefined
+          ? {}
+          : { attendanceError: loaded.attendanceError }),
+      }),
+      after: () => this.syncWindowState(),
+    });
   },
 
-  async loadEvents(seq: number): Promise<void> {
-    this.setData({ eventsLoading: true, eventsError: '' });
-    try {
-      const timeline = await fetchEvents(this.data.id);
-      if (seq !== this.data.seq) {
-        return;
-      }
-      const derived = timeline.derivedScore ?? null;
-      this.setData({
-        rawEvents: timeline.items,
-        derivedScore: derived,
-        eventStats: {
-          goals: timeline.items.filter((event) => event.type === 0).length,
-          cards: timeline.items.filter((event) => event.type === 3 || event.type === 4).length,
-          subs: timeline.items.filter((event) => event.type === 2).length,
-        },
-      });
-      const detail = this.data.detail;
-      if (detail) {
-        this.setData({ header: buildMatchDetailHeader(detail, derived) });
-      }
-      this.refreshEventRows();
-    } catch (error) {
-      if (seq !== this.data.seq) {
-        return;
-      }
-      this.setData({ eventsError: errorMessage(error, '事件加载失败，请稍后重试') });
-    } finally {
-      if (seq === this.data.seq) {
-        this.setData({ eventsLoading: false });
-      }
-    }
+  async loadEvents(): Promise<void> {
+    await this.guardedLoads().run({
+      key: 'events',
+      errorText: '事件加载失败，请稍后重试',
+      fetch: () => fetchEvents(this.data.id),
+      map: (timeline) => {
+        const derived = timeline.derivedScore ?? null;
+        const detail = this.data.detail;
+        return {
+          rawEvents: timeline.items,
+          derivedScore: derived,
+          eventStats: {
+            goals: timeline.items.filter((event) => event.type === 0).length,
+            cards: timeline.items.filter((event) => event.type === 3 || event.type === 4).length,
+            subs: timeline.items.filter((event) => event.type === 2).length,
+          },
+          ...(detail ? { header: buildMatchDetailHeader(detail, derived) } : {}),
+        };
+      },
+      after: () => this.refreshEventRows(),
+    });
   },
 
   refreshEventRows(): void {
@@ -600,10 +611,10 @@ Page({
     if (key === 'lineup' && !this.data.lineup && !this.data.lineupLoading) {
       const detail = this.data.detail;
       const side = detail && isInternalMatchType(detail.type) ? 0 : (detail?.ourSide ?? 0);
-      void this.loadLineup(side, this.data.seq);
+      void this.loadLineup(side);
     }
     if (key === 'grouping' && !this.data.grouping && !this.data.groupingLoading) {
-      void this.loadGrouping(this.data.seq);
+      void this.loadGrouping();
     }
   },
 
@@ -663,73 +674,50 @@ Page({
     actions.retryEvents(this);
   },
 
-  async loadLineup(side: number, seq: number): Promise<void> {
+  async loadLineup(side: number): Promise<void> {
     const detail = this.data.detail;
     if (!detail || !this.data.canViewLineup) {
       return;
     }
-    this.setData({ lineupLoading: true, lineupError: '', lineupSide: side });
-    try {
-      const view = await fetchLineup(this.data.id, side);
-      if (seq !== this.data.seq || this.data.lineupSide !== side) {
-        return;
-      }
-      this.setData({ lineup: buildLineupBoard(view, detail) });
-    } catch (error) {
-      if (seq !== this.data.seq || this.data.lineupSide !== side) {
-        return;
-      }
-      this.setData({ lineup: null, lineupError: errorMessage(error, '阵容加载失败，请稍后重试') });
-    } finally {
-      if (seq === this.data.seq && this.data.lineupSide === side) {
-        this.setData({ lineupLoading: false });
-      }
-    }
+    await this.guardedLoads().run({
+      key: 'lineup',
+      errorText: '阵容加载失败，请稍后重试',
+      begin: { lineupSide: side },
+      fallback: { lineup: null },
+      fetch: () => fetchLineup(this.data.id, side),
+      map: (view) => ({ lineup: buildLineupBoard(view, detail) }),
+    });
   },
 
   switchLineupSide(event: WechatMiniprogram.BaseEvent) {
     const side = Number(event.currentTarget.dataset.side);
-    void this.loadLineup(side, this.data.seq);
+    void this.loadLineup(side);
   },
 
-  async loadGrouping(seq: number): Promise<void> {
+  async loadGrouping(): Promise<void> {
     const detail = this.data.detail;
     if (!detail || !this.data.canViewGrouping) {
       return;
     }
-    this.setData({ groupingLoading: true, groupingError: '' });
-    try {
-      const view = await fetchGrouping(this.data.id);
-      if (seq !== this.data.seq) {
-        return;
-      }
-      this.setData({ grouping: view, groupingBoard: buildGroupingBoard(view, detail) });
-    } catch (error) {
-      if (seq !== this.data.seq) {
-        return;
-      }
-      this.setData({
-        grouping: null,
-        groupingBoard: null,
-        groupingError: errorMessage(error, '分组加载失败，请稍后重试'),
-      });
-    } finally {
-      if (seq === this.data.seq) {
-        this.setData({ groupingLoading: false });
-      }
-    }
+    await this.guardedLoads().run({
+      key: 'grouping',
+      errorText: '分组加载失败，请稍后重试',
+      fallback: { grouping: null, groupingBoard: null },
+      fetch: () => fetchGrouping(this.data.id),
+      map: (view) => ({ grouping: view, groupingBoard: buildGroupingBoard(view, detail) }),
+    });
   },
 
   retryLineup() {
-    void this.loadLineup(this.data.lineupSide, this.data.seq);
+    void this.loadLineup(this.data.lineupSide);
   },
 
   retryGrouping() {
-    void this.loadGrouping(this.data.seq);
+    void this.loadGrouping();
   },
 
   retryRoster() {
-    void this.loadRoster(this.data.seq);
+    void this.loadRoster();
   },
 
   goLogin() {

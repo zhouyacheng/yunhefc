@@ -1,6 +1,6 @@
 # 03 四个 loader 收进一个 guarded-load module
 
-Status: needs-triage
+Status: resolved
 Blocked by: none
 
 ## 目标
@@ -43,11 +43,11 @@ Blocked by: none
 
 ## 验收
 
-- [ ] 四个 loader 不再各自实现 seq/loading/error/finally。
-- [ ] 新增测试覆盖迟到响应丢弃、错误回退、loading 复位。
-- [ ] 阵容主客快速切换仍不会被乱序响应覆盖。
-- [ ] 页面 data 字段名与 WXML 绑定不变。
-- [ ] `typecheck`、`test`、`pnpm lint` 通过。
+- [x] 四个 loader 不再各自实现 seq/loading/error/finally。
+- [x] 新增测试覆盖迟到响应丢弃、错误回退、loading 复位。
+- [x] 阵容主客快速切换仍不会被乱序响应覆盖。
+- [x] 页面 data 字段名与 WXML 绑定不变。
+- [x] `typecheck`、`test`、`pnpm lint` 通过。
 
 ## 风险
 
@@ -56,3 +56,16 @@ Blocked by: none
 ## Comments
 
 - 2026-11-20 架构扫描开票（Worth exploring）。
+- 2026-11-20 实施完成（TDD）：
+  - 新增 `utils/guarded-load.ts`：`createGuardedLoads(setData)` 按 `key` 维护代次；`run({ key, fetch, map, fallback, begin, errorText, after })` 负责开跑时的 `loading`/`error` 重置、迟到响应丢弃、失败空态回退与 `finally` 的 loading 复位。`key` 决定写入 `${key}Loading`/`${key}Error`，与页面既有字段名一致。
+  - `pages/match-detail/index.ts` 四个 loader 退化为 fetcher + 映射：`loadRoster` 的三种来源（空态/本人视角/完整名单）收进 `fetch` 返回的 `RosterLoad`，`eventPlayers` 去重抽为 `eventPlayersOf`；`loadLineup` 的主客切换由代次取代 `lineupSide` 比对（`lineupSide` 改由 `begin` 与 loading 同一次写入）。
+  - `load()` 开始与 `onUnload` 调用 `invalidateAll()`，保持“重载/卸载后旧响应不落地”的既有语义；页面 `seq` 只再用于详情请求自身的代次。`loadGrouping` 仍返回 Promise，`ensureEventGrouping` 继续 await。
+  - `actions.ts` 的 `MatchActionPage` 去掉不再使用的 `seq`，`loadRoster/loadGrouping/loadEvents` 改为无参。
+  - 新增 `tests/guarded-load.test.ts`（10 例）：loading/映射/复位顺序、`begin` 合并、失败回退与默认文案、逐 key 空态回退、迟到响应丢弃、阵容主客乱序、旧请求不提前复位 loading、`invalidateAll`、`after` 只对最新响应执行。
+  - 验证：`pnpm --filter @yunhefc/miniprogram typecheck`、`test`（26 文件 / 224 用例）、`pnpm lint`、`prettier --check`（改动文件）通过；开发者工具/真机走查待补。
+- 2026-11-21 code-review（Standards / Spec 两轴）：
+  - 已改：`EMPTY_ROSTER_VIEW` 统一 data 初始化、重载与 404 三处旧字面量；页面字段改名 `loadRegistry`；`frontend/apps/miniprogram/README.md` 的 utils 清单补 `guarded-load`；补两例测试（阵容主客乱序 + `begin.lineupSide`、逐 key 空态回退）；`invalidateAll` 注明“只让在途过期、不写 loading”的契约。
+  - 保留：`key: string` 而非字面量联合——module 是通用接口，票面要求新 tab 直接复用；代次实现与 `paged-feed` 保持各自独立——后者的代次与分页 state 绑定，抽取共用代价大于收益。
+  - 行为差异（有意，README“行为保持不变”的唯一例外）：同一 key 的并发运行现在一律 `last-request-wins`；旧代码只在阵容主客不同时丢弃旧响应，同目标重复重试是 `last-settled-wins`。仅影响双击重试等罕见竞态，且与“迟到响应丢弃”不变量一致。
+  - `actions.ts` 的 `MatchActionPage` 去 `seq` 是接口改动的必要涟漪，未触碰 ticket 04 的 actions 深化。
+  - `CONTEXT.md` 新增 guarded-load 术语，按批次 README 的“事实源”约定登记。

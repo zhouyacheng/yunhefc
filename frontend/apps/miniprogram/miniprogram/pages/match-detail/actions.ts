@@ -30,7 +30,6 @@ import { markMyRegistrationsDirty } from '../../utils/registration-signal';
 export interface MatchActionPage {
   data: {
     id: number;
-    seq: number;
     detail: MatchDetail | null;
     registration: Registration | null;
     attendance: Attendance | null;
@@ -63,9 +62,9 @@ export interface MatchActionPage {
   };
   setData(patch: Record<string, unknown>): void;
   load(silent: boolean): Promise<void>;
-  loadRoster(seq: number): Promise<void>;
-  loadGrouping(seq: number): Promise<void>;
-  loadEvents(seq: number): Promise<void>;
+  loadRoster(): Promise<void>;
+  loadGrouping(): Promise<void>;
+  loadEvents(): Promise<void>;
 }
 
 function toast(title: string): void {
@@ -229,7 +228,7 @@ export async function openCreateEvent(page: MatchActionPage): Promise<void> {
     return;
   }
   if (page.data.eventPlayers.length === 0) {
-    await page.loadRoster(page.data.seq);
+    await page.loadRoster();
   }
   await ensureEventGrouping(page);
   page.setData({ editingEvent: null, editingVersion: 0, eventError: '', eventFormOpen: true });
@@ -275,7 +274,7 @@ async function ensureEventGrouping(page: MatchActionPage): Promise<void> {
     return;
   }
   if (!page.data.grouping) {
-    await page.loadGrouping(page.data.seq);
+    await page.loadGrouping();
   }
   page.setData({ eventGrouping: page.data.grouping });
 }
@@ -319,5 +318,5 @@ export async function onEventSave(
 }
 
 export function retryEvents(page: MatchActionPage): void {
-  void page.loadEvents(page.data.seq);
+  void page.loadEvents();
 }

@@ -1,4 +1,5 @@
 import type { MatchDetail, MatchDetailView, MatchEvent } from '../../types/api';
+import { formatDateYmd, formatTimeRange } from '../../utils/datetime';
 import { request } from '../../utils/request';
 
 interface EventTimeline {
@@ -11,10 +12,6 @@ interface EventRow {
   label: string;
   minuteText: string;
   playerName: string;
-}
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
 }
 
 Page({
@@ -44,13 +41,10 @@ Page({
         request<MatchDetail>('GET', `/matches/${id}`),
         request<EventTimeline>('GET', `/matches/${id}/events`),
       ]);
-      const start = new Date(detail.startAt);
-      const end = new Date(detail.endAt);
-      const timeText = Number.isNaN(start.getTime())
-        ? detail.startAt
-        : `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())} ` +
-          `${pad(start.getHours())}:${pad(start.getMinutes())}` +
-          (Number.isNaN(end.getTime()) ? '' : `-${pad(end.getHours())}:${pad(end.getMinutes())}`);
+      const date = formatDateYmd(detail.startAt);
+      const timeText = date
+        ? `${date} ${formatTimeRange(detail.startAt, detail.endAt)}`
+        : detail.startAt;
       this.setData({
         detail: { ...detail, timeText } satisfies MatchDetailView,
         events: (timeline.items || []).map((event) => ({

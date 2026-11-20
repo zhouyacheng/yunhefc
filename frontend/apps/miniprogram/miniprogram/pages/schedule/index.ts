@@ -1,4 +1,10 @@
 import type { AuthUser, MatchSummary, Page } from '../../types/api';
+import { formatDateYmd, formatHourMinute } from '../../utils/datetime';
+import {
+  createPagedFeed,
+  emptyPagedFeedState,
+  type PagedFeed,
+} from '../../utils/paged-feed';
 import { request } from '../../utils/request';
 import { getUser } from '../../utils/session';
 
@@ -10,19 +16,11 @@ interface Row extends MatchSummary {
 
 const PAGE_SIZE = 10;
 
-function pad(value: number): string {
-  return String(value).padStart(2, '0');
-}
-
 function decorate(match: MatchSummary): Row {
-  const start = new Date(match.startAt);
-  const valid = !Number.isNaN(start.getTime());
   return {
     ...match,
-    dateText: valid
-      ? `${start.getFullYear()}-${pad(start.getMonth() + 1)}-${pad(start.getDate())}`
-      : match.startAt,
-    timeText: valid ? `${pad(start.getHours())}:${pad(start.getMinutes())}` : '',
+    dateText: formatDateYmd(match.startAt) || match.startAt,
+    timeText: formatHourMinute(match.startAt),
     scoreText:
       match.scoreHome === null || match.scoreAway === null
         ? ''
@@ -30,63 +28,58 @@ function decorate(match: MatchSummary): Row {
   };
 }
 
+let feed: PagedFeed<Row> | null = null;
+
 Page({
   data: {
-    scope: 'upcoming' as 'upcoming' | 'history',
-    rows: [] as Row[],
-    loading: false,
-    error: '',
-    page: 1,
-    totalPages: 1,
+    feed: emptyPagedFeedState<Row>('upcoming'),
     user: null as AuthUser | null,
+  },
+
+  onLoad() {
+    let lastError = '';
+    feed = createPagedFeed<Row>({
+      pageSize: PAGE_SIZE,
+      initialKey: 'upcoming',
+      fetchPage: async ({ key, page, pageSize }) => {
+        const result = await request<Page<MatchSummary>>(
+          'GET',
+          `/matches?scope=${key}&page=${page}&pageSize=${pageSize}`,
+        );
+        return { ...result, items: result.items.map(decorate) };
+      },
+      onChange: (state) => {
+        this.setData({ feed: state });
+        // 已有列表时刷新失败只 toast；首屏失败由空态展示 error。
+        if (state.error && state.error !== lastError && state.items.length > 0) {
+          wx.showToast({ title: state.error, icon: 'none' });
+        }
+        lastError = state.error;
+      },
+    });
   },
 
   onShow() {
     this.setData({ user: getUser() });
-    void this.load(true);
+    void feed?.load();
+  },
+
+  onUnload() {
+    feed = null;
   },
 
   onPullDownRefresh() {
-    void this.load(true).then(() => wx.stopPullDownRefresh());
+    const loading = feed?.load();
+    void (loading ?? Promise.resolve()).then(() => wx.stopPullDownRefresh());
   },
 
   onReachBottom() {
-    if (!this.data.loading && this.data.page < this.data.totalPages) {
-      void this.load(false);
-    }
+    void feed?.loadMore();
   },
 
   switchScope(event: WechatMiniprogram.BaseEvent) {
-    const scope = event.currentTarget.dataset.scope as 'upcoming' | 'history';
-    if (scope === this.data.scope) {
-      return;
-    }
-    this.setData({ scope, rows: [], page: 1, totalPages: 1 });
-    void this.load(true);
-  },
-
-  async load(reset: boolean) {
-    if (this.data.loading) {
-      return;
-    }
-    const page = reset ? 1 : this.data.page + 1;
-    this.setData({ loading: true, error: '' });
-    try {
-      const result = await request<Page<MatchSummary>>(
-        'GET',
-        `/matches?scope=${this.data.scope}&page=${page}&pageSize=${PAGE_SIZE}`,
-      );
-      const rows = result.items.map(decorate);
-      this.setData({
-        rows: reset ? rows : this.data.rows.concat(rows),
-        page: result.page,
-        totalPages: result.totalPages,
-      });
-    } catch (error) {
-      this.setData({ error: (error as Error).message || '加载失败，请稍后重试' });
-    } finally {
-      this.setData({ loading: false });
-    }
+    const scope = event.currentTarget.dataset.scope as string;
+    feed?.setKey(scope);
   },
 
   goDetail(event: WechatMiniprogram.BaseEvent) {

@@ -6,4 +6,10 @@ const BASE_URLS = {
   prod: 'https://www.yunhefc.com/api/v1/c',
 } as const;
 
+const WEB_URLS = {
+  local: 'http://localhost:5273',
+  prod: 'https://www.yunhefc.com',
+} as const;
+
 export const BASE_URL: string = BASE_URLS[ENV];
+export const WEB_URL: string = WEB_URLS[ENV];

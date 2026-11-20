@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "编辑资料",
+  "usingComponents": {
+    "van-loading": "@vant/weapp/loading/index"
+  }
+}

@@ -1,0 +1,140 @@
+/* 跨页面共用控件：按钮与状态/类型 pill。 */
+
+.btn {
+  box-sizing: border-box;
+  display: inline-block;
+  min-height: 88rpx;
+  padding: 0 32rpx;
+  color: #ffffff;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 88rpx;
+  text-align: center;
+  border-radius: var(--yh-radius-sm);
+}
+
+.btn--primary {
+  background: linear-gradient(135deg, var(--yh-green-bright), var(--yh-green));
+  box-shadow: var(--yh-green-shadow);
+}
+
+.btn--small {
+  min-height: 72rpx;
+  padding: 0 28rpx;
+  font-size: 26rpx;
+  line-height: 72rpx;
+}
+
+.btn--outline {
+  box-sizing: border-box;
+  color: var(--yh-green);
+  background: var(--yh-surface);
+  border: 1rpx solid var(--yh-green);
+  box-shadow: none;
+}
+
+.btn--danger-plain {
+  box-sizing: border-box;
+  color: var(--yh-red);
+  background: var(--yh-surface);
+  border: 1rpx solid var(--yh-red);
+  box-shadow: none;
+}
+
+.btn--block {
+  display: block;
+  width: 100%;
+}
+
+.btn--pressed {
+  opacity: 0.86;
+  transform: translateY(1rpx);
+}
+
+.btn--disabled {
+  color: var(--yh-muted);
+  background: var(--yh-slate-soft);
+  box-shadow: none;
+}
+
+.status-pill,
+.type-pill {
+  box-sizing: border-box;
+  display: inline-block;
+  padding: 8rpx 16rpx;
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  border-radius: 999rpx;
+}
+
+.status-pill {
+  color: var(--yh-slate-ink);
+  background: var(--yh-slate-soft);
+}
+
+.status-pill--open {
+  color: var(--yh-green-ink);
+  background: var(--yh-green-soft);
+}
+
+.status-pill--closed,
+.status-pill--loss {
+  color: var(--yh-slate-ink);
+  background: var(--yh-line);
+}
+
+.status-pill--locked {
+  color: var(--yh-blue-ink);
+  background: var(--yh-blue-soft);
+}
+
+.status-pill--live,
+.status-pill--win {
+  color: #ffffff;
+  background: var(--yh-red);
+}
+
+.status-pill--finished {
+  color: var(--yh-indigo-ink);
+  background: var(--yh-indigo-soft);
+}
+
+.status-pill--postponed,
+.status-pill--draw,
+.status-pill--soon {
+  color: var(--yh-amber-ink);
+  background: var(--yh-amber-soft);
+}
+
+.status-pill--cancelled,
+.status-pill--muted {
+  color: var(--yh-muted);
+  background: var(--yh-slate-soft);
+}
+
+.status-pill--admin {
+  color: var(--yh-purple-ink);
+  background: var(--yh-purple-soft);
+}
+
+.type-pill--external {
+  color: var(--yh-indigo-ink);
+  background: var(--yh-indigo-soft);
+}
+
+.type-pill--internal {
+  color: var(--yh-green-ink);
+  background: var(--yh-green-soft);
+}
+
+.type-pill--training {
+  color: var(--yh-blue-ink);
+  background: var(--yh-blue-soft);
+}
+
+.type-pill--friendly {
+  color: var(--yh-amber-ink);
+  background: var(--yh-amber-soft);
+}

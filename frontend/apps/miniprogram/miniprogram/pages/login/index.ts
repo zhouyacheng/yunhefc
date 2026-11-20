@@ -1,3 +1,4 @@
+import { refreshUnreadBadge } from '../../utils/notifications';
 import { login } from '../../utils/session';
 
 Page({
@@ -18,7 +19,8 @@ Page({
         void wx.redirectTo({ url: '/pages/phone-bind/index' });
         return;
       }
-      void wx.switchTab({ url: '/pages/schedule/index' });
+      void refreshUnreadBadge();
+      void wx.switchTab({ url: '/pages/home/index' });
     } catch (error) {
       this.setData({
         status: 'error',
@@ -32,6 +34,6 @@ Page({
   },
 
   skip() {
-    void wx.switchTab({ url: '/pages/schedule/index' });
+    void wx.switchTab({ url: '/pages/home/index' });
   },
 });

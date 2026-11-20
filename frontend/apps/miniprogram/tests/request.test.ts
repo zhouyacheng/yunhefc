@@ -5,6 +5,8 @@ import {
   request,
   resetAuth,
   setCsrf,
+  setUnauthorizedHandler,
+  uploadFile,
 } from '../miniprogram/utils/request';
 
 type WxOptions = {
@@ -15,17 +17,30 @@ type WxOptions = {
   fail: (err: { errMsg: string }) => void;
 };
 
+type WxUploadOptions = {
+  url: string;
+  filePath: string;
+  name: string;
+  header: Record<string, string>;
+  success: (res: { statusCode: number; data: string }) => void;
+  fail: (err: { errMsg: string }) => void;
+};
+
 let responder: (options: WxOptions) => void;
+let uploadResponder: (options: WxUploadOptions) => void;
 
 beforeEach(() => {
   resetAuth();
+  uploadResponder = () => undefined;
   (globalThis as unknown as { wx: unknown }).wx = {
     request: (options: WxOptions) => responder(options),
+    uploadFile: (options: WxUploadOptions) => uploadResponder(options),
   };
 });
 
 afterEach(() => {
   resetAuth();
+  setUnauthorizedHandler(null);
 });
 
 describe('extractSessionCookie', () => {
@@ -88,7 +103,41 @@ describe('request', () => {
     expect(seen[1].header['X-XSRF-TOKEN']).toBe('t-1');
   });
 
-  it('clears auth state on 401', async () => {
+  it('uploads multipart with cookie/CSRF and unwraps the envelope', async () => {
+    setCsrf('t-1');
+    uploadResponder = (options) => {
+      expect(options.url).toContain('/files/avatar');
+      expect(options.name).toBe('file');
+      expect(options.header['X-XSRF-TOKEN']).toBe('t-1');
+      options.success({
+        statusCode: 200,
+        data: JSON.stringify({ code: 0, data: { objectKey: 'k', signedUrl: 'u' } }),
+      });
+    };
+
+    await expect(uploadFile('/files/avatar', '/tmp/a.png')).resolves.toEqual({
+      objectKey: 'k',
+      signedUrl: 'u',
+    });
+  });
+
+  it('notifies the session when an upload returns 401', async () => {
+    let cleared = 0;
+    setUnauthorizedHandler(() => {
+      cleared += 1;
+    });
+    uploadResponder = (options) => {
+      options.success({
+        statusCode: 401,
+        data: JSON.stringify({ code: 40101, message: '未登录' }),
+      });
+    };
+
+    await expect(uploadFile('/files/avatar', '/tmp/a.png')).rejects.toBeInstanceOf(ApiError);
+    expect(cleared).toBe(1);
+  });
+
+  it('clears auth state and notifies the session on 401', async () => {
     responder = (options) =>
       options.success({
         statusCode: 200,
@@ -97,9 +146,14 @@ describe('request', () => {
       });
     await request('GET', '/auth/csrf');
 
+    let cleared = 0;
+    setUnauthorizedHandler(() => {
+      cleared += 1;
+    });
     responder = (options) =>
       options.success({ statusCode: 401, data: { code: 40101 }, header: {} });
     await expect(request('GET', '/me')).rejects.toBeInstanceOf(ApiError);
+    expect(cleared).toBe(1);
 
     responder = (options) => {
       expect(options.header.Cookie).toBeUndefined();

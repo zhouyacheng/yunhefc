@@ -4,12 +4,8 @@ import { bindPhone, getBindTicket, sendSmsCode } from '../../utils/session';
 const POSITION_LABELS = ['门将', '后卫', '中场', '前锋'];
 const PHONE = /^1\d{10}$/;
 
-// van-field 的 change 事件把输入值直接放在 detail 上。
-interface FieldEvent {
-  detail: string;
-}
-
-interface PickerEvent {
+// 原生 input 的 bindinput 与 picker 的 bindchange 都把值放在 detail.value 上。
+interface ValueEvent {
   detail: { value: string };
 }
 
@@ -38,19 +34,19 @@ Page({
     clearTimer();
   },
 
-  onPhoneInput(event: FieldEvent) {
-    this.setData({ phone: event.detail });
+  onPhoneInput(event: ValueEvent) {
+    this.setData({ phone: event.detail.value });
   },
 
-  onCodeInput(event: FieldEvent) {
-    this.setData({ code: event.detail });
+  onCodeInput(event: ValueEvent) {
+    this.setData({ code: event.detail.value });
   },
 
-  onNameInput(event: FieldEvent) {
-    this.setData({ name: event.detail });
+  onNameInput(event: ValueEvent) {
+    this.setData({ name: event.detail.value });
   },
 
-  onPositionChange(event: PickerEvent) {
+  onPositionChange(event: ValueEvent) {
     this.setData({ positionIndex: Number(event.detail.value) });
   },
 

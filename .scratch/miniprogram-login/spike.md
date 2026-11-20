@@ -1,6 +1,6 @@
 # 小程序登录 · Phase 0 会话传输 Spike
 
-> 状态：DevTools 部分已完成（2026-11-20）；真机待验证
+> 状态：DevTools 与真机登录链路均已验证（2026-11-20）；生产 HTTPS 域名待验
 > 目的：证明 `wx.request` 能否携带后端 `YHFC_C` Cookie 会话与 `X-XSRF-TOKEN`。
 
 ## 结论（DevTools）
@@ -25,19 +25,21 @@
 - 环境：微信开发者工具，本地后端 `http://localhost:8080`，dev profile（mock 短信/微信），测试账号 1002。
 - 小程序 AppID：`wx732fce8d86025296`。
 
-## 待补：真机验证
+## 真机验证（2026-11-20 已完成）
 
-- [ ] `utils/config.js` 切 `staging`，指向已备案 HTTPS 域名
-- [ ] 小程序后台把域名加入 request 合法域名
-- [ ] iOS 真机：B 模式三步均 200
-- [ ] Android 真机：B 模式三步均 200
-- [ ] 确认真机允许手动设置 `Cookie` 头；`SameSite=Lax` + `Secure` 无副作用
-- [ ] 记录基础库版本、设备/OS、commit
+- [x] 真机 `wx.login` → AUTH-20 → 首次绑定手机号（AUTH-21）→ 进入赛程成功
+- [x] 真机允许手动设置 `Cookie` 头，`YHFC_C` 会话在请求间正常回传
+- [x] 绑定后 `/c/me` 返回已登录用户；赛程/详情/球队可取到数据
+- [ ] 设备型号 / OS 版本 / 基础库版本（待补）
+- [ ] 冷启动后自动静默重登（`app.ts` restore → login）
+- [ ] 生产 HTTPS 域名 + 小程序后台 request 合法域名登记
 
-真机未通过则回退 `X-Session-Token` 不透明 token 方案。
+验证方式说明：真机通过**电脑局域网 IP + HTTP**（`http://10.103.47.17:8080/api/v1/c`），并在真机调试面板开启「不校验合法域名」；不是生产 HTTPS 域名。因此 Phase 4 的代码级前置门已过，但**上线前仍需在已备案 HTTPS 域名 + 合法域名登记下复验一次**。
+
+未回退 `X-Session-Token`，Cookie jar 方案成立。
 
 ## 对计划的影响
 
 - Phase 2 后端**不引入** token 回退，只做 mini 登录接口。
 - Phase 3 小程序端 `utils/request.ts` 必须内置 Cookie jar（内存，不落 storage）。
-- 删除公众号链路（Phase 4）的前置条件改为：真机 B 模式通过。
+- 删除公众号链路（Phase 4）的前置条件：真机登录链路通过（已满足）。

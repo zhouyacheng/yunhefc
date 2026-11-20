@@ -1,6 +1,6 @@
 import type { MatchSummary, Page } from '../../types/api';
 import { currentShanghaiMonth } from '../../utils/datetime';
-import { buildMatchCard, type MatchCardView } from '../../utils/home-view';
+import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import {
   createPagedFeed,
   emptyPagedFeedState,
@@ -23,7 +23,18 @@ import {
 
 const AUTO_APPLY_DELAY = 300;
 
+type ScheduleFormExtras = Partial<{
+  typeIndex: number;
+  statusIndex: number;
+  monthPickerValue: string;
+  rangeStart: string;
+  rangeEnd: string;
+  rangeOpen: boolean;
+  filtersOpen: boolean;
+}>;
+
 let feed: PagedFeed<MatchCardView> | null = null;
+let unloading = false;
 let autoTimer: ReturnType<typeof setTimeout> | undefined;
 let lastError = '';
 /** 最近一次失败请求的语义，决定页脚重试是重载第 1 页还是续拉下一页。 */
@@ -53,6 +64,7 @@ Page({
   },
 
   onLoad() {
+    unloading = false;
     const filters = emptyScheduleFilters();
     const form = toScheduleForm(filters);
     this.setData({
@@ -72,6 +84,9 @@ Page({
         return { ...result, items: result.items.map(buildMatchCard) };
       },
       onChange: (state) => {
+        if (unloading) {
+          return;
+        }
         this.setData({ feed: state });
         // 已有列表时刷新失败只 toast；首屏失败由空态展示 error。
         if (state.error && state.error !== lastError && state.items.length > 0) {
@@ -95,6 +110,7 @@ Page({
 
   onUnload() {
     cancelAutoApply();
+    unloading = true;
     feed?.reset();
     feed = null;
   },
@@ -107,7 +123,7 @@ Page({
     this.setData({ filtersOpen: false });
   },
 
-  patchForm(patch: Partial<ScheduleForm>, extra: Record<string, unknown> = {}) {
+  patchForm(patch: Partial<ScheduleForm>, extra: ScheduleFormExtras = {}) {
     const form = { ...(this.data.form as ScheduleForm), ...patch };
     this.setData({ form, ...extra });
     this.scheduleAutoApply(form);
@@ -170,6 +186,12 @@ Page({
 
   clearMonth() {
     this.patchForm({ month: '' }, { monthPickerValue: `${currentShanghaiMonth()}-01` });
+  },
+
+  /** 清空后原生 picker 默认停在当月，重复确认不会触发 change；提供显式恢复入口。 */
+  selectCurrentMonth() {
+    const month = currentShanghaiMonth();
+    this.patchForm({ month, startDate: '', endDate: '' }, { monthPickerValue: `${month}-01` });
   },
 
   openRange() {

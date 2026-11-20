@@ -2,18 +2,6 @@
   padding-bottom: calc(var(--yh-page-pad-y) + env(safe-area-inset-bottom));
 }
 
-.state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24rpx;
-  padding: 120rpx 40rpx;
-}
-
-.state--inline {
-  padding: 48rpx 0;
-}
-
 /* C03 头部：深色渐变，与首页 Hero 同一视觉语言。 */
 
 .detail-hero {

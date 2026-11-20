@@ -1,12 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AuthUser, MatchDetail, MatchSummary, PlayerView } from '../miniprogram/types/api';
-import {
-  buildHero,
-  buildMatchCard,
-  HOME_FEATURES,
-  queuesOf,
-} from '../miniprogram/utils/home-view';
+import { buildHero, HOME_FEATURES } from '../miniprogram/utils/home-view';
+import { buildMatchCard, queuesOf } from '../miniprogram/utils/match-view';
 
 function summary(overrides: Partial<MatchSummary> = {}): MatchSummary {
   return {

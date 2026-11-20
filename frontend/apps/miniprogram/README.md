@@ -10,10 +10,10 @@ frontend/apps/miniprogram/
 ├── tests/                       # Vitest：请求/上传封装、会话、展示/CTA/筛选/详情/个人中心纯函数、设计 token
 └── miniprogram/
     ├── app.ts|json|wxss
-    ├── styles/{tokens,controls,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、比赛卡片
+    ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
-    ├── utils/{config,request,session,notifications,datetime,presentation,paged-feed,schedule-query,home-cta,home-view,match-detail-view,profile-view}.ts
+    ├── utils/{config,request,session,notifications,datetime,presentation,paged-feed,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view}.ts
     └── pages/
         ├── home/                # tab：首页（镜像 Web C01）
         ├── schedule/            # tab：比赛（C02 筛选、富卡片、下拉/上拉）

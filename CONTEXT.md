@@ -10,3 +10,7 @@
 
 仅在 main 运行的真实后端冒烟链路：真实 JDK 后端 + MySQL + Redis + Playwright 浏览器用例。
 与 PR 三项必需检查不同，它可以失败重跑而不阻塞合并。
+
+## 分页 Feed module
+
+小程序 `utils/paged-feed.ts`：统一 reset/append、key 切换、generation 丢弃与 load-more 守卫的列表 module；页面只消费 state 快照。

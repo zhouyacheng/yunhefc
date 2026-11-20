@@ -409,6 +409,16 @@ COMMIT;
 
 > 公众号网页授权已随 P-74 删除，`WECHAT_*` 旧变量不再读取；`.env` 里的旧值可以安全移除。`MP_verify_*.txt` 仅保留用于域名验证与历史申诉材料。
 
+### 3.8 小程序上线向导
+
+首次上线或更换小程序主体时，在仓库根运行：
+
+```bash
+scripts/miniprogram-launch-wizard.sh
+```
+
+逐段引导：request 合法域名、服务类目与隐私指引、采集 AppID/AppSecret、生成 ECS `.env` 片段、V13 迁移、发布镜像、生产 HTTPS 真机复验、上传与提审。AppSecret 走隐藏输入，只写入本地 `deploy/.env.mini` 与 ECS `/opt/yunhefc/.env`；迁移与发布前各有一道确认门，顺序反了不会继续。
+
 ---
 
 ## 4. 固定排障入口

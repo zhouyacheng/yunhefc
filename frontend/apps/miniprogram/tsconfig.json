@@ -8,7 +8,7 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["miniprogram-api-typings"]
+    "types": ["miniprogram-api-typings", "node"]
   },
   "include": ["miniprogram/**/*.ts", "tests/**/*.ts"]
 }

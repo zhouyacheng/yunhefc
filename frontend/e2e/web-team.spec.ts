@@ -35,10 +35,10 @@ test('C04 球队：四组名单、全量展示与公开字段', async ({ page })
   await expect(titles.nth(2)).toContainText('后卫');
   await expect(titles.nth(3)).toContainText('门将');
 
-  // 种子中场共 20 人：首屏一次取全量，直接展示全部球员，无展开/收起入口。
+  // 种子中场共 19 人：首屏一次取全量，直接展示全部球员，无展开/收起入口。
   const midfield = page.locator('.team-group').nth(1);
-  await expect(titles.nth(1)).toContainText('20 人');
-  await expect(midfield.locator('.player-card')).toHaveCount(20);
+  await expect(titles.nth(1)).toContainText('19 人');
+  await expect(midfield.locator('.player-card')).toHaveCount(19);
   await expect(midfield.getByText('测试中场11')).toBeVisible();
   await expect(midfield.getByRole('button', { name: '展开更多' })).toHaveCount(0);
   await expect(midfield.getByRole('button', { name: '收起' })).toHaveCount(0);

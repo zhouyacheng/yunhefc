@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** done
+**Status:** wontfix（2026-11-20 微信注册已移除）
 
 - [ ] 新增 `V11__wechat_registration.sql`，`phone` 改为 `VARCHAR(20) NULL` 并保留列注释
 - [ ] `scripts/sql/schema.sql` 与 04 §5.2 同步为可空，`uk_user_phone` 不变

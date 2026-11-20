@@ -40,20 +40,9 @@ async function resetMockWechatBinding(request: APIRequestContext): Promise<void>
   const items = (await players.json()).data.items as Array<{
     userId: number | null;
     wechatBound: boolean;
-    phoneMasked: string | null;
   }>;
   for (const item of items) {
-    if (!item.userId) {
-      continue;
-    }
-    // 无手机号账号禁止解绑微信；先补绑一个测试手机号再解绑。
-    if (item.wechatBound && item.phoneMasked === null) {
-      await request.patch(`/api/v1/b/users/${item.userId}/phone`, {
-        data: { phone: freshPhone() },
-        headers: { 'X-XSRF-TOKEN': csrfToken },
-      });
-    }
-    if (item.wechatBound) {
+    if (item.userId && item.wechatBound) {
       const response = await request.delete(`/api/v1/b/users/${item.userId}/wechat-binding`, {
         headers: { 'X-XSRF-TOKEN': csrfToken },
       });
@@ -72,43 +61,40 @@ async function confirmMockAuthorize(page: Page): Promise<void> {
 test.describe('微信内置浏览器', () => {
   test.use({ userAgent: WECHAT_UA });
 
-  test('C05→C08：微信注册（无手机号）、补绑手机号、老用户直接登录', async ({ page, request }) => {
+  test('C05→C08：静默授权、首次绑定手机、老用户直接登录', async ({ page, request }) => {
     const errors = collectConsoleErrors(page);
     await resetMockWechatBinding(request);
+    const phone = freshPhone();
 
-    await page.goto('/login?mode=register');
-    await expect(page.getByTestId('wechat-register')).toBeVisible();
-    await page.getByTestId('wechat-register').click();
+    await page.goto('/login');
+    await expect(page.getByTestId('wechat-login')).toBeVisible();
+    await page.getByTestId('wechat-login').click();
     await confirmMockAuthorize(page);
 
-    // 首次授权回到微信注册页，只需姓名与主位置。
+    // 首次授权回到绑定页，表单必填校验。
     await expect(page).toHaveURL(/\/auth\/wechat\/callback\?bind=1&redirect=%2F$/);
-    await expect(page.getByRole('heading', { name: '微信注册' })).toBeVisible();
-    await page.getByRole('button', { name: '完成注册' }).click();
+    await expect(page.getByRole('heading', { name: '绑定手机号' })).toBeVisible();
+    await page.getByRole('button', { name: '绑定并登录' }).click();
+    await expect(page.getByText('请输入正确的手机号')).toBeVisible();
+    await expect(page.getByText('请输入 6 位数字验证码')).toBeVisible();
     await expect(page.getByText('请输入姓名')).toBeVisible();
     await expect(page.getByText('请选择主位置')).toBeVisible();
 
-    await page.getByPlaceholder('请输入姓名').fill(MOCK_PLAYER_NAME);
-    await page.getByPlaceholder('请选择主位置').click();
-    await page.getByText('后卫', { exact: true }).click();
-    await page.getByRole('button', { name: '完成注册' }).click();
-
-    // 注册成功回首页；个人中心显示未绑定手机号、微信已绑定。
-    await expect(page).toHaveURL(/\/$/);
-    await page.goto('/profile');
-    const security = page.locator('.profile-security');
-    await expect(security).toContainText('未绑定手机号');
-    await expect(security).toContainText('已绑定');
-
-    // C06：补绑手机号。
-    const phone = freshPhone();
-    await security.getByRole('button', { name: '绑定手机号' }).click();
     await page.getByPlaceholder('请输入手机号').fill(phone);
     await page.getByRole('button', { name: '获取验证码' }).click();
     await expect(page.getByText(/开发环境验证码：123456/)).toBeVisible();
     await page.getByPlaceholder('6 位数字验证码').fill('123456');
-    await page.getByRole('button', { name: '保存' }).click();
-    await expect(security).toContainText('139****');
+    await page.getByPlaceholder('请输入姓名').fill(MOCK_PLAYER_NAME);
+    await page.getByPlaceholder('请选择主位置').click();
+    await page.getByText('后卫', { exact: true }).click();
+    await page.getByRole('button', { name: '绑定并登录' }).click();
+
+    // 绑定成功按 redirect 回首页，个人中心显示已绑定且无绑定按钮。
+    await expect(page).toHaveURL(/\/$/);
+    await page.goto('/profile');
+    const security = page.locator('.profile-security');
+    await expect(security).toContainText('已绑定');
+    await expect(security.getByRole('button', { name: '绑定微信' })).toHaveCount(0);
 
     // 新设备（无会话、无本地提示）：老用户再次授权直接登录并恢复头部身份。
     await page.evaluate(() => localStorage.clear());

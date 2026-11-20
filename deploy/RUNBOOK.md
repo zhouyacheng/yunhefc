@@ -122,9 +122,9 @@ docker run --rm --network host \
 - 迁移成功后确认 `flyway_schema_history` 与目标版本一致。
 - 应用以 `spring.flyway.enabled=false` 启动；发布前若迁移未执行，应用不会补跑。
 
-#### 迁移后校验（P-66：V8 操作时间；P-68：V9 星级精度；P-72：V10 分组分数；P-75：V11 微信注册手机号可空）
+#### 迁移后校验（P-66：V8 操作时间；P-68：V9 星级精度；P-72：V10 分组分数；V11/V12：手机号约束）
 
-`flyway migrate` 成功后执行，确认最新版本为 V11：
+`flyway migrate` 成功后执行，确认最新版本为 V12：
 
 ```bash
 docker run --rm --network host \
@@ -145,12 +145,12 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
     WHERE manual_score IS NOT NULL AND (manual_score < 1 OR manual_score > 5);
   SELECT COUNT(*) AS grouping_settings FROM system_setting
     WHERE setting_key LIKE 'grouping.%' AND is_deleted = 0;
-  SHOW COLUMNS FROM app_user LIKE 'phone';
-  SHOW INDEX FROM app_user WHERE Key_name = 'uk_user_phone';"
+  SHOW COLUMNS FROM app_user LIKE 'phone';"
 ```
 
-- 期望：最新版本 11 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）；`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`，`manual_score` 为 `decimal(3,2) NULL`；两个非法值计数均为 0；`grouping.*` 配置为 0 行；`app_user.phone` 为 `varchar(20) NULL` 且 `uk_user_phone` 仍存在。
+- 期望：最新版本 12 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）；`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`，`manual_score` 为 `decimal(3,2) NULL`；两个非法值计数均为 0；`grouping.*` 配置为 0 行；`app_user.phone` 为 `varchar(20) NOT NULL`。
 - 顺序：先 `migrate` 再部署新镜像。V8 只新增可空列与索引，V9 为无损值域扩展（TINYINT→DECIMAL、DECIMAL(3,1)→DECIMAL(3,2)），旧镜像可继续运行；但旧镜像以整数读取会截断小数，V9 执行后至新镜像完全切换前，避免在 B07 修改球员星级。V10 伪删除分组权重配置并更新列注释；旧镜像仍可运行，但分组分数以新镜像的球员星级为准。注意：旧镜像保存系统设置时会 upsert 全部 9 个键，可能把已伪删除的 `grouping.*` 重新写回 `is_deleted=0`，因此上述「`grouping.*` 为 0 行」校验必须在新镜像完全切换后执行；若被复活，执行 `UPDATE system_setting SET is_deleted = 1 WHERE setting_key LIKE 'grouping.%';` 后重新校验。回滚只回代码，不做逆向迁移。
+- V11 曾把 `app_user.phone` 改为可空；V12 会**删除**所有 `phone IS NULL` 的账号，并级联清理其球员档案、报名、考勤、事件（含事件历史）、阵容槽位、分组成员、统计、通知、角色、邀请使用与幂等键，然后恢复 `NOT NULL`。仍由其他球员参与的事件只置空被删的助攻。执行 V12 前必须先备份，并运行 `SELECT COUNT(*) FROM app_user WHERE phone IS NULL;` 核对范围；若存在真实账号，先人工补绑或另案处理，不要直接迁移。
 
 #### 一次性迁移：DATETIME 转 Asia/Shanghai（P-63，仅本次发布）
 
@@ -388,17 +388,24 @@ COMMIT;
 先确认 `.env`：
 
 - `WECHAT_ENABLED=true` 时，`WECHAT_MODE=real` 且 AppID/Secret/回调地址齐全；prod 缺任一项应用会启动失败。
+- `WECHAT_APP_ID` 必须是 `wx` 开头的 18 位公众号 AppID（`^wx[0-9a-zA-Z]{16}$`）；32 位十六进制通常是 AppSecret，prod 启动时会 fail-fast。
 - `WECHAT_ALLOWED_REDIRECT_PREFIXES` 只能填站内路径前缀（默认 `/`）。填完整域名（如 `https://www.example.com/`）会让所有 `redirect` 校验失败，表现为点击微信登录直接返回 `40001「redirect 不在白名单」`。
 - `WECHAT_CALLBACK_URL` 必须是 `https://www.<domain>/api/v1/c/auth/wechat/callback`，且该域名已在公众号「网页授权域名」登记、`MP_verify_*.txt` 可访问。
+- 公众平台「网页授权域名」填 `www.<domain>`（不带 `https://`/路径/端口），与回调 host 完全一致；裸域 `https` 走 nginx `return 444`，不能靠 301 救回。
+- 网页授权仅支持**已认证服务号**（已认证的政府/媒体类订阅号除外）；「接口权限」里找不到「网页授权获取用户基本信息」时，配置域名无法绕过，只能换认证服务号或用公众平台测试号调试。
 
 | 症状 | 排查 |
 |---|---|
+| 微信授权页 `10012 / appid不能为空` | `WECHAT_APP_ID` 不是真实 AppID（常见为误填 32 位 AppSecret）；按公众平台「基本配置」修正后重建 backend |
+| 微信授权页 `10003 / redirect_uri与后台配置不一致` | 公众平台「网页授权域名」未登记 `www.<domain>` 或登记成裸域；修正并保证 `MP_verify_<token>.txt` 根路径可访问（缺失时 nginx SPA 回落 index.html，验证会失败） |
 | 非微信内打开返回 `42201` | 正常保护；确认只在微信内使用 |
 | 回调后回到站内失败页 `error=40001` | code 已用过或 state 过期/不匹配；重新发起授权；日志查 `wechat callback`，只记 errcode |
 | `error=50001` | 微信 token 接口失败或 AppID/Secret 错误；检查公众号配置与出口网络 |
 | 回调地址打开是 JSON | `WECHAT_CALLBACK_URL` 配置错误，或请求未带 `Accept: text/html`；恢复为上述固定地址 |
 
-生产首次启用微信注册/登录时，可在 ECS 仓库根运行 `scripts/wechat-production-wizard.sh`：逐步采集 AppID/AppSecret、写入 `/opt/yunhefc/.env`、处理 `MP_verify_*.txt`、重建 backend 并做生产预检与真机验收。
+生产首次启用微信登录时，可在 ECS 仓库根运行 `scripts/wechat-production-wizard.sh`：逐步采集 AppID/AppSecret、写入 `/opt/yunhefc/.env`、处理 `MP_verify_*.txt`、重建 backend 并做生产预检与真机验收。注意：向导提示的 `PUBLIC_DOMAIN` 是 `www.<domain>`，与 CI 变量 `PUBLIC_DOMAIN`（裸域）同名不同义，不要填裸域。
+
+`MP_verify_<token>.txt` 通过 `docker cp` 只对当前 nginx 容器生效；要让文件随镜像长期保留，须提交到 `frontend/apps/web/public/` 并由 main 构建 nginx 镜像；否则容器重建后文件消失（域名验证通过一次后不影响登录，但重新验证时需再次部署）。
 
 ---
 

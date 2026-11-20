@@ -4,7 +4,7 @@
 
 **Blocked by:** 02
 
-**Status:** done
+**Status:** wontfix（2026-11-20 微信注册已移除）
 
 - [ ] `User.phoneMasked` 与 `UserSummary.phoneMasked` 改为 `string | null`
 - [ ] `session` 新增微信注册与补绑手机号的调用封装（处理 csrfToken 与刷新）

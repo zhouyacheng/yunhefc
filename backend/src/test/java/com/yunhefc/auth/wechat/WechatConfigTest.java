@@ -35,6 +35,18 @@ class WechatConfigTest {
     }
 
     @Test
+    void prodRejectsInvalidAppIdFormat() {
+        WechatProperties properties = properties();
+        properties.setEnabled(true);
+        properties.setMode("real");
+        properties.setAppId("2e65b1bb3d054466b82f0c9d125465e2");
+
+        assertThatThrownBy(() -> config.wechatOAuthClient(properties, new ObjectMapper(), env("prod")))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("WECHAT_APP_ID");
+    }
+
+    @Test
     void prodWithRealCredentialsUsesRealClient() {
         WechatProperties properties = properties();
         properties.setEnabled(true);
@@ -64,7 +76,7 @@ class WechatConfigTest {
 
     private WechatProperties properties() {
         WechatProperties properties = new WechatProperties();
-        properties.setAppId("app-id");
+        properties.setAppId("wx1234567890abcdef");
         properties.setAppSecret("app-secret");
         properties.setCallbackUrl("https://www.example.com/api/v1/c/auth/wechat/callback");
         return properties;

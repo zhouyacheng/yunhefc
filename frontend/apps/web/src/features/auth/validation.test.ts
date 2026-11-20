@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   authErrorMessage,
-  inviteTokenFromRedirect,
   isInviteUsable,
   queryString,
   registerInviteToken,
@@ -95,15 +94,6 @@ describe('invite token propagation', () => {
     expect(registerInviteToken('token', { status: 2 })).toBeUndefined();
     expect(registerInviteToken('token', { status: 0, exhausted: true })).toBeUndefined();
     expect(registerInviteToken('token', { status: 0 }, true)).toBeUndefined();
-  });
-
-  it('extracts an invite token only from /invite/<token> redirects', () => {
-    expect(inviteTokenFromRedirect('/invite/B3-INVITE-TEAM')).toBe('B3-INVITE-TEAM');
-    expect(inviteTokenFromRedirect('/invite/a%2Fb')).toBe('a/b');
-    expect(inviteTokenFromRedirect('/invite/token?x=1')).toBeUndefined();
-    expect(inviteTokenFromRedirect('/matches/1')).toBeUndefined();
-    expect(inviteTokenFromRedirect('/invite/')).toBeUndefined();
-    expect(inviteTokenFromRedirect(undefined)).toBeUndefined();
   });
 
   it('only treats active, non-exhausted invites as usable', () => {

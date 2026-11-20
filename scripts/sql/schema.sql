@@ -29,7 +29,7 @@ CREATE TABLE team (
 
 CREATE TABLE app_user (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  phone         VARCHAR(20)     NULL COMMENT '登录手机号；纯微信注册账号可为空',
+  phone         VARCHAR(20)     NOT NULL COMMENT '登录手机号',
   password_hash VARCHAR(100)    NULL COMMENT '密码哈希',
   openid        VARCHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL COMMENT '微信openid',
   status        TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-待审核;1-正常;2-已注销',

@@ -971,9 +971,7 @@ render();
         <label>姓名<input class="input" name="name" placeholder="例如 陈子昂"></label>
         <label>主位置<select class="input" name="position"><option value="MIDFIELDER">中场</option><option value="FORWARD">前锋</option><option value="DEFENDER">后卫</option><option value="GOALKEEPER">门将</option></select></label>
         <button class="btn btn-primary btn-block" type="submit">注册并进入</button>
-        <button type="button" class="btn btn-ghost btn-block" data-wechat-register>微信注册</button>
-        <p class="muted small">自助注册会进入待审核状态；邀请链接注册可免审（原型不展开）。微信注册仅需姓名与主位置，手机号可后补。</p>
-        <p class="muted small">已是球队成员？请先用手机号登录，再到个人中心绑定微信，避免重复账号。</p>
+        <p class="muted small">自助注册会进入待审核状态；邀请链接注册可免审（原型不展开）。</p>
       </form>`;
     }
 
@@ -989,12 +987,6 @@ render();
           Y.setUser(Number(button.dataset.demoId), redirect);
         });
       });
-      const wechatRegister = $('[data-wechat-register]', host);
-      if (wechatRegister) {
-        wechatRegister.addEventListener('click', () => {
-          Y.toast('原型演示：微信授权后只需补姓名与主位置，手机号可后补');
-        });
-      }
       const loginFormElement = $('[data-login-form]', host);
       if (loginFormElement) {
         loginFormElement.addEventListener('submit', (event) => {
@@ -1159,7 +1151,7 @@ render();
         <section class="card profile-card">
           <div class="profile-top">${Y.avatar(user, 'xl')}<div><h1>${esc(user.name)}</h1><p class="muted">${Y.roleLabel(role)} · ${user.status === 'ACTIVE' ? '正常' : user.status === 'PENDING' ? '待审核' : '已注销'}</p></div></div>
           <div class="profile-fields">
-            <div><span>手机号</span><b>${phone ? Y.maskPhone(phone) : '未绑定手机号'}</b></div>
+            <div><span>手机号</span><b>${Y.maskPhone(phone)}</b></div>
             <div><span>球衣号</span><b>#${user.jersey ?? '—'}</b></div>
             <div><span>主位置</span><b>${Y.positionLabel(user.position)}</b></div>
             <div><span>地区</span><b>${esc(user.region || '—')}</b></div>
@@ -1198,7 +1190,6 @@ render();
             <div><span>微信</span><b>${user.wechat ? '已绑定' : '未绑定'}</b></div>
             <div><span>修改密码</span><b>短信验证码重置</b></div>
           </div>
-          ${phone ? '' : '<button class="btn btn-ghost btn-sm" data-action="bind-phone">绑定手机号</button><p class="muted small">短信验证后绑定；换绑仍请联系管理员。</p>'}
           ${user.wechat ? '' : '<button class="btn btn-ghost btn-sm" data-action="bind-wechat">绑定微信</button><p class="muted small">仅在微信内置浏览器显示。</p>'}
           <p class="muted small">解绑微信请联系管理员。</p>
         </section>
@@ -1211,10 +1202,6 @@ render();
     const bindWechat = $('[data-action="bind-wechat"]', host);
     if (bindWechat) {
       bindWechat.addEventListener('click', () => Y.toast('请在微信内打开并完成授权'));
-    }
-    const bindPhone = $('[data-action="bind-phone"]', host);
-    if (bindPhone) {
-      bindPhone.addEventListener('click', () => Y.toast('原型演示：短信验证后补绑手机号'));
     }
     const logout = $('[data-logout]', host);
     if (logout) {

@@ -61,7 +61,9 @@ public class RealWechatOAuthClient implements WechatOAuthClient {
             return new WechatUser(node.get("openid").asText());
         }
         int errcode = node.path("errcode").asInt(0);
-        log.warn("wechat token exchange rejected, errcode={}", errcode);
+        // errmsg 是微信侧诊断信息（如 appid不能为空），不含 secret/code/openid
+        String errmsg = node.path("errmsg").asText("");
+        log.warn("wechat token exchange rejected, errcode={}, errmsg={}", errcode, errmsg);
         if (errcode == 40029 || errcode == 40163) {
             throw new WechatOAuthException(WechatOAuthException.Reason.INVALID_CODE);
         }

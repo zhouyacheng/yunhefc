@@ -647,28 +647,6 @@ WHERE id BETWEEN 1016 AND 1019;
 
 -- END 报名满员 fixture
 
--- 微信注册 fixture：1060-1062 为无手机号账号（PENDING/ACTIVE/DISABLED），1063 为已有手机号账号。
-INSERT IGNORE INTO app_user (id, phone, password_hash, openid, status)
-VALUES
-  (1060, NULL, NULL, 'seed-openid-wechat-pending', 0),
-  (1061, NULL, NULL, 'seed-openid-wechat-active', 1),
-  (1062, NULL, NULL, 'seed-openid-wechat-disabled', 2),
-  (1063, '13910000063', '$2a$10$qmeKj/JGIZ0ySYfKgjile.pL0O8Z64ucVOfOEC83DlI4jP24hVcpC', NULL, 1);
-
-INSERT IGNORE INTO player
-  (id, team_id, user_id, name, jersey, type, position, secondary_positions, region, avatar_url, skill)
-VALUES
-  (1060, @team_id, 1060, '微信待审核', NULL, 0, 2, '[]', '上海', NULL, 3),
-  (1061, @team_id, 1061, '微信已审核', NULL, 0, 1, '[]', '上海', NULL, 3),
-  (1062, @team_id, 1062, '微信已注销', NULL, 0, 3, '[]', '上海', NULL, 3),
-  (1063, @team_id, 1063, '手机号老账号', 69, 1, 2, '[]', '上海', NULL, 3);
-
-INSERT IGNORE INTO user_role (user_id, role_id) VALUES
-  (1060, @guest_role_id),
-  (1061, @guest_role_id),
-  (1062, @guest_role_id),
-  (1063, @player_role_id);
-
 COMMIT;
 
 -- 说明：

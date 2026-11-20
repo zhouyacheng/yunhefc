@@ -29,7 +29,6 @@ import com.yunhefc.common.config.AppProperties;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
-import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.common.security.Hashing;
 import com.yunhefc.contracts.match.MatchReadPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
@@ -137,27 +136,7 @@ public class InviteService {
 
     @Transactional
     public InviteView accept(String rawToken, Long userId) {
-        AuthPrincipal actor = CurrentUser.principal();
         InviteLink invite = findUsableForAccept(rawToken, userId);
-        return acceptResolved(invite, userId, actor.teamId(), actor.userId(), actor.name());
-    }
-
-    /**
-     * 微信回调绑定已有账号时没有 HTTP 认证主体：以被绑定账号自身作为审计操作者。
-     */
-    @Transactional
-    public InviteView acceptForWechat(String rawToken, Long userId) {
-        InviteLink invite = findUsableForAccept(rawToken, userId);
-        AppUser user = userMapper.selectById(userId);
-        PlayerSnapshot player = playerReadPort.findByUserId(userId).orElse(null);
-        String actorName = player == null
-                ? UserViewAssembler.fallbackName(user == null ? null : user.getPhone())
-                : player.name();
-        return acceptResolved(invite, userId, invite.getTeamId(), userId, actorName);
-    }
-
-    private InviteView acceptResolved(InviteLink invite, Long userId, Long teamId,
-                                      Long actorUserId, String actorName) {
         AppUser user = userMapper.selectById(userId);
         if (user == null) {
             throw new BusinessException(ErrorCode.UNAUTHENTICATED);
@@ -173,8 +152,7 @@ public class InviteService {
         if (invite.getType() == InviteType.MATCH) {
             consume(invite, userId);
             InviteView view = toView(invite);
-            auditRecorder.record(teamId, actorUserId, actorName, "INVITE_ACCEPT",
-                    "INVITE", invite.getId(), null, view);
+            auditRecorder.recordCurrent("INVITE_ACCEPT", "INVITE", invite.getId(), null, view);
             return view;
         }
 
@@ -195,7 +173,7 @@ public class InviteService {
         userRoleMapper.upsert(userId, playerRole.getId());
         consume(invite, userId);
         InviteView view = toView(invite);
-        auditRecorder.record(teamId, actorUserId, actorName, "INVITE_ACCEPT", "INVITE", invite.getId(),
+        auditRecorder.recordCurrent("INVITE_ACCEPT", "INVITE", invite.getId(),
                 java.util.Map.of("status", 0), java.util.Map.of("status", 1, "playerType", 1));
         return view;
     }

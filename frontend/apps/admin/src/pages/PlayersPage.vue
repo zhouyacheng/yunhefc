@@ -536,14 +536,8 @@ async function submitPhone(): Promise<void> {
   }
 }
 
-/** 非注销且未绑定手机号的账号解绑微信后会失去唯一登录标识，入口需禁用。 */
-function unbindBlocked(row: PlayerAdmin): boolean {
-  return row.status !== 2 && row.phoneMasked === null;
-}
-
 async function unbindWechat(row: PlayerAdmin): Promise<void> {
-  if (!canEdit.value || !row.wechatBound || row.userId == null || actionBusy.value !== null
-      || unbindBlocked(row)) {
+  if (!canEdit.value || !row.wechatBound || row.userId == null || actionBusy.value !== null) {
     return;
   }
   const confirmed = await confirmAction(
@@ -836,9 +830,9 @@ onUnmounted(() => {
                   <el-dropdown-item
                     v-if="canEdit && row.wechatBound"
                     command="wechat"
-                    :disabled="actionBusy !== null || unbindBlocked(row)"
+                    :disabled="actionBusy !== null"
                   >
-                    {{ unbindBlocked(row) ? '解绑微信（请先绑定手机号）' : '解绑微信' }}
+                    解绑微信
                   </el-dropdown-item>
                   <el-dropdown-item
                     v-if="canApprove && playerApprovable(row)"
@@ -1015,7 +1009,7 @@ onUnmounted(() => {
       :close-on-press-escape="!phoneDialog.submitting"
     >
       <p class="muted small">
-        当前账号：{{ phoneDialog.player?.name }}（{{ phoneDialog.player?.phoneMasked ?? '未绑定' }}）
+        当前账号：{{ phoneDialog.player?.name }}（{{ phoneDialog.player?.phoneMasked ?? '—' }}）
       </p>
       <el-form label-width="88px">
         <el-form-item label="新手机号">

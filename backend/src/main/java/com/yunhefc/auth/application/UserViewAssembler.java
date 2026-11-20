@@ -29,7 +29,7 @@ public class UserViewAssembler {
         String phoneMasked = maskPhone(user.getPhone());
         return new UserView(
                 user.getId(),
-                player == null ? fallbackName(user.getPhone()) : player.name(),
+                player == null ? phoneMasked : player.name(),
                 phoneMasked,
                 user.getStatus().code(),
                 user.getStatus().label(),
@@ -68,18 +68,13 @@ public class UserViewAssembler {
         String phoneMasked = maskPhone(user.getPhone());
         return new UserSummary(
                 user.getId(),
-                player == null ? fallbackName(user.getPhone()) : player.name(),
+                player == null ? phoneMasked : player.name(),
                 phoneMasked,
                 user.getStatus().code(),
                 user.getStatus().label(),
                 roles,
                 player == null ? null : player.type(),
                 player == null ? null : PlayerType.of(player.type()).label());
-    }
-
-    public static String fallbackName(String phone) {
-        String masked = maskPhone(phone);
-        return masked == null ? "微信用户" : masked;
     }
 
     public static String maskPhone(String phone) {

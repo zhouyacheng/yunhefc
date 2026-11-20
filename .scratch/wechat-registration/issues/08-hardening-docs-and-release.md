@@ -4,7 +4,7 @@
 
 **Blocked by:** 03, 06, 07
 
-**Status:** ready-for-agent
+**Status:** wontfix（2026-11-20 微信注册已移除）
 
 - [ ] 非注销且 phone 为空的账号禁止解绑微信；DISABLED 按现有规则处理
 - [ ] 并发同一 openid/手机号的唯一键处理有测试覆盖

@@ -4,7 +4,7 @@
 
 **Blocked by:** 01
 
-**Status:** done
+**Status:** wontfix（2026-11-20 微信注册已移除）
 
 - [ ] AUTH-09 允许 `phone/code` 缺省，校验 name/position 并建档（phone=NULL、password_hash=NULL）
 - [ ] 新账号授予 GUEST、player.type=GUEST，审计 `WECHAT_REGISTER`

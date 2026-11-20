@@ -5,9 +5,13 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 @ConfigurationProperties(prefix = "yunhefc.wechat")
 public class WechatProperties {
+
+    /** 公众号 AppID 固定为 wx + 16 位字符；32 位十六进制通常是 AppSecret。 */
+    private static final Pattern APP_ID_PATTERN = Pattern.compile("^wx[0-9a-zA-Z]{16}$");
 
     private boolean enabled = false;
     private String mode = "mock";
@@ -26,6 +30,10 @@ public class WechatProperties {
 
     public boolean hasCredentials() {
         return notBlank(appId) && notBlank(appSecret) && notBlank(callbackUrl);
+    }
+
+    public boolean isAppIdFormatValid() {
+        return appId != null && APP_ID_PATTERN.matcher(appId).matches();
     }
 
     private static boolean notBlank(String value) {

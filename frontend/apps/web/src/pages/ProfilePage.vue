@@ -2,7 +2,7 @@
 import { isApiError } from '@yunhefc/api-client';
 import type { Player } from '@yunhefc/shared';
 import { positionText } from '@yunhefc/shared';
-import { Button, CellGroup, Field, Popup, Tag, showConfirmDialog } from 'vant';
+import { Button, Tag, showConfirmDialog } from 'vant';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 
@@ -11,8 +11,6 @@ import NotificationList from '../components/NotificationList.vue';
 import ProfileEditPopup from '../components/ProfileEditPopup.vue';
 import { avatarPlaceholder, isDisplayableAvatarUrl } from '../features/profile/avatar';
 import { isPending } from '../features/auth/user-status';
-import { validatePhone, validateSmsCode } from '../features/auth/validation';
-import { useSmsCode } from '../features/auth/useSmsCode';
 import { isWechatBrowser, requestWechatAuthorize } from '../features/auth/wechat';
 import SkillStars from '../components/SkillStars.vue';
 import { useSessionStore } from '../stores/session';
@@ -44,64 +42,6 @@ const roleText = computed(() => {
   return roles.length ? roles.map((role) => ROLE_TEXT[role] ?? role).join(' / ') : '—';
 });
 const avatarSrc = computed(() => session.player?.avatarUrl ?? null);
-
-const canBindPhone = computed(
-  () => session.user !== null && session.user.phoneMasked === null,
-);
-const showPhoneBind = ref(false);
-const phone = ref('');
-const smsCode = ref('');
-const phoneFieldError = ref('');
-const smsFieldError = ref('');
-const phoneError = ref('');
-const binding = ref(false);
-const {
-  countdown,
-  sending: codeSending,
-  hint: phoneHint,
-  send: sendSms,
-  stop: stopSmsCountdown,
-} = useSmsCode();
-
-function openPhoneBind(): void {
-  phone.value = '';
-  smsCode.value = '';
-  phoneFieldError.value = '';
-  smsFieldError.value = '';
-  phoneHint.value = '';
-  phoneError.value = '';
-  showPhoneBind.value = true;
-}
-
-async function sendBindCode(): Promise<void> {
-  phoneError.value = '';
-  const result = await sendSms(phone.value);
-  if (result.phoneError) {
-    phoneFieldError.value = result.phoneError;
-  } else if (!result.ok && result.errorMessage) {
-    phoneError.value = result.errorMessage;
-  }
-}
-
-async function submitBindPhone(): Promise<void> {
-  phoneFieldError.value = validatePhone(phone.value) ?? '';
-  smsFieldError.value = validateSmsCode(smsCode.value) ?? '';
-  if (phoneFieldError.value || smsFieldError.value) {
-    return;
-  }
-  binding.value = true;
-  phoneError.value = '';
-  try {
-    await session.bindPhone({ phone: phone.value.trim(), code: smsCode.value.trim() });
-    stopSmsCountdown();
-    showPhoneBind.value = false;
-    savedHint.value = '手机号已绑定';
-  } catch (error) {
-    phoneError.value = isApiError(error) ? error.message : '绑定失败，请稍后重试';
-  } finally {
-    binding.value = false;
-  }
-}
 
 function openEdit(): void {
   if (pending.value) {
@@ -184,7 +124,7 @@ onMounted(() => {
               <h2>{{ session.player.name }}</h2>
               <Tag class="status-tag status-tag--admin">{{ roleText }}</Tag>
             </div>
-            <p class="muted small">{{ session.user.phoneMasked ?? '未绑定手机号' }}</p>
+            <p class="muted small">{{ session.user.phoneMasked }}</p>
             <div class="profile-identity__meta">
               <span>号码 {{ session.player.jersey ?? '—' }}</span>
               <span>位置 {{ positionText(session.player.position) }}</span>
@@ -219,18 +159,8 @@ onMounted(() => {
 
           <div class="security-row">
             <span>手机号</span>
-            <span class="muted">{{ session.user.phoneMasked ?? '未绑定手机号' }}</span>
+            <span class="muted">{{ session.user.phoneMasked }}</span>
           </div>
-          <Button
-            v-if="canBindPhone"
-            class="phone-bind-trigger"
-            size="small"
-            type="primary"
-            plain
-            @click="openPhoneBind"
-          >
-            绑定手机号
-          </Button>
           <div class="security-row">
             <span>微信绑定</span>
             <span class="muted">{{ session.user.wechatBound ? '已绑定' : '未绑定' }}</span>
@@ -250,7 +180,6 @@ onMounted(() => {
             {{ wechatError }}
           </p>
           <RouterLink
-            v-if="session.user.phoneMasked"
             class="security-row security-row--link"
             :to="{ name: 'login', query: { mode: 'reset' } }"
           >
@@ -269,63 +198,10 @@ onMounted(() => {
       :player="session.player"
       @saved="onSaved"
     />
-
-    <Popup v-model:show="showPhoneBind" position="bottom" round>
-      <form class="phone-bind" @submit.prevent="submitBindPhone">
-        <h3 class="phone-bind__title">绑定手机号</h3>
-        <CellGroup inset>
-          <Field
-            v-model="phone"
-            name="phone"
-            type="tel"
-            label="手机号"
-            placeholder="请输入手机号"
-            autocomplete="tel"
-            maxlength="11"
-            :error-message="phoneFieldError"
-          />
-          <Field
-            v-model="smsCode"
-            name="code"
-            type="digit"
-            label="验证码"
-            placeholder="6 位数字验证码"
-            autocomplete="one-time-code"
-            maxlength="6"
-            :error-message="smsFieldError"
-          >
-            <template #button>
-              <Button
-                size="small"
-                type="primary"
-                plain
-                :disabled="countdown > 0 || codeSending || binding"
-                :loading="codeSending"
-                @click="sendBindCode"
-              >
-                {{ countdown > 0 ? `${countdown}s 后重发` : '获取验证码' }}
-              </Button>
-            </template>
-          </Field>
-        </CellGroup>
-        <p v-if="phoneHint" class="hint">{{ phoneHint }}</p>
-        <p v-if="phoneError" class="notice notice--danger">{{ phoneError }}</p>
-        <Button type="primary" block native-type="submit" :loading="binding">保存</Button>
-        <Button block plain @click="showPhoneBind = false">取消</Button>
-      </form>
-    </Popup>
   </section>
 </template>
 
 <style scoped>
-.phone-bind {
-  padding: 24px;
-}
-
-.phone-bind__title {
-  margin: 0 0 16px;
-}
-
 .profile-pending {
   margin: 0 0 16px;
 }

@@ -1,63 +1,128 @@
-import type { MatchDetail, MatchDetailView, MatchEvent } from '../../types/api';
-import { formatDateYmd, formatTimeRange } from '../../utils/datetime';
-import { request } from '../../utils/request';
+import type { EventTimeline, MatchDetail } from '../../types/api';
+import {
+  buildEventRows,
+  buildMatchDetailHeader,
+  type EventRowView,
+  type MatchDetailHeaderView,
+} from '../../utils/match-detail-view';
+import { ApiError, request } from '../../utils/request';
 
-interface EventTimeline {
-  items: MatchEvent[];
-  derivedScore: { scoreHome: number; scoreAway: number } | null;
-}
-
-interface EventRow {
-  id: number;
-  label: string;
-  minuteText: string;
-  playerName: string;
-}
+let requestSeq = 0;
+let currentDetail: MatchDetail | null = null;
 
 Page({
   data: {
     id: 0,
-    detail: null as MatchDetailView | null,
-    events: [] as EventRow[],
     loading: true,
     error: '',
+    notFound: false,
+    header: null as MatchDetailHeaderView | null,
+    events: [] as EventRowView[],
+    eventsLoading: false,
+    eventsError: '',
   },
 
   onLoad(query: Record<string, string | undefined>) {
     const id = Number(query.id || 0);
     this.setData({ id });
+    if (!id) {
+      this.setData({ loading: false, notFound: true });
+      return;
+    }
     void this.load();
   },
 
-  async load() {
-    const id = this.data.id;
-    if (!id) {
-      this.setData({ loading: false, error: '比赛不存在' });
-      return;
-    }
-    this.setData({ loading: true, error: '' });
+  onPullDownRefresh() {
+    const loading = this.load();
+    void loading.then(() => wx.stopPullDownRefresh());
+  },
+
+  onUnload() {
+    requestSeq += 1;
+    currentDetail = null;
+  },
+
+  async load(): Promise<void> {
+    const seq = ++requestSeq;
+    this.setData({
+      loading: true,
+      error: '',
+      notFound: false,
+      header: null,
+      events: [],
+      eventsLoading: false,
+      eventsError: '',
+    });
     try {
-      const [detail, timeline] = await Promise.all([
-        request<MatchDetail>('GET', `/matches/${id}`),
-        request<EventTimeline>('GET', `/matches/${id}/events`),
-      ]);
-      const date = formatDateYmd(detail.startAt);
-      const timeText = date
-        ? `${date} ${formatTimeRange(detail.startAt, detail.endAt)}`
-        : detail.startAt;
+      const detail = await request<MatchDetail>('GET', `/matches/${this.data.id}`);
+      if (seq !== requestSeq) {
+        return;
+      }
+      currentDetail = detail;
       this.setData({
-        detail: { ...detail, timeText } satisfies MatchDetailView,
-        events: (timeline.items || []).map((event) => ({
-          id: event.id,
-          label: event.typeLabel,
-          minuteText: `${event.minute}'`,
-          playerName: event.playerName || '',
-        })),
+        loading: false,
+        header: buildMatchDetailHeader(detail, detail.derivedScore ?? null),
+      });
+      void this.loadEvents(detail, seq);
+    } catch (error) {
+      if (seq !== requestSeq) {
+        return;
+      }
+      const apiError = error instanceof ApiError ? error : null;
+      if (apiError?.statusCode === 404) {
+        this.setData({ loading: false, notFound: true });
+        return;
+      }
+      this.setData({
+        loading: false,
+        error: apiError?.message || '加载失败，请稍后重试',
+      });
+    }
+  },
+
+  async loadEvents(detail: MatchDetail, seq: number): Promise<void> {
+    this.setData({ eventsLoading: true, eventsError: '' });
+    try {
+      const timeline = await request<EventTimeline>('GET', `/matches/${this.data.id}/events`);
+      if (seq !== requestSeq) {
+        return;
+      }
+      this.setData({
+        events: buildEventRows(timeline.items, detail),
+        header: buildMatchDetailHeader(
+          detail,
+          timeline.derivedScore ?? detail.derivedScore ?? null,
+        ),
       });
     } catch (error) {
-      this.setData({ error: (error as Error).message || '加载失败，请稍后重试' });
+      if (seq !== requestSeq) {
+        return;
+      }
+      this.setData({ eventsError: (error as Error).message || '事件加载失败，请稍后重试' });
     } finally {
-      this.setData({ loading: false });
+      if (seq === requestSeq) {
+        this.setData({ eventsLoading: false });
+      }
     }
+  },
+
+  retry() {
+    void this.load();
+  },
+
+  retryEvents() {
+    if (!currentDetail) {
+      return;
+    }
+    void this.loadEvents(currentDetail, ++requestSeq);
+  },
+
+  goBack() {
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      void wx.navigateBack();
+      return;
+    }
+    void wx.switchTab({ url: '/pages/schedule/index' });
   },
 });

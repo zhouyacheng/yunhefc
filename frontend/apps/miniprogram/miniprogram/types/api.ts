@@ -71,25 +71,41 @@ export interface MatchSummary {
   waitlistCount: number;
 }
 
+/** 计分事件推导比分；无计分事件时为 null。 */
+export interface DerivedScore {
+  scoreHome: number | null;
+  scoreAway: number | null;
+}
+
 export interface MatchDetail extends MatchSummary {
   signupDeadline: string;
   cancelLock?: string;
   version?: number;
+  derivedScore?: DerivedScore | null;
   myRegistration?: RegistrationView | null;
 }
 
-export interface MatchDetailView extends MatchDetail {
-  timeText: string;
+export interface EventPlayer {
+  id: number;
+  name: string;
 }
 
 export interface MatchEvent {
   id: number;
   type: number;
-  typeLabel: string;
+  team: number;
+  player?: EventPlayer | null;
+  assistPlayer?: EventPlayer | null;
+  inPlayer?: EventPlayer | null;
+  outPlayer?: EventPlayer | null;
   minute: number;
   half: number;
-  playerName: string | null;
-  assistPlayerName: string | null;
+  penalty: boolean;
+}
+
+export interface EventTimeline {
+  items: MatchEvent[];
+  derivedScore?: DerivedScore | null;
 }
 
 export interface PlayerPublic {

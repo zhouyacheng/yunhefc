@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { AuthUser, MatchDetail, MatchSummary, PlayerView } from '../miniprogram/types/api';
 import {
   buildHero,
-  buildRecent,
+  buildMatchCard,
   HOME_FEATURES,
   queuesOf,
 } from '../miniprogram/utils/home-view';
@@ -83,7 +83,7 @@ describe('home view', () => {
   });
 
   it('builds a recent match card', () => {
-    const recent = buildRecent(summary());
+    const recent = buildMatchCard(summary());
 
     expect(recent.dateText).toBe('12月6日 周日 20:00');
     expect(recent.resultText).toBe('胜');

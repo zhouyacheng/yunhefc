@@ -1,3 +1,5 @@
+<import src="../../templates/match-card.wxml" />
+
 <view class="home">
   <view wx:if="{{loading && !hero}}" class="state">
     <van-loading size="20px">加载中…</van-loading>
@@ -84,35 +86,7 @@
             bindtap="goDetail"
             hover-class="card--pressed"
           >
-            <view class="match-card__top">
-              <text class="match-card__date">{{item.dateText}}</text>
-              <text wx:if="{{item.resultText}}" class="status-pill status-pill--{{item.resultTone}}">{{item.resultText}}</text>
-              <text class="match-card__ordinal">{{item.ordinalText}}</text>
-            </view>
-
-            <view class="match-card__teams">
-              <text class="team-name {{item.homeWinner ? 'team-name--winner' : ''}}">{{item.homeTeamName}}</text>
-              <text class="match-card__score">{{item.scoreText}}</text>
-              <text class="team-name {{item.awayWinner ? 'team-name--winner' : ''}}">{{item.awayTeamName}}</text>
-            </view>
-
-            <view class="match-card__foot">
-              <text class="type-pill type-pill--{{item.typeTone}}">{{item.typeText}}</text>
-              <text class="match-card__venue">{{item.venue}}</text>
-              <text class="status-pill status-pill--{{item.statusTone}}">{{item.statusText}}</text>
-            </view>
-
-            <view class="match-card__stats">
-              <view
-                class="match-card__stat"
-                wx:for="{{item.queues}}"
-                wx:key="key"
-                wx:for-item="queue"
-              >
-                <text>{{queue.label}}</text>
-                <text class="match-card__stat-value">{{queue.count}} / {{queue.capacity}}</text>
-              </view>
-            </view>
+            <template is="match-card" data="{{match: item}}" />
           </view>
         </view>
       </view>

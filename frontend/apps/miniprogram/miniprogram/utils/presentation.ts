@@ -1,19 +1,13 @@
 // 与 frontend/packages/shared/src/match.ts 及 Web features/matches/presentation.ts 保持一致；
 // 小程序没有打包链路、不引共享包，因此本地移植并由 Vitest 锁定口径。
-import type { MatchSummary } from '../types/api';
+import type { DerivedScore, MatchSummary } from '../types/api';
 
 export type StatusTone =
-  | 'open'
-  | 'closed'
-  | 'locked'
-  | 'live'
-  | 'finished'
-  | 'postponed'
-  | 'cancelled';
+  'open' | 'closed' | 'locked' | 'live' | 'finished' | 'postponed' | 'cancelled';
 export type TypeTone = 'external' | 'internal' | 'training' | 'friendly';
 export type ResultTone = 'win' | 'draw' | 'loss' | 'muted';
 
-const MATCH_STATUS_TEXT: Readonly<Record<number, string>> = {
+export const MATCH_STATUS_TEXT: Readonly<Record<number, string>> = {
   0: '报名中',
   1: '报名截止',
   2: '已锁定',
@@ -23,11 +17,24 @@ const MATCH_STATUS_TEXT: Readonly<Record<number, string>> = {
   6: '已取消',
 };
 
-const MATCH_TYPE_TEXT: Readonly<Record<number, string>> = {
+export const MATCH_TYPE_TEXT: Readonly<Record<number, string>> = {
   0: '对外比赛',
   1: '队内赛',
   2: '训练赛',
   3: '友谊赛',
+};
+
+export const EVENT_TYPE_TEXT: Readonly<Record<number, string>> = {
+  0: '进球',
+  1: '乌龙球',
+  2: '换人',
+  3: '黄牌',
+  4: '红牌',
+};
+
+export const EVENT_HALF_TEXT: Readonly<Record<number, string>> = {
+  0: '上半场',
+  1: '下半场',
 };
 
 export const POSITION_TEXT: Readonly<Record<number, string>> = {
@@ -132,6 +139,34 @@ export function matchStatusText(code: number | null | undefined): string {
 
 export function matchTypeText(code: number | null | undefined): string {
   return code === null || code === undefined ? '' : (MATCH_TYPE_TEXT[code] ?? '');
+}
+
+export function eventTypeText(code: number | null | undefined): string {
+  return code === null || code === undefined ? '' : (EVENT_TYPE_TEXT[code] ?? '');
+}
+
+export function eventHalfText(code: number | null | undefined): string {
+  return code === null || code === undefined ? '' : (EVENT_HALF_TEXT[code] ?? '');
+}
+
+export function isCancelledStatus(code: number | null | undefined): boolean {
+  return code === 6;
+}
+
+export function isPostponedStatus(code: number | null | undefined): boolean {
+  return code === 5;
+}
+
+export function isSubstitutionType(type: number | null | undefined): boolean {
+  return type === 2;
+}
+
+/** 有事件推导值时优先展示推导值，否则使用服务端返回的最终比分。 */
+export function resolveDisplayedScore(
+  match: Pick<MatchSummary, 'scoreHome' | 'scoreAway'> | null | undefined,
+  derived: Pick<DerivedScore, 'scoreHome' | 'scoreAway'> | null | undefined,
+): Pick<MatchSummary, 'scoreHome' | 'scoreAway'> | null {
+  return derived ?? match ?? null;
 }
 
 export function positionText(code: number | null | undefined): string {

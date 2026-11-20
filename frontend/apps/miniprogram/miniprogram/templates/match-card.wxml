@@ -1,0 +1,26 @@
+<template name="match-card">
+  <view class="match-card__top">
+    <text class="match-card__date">{{match.dateText}}</text>
+    <text wx:if="{{match.resultText}}" class="status-pill status-pill--{{match.resultTone}}">{{match.resultText}}</text>
+    <text class="match-card__ordinal">{{match.ordinalText}}</text>
+  </view>
+
+  <view class="match-card__teams">
+    <text class="team-name {{match.homeWinner ? 'team-name--winner' : ''}}">{{match.homeTeamName}}</text>
+    <text class="match-card__score">{{match.scoreText}}</text>
+    <text class="team-name {{match.awayWinner ? 'team-name--winner' : ''}}">{{match.awayTeamName}}</text>
+  </view>
+
+  <view class="match-card__foot">
+    <text class="type-pill type-pill--{{match.typeTone}}">{{match.typeText}}</text>
+    <text class="match-card__venue">{{match.venue}}</text>
+    <text class="status-pill status-pill--{{match.statusTone}}">{{match.statusText}}</text>
+  </view>
+
+  <view class="match-card__stats">
+    <view class="match-card__stat" wx:for="{{match.queues}}" wx:key="key" wx:for-item="queue">
+      <text>{{queue.label}}</text>
+      <text class="match-card__stat-value">{{queue.count}} / {{queue.capacity}}</text>
+    </view>
+  </view>
+</template>

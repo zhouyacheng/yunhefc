@@ -2,10 +2,10 @@ import type { MatchDetail, MatchSummary, Page } from '../../types/api';
 import { WEB_URL } from '../../utils/config';
 import {
   buildHero,
-  buildRecent,
+  buildMatchCard,
   HOME_FEATURES,
   type HeroView,
-  type RecentView,
+  type MatchCardView,
 } from '../../utils/home-view';
 import { request } from '../../utils/request';
 import { getPlayer, getUser, sessionReady } from '../../utils/session';
@@ -50,7 +50,7 @@ Page({
     loading: true,
     error: '',
     hero: null as HeroView | null,
-    recent: [] as RecentView[],
+    recent: [] as MatchCardView[],
     features: HOME_FEATURES,
   },
 
@@ -111,7 +111,7 @@ Page({
       hasLoaded = true;
       this.setData({
         hero: buildHero(detail, getUser(), getPlayer(), Date.now()),
-        recent: recent.map(buildRecent),
+        recent: recent.map(buildMatchCard),
         loading: false,
         error: '',
       });

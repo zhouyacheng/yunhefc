@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  currentShanghaiMonth,
+  formatDateWithYear,
   formatDateYmd,
   formatDateTime,
+  formatDateTimeWithYear,
   formatDayStartTime,
   formatHourMinute,
   formatTimeRange,
@@ -65,5 +68,29 @@ describe('formatTimeRange', () => {
 
   it('非法开始时间返回空串', () => {
     expect(formatTimeRange(null, '2026-12-06T22:00:00+08:00')).toBe('');
+  });
+});
+
+describe('formatDateWithYear / formatDateTimeWithYear', () => {
+  it('按上海时区输出带年份的日期与时刻', () => {
+    expect(formatDateWithYear('2026-12-03T20:00:00+08:00')).toBe('2026/12/03 周四');
+    expect(formatDateWithYear('2026-12-03T17:00:00Z')).toBe('2026/12/04 周五');
+    expect(formatDateTimeWithYear('2026-12-03T20:00:00+08:00')).toBe('2026/12/03 20:00');
+    expect(formatDateTimeWithYear('2026-12-03T17:00:00Z')).toBe('2026/12/04 01:00');
+  });
+
+  it('无效值显示占位符', () => {
+    expect(formatDateWithYear(null)).toBe('—');
+    expect(formatDateWithYear('bad')).toBe('—');
+    expect(formatDateTimeWithYear('')).toBe('—');
+    expect(formatDateTimeWithYear(undefined)).toBe('—');
+  });
+});
+
+describe('currentShanghaiMonth', () => {
+  it('按上海时区跨月', () => {
+    expect(currentShanghaiMonth(Date.UTC(2026, 10, 30, 17))).toBe('2026-12');
+    expect(currentShanghaiMonth(Date.UTC(2026, 10, 30, 15))).toBe('2026-11');
+    expect(currentShanghaiMonth(new Date(Date.UTC(2026, 0, 1, 0)))).toBe('2026-01');
   });
 });

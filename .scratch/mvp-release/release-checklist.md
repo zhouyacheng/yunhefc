@@ -258,12 +258,14 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 ## §5 空库 Flyway 幂等、部署冒烟与备份
 
+> 版本号以 `backend/src/main/resources/db/migration/` 最新文件为准（当前 V13）；新增迁移时同步本文与 `deploy/RUNBOOK.md` §1.3 的校验项。
+
 ### 5.1 空库幂等
 
 - [ ] 全新空 MySQL 8.4 schema（无 `flyway_schema_history`）。
-- [ ] 用**迁移账号**执行 `flyway migrate`，V1–V9 全部成功。
+- [ ] 用**迁移账号**执行 `flyway migrate`，V1–V13 全部成功。
 - [ ] 再次执行 `flyway info`：无 pending / failed。
-- [ ] `flyway_schema_history` 记录为 V1–V9。
+- [ ] `flyway_schema_history` 记录为 V1–V13。
 - [ ] 应用以 `spring.flyway.enabled=false` 启动成功。
 - [ ] 用**应用账号**执行任意 DDL 必须失败（无 DDL 权限）。
 
@@ -271,16 +273,21 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 ### 5.2 发布前迁移
 
-- [x] 发布前用迁移账号对生产库执行 `flyway migrate`，成功后才切 `current`。— 2026-11-15 用迁移账号重建库并执行 V1–V5，`flyway_schema_history` 全部 success=1
-- [ ] 迁移失败则不发版，保持上一版本在线。
-- [ ] 目标 sha 检出中复制 `backend/src/main/resources/db/migration/*.sql` 到 `/opt/yunhefc/migrations`（含 V9）。
+- [x] 发布前用迁移账号对生产库执行 `flyway migrate`，成功后才切 `current`。— 2026-11-15 重建库执行 V1–V5；后续增量至 V8，2026-11-20 补至 V13
+- [ ] 迁移失败则不发版，保持上一版本在线；失败处置见 `deploy/RUNBOOK.md` §1.3。
+- [ ] 目标 sha 检出中复制 `backend/src/main/resources/db/migration/*.sql` 到 `/opt/yunhefc/migrations`（含 V13）。
+- [ ] `flyway migrate`：已有库补到目标版本，`flyway_schema_history` 最新为 V13 且 success=1。
 - [ ] `flyway info`：无 pending / failed。
-- [ ] `flyway migrate`：已有库补 V6/V7/V8/V9，`flyway_schema_history` 最新为 V9 且 success=1。
+- [ ] **切 `current` 前的版本门禁**：`deploy.yml` 与 `release.sh` 都不执行迁移，必须人工确认 `flyway info` 与目标版本一致；库落后于代码时依赖新列/新表的接口会报错（本次为登录 500，见 2026-11-20 记录）。
 - [ ] V8 校验：`audit_log.operated_at` 存在（`datetime(3) NULL`）、`idx_audit_team_operated` 存在、历史行 `operated_at` 已回填。
 - [ ] V9 校验：`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`、`match_grouping_player.manual_score` 为 `decimal(3,2) NULL`，且两列无 1–5 范围外数据。
+- [ ] V10–V12 校验：`match_grouping.manual_weight/auto_weight` 为 `decimal(5,2) NOT NULL`；`grouping.*` 系统配置为 0 行；`app_user.phone` 为 `varchar(20) NOT NULL` 且 `phone IS NULL` 计数为 0（V12 会删除无手机号账号及其关联数据，执行前先备份）。
+- [ ] V13 校验：`app_user.mp_openid` 为 `varchar(64) ascii_bin NULL` 且位于 `openid` 之后，唯一索引 `uk_user_mp_openid` 存在。
 - [ ] 迁移成功后才触发 `deploy` workflow（`sha=<sha7>`）；迁移失败不发版。
 
 > **2026-11-15 实测**：初次为手工执行 `schema.sql` + `quartz.sql` 初始化（无 `flyway_schema_history`）；当日已按 `scripts/rc-db-reset.sh` 删除重建并跑通 V1–V5（39 张表含 Quartz 与 `flyway_schema_history`）。后续迁移从此可正常增量执行。
+
+> **2026-11-20 事故记录**：生产库停在 V8、镜像已含 V13 代码，`app_user` 查询报 `Unknown column 'mp_openid'`，手机号登录返回 500。同日小程序登录返回 `42201` 是另一个原因——`WECHAT_MINI_ENABLED` 未配置（默认 `false`），与缺列无关。补跑 V9–V13 并写入 `WECHAT_MINI_*` 后恢复。V13 首次执行时 DDL 已生效但 Flyway 历史记为 failed；按 `deploy/RUNBOOK.md` §1.3 的失败处置口径修正历史，未回退重做。
 
 ### 5.3 部署冒烟
 
@@ -326,7 +333,7 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 | 4 | CORS：仅 www 预检通过；admin/api 与其他 Origin 无 ACAO；prod 自检拒绝 localhost/通配符/多源 | `curl -X OPTIONS` + 启动日志 | ☐ |
 | 5 | 真实 IP：伪造 `X-Forwarded-For` 后日志/审计仍为真实 IP；backend 公网不可达 | 构造请求 + 查日志 + `nc` | ☐ |
 | 6 | 暴露面：actuator 敏感端点、api-docs、swagger 均 404；错误响应无堆栈/SQL | `curl` | ☐ |
-| 7 | 迁移与账号：`flyway migrate` 成功（V1–V9）；应用账号 DDL 失败；`flyway.enabled=false` 启动 | `flyway info` + `mysql` DDL | ☐ |
+| 7 | 迁移与账号：`flyway migrate` 成功（V1–V13），`flyway info` 无 Pending/Failed；应用账号 DDL 失败；`flyway.enabled=false` 启动 | `flyway info` + `mysql` DDL | ☐ |
 | 8 | Redis/Kafka：未认证 `redis-cli ping` 失败、应用带密码正常；端口未对公网发布 | `redis-cli` + `ss -lntp` | ☐ |
 | 9 | 限流与锁定：登录 51 次/分 429、短信 6 次/分 429、短信 IP 维度生效；5 次错误后 40103；提示不泄露账号存在 | 脚本压请求 | ☐ |
 | 10 | 日志与密钥：`gitleaks`（含 git 历史）无命中；日志无明文 phone/token/password/openid/Authorization/请求体；`.env` 600；生产未执行 `test-data.sql`；管理员已改密 | `gitleaks detect`、`grep`、`stat` | ☐ |
@@ -347,7 +354,7 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 | 时点 | 动作 | 结果 |
 |---|---|---|
 | T-24h | 冻结 main；完成 §1–§6 签收；固定 `sha-<7>`；确认 RDS 备份/PITR；确认回滚演练证据 | ☐ |
-| T-0 | 迁移账号 `flyway migrate` → `release.sh --sha <sha7>` → readiness ≤180s → §5.3 冒烟 → 队伍群公告放行 | ☐ |
+| T-0 | 迁移账号 `flyway migrate` → `flyway info` 无 Pending/Failed 且与目标版本一致 → `release.sh --sha <sha7>` → readiness ≤180s → §5.3 冒烟 → 队伍群公告放行 | ☐ |
 | T+30m | 即时观测：错误率、登录、报名、通知、容器健康；判定保持或回滚 | ☐ |
 | T+24h | 密切观察复盘：备份、日志、OOM、Kafka lag、Outbox；记录问题 | ☐ |
 | T+72h | 稳定声明；解除冻结；未关闭项转入后续批次 | ☐ |

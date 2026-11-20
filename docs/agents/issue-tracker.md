@@ -1,6 +1,6 @@
 # Issue tracker：本地 Markdown
 
-本仓库的 issue 与 spec 以 Markdown 文件形式存放在 `.scratch/`。`.scratch/` 当前未纳入 git；除非仓库开始提交它们，否则按本地工作文档处理。
+本仓库的 issue 与 spec 以 Markdown 文件形式存放在 `.scratch/`。`.scratch/` 既有已提交文件，也有未跟踪的本地文件；新建的票默认按本地工作文档处理，是否提交随当次工作决定。
 
 ## 约定
 

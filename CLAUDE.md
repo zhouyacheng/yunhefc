@@ -6,7 +6,7 @@
 - **评审通过**：P-01~P-77 已确认；设计成果不再主动变更。
 - **代码状态**：MVP 功能已全部实现。`backend/` 单部署单元覆盖 M01–M11 与横切支撑（认证/RBAC/邀请/Redis 会话/Outbox/Kafka、球员档案与球队页、比赛与状态机、报名/候补/递补、考勤与签到、事件与比分、阵容、分组、通知 NTF-01~04 + 7 类触发 + 90 天物理删除、审计查询与年度导出、系统设置、OSS 上传与签名读、真实短信、微信小程序登录（AUTH-20/21）、prod 配置 fail-fast 与保留任务）；`frontend/` pnpm workspace 覆盖 C 端 C01–C09 与 B 端 B02–B11（B01 已下线），含 api-client/permissions/shared 与 Vitest + Playwright；`frontend/apps/miniprogram` 为微信小程序端（P-74/P-75/P-76/P-77，登录、首页、比赛（对齐 C02 筛选与卡片）、球队、我的与资料编辑、比赛详情（对齐 C03 头部与事件），进行中）；`deploy/`（Docker Compose、Nginx、Dockerfile、RUNBOOK）与 `.github/workflows/ci.yml`、`deploy.yml` 已建立。
 - **原型定位**：`prototype/` 仅演示交互与信息架构，不是生产代码；正式实现以设计文档为准。
-- **下一步**：`.scratch/` 下既有实施票已关闭；P-75/P-76/P-77 小程序页面待人工验收，之后进入生产 RC 验收——按 `.scratch/mvp-release/release-checklist.md` 与 `scripts/rc-acceptance-wizard.sh` 执行，先确认 cutover 窗口、外部凭证与验收证据口径；新的功能批次需先明确终点与范围再出票。
+- **下一步**：`.scratch/` 下既有实施票已关闭；小程序 P-75/P-76/P-77 已人工验收，先完成 qua→main PR 与生产部署（解除旧镜像登录问题），再进入生产 RC 验收——按 `.scratch/mvp-release/release-checklist.md` 与 `scripts/rc-acceptance-wizard.sh` 执行，先确认 cutover 窗口、外部凭证与验收证据口径；新的功能批次需先明确终点与范围再出票。
 
 ## 1. 唯一事实源
 

@@ -69,7 +69,6 @@
         value="{{form.venue}}"
         placeholder="如：聚龙"
         confirm-type="search"
-        adjust-position="{{false}}"
         bindinput="onVenueInput"
         bindconfirm="onVenueConfirm"
       />
@@ -89,6 +88,7 @@
           <view class="filter-field__value">{{form.month || '全部月份'}}</view>
         </picker>
         <text wx:if="{{form.month}}" class="filter-field__clear" bindtap="clearMonth">清除</text>
+        <text wx:else class="filter-field__clear" bindtap="selectCurrentMonth">本月</text>
       </view>
     </view>
 

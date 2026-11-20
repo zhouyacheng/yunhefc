@@ -1,12 +1,7 @@
 import type { MatchDetail, MatchSummary, Page } from '../../types/api';
 import { WEB_URL } from '../../utils/config';
-import {
-  buildHero,
-  buildMatchCard,
-  HOME_FEATURES,
-  type HeroView,
-  type MatchCardView,
-} from '../../utils/home-view';
+import { buildHero, HOME_FEATURES, type HeroView } from '../../utils/home-view';
+import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import { request } from '../../utils/request';
 import { getPlayer, getUser, sessionReady } from '../../utils/session';
 

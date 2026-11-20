@@ -10,6 +10,10 @@ const DATE_PATTERN = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 const TYPE_CODES = new Set(Object.keys(MATCH_TYPE_TEXT).map(Number));
 const STATUS_CODES = new Set(Object.keys(MATCH_STATUS_TEXT).map(Number));
 
+/**
+ * 小程序没有 URL 持久化：默认态由 `emptyScheduleFilters` + `toScheduleForm` 表达，
+ * 「明确不限月份」由表单空值表达，因此不移植 Web 的 `monthAll` 哨兵。
+ */
 export interface ScheduleFilters {
   type: number | null;
   venue: string;

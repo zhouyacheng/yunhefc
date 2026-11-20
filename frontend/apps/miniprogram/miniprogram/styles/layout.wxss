@@ -1,0 +1,32 @@
+/* 跨页面共用布局：加载/错误/空态与页头。 */
+
+.state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24rpx;
+  padding: 120rpx 40rpx;
+}
+
+.state--inline {
+  padding: 32rpx 0;
+}
+
+.page-head {
+  margin-bottom: 24rpx;
+}
+
+.page-head__eyebrow {
+  display: block;
+  color: var(--yh-green-ink);
+  font-size: 22rpx;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.page-head__title {
+  margin: 8rpx 0 6rpx;
+  font-size: 48rpx;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}

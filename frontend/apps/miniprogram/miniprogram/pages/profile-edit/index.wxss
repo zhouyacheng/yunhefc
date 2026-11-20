@@ -2,13 +2,6 @@
   padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
 }
 
-.state {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 120rpx 0;
-}
-
 .avatar-card {
   display: flex;
   gap: 24rpx;

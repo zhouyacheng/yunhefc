@@ -3,7 +3,13 @@
 import type { DerivedScore, MatchSummary } from '../types/api';
 
 export type StatusTone =
-  'open' | 'closed' | 'locked' | 'live' | 'finished' | 'postponed' | 'cancelled';
+  | 'open'
+  | 'closed'
+  | 'locked'
+  | 'live'
+  | 'finished'
+  | 'postponed'
+  | 'cancelled';
 export type TypeTone = 'external' | 'internal' | 'training' | 'friendly';
 export type ResultTone = 'win' | 'draw' | 'loss' | 'muted';
 
@@ -24,7 +30,7 @@ export const MATCH_TYPE_TEXT: Readonly<Record<number, string>> = {
   3: '友谊赛',
 };
 
-export const EVENT_TYPE_TEXT: Readonly<Record<number, string>> = {
+const EVENT_TYPE_TEXT: Readonly<Record<number, string>> = {
   0: '进球',
   1: '乌龙球',
   2: '换人',
@@ -32,7 +38,7 @@ export const EVENT_TYPE_TEXT: Readonly<Record<number, string>> = {
   4: '红牌',
 };
 
-export const EVENT_HALF_TEXT: Readonly<Record<number, string>> = {
+const EVENT_HALF_TEXT: Readonly<Record<number, string>> = {
   0: '上半场',
   1: '下半场',
 };

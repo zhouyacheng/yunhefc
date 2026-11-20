@@ -2,7 +2,7 @@
 // 小程序只做只读展示，不包含报名、名单、邀请与管理员操作。
 import type { DerivedScore, MatchDetail, MatchEvent } from '../types/api';
 import { formatDateWithYear, formatDateTimeWithYear, formatTimeRange } from './datetime';
-import { coreOf, type MatchCoreView } from './home-view';
+import { buildMatchCore, type MatchCoreView } from './match-view';
 import {
   eventHalfText,
   eventTypeText,
@@ -43,7 +43,7 @@ export function buildMatchDetailHeader(
   // 事件推导值优先；其次详情自带的 derivedScore；最后兜底比分。
   const displayed = resolveDisplayedScore(detail, derived ?? detail.derivedScore ?? null);
   return {
-    ...coreOf(detail, displayed),
+    ...buildMatchCore(detail, displayed),
     resultText: detail.resultText ?? '',
     resultTone: resultTone(detail.resultText),
     dateText: formatDateWithYear(detail.startAt),

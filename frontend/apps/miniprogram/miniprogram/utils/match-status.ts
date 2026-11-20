@@ -49,6 +49,31 @@ export function statusOptions(input: {
   });
 }
 
+export type StatusChoice =
+  | { kind: 'ignore' }
+  | { kind: 'postpone' }
+  | { kind: 'cancel' }
+  | { kind: 'change'; status: number };
+
+/** 状态项点击的领域结果：忽略、打开延期/取消表单，或直接切换状态。 */
+export function statusChoice(
+  options: readonly StatusOption[],
+  currentStatus: number,
+  index: number,
+): StatusChoice {
+  const option = options[index];
+  if (!option || option.disabled || option.status === currentStatus) {
+    return { kind: 'ignore' };
+  }
+  if (option.status === 5) {
+    return { kind: 'postpone' };
+  }
+  if (option.status === 6) {
+    return { kind: 'cancel' };
+  }
+  return { kind: 'change', status: option.status };
+}
+
 function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
@@ -64,6 +89,53 @@ export function isoToShanghaiLocal(value: string | null | undefined): string {
   }
   const local = new Date(instant + SHANGHAI_OFFSET_MS);
   return `${local.getUTCFullYear()}-${pad(local.getUTCMonth() + 1)}-${pad(local.getUTCDate())}T${pad(local.getUTCHours())}:${pad(local.getUTCMinutes())}`;
+}
+
+/** ISO → [日期, 时间] 墙钟字段；缺失/非法时回退到 fallbackIso（默认当前时间）。 */
+export function shanghaiLocalFields(value: string, fallbackIso?: string): [string, string] {
+  const local =
+    isoToShanghaiLocal(value) || isoToShanghaiLocal(fallbackIso ?? new Date().toISOString());
+  const [date, time] = local.split('T');
+  return [date, time ?? '00:00'];
+}
+
+export interface StatusSheetInitialInput {
+  initialStartAt: string;
+  initialEndAt: string;
+  options: readonly StatusOption[];
+  currentStatus: number;
+  now?: string;
+}
+
+export interface StatusSheetInitial {
+  mode: 'list';
+  currentLabel: string;
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+}
+
+/** 打开弹层时的初始视图：模式、当前状态文案与延期表单的日期时间。 */
+export function statusSheetInitial(input: StatusSheetInitialInput): StatusSheetInitial {
+  const [startDate, startTime] = shanghaiLocalFields(input.initialStartAt, input.now);
+  const [endDate, endTime] = shanghaiLocalFields(input.initialEndAt, input.now);
+  return {
+    mode: 'list',
+    currentLabel: statusCurrentLabel(input.options, input.currentStatus) ?? '—',
+    startDate,
+    startTime,
+    endDate,
+    endTime,
+  };
+}
+
+/** 当前状态文案；选项未命中时返回 null。 */
+export function statusCurrentLabel(
+  options: readonly StatusOption[],
+  currentStatus: number,
+): string | null {
+  return options.find((option) => option.status === currentStatus)?.label ?? null;
 }
 
 /** 上海墙钟值 → ISO；非法日期（如 2 月 30 日）返回 null。 */
@@ -121,14 +193,38 @@ function matchScheduleError(
   return seconds <= CANCEL_LOCK_SECONDS ? '开赛时间必须晚于当天 01:00' : null;
 }
 
-/** 延期弹窗校验：2–4 小时、开赛晚于当天 01:00（Asia/Shanghai）。 */
-export function postponeFormError(startLocal: string, endLocal: string): string | null {
+export type PostponeSubmission =
+  { ok: true; startAt: string; endAt: string } | { ok: false; error: string };
+
+function postponeInstants(startLocal: string, endLocal: string): PostponeSubmission {
   const startAt = shanghaiLocalToIso(startLocal);
   const endAt = shanghaiLocalToIso(endLocal);
   if (!startAt || !endAt) {
-    return '请选择开始与结束时间';
+    return { ok: false, error: '请选择开始与结束时间' };
   }
-  return matchScheduleError(startAt, endAt);
+  const error = matchScheduleError(startAt, endAt);
+  return error ? { ok: false, error } : { ok: true, startAt, endAt };
+}
+
+/** 延期弹窗校验：2–4 小时、开赛晚于当天 01:00（Asia/Shanghai）。 */
+export function postponeFormError(startLocal: string, endLocal: string): string | null {
+  const result = postponeInstants(startLocal, endLocal);
+  return result.ok ? null : result.error;
+}
+
+export interface PostponeFields {
+  startDate: string;
+  startTime: string;
+  endDate: string;
+  endTime: string;
+}
+
+/** 延期表单的日期时间字段 → 提交时刻；校验失败返回文案。 */
+export function buildPostponeSubmission(fields: PostponeFields): PostponeSubmission {
+  return postponeInstants(
+    `${fields.startDate}T${fields.startTime}`,
+    `${fields.endDate}T${fields.endTime}`,
+  );
 }
 
 /** 取消原因校验：非空、≤200 字。 */
@@ -141,4 +237,15 @@ export function cancelReasonError(reason: string): string | null {
     return '取消原因不能超过 200 字';
   }
   return null;
+}
+
+export type CancelSubmission = { ok: true; reason: string } | { ok: false; error: string };
+
+/** 取消表单 → 提交原因；校验失败返回文案。 */
+export function buildCancelSubmission(reason: string): CancelSubmission {
+  const message = cancelReasonError(reason);
+  if (message) {
+    return { ok: false, error: message };
+  }
+  return { ok: true, reason: reason.trim() };
 }

@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GroupingView, MatchEvent, MatchSummary } from '../miniprogram/types/api';
+import type {
+  EventFormPlayer,
+  GroupingView,
+  MatchEvent,
+  MatchSummary,
+} from '../miniprogram/types/api';
 import {
   allowedEventTypes,
+  buildEventSubmission,
   eventCreateAllowed,
   eventEditAllowed,
+  eventFormView,
   eventPayload,
+  eventTeamPickers,
   eventTeamRoster,
   teamLockedFor,
   validateEventForm,
@@ -100,6 +108,159 @@ describe('eventTeamRoster', () => {
   });
 });
 
+const pickerPlayers: EventFormPlayer[] = [
+  { id: 11, name: '张三', jersey: 7, position: 3 },
+  { id: 12, name: '李四' },
+];
+
+describe('eventTeamPickers', () => {
+  it('rebuilds options and maps the selected ids back to indices', () => {
+    const pickers = eventTeamPickers({
+      match: match(),
+      players: pickerPlayers,
+      isAdmin: true,
+      ownPlayerId: null,
+      team: 0,
+      selected: { playerId: 12, assistPlayerId: 11, inPlayerId: 12, outPlayerId: 11 },
+    });
+
+    expect(pickers.playerOptions).toEqual([
+      { id: null, label: '请选择' },
+      { id: 11, label: '张三 #7 · 前锋' },
+      { id: 12, label: '李四 #— · —' },
+    ]);
+    expect(pickers.assistOptions[0]).toEqual({ id: null, label: '无' });
+    expect(pickers.playerIndex).toBe(2);
+    expect(pickers.assistIndex).toBe(1);
+    expect(pickers.inIndex).toBe(2);
+    expect(pickers.outIndex).toBe(1);
+  });
+
+  it('limits non-admins in external matches to their own player', () => {
+    const pickers = eventTeamPickers({
+      match: match(),
+      players: pickerPlayers,
+      isAdmin: false,
+      ownPlayerId: 11,
+      team: 0,
+      selected: { playerId: 12 },
+    });
+
+    expect(pickers.playerOptions.map((option) => option.id)).toEqual([null, 11]);
+    expect(pickers.playerIndex).toBe(0);
+    expect(pickers.assistOptions.map((option) => option.id)).toEqual([null, 11, 12]);
+    expect(pickers.inOptions.map((option) => option.id)).toEqual([null, 11, 12]);
+  });
+
+  it('keeps only the empty options for the opponent side of an external match', () => {
+    const pickers = eventTeamPickers({
+      match: match(),
+      players: pickerPlayers,
+      isAdmin: true,
+      ownPlayerId: null,
+      team: 1,
+    });
+
+    expect(pickers.playerOptions).toEqual([{ id: null, label: '请选择' }]);
+    expect(pickers.assistOptions).toEqual([{ id: null, label: '无' }]);
+    expect(pickers.playerIndex).toBe(0);
+  });
+
+  it('rebuilds options from the saved grouping of an internal match', () => {
+    const pickers = eventTeamPickers({
+      match: match({ type: 1 }),
+      players: pickerPlayers,
+      grouping: savedGrouping,
+      isAdmin: true,
+      ownPlayerId: null,
+      team: 1,
+      selected: { playerId: 12 },
+    });
+
+    expect(pickers.playerOptions.map((option) => option.id)).toEqual([null, 12]);
+    expect(pickers.playerIndex).toBe(1);
+  });
+});
+
+describe('eventFormView', () => {
+  it('builds type, team and half options with defaults for a new event', () => {
+    const view = eventFormView({
+      match: match(),
+      players: confirmed,
+      grouping: null,
+      editing: null,
+      isAdmin: false,
+      ownPlayerId: 11,
+    });
+
+    expect(view.typeOptions).toEqual([
+      { value: 0, label: '进球' },
+      { value: 1, label: '乌龙球' },
+      { value: 3, label: '黄牌' },
+      { value: 4, label: '红牌' },
+    ]);
+    expect(view.typeIndex).toBe(0);
+    expect(view.teamOptions).toEqual([
+      { value: 0, label: '云河FC' },
+      { value: 1, label: '对手FC' },
+    ]);
+    expect(view.teamIndex).toBe(0);
+    expect(view.teamLocked).toBe(true);
+    expect(view.halfIndex).toBe(0);
+    expect(view.minute).toBe('');
+    expect(view.penalty).toBe(false);
+    expect(view.playerOptions.map((option) => option.id)).toEqual([null, 11]);
+  });
+
+  it('restores the edited event selection', () => {
+    const view = eventFormView({
+      match: match({ type: 1 }),
+      players: confirmed,
+      grouping: savedGrouping,
+      editing: {
+        type: 3,
+        team: 1,
+        player: { id: 12 },
+        assistPlayer: { id: 11 },
+        inPlayer: { id: 11 },
+        outPlayer: { id: 12 },
+        minute: 45,
+        half: 1,
+        penalty: true,
+      },
+      isAdmin: true,
+      ownPlayerId: 11,
+    });
+
+    expect(view.typeOptions.map((option) => option.value)).toEqual([0, 1, 2, 3, 4]);
+    expect(view.typeIndex).toBe(3);
+    expect(view.teamIndex).toBe(1);
+    expect(view.teamLocked).toBe(false);
+    expect(view.halfIndex).toBe(1);
+    expect(view.minute).toBe('45');
+    expect(view.penalty).toBe(true);
+    expect(view.playerIndex).toBe(1);
+    expect(view.assistIndex).toBe(0);
+    expect(view.inIndex).toBe(0);
+    expect(view.outIndex).toBe(1);
+  });
+
+  it('defaults the team from the saved grouping for non-admins', () => {
+    const view = eventFormView({
+      match: match({ type: 1 }),
+      players: confirmed,
+      grouping: savedGrouping,
+      editing: null,
+      isAdmin: false,
+      ownPlayerId: 12,
+    });
+
+    expect(view.teamIndex).toBe(1);
+    expect(view.teamLocked).toBe(false);
+    expect(view.playerOptions.map((option) => option.id)).toEqual([null, 12]);
+  });
+});
+
 describe('allowedEventTypes / teamLockedFor', () => {
   it('lets only admins record substitutions', () => {
     expect(allowedEventTypes(true)).toEqual([0, 1, 2, 3, 4]);
@@ -161,6 +322,144 @@ describe('eventPayload', () => {
     expect(
       eventPayload(form({ type: 2, playerId: null, inPlayerId: 11, outPlayerId: 12 })),
     ).toMatchObject({ type: 2, playerId: null, inPlayerId: 11, outPlayerId: 12 });
+  });
+});
+
+const submissionOptions = {
+  typeOptions: [
+    { value: 0, label: '进球' },
+    { value: 2, label: '换人' },
+  ],
+  playerOptions: [
+    { id: null, label: '请选择' },
+    { id: 11, label: '张三' },
+  ],
+  assistOptions: [
+    { id: null, label: '无' },
+    { id: 12, label: '李四' },
+  ],
+  inOptions: [
+    { id: null, label: '请选择' },
+    { id: 11, label: '张三' },
+  ],
+  outOptions: [
+    { id: null, label: '请选择' },
+    { id: 12, label: '李四' },
+  ],
+};
+
+describe('buildEventSubmission', () => {
+  it('maps picker indices to ids and carries the editing event version', () => {
+    const submission = buildEventSubmission({
+      ...submissionOptions,
+      typeIndex: 0,
+      teamIndex: 0,
+      playerIndex: 1,
+      assistIndex: 1,
+      inIndex: 1,
+      outIndex: 1,
+      halfIndex: 1,
+      minute: '23',
+      penalty: true,
+      version: 4,
+      editing: { id: 9, version: 2 },
+    });
+
+    expect(submission).toEqual({
+      ok: true,
+      payload: {
+        type: 0,
+        team: 0,
+        playerId: 11,
+        assistPlayerId: 12,
+        inPlayerId: null,
+        outPlayerId: null,
+        minute: 23,
+        half: 1,
+        penalty: true,
+      },
+      eventId: 9,
+      version: 4,
+    });
+  });
+
+  it('falls back to the editing version, then to null', () => {
+    const base = {
+      ...submissionOptions,
+      typeIndex: 0,
+      teamIndex: 0,
+      playerIndex: 1,
+      assistIndex: 0,
+      inIndex: 0,
+      outIndex: 0,
+      halfIndex: 0,
+      minute: '10',
+      penalty: false,
+    };
+
+    expect(
+      buildEventSubmission({ ...base, version: 0, editing: { id: 9, version: 3 } }),
+    ).toMatchObject({ ok: true, version: 3 });
+    expect(buildEventSubmission({ ...base, version: 0, editing: null })).toMatchObject({
+      ok: true,
+      version: null,
+    });
+    expect(
+      buildEventSubmission({ ...base, version: 2, editing: { id: 9, version: 3 } }),
+    ).toMatchObject({ ok: true, version: 2 });
+  });
+
+  it('returns the validation message instead of a payload', () => {
+    const submission = buildEventSubmission({
+      ...submissionOptions,
+      typeIndex: 0,
+      teamIndex: 0,
+      playerIndex: 0,
+      assistIndex: 0,
+      inIndex: 0,
+      outIndex: 0,
+      halfIndex: 0,
+      minute: '',
+      penalty: false,
+      version: 1,
+      editing: null,
+    });
+
+    expect(submission).toEqual({ ok: false, error: '请填写 1–120 的比赛分钟' });
+  });
+
+  it('accepts a substitution using the in/out pickers', () => {
+    const submission = buildEventSubmission({
+      ...submissionOptions,
+      typeIndex: 1,
+      teamIndex: 1,
+      playerIndex: 0,
+      assistIndex: 0,
+      inIndex: 1,
+      outIndex: 1,
+      halfIndex: 0,
+      minute: '60',
+      penalty: false,
+      version: 1,
+      editing: { id: 9, version: 1 },
+    });
+
+    expect(submission).toEqual({
+      ok: true,
+      payload: {
+        type: 2,
+        team: 1,
+        playerId: null,
+        assistPlayerId: null,
+        inPlayerId: 11,
+        outPlayerId: 12,
+        minute: 60,
+        half: 0,
+        penalty: false,
+      },
+      eventId: 9,
+      version: 1,
+    });
   });
 });
 

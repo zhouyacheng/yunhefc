@@ -1,8 +1,9 @@
 import {
-  cancelReasonError,
-  isoToShanghaiLocal,
-  postponeFormError,
-  shanghaiLocalToIso,
+  buildCancelSubmission,
+  buildPostponeSubmission,
+  statusChoice,
+  statusCurrentLabel,
+  statusSheetInitial,
   type StatusOption,
 } from '../../utils/match-status';
 
@@ -16,12 +17,6 @@ interface StatusSheetData {
   endTime: string;
   reason: string;
   formError: string;
-}
-
-function splitLocal(iso: string): [string, string] {
-  const local = isoToShanghaiLocal(iso) || isoToShanghaiLocal(new Date().toISOString());
-  const [date, time] = local.split('T');
-  return [date, time ?? '00:00'];
 }
 
 Component({
@@ -50,28 +45,27 @@ Component({
       if (!value) {
         return;
       }
-      const [startDate, startTime] = splitLocal(this.data.initialStartAt);
-      const [endDate, endTime] = splitLocal(this.data.initialEndAt);
-      const current = (this.data.options as StatusOption[]).find(
-        (option) => option.status === this.data.currentStatus,
-      );
       this.setData({
-        mode: 'list',
-        currentLabel: current?.label ?? '—',
-        startDate,
-        startTime,
-        endDate,
-        endTime,
+        ...statusSheetInitial({
+          initialStartAt: this.data.initialStartAt,
+          initialEndAt: this.data.initialEndAt,
+          options: this.data.options as StatusOption[],
+          currentStatus: this.data.currentStatus,
+        }),
         reason: '',
         formError: '',
       });
     },
     'currentStatus, options'() {
-      const current = (this.data.options as StatusOption[]).find(
-        (option) => option.status === this.data.currentStatus,
+      if (!this.data.show) {
+        return;
+      }
+      const label = statusCurrentLabel(
+        this.data.options as StatusOption[],
+        this.data.currentStatus,
       );
-      if (this.data.show && current) {
-        this.setData({ currentLabel: current.label });
+      if (label !== null) {
+        this.setData({ currentLabel: label });
       }
     },
   },
@@ -86,21 +80,24 @@ Component({
     },
 
     choose(event: WechatMiniprogram.BaseEvent): void {
-      const index = Number(event.currentTarget.dataset.index);
-      const options = this.data.options as StatusOption[];
-      const option = options[index];
-      if (!option || option.disabled || option.status === this.data.currentStatus) {
-        return;
+      const choice = statusChoice(
+        this.data.options as StatusOption[],
+        this.data.currentStatus,
+        Number(event.currentTarget.dataset.index),
+      );
+      switch (choice.kind) {
+        case 'ignore':
+          return;
+        case 'postpone':
+          this.setData({ mode: 'postpone', formError: '' });
+          return;
+        case 'cancel':
+          this.setData({ mode: 'cancel', formError: '' });
+          return;
+        case 'change':
+          this.triggerEvent('change', { status: choice.status });
+          return;
       }
-      if (option.status === 5) {
-        this.setData({ mode: 'postpone', formError: '' });
-        return;
-      }
-      if (option.status === 6) {
-        this.setData({ mode: 'cancel', formError: '' });
-        return;
-      }
-      this.triggerEvent('change', { status: option.status });
     },
 
     onStartDate(event: WechatMiniprogram.CustomEvent): void {
@@ -117,21 +114,18 @@ Component({
     },
 
     submitPostpone(): void {
-      const startLocal = `${this.data.startDate}T${this.data.startTime}`;
-      const endLocal = `${this.data.endDate}T${this.data.endTime}`;
-      const message = postponeFormError(startLocal, endLocal);
-      if (message) {
-        this.setData({ formError: message });
-        return;
-      }
-      const startAt = shanghaiLocalToIso(startLocal);
-      const endAt = shanghaiLocalToIso(endLocal);
-      if (!startAt || !endAt) {
-        this.setData({ formError: '请选择开始与结束时间' });
+      const submission = buildPostponeSubmission({
+        startDate: this.data.startDate,
+        startTime: this.data.startTime,
+        endDate: this.data.endDate,
+        endTime: this.data.endTime,
+      });
+      if (!submission.ok) {
+        this.setData({ formError: submission.error });
         return;
       }
       this.setData({ formError: '' });
-      this.triggerEvent('postpone', { startAt, endAt });
+      this.triggerEvent('postpone', { startAt: submission.startAt, endAt: submission.endAt });
     },
 
     onReason(event: WechatMiniprogram.CustomEvent): void {
@@ -139,13 +133,13 @@ Component({
     },
 
     submitCancel(): void {
-      const message = cancelReasonError(this.data.reason);
-      if (message) {
-        this.setData({ formError: message });
+      const submission = buildCancelSubmission(this.data.reason);
+      if (!submission.ok) {
+        this.setData({ formError: submission.error });
         return;
       }
       this.setData({ formError: '' });
-      this.triggerEvent('cancel', { reason: this.data.reason.trim() });
+      this.triggerEvent('cancel', { reason: submission.reason });
     },
   },
 });

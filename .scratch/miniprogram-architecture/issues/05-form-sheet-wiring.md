@@ -1,6 +1,6 @@
 # 05 深化两个表单 sheet 的接线
 
-Status: needs-triage
+Status: resolved
 Blocked by: none
 
 ## 目标
@@ -39,11 +39,11 @@ Blocked by: none
 
 ## 验收
 
-- [ ] picker 选项重建、index ↔ playerId、version 回退有 module 级测试。
-- [ ] 状态 sheet 的默认时间回退有测试。
-- [ ] sheet 内不再包含可由纯 module 承担的规则。
-- [ ] 现有事件录入/编辑、延期/取消表单行为不变。
-- [ ] `typecheck`、`test`、`pnpm lint` 通过。
+- [x] picker 选项重建、index ↔ playerId、version 回退有 module 级测试。
+- [x] 状态 sheet 的默认时间回退有测试。
+- [x] sheet 内不再包含可由纯 module 承担的规则。
+- [x] 现有事件录入/编辑、延期/取消表单行为不变（module 测试锁定；WXML 未改，开发者工具/真机走查待补）。
+- [x] `typecheck`、`test`、`pnpm lint` 通过。
 
 ## 风险
 
@@ -52,3 +52,13 @@ Blocked by: none
 ## Comments
 
 - 2026-11-20 架构扫描开票（Worth exploring）。
+- 2026-11-21 实施完成（TDD）：
+  - `utils/event-form.ts` 新增表单 module：`eventTeamPickers`（球队 → 四个 picker 的选项与 index ↔ playerId 映射，选中失效回首个选项）、`eventFormView`（类型/球队选项、默认球队、半场索引与编辑回填）、`buildEventSubmission`（picker 索引 → 领域状态 → 校验 → payload + eventId + version 回退）。`PlayerOption`/`ValueOption` 收进 module。
+  - `utils/match-status.ts` 新增状态表单 module：`shanghaiLocalFields`（ISO → 上海墙钟，缺失回退 `now`，默认当前时间）、`statusSheetInitial`、`statusCurrentLabel`、`statusChoice`（忽略/延期/取消/直接切换的路由）、`buildPostponeSubmission`、`buildCancelSubmission`。
+  - `components/event-form-sheet`、`components/status-sheet` 退化为 adapter：只绑定属性/事件、调用 module、`setData` 与 `triggerEvent`；`show, editing` 观测顺序未改。
+  - 新增 24 例（event 11、status 13）：选项重建与索引映射、外战/队内赛过滤、编辑回填、版本回退、默认时间回退（含 fake timer）、状态选择路由与延期/取消提交。原 244 例保持通过。
+  - 验证：`pnpm --filter @yunhefc/miniprogram typecheck`、`test`（27 文件 / 268 用例）、`frontend` 下 `pnpm lint`、`prettier --check`（改动文件）通过；WXML 未改，开发者工具/真机走查待补。
+- 2026-11-21 code-review（Standards / Spec 两轴）：
+  - 已改：`postponeFormError` 与 `buildPostponeSubmission` 共用 `postponeInstants`，去掉重复的时间解析与纯委托；半场选项标签留在 adapter 静态 data，`eventFormView` 只回填 `halfIndex`，避免选项双份来源。
+  - 保留：`statusChoice` 与 `statusOptions` 各自表达“路由”与“可选项”两种语义，不强行合并；`shanghaiLocalFields` 的当前时间默认值是票面明确要求；`eventFormView` 不返回 `halfOptions` 属静态展示常量。
+  - 行为核对：reset 观测顺序、picker 映射、version 回退、默认时间回退、校验文案、payload/triggerEvent 形状与迁移前一致。

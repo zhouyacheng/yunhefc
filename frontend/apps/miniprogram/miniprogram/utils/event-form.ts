@@ -1,7 +1,14 @@
 // 移植自 shared event.ts 与 Web MatchDetailPage.vue 的事件表单规则。
-import type { EventCreate, GroupingView, MatchEvent, MatchSummary } from '../types/api';
+import type {
+  EventCreate,
+  EventFormPlayer,
+  GroupingView,
+  MatchEvent,
+  MatchSummary,
+} from '../types/api';
 import { isInternalMatchType } from './match-type';
 import { eventEditWindowOpen, eventEntryOpen } from './match-window';
+import { EVENT_TYPE_TEXT, positionText } from './presentation';
 
 export interface EventFormState {
   type: number;
@@ -58,6 +65,92 @@ export function allowedEventTypes(isAdmin: boolean): number[] {
   return isAdmin ? [0, 1, 2, 3, 4] : [0, 1, 3, 4];
 }
 
+export interface PlayerOption {
+  id: number | null;
+  label: string;
+}
+
+export interface ValueOption {
+  value: number;
+  label: string;
+}
+
+function playerLabel(player: EventFormPlayer): string {
+  const jersey = player.jersey === null || player.jersey === undefined ? '—' : player.jersey;
+  return `${player.name} #${jersey} · ${positionText(player.position ?? -1)}`;
+}
+
+function optionsOf(players: readonly EventFormPlayer[], emptyLabel: string): PlayerOption[] {
+  return [
+    { id: null, label: emptyLabel },
+    ...players.map((player) => ({ id: player.id, label: playerLabel(player) })),
+  ];
+}
+
+function indexOfPlayer(options: readonly PlayerOption[], id: number | null | undefined): number {
+  if (id === null || id === undefined) {
+    return 0;
+  }
+  const index = options.findIndex((option) => option.id === id);
+  return index >= 0 ? index : 0;
+}
+
+export interface EventTeamSelection {
+  playerId?: number | null;
+  assistPlayerId?: number | null;
+  inPlayerId?: number | null;
+  outPlayerId?: number | null;
+}
+
+export interface EventTeamPickersInput {
+  match: Pick<MatchSummary, 'type' | 'ourSide'> | null | undefined;
+  players: readonly EventFormPlayer[];
+  grouping?: Pick<GroupingView, 'savedAt' | 'teams'> | null;
+  isAdmin: boolean;
+  ownPlayerId: number | null;
+  team: number;
+  selected?: EventTeamSelection | null;
+}
+
+export interface EventTeamPickers {
+  playerOptions: PlayerOption[];
+  playerIndex: number;
+  assistOptions: PlayerOption[];
+  assistIndex: number;
+  inOptions: PlayerOption[];
+  inIndex: number;
+  outOptions: PlayerOption[];
+  outIndex: number;
+}
+
+/** 由球队与已确认球员重建四个 picker 的选项与索引；选择失效时回到首个选项。 */
+export function eventTeamPickers(input: EventTeamPickersInput): EventTeamPickers {
+  const selected = input.selected ?? {};
+  const teamPlayers = eventTeamRoster({
+    match: input.match,
+    team: input.team,
+    confirmed: input.players,
+    grouping: input.grouping,
+  });
+  const locked = teamLockedFor(input.match, input.isAdmin);
+  const pickable = locked
+    ? teamPlayers.filter((player) => player.id === input.ownPlayerId)
+    : teamPlayers;
+  const teamAll = optionsOf(teamPlayers, '请选择');
+  const playerOptions = optionsOf(pickable, '请选择');
+  const assistOptions = optionsOf(teamPlayers, '无');
+  return {
+    playerOptions,
+    playerIndex: indexOfPlayer(playerOptions, selected.playerId),
+    assistOptions,
+    assistIndex: indexOfPlayer(assistOptions, selected.assistPlayerId),
+    inOptions: teamAll,
+    inIndex: indexOfPlayer(teamAll, selected.inPlayerId),
+    outOptions: teamAll,
+    outIndex: indexOfPlayer(teamAll, selected.outPlayerId),
+  };
+}
+
 export function teamLockedFor(
   match: Pick<MatchSummary, 'type'> | null | undefined,
   isAdmin: boolean,
@@ -85,6 +178,80 @@ export function defaultEventTeam(
     return 1;
   }
   return 0;
+}
+
+export interface EventFormEditing {
+  type: number;
+  team: number;
+  player?: { id: number } | null;
+  assistPlayer?: { id: number } | null;
+  inPlayer?: { id: number } | null;
+  outPlayer?: { id: number } | null;
+  minute: number;
+  half: number;
+  penalty: boolean;
+}
+
+export interface EventFormViewInput {
+  match: MatchSummary | null | undefined;
+  players: readonly EventFormPlayer[];
+  grouping?: Pick<GroupingView, 'savedAt' | 'teams'> | null;
+  editing?: EventFormEditing | null;
+  isAdmin: boolean;
+  ownPlayerId: number | null;
+}
+
+export interface EventFormView extends EventTeamPickers {
+  typeOptions: ValueOption[];
+  typeIndex: number;
+  teamOptions: ValueOption[];
+  teamIndex: number;
+  teamLocked: boolean;
+  halfIndex: number;
+  minute: string;
+  penalty: boolean;
+}
+
+/** 打开弹层时的表单快照：选项、默认球队与编辑回填一次算完。 */
+export function eventFormView(input: EventFormViewInput): EventFormView {
+  const editing = input.editing ?? null;
+  const typeOptions = allowedEventTypes(input.isAdmin).map((value) => ({
+    value,
+    label: EVENT_TYPE_TEXT[value],
+  }));
+  const team =
+    editing?.team ??
+    defaultEventTeam(input.match, input.grouping, input.ownPlayerId, input.isAdmin);
+  return {
+    typeOptions,
+    typeIndex: Math.max(
+      0,
+      typeOptions.findIndex((option) => option.value === (editing?.type ?? 0)),
+    ),
+    teamOptions: [
+      { value: 0, label: input.match?.homeTeamName ?? '主队' },
+      { value: 1, label: input.match?.awayTeamName ?? '客队' },
+    ],
+    teamIndex: team === 1 ? 1 : 0,
+    teamLocked: teamLockedFor(input.match, input.isAdmin),
+    halfIndex: editing?.half === 1 ? 1 : 0,
+    minute: editing ? String(editing.minute) : '',
+    penalty: Boolean(editing?.penalty),
+    ...eventTeamPickers({
+      match: input.match,
+      players: input.players,
+      grouping: input.grouping,
+      isAdmin: input.isAdmin,
+      ownPlayerId: input.ownPlayerId,
+      team,
+      selected: {
+        playerId: editing?.player?.id ?? null,
+        assistPlayerId: editing?.assistPlayer?.id ?? null,
+        inPlayerId: editing?.inPlayer?.id ?? null,
+        outPlayerId: editing?.outPlayer?.id ?? null,
+      },
+    }),
+  };
 }
 
 export function validateEventForm(form: EventFormState): string | null {
@@ -122,6 +289,57 @@ export function eventPayload(form: EventFormState): EventCreate {
     minute: form.minute ?? 0,
     half: form.half,
     penalty: goal ? form.penalty : false,
+  };
+}
+
+export interface EventFormValues {
+  typeIndex: number;
+  teamIndex: number;
+  playerIndex: number;
+  assistIndex: number;
+  inIndex: number;
+  outIndex: number;
+  halfIndex: number;
+  minute: string;
+  penalty: boolean;
+}
+
+export interface EventSubmissionInput extends EventFormValues {
+  typeOptions: readonly ValueOption[];
+  playerOptions: readonly PlayerOption[];
+  assistOptions: readonly PlayerOption[];
+  inOptions: readonly PlayerOption[];
+  outOptions: readonly PlayerOption[];
+  version: number;
+  editing?: { id: number; version: number } | null;
+}
+
+export type EventSubmission =
+  | { ok: true; payload: EventCreate; eventId: number | null; version: number | null }
+  | { ok: false; error: string };
+
+/** 由 picker 索引还原领域状态；校验失败返回文案，成功返回 payload 与乐观锁版本。 */
+export function buildEventSubmission(input: EventSubmissionInput): EventSubmission {
+  const state: EventFormState = {
+    type: input.typeOptions[input.typeIndex]?.value ?? 0,
+    team: input.teamIndex === 1 ? 1 : 0,
+    playerId: input.playerOptions[input.playerIndex]?.id ?? null,
+    assistPlayerId: input.assistOptions[input.assistIndex]?.id ?? null,
+    inPlayerId: input.inOptions[input.inIndex]?.id ?? null,
+    outPlayerId: input.outOptions[input.outIndex]?.id ?? null,
+    minute: input.minute ? Number(input.minute) : null,
+    half: input.halfIndex === 1 ? 1 : 0,
+    penalty: input.penalty,
+  };
+  const error = validateEventForm(state);
+  if (error) {
+    return { ok: false, error };
+  }
+  return {
+    ok: true,
+    payload: eventPayload(state),
+    eventId: input.editing?.id ?? null,
+    version: input.version || input.editing?.version || null,
   };
 }
 

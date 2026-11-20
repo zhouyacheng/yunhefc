@@ -1,44 +1,12 @@
 import type { EventFormPlayer, GroupingView, MatchSummary } from '../../types/api';
 import {
-  allowedEventTypes,
-  defaultEventTeam,
-  eventPayload,
-  eventTeamRoster,
-  teamLockedFor,
-  validateEventForm,
-  type EventFormState,
+  buildEventSubmission,
+  eventFormView,
+  eventTeamPickers,
+  type EventFormEditing,
+  type PlayerOption,
+  type ValueOption,
 } from '../../utils/event-form';
-import { EVENT_TYPE_TEXT, positionText } from '../../utils/presentation';
-
-interface PlayerOption {
-  id: number | null;
-  label: string;
-}
-
-interface ValueOption {
-  value: number;
-  label: string;
-}
-
-function playerLabel(player: EventFormPlayer): string {
-  const jersey = player.jersey === null || player.jersey === undefined ? '—' : player.jersey;
-  return `${player.name} #${jersey} · ${positionText(player.position ?? -1)}`;
-}
-
-function optionsOf(players: EventFormPlayer[], emptyLabel: string): PlayerOption[] {
-  return [
-    { id: null, label: emptyLabel },
-    ...players.map((player) => ({ id: player.id, label: playerLabel(player) })),
-  ];
-}
-
-function indexOfPlayer(options: PlayerOption[], id: number | null | undefined): number {
-  if (id === null || id === undefined) {
-    return 0;
-  }
-  const index = options.findIndex((option) => option.id === id);
-  return index >= 0 ? index : 0;
-}
 
 Component({
   properties: {
@@ -55,17 +23,9 @@ Component({
   },
 
   data: {
-    typeOptions: [
-      { value: 0, label: '进球' },
-      { value: 1, label: '乌龙球' },
-      { value: 3, label: '黄牌' },
-      { value: 4, label: '红牌' },
-    ] as ValueOption[],
+    typeOptions: [] as ValueOption[],
     typeIndex: 0,
-    teamOptions: [
-      { value: 0, label: '主队' },
-      { value: 1, label: '客队' },
-    ] as ValueOption[],
+    teamOptions: [] as ValueOption[],
     teamIndex: 0,
     teamLocked: false,
     playerOptions: [{ id: null, label: '请选择' }] as PlayerOption[],
@@ -96,81 +56,17 @@ Component({
 
   methods: {
     reset(): void {
-      const match = this.data.match as MatchSummary | null;
-      const editing = this.data.editing as {
-        type: number;
-        team: number;
-        player?: { id: number } | null;
-        assistPlayer?: { id: number } | null;
-        inPlayer?: { id: number } | null;
-        outPlayer?: { id: number } | null;
-        minute: number;
-        half: number;
-        penalty: boolean;
-      } | null;
-      const isAdmin = Boolean(this.data.isAdmin);
-      const ownPlayerId = Number(this.data.ownPlayerId) || null;
-      const grouping = (this.data.grouping as GroupingView | null) ?? null;
-      const types = allowedEventTypes(isAdmin);
-      const typeOptions = types.map((value) => ({ value, label: EVENT_TYPE_TEXT[value] }));
-      const team = editing?.team ?? defaultEventTeam(match, grouping, ownPlayerId, isAdmin);
-      const teamLocked = teamLockedFor(match, isAdmin);
       this.setData({
-        typeOptions,
-        typeIndex: Math.max(
-          0,
-          typeOptions.findIndex((option) => option.value === (editing?.type ?? 0)),
-        ),
-        teamOptions: [
-          { value: 0, label: match?.homeTeamName ?? '主队' },
-          { value: 1, label: match?.awayTeamName ?? '客队' },
-        ],
-        teamIndex: team === 1 ? 1 : 0,
-        teamLocked,
-        halfIndex: editing?.half === 1 ? 1 : 0,
-        minute: editing ? String(editing.minute) : '',
-        penalty: Boolean(editing?.penalty),
-        formError: '',
-        ...this.playerOptionsFor(team, {
-          playerId: editing?.player?.id ?? null,
-          assistPlayerId: editing?.assistPlayer?.id ?? null,
-          inPlayerId: editing?.inPlayer?.id ?? null,
-          outPlayerId: editing?.outPlayer?.id ?? null,
+        ...eventFormView({
+          match: this.data.match as MatchSummary | null,
+          players: (this.data.players as EventFormPlayer[] | undefined) ?? [],
+          grouping: (this.data.grouping as GroupingView | null) ?? null,
+          editing: (this.data.editing as EventFormEditing | null) ?? null,
+          isAdmin: Boolean(this.data.isAdmin),
+          ownPlayerId: Number(this.data.ownPlayerId) || null,
         }),
+        formError: '',
       });
-    },
-
-    playerOptionsFor(
-      team: number,
-      selected: {
-        playerId: number | null;
-        assistPlayerId: number | null;
-        inPlayerId: number | null;
-        outPlayerId: number | null;
-      },
-    ): Record<string, unknown> {
-      const confirmed = (this.data.players as EventFormPlayer[] | undefined) ?? [];
-      const ownPlayerId = Number(this.data.ownPlayerId) || null;
-      const match = this.data.match as MatchSummary | null;
-      const grouping = (this.data.grouping as GroupingView | null) ?? null;
-      const teamPlayers = eventTeamRoster({ match, team, confirmed, grouping });
-      const locked = teamLockedFor(match, Boolean(this.data.isAdmin));
-      const pickable = locked
-        ? teamPlayers.filter((player) => player.id === ownPlayerId)
-        : teamPlayers;
-      const teamAll = optionsOf(teamPlayers, '请选择');
-      const playerOptions = optionsOf(pickable, '请选择');
-      const assistOptions = optionsOf(teamPlayers, '无');
-      return {
-        playerOptions,
-        playerIndex: indexOfPlayer(playerOptions, selected.playerId),
-        assistOptions,
-        assistIndex: indexOfPlayer(assistOptions, selected.assistPlayerId),
-        inOptions: teamAll,
-        inIndex: indexOfPlayer(teamAll, selected.inPlayerId),
-        outOptions: teamAll,
-        outIndex: indexOfPlayer(teamAll, selected.outPlayerId),
-      };
     },
 
     onType(event: WechatMiniprogram.CustomEvent): void {
@@ -181,11 +77,13 @@ Component({
       const teamIndex = Number(event.detail.value);
       this.setData({
         teamIndex,
-        ...this.playerOptionsFor(teamIndex, {
-          playerId: null,
-          assistPlayerId: null,
-          inPlayerId: null,
-          outPlayerId: null,
+        ...eventTeamPickers({
+          match: this.data.match as MatchSummary | null,
+          players: (this.data.players as EventFormPlayer[] | undefined) ?? [],
+          grouping: (this.data.grouping as GroupingView | null) ?? null,
+          isAdmin: Boolean(this.data.isAdmin),
+          ownPlayerId: Number(this.data.ownPlayerId) || null,
+          team: teamIndex,
         }),
       });
     },
@@ -216,35 +114,33 @@ Component({
       if (this.data.busy) {
         return;
       }
-      const typeOptions = this.data.typeOptions as ValueOption[];
-      const playerOptions = this.data.playerOptions as PlayerOption[];
-      const assistOptions = this.data.assistOptions as PlayerOption[];
-      const inOptions = this.data.inOptions as PlayerOption[];
-      const outOptions = this.data.outOptions as PlayerOption[];
-      const minute = this.data.minute ? Number(this.data.minute) : null;
-      const state: EventFormState = {
-        type: typeOptions[this.data.typeIndex]?.value ?? 0,
-        team: this.data.teamIndex === 1 ? 1 : 0,
-        playerId: playerOptions[this.data.playerIndex]?.id ?? null,
-        assistPlayerId: assistOptions[this.data.assistIndex]?.id ?? null,
-        inPlayerId: inOptions[this.data.inIndex]?.id ?? null,
-        outPlayerId: outOptions[this.data.outIndex]?.id ?? null,
-        minute,
-        half: this.data.halfIndex === 1 ? 1 : 0,
+      const submission = buildEventSubmission({
+        typeOptions: this.data.typeOptions as ValueOption[],
+        playerOptions: this.data.playerOptions as PlayerOption[],
+        assistOptions: this.data.assistOptions as PlayerOption[],
+        inOptions: this.data.inOptions as PlayerOption[],
+        outOptions: this.data.outOptions as PlayerOption[],
+        typeIndex: this.data.typeIndex,
+        teamIndex: this.data.teamIndex,
+        playerIndex: this.data.playerIndex,
+        assistIndex: this.data.assistIndex,
+        inIndex: this.data.inIndex,
+        outIndex: this.data.outIndex,
+        halfIndex: this.data.halfIndex,
+        minute: this.data.minute,
         penalty: this.data.penalty,
-      };
-      const message = validateEventForm(state);
-      if (message) {
-        this.setData({ formError: message });
+        version: Number(this.data.version),
+        editing: (this.data.editing as { id: number; version: number } | null) ?? null,
+      });
+      if (!submission.ok) {
+        this.setData({ formError: submission.error });
         return;
       }
-      const editing = this.data.editing as { id: number; version: number } | null;
-      const version = Number(this.data.version) || editing?.version || null;
       this.setData({ formError: '' });
       this.triggerEvent('save', {
-        payload: eventPayload(state),
-        eventId: editing?.id ?? null,
-        version,
+        payload: submission.payload,
+        eventId: submission.eventId,
+        version: submission.version,
       });
     },
 

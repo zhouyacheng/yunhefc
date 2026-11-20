@@ -1,31 +1,7 @@
-// 移植自 Web frontend/apps/web/src/features/home/cta.ts；小程序不引共享包，靠测试保证两端口径一致。
-import type { MatchSummary, RegistrationView } from '../types/api';
+// 首页 CTA adapter：只把报名决策映射为 Hero 按钮字段，不判断状态、名额、截止或待审核。
+import { REGISTRATION_STATUS, type SignupDecision } from './registration';
 
 export type HomeCtaAction = 'login' | 'register' | 'view-detail' | 'none';
-
-export type HomeCtaQueue = Pick<
-  MatchSummary,
-  | 'capacity'
-  | 'guestCapacity'
-  | 'waitlistCapacity'
-  | 'confirmedCount'
-  | 'guestCount'
-  | 'waitlistCount'
->;
-
-export interface HomeCtaInput {
-  authenticated: boolean;
-  /** app_user.status：0-待审核；1-正常；2-已注销。 */
-  userStatus: number | null;
-  /** player.type：0-外挂；1-正式。 */
-  playerType: number | null;
-  matchStatus: number;
-  /** epoch 毫秒，由调用方传入以保持纯函数。 */
-  now: number;
-  signupDeadline: string;
-  queue: HomeCtaQueue;
-  myRegistration?: RegistrationView | null;
-}
 
 export interface HomeCtaResult {
   label: string;
@@ -35,69 +11,34 @@ export interface HomeCtaResult {
   reason: string;
 }
 
-const USER_STATUS_PENDING = 0;
-const REGISTRATION_CONFIRMED = 0;
-const REGISTRATION_WAITLISTED = 1;
-
-const MATCH_STATUS_CTA_TEXT: Readonly<Record<number, string>> = {
-  1: '报名已截止',
-  2: '报名已锁定',
-  3: '比赛已开始',
-  4: '比赛已结束',
-  5: '比赛已延期',
-  6: '比赛已取消',
-};
-
-function disabled(label: string): HomeCtaResult {
-  return { label, action: 'none', disabled: true, reason: '' };
-}
-
-/** 首页报名 CTA 状态机；纯函数，不读时钟、不修改入参。 */
-export function homeCta(input: HomeCtaInput): HomeCtaResult {
-  if (!input.authenticated) {
-    return { label: '登录后报名', action: 'login', disabled: false, reason: '' };
+/** 把报名决策映射成首页按钮；决策文案随决策走，只有首页专属入口文案在这里。 */
+export function homeCta(decision: SignupDecision): HomeCtaResult {
+  switch (decision.kind) {
+    case 'anonymous':
+      return { label: decision.label, action: 'login', disabled: false, reason: '' };
+    case 'registered':
+      return {
+        label: '查看详情',
+        action: 'view-detail',
+        disabled: false,
+        reason:
+          decision.registrationStatus === REGISTRATION_STATUS.WAITLISTED ? '候补中' : '已报名',
+      };
+    case 'open':
+    case 'waitlist':
+      return {
+        label: decision.label,
+        action: 'register',
+        disabled: false,
+        reason: decision.reason,
+      };
+    case 'pending':
+    case 'blocked':
+      return {
+        label: decision.label || decision.reason,
+        action: 'none',
+        disabled: true,
+        reason: '',
+      };
   }
-
-  if (input.userStatus === USER_STATUS_PENDING) {
-    return disabled('账号待审核，通过后可报名');
-  }
-
-  const status = input.myRegistration?.status;
-  if (status === REGISTRATION_CONFIRMED || status === REGISTRATION_WAITLISTED) {
-    return {
-      label: '查看详情',
-      action: 'view-detail',
-      disabled: false,
-      reason: status === REGISTRATION_CONFIRMED ? '已报名' : '候补中',
-    };
-  }
-
-  if (input.matchStatus !== 0) {
-    return disabled(MATCH_STATUS_CTA_TEXT[input.matchStatus] ?? '当前不可报名');
-  }
-
-  if (input.now >= Date.parse(input.signupDeadline)) {
-    return disabled('报名已截止');
-  }
-
-  const { queue } = input;
-  if (input.playerType === 1) {
-    if (queue.confirmedCount >= queue.capacity) {
-      if (queue.waitlistCount < queue.waitlistCapacity) {
-        return {
-          label: '加入候补',
-          action: 'register',
-          disabled: false,
-          reason: '正式名额已满，报名将进入候补',
-        };
-      }
-      return disabled('名额与候补已满');
-    }
-    return { label: '报名', action: 'register', disabled: false, reason: '' };
-  }
-
-  if (queue.guestCount >= queue.guestCapacity) {
-    return disabled('外挂名额已满');
-  }
-  return { label: '报名', action: 'register', disabled: false, reason: '' };
 }

@@ -1,18 +1,18 @@
 import { WEB_URL } from '../../utils/config';
-import type {
-  AuthUser,
-  MyRegistration,
-  Notification,
-  NotificationReadAllResult,
-  Page,
-  PlayerView,
-} from '../../types/api';
-import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
+import type { AuthUser, PlayerView } from '../../types/api';
 import {
-  createPagedFeed,
-  emptyPagedFeedState,
-  type PagedFeed,
-} from '../../utils/paged-feed';
+  cancelMyRegistration,
+  fetchMatchDetail,
+  listMyRegistrations,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '../../utils/api-client';
+import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
+import { promotionText, registrationDecision } from '../../utils/registration';
+import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
+import { createPagedFeed, emptyPagedFeedState, type PagedFeed } from '../../utils/paged-feed';
+import { invalidate, subscribe } from '../../utils/invalidation';
 import {
   decorateNotification,
   decorateRegistration,
@@ -21,17 +21,21 @@ import {
   type NotificationRow,
   type RegistrationRowView,
 } from '../../utils/profile-view';
-import { ensureCsrf, request } from '../../utils/request';
-import { getPlayer, getUser, logout as logoutSession, restore } from '../../utils/session';
+import {
+  getPermissions,
+  getPlayer,
+  getUser,
+  logout as logoutSession,
+  restore,
+} from '../../utils/session';
 
 const PAGE_SIZE = 10;
 
+/** 首页/详情改动报名后失效此资源，本页在 onShow 重载报名列表。 */
+const myRegistrations = subscribe('my-registrations');
+
 let notificationFeed: PagedFeed<NotificationRow> | null = null;
 let registrationFeed: PagedFeed<RegistrationRowView> | null = null;
-
-function errorMessage(error: unknown, fallback: string): string {
-  return (error as Error).message || fallback;
-}
 
 function loggedOutState() {
   return {
@@ -39,6 +43,7 @@ function loggedOutState() {
     player: null,
     identity: null,
     pending: false,
+    unreadCount: null,
     actionError: '',
     actionMessage: '',
   };
@@ -54,7 +59,9 @@ Page({
     notifications: emptyPagedFeedState<NotificationRow>('all'),
     registrations: emptyPagedFeedState<RegistrationRowView>('active'),
     markingAll: false,
+    unreadCount: null as number | null,
     busyId: 0,
+    cancelBusyId: 0,
     actionError: '',
     actionMessage: '',
   },
@@ -65,11 +72,7 @@ Page({
       pageSize: PAGE_SIZE,
       initialKey: 'all',
       fetchPage: async ({ key, page, pageSize }) => {
-        const unread = key === 'unread' ? '&unread=true' : '';
-        const result = await request<Page<Notification>>(
-          'GET',
-          `/notifications?page=${page}&pageSize=${pageSize}${unread}`,
-        );
+        const result = await listNotifications({ page, pageSize, unread: key === 'unread' });
         return { ...result, items: result.items.map(decorateNotification) };
       },
       onChange: (state) => {
@@ -86,10 +89,8 @@ Page({
       pageSize: PAGE_SIZE,
       initialKey: 'active',
       fetchPage: async ({ key, page, pageSize }) => {
-        const result = await request<Page<MyRegistration>>(
-          'GET',
-          `/me/registrations?scope=${key}&page=${page}&pageSize=${pageSize}`,
-        );
+        const scope = key === 'history' ? 'history' : 'active';
+        const result = await listMyRegistrations({ scope, page, pageSize });
         return { ...result, items: result.items.map(decorateRegistration) };
       },
       onChange: (state) => {
@@ -147,19 +148,20 @@ Page({
       pending,
       actionError: '',
     });
-    void refreshUnreadBadge();
+    void refreshUnreadBadge().then((unreadCount) => {
+      if (unreadCount !== null) {
+        this.setData({ unreadCount });
+      }
+    });
 
-    // 已加载过的列表保留分页位置；下拉刷新、切换账号或首次进入时才重载。
+    // 已加载过的列表保留分页位置；下拉刷新、切换账号、其他页面改动报名或首次进入时才重载。
+    const forceRegistrations = myRegistrations.consume();
     const shouldLoadNotifications = force || switchedUser || !this.data.notifications.loaded;
     const shouldLoadRegistrations =
-      !pending && (force || switchedUser || !this.data.registrations.loaded);
+      !pending && (force || switchedUser || forceRegistrations || !this.data.registrations.loaded);
     await Promise.all([
-      shouldLoadNotifications
-        ? (notificationFeed?.load() ?? Promise.resolve())
-        : Promise.resolve(),
-      shouldLoadRegistrations
-        ? (registrationFeed?.load() ?? Promise.resolve())
-        : Promise.resolve(),
+      shouldLoadNotifications ? (notificationFeed?.load() ?? Promise.resolve()) : Promise.resolve(),
+      shouldLoadRegistrations ? (registrationFeed?.load() ?? Promise.resolve()) : Promise.resolve(),
     ]);
   },
 
@@ -185,9 +187,11 @@ Page({
     try {
       if (item.unread) {
         try {
-          await ensureCsrf();
-          await request('POST', `/notifications/${id}/read`);
-          void refreshUnreadBadge();
+          await markNotificationRead(id);
+          const unreadCount = await refreshUnreadBadge();
+          if (unreadCount !== null) {
+            this.setData({ unreadCount });
+          }
         } catch (error) {
           // 已读失败不阻断 MATCH 跳转。
           this.setData({ actionError: errorMessage(error, '标记已读失败，请稍后重试') });
@@ -195,6 +199,7 @@ Page({
         await notificationFeed?.load();
       }
       if (item.refType === 'MATCH' && typeof item.refId === 'number' && item.refId > 0) {
+        invalidate('my-registrations');
         await wx.navigateTo({ url: `/pages/match-detail/index?id=${item.refId}` });
       }
     } finally {
@@ -203,15 +208,14 @@ Page({
   },
 
   async markAllRead() {
-    if (this.data.markingAll) {
+    if (this.data.markingAll || this.data.unreadCount === 0) {
       return;
     }
     this.setData({ markingAll: true, actionError: '', actionMessage: '' });
     try {
-      await ensureCsrf();
-      await request<NotificationReadAllResult>('POST', '/notifications/read-all');
+      await markAllNotificationsRead();
       await notificationFeed?.load();
-      this.setData({ actionMessage: '已全部标记为已读' });
+      this.setData({ actionMessage: '已全部标记为已读', unreadCount: 0 });
       void refreshUnreadBadge();
     } catch (error) {
       this.setData({ actionError: errorMessage(error, '全部已读失败，请稍后重试') });
@@ -234,7 +238,71 @@ Page({
 
   goMatch(event: WechatMiniprogram.BaseEvent) {
     const id = Number(event.currentTarget.dataset.id);
+    // 详情页可能取消报名；返回时强制重载进行中/历史列表。
+    invalidate('my-registrations');
     void wx.navigateTo({ url: `/pages/match-detail/index?id=${id}` });
+  },
+
+  async cancelRegistration(event: WechatMiniprogram.BaseEvent) {
+    const matchId = Number(event.currentTarget.dataset.id);
+    if (!matchId || this.data.cancelBusyId) {
+      return;
+    }
+    const row = (this.data.registrations.items as RegistrationRowView[]).find(
+      (item) => item.matchId === matchId,
+    );
+    if (!row) {
+      return;
+    }
+    this.setData({ cancelBusyId: matchId });
+    try {
+      const detail = await fetchMatchDetail(matchId);
+      const currentStatus = detail.myRegistration?.status ?? row.registrationStatus;
+      const { cancel } = registrationDecision({
+        authenticated: true,
+        pending: false,
+        playerType: getPlayer()?.type ?? null,
+        permissions: getPermissions(),
+        matchStatus: detail.status,
+        now: Date.now(),
+        signupDeadline: detail.signupDeadline,
+        cancelLock: detail.cancelLock,
+        queue: detail,
+        myRegistration: { status: currentStatus },
+      });
+      if (!cancel.visible || cancel.disabled) {
+        wx.showToast({ title: cancel.reason || '当前不可取消', icon: 'none' });
+        return;
+      }
+      const confirmed = await new Promise<boolean>((resolve) => {
+        wx.showModal({
+          title: cancel.label,
+          content: '确认取消本次报名？',
+          success: (result) => resolve(result.confirm),
+          fail: () => resolve(false),
+        });
+      });
+      if (!confirmed) {
+        return;
+      }
+      const result = await cancelMyRegistration(matchId);
+      wx.showModal({
+        title: '已取消',
+        content: promotionText(result, null, currentStatus),
+        showCancel: false,
+      });
+      await registrationFeed?.load();
+    } catch (error) {
+      wx.showToast({
+        title: errorMessage(error, '取消报名失败，请稍后重试'),
+        icon: 'none',
+      });
+      if (shouldRefreshAfterConflict(error)) {
+        await registrationFeed?.load();
+      }
+    } finally {
+      this.setData({ cancelBusyId: 0 });
+    }
   },
 
   goLogin() {

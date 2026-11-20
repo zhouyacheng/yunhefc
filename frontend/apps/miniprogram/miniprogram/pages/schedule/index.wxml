@@ -8,6 +8,7 @@
   </view>
 
   <view class="schedule-filters__trigger" bindtap="openFilters" hover-class="card--pressed">
+    <van-icon name="filter-o" size="16px" />
     <text>筛选</text>
   </view>
 

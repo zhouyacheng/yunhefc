@@ -1,27 +1,19 @@
-import type { MatchDetail, MatchSummary, Page } from '../../types/api';
-import { WEB_URL } from '../../utils/config';
+import type { MatchDetail } from '../../types/api';
+import { fetchMatchDetail, listRecentMatches, signupMatch } from '../../utils/api-client';
+import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
 import { buildHero, HOME_FEATURES, type HeroView } from '../../utils/home-view';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
-import { request } from '../../utils/request';
-import { getPlayer, getUser, sessionReady } from '../../utils/session';
+import { invalidate } from '../../utils/invalidation';
+import { REGISTRATION_STATUS } from '../../utils/registration';
+import { getPermissions, getPlayer, getUser, sessionReady } from '../../utils/session';
 
 let requestSeq = 0;
 let heroDetail: MatchDetail | null = null;
 let hasLoaded = false;
 let ctaTimer: ReturnType<typeof setInterval> | undefined;
 
-function showWebOnly(): void {
-  wx.showModal({
-    title: '报名请使用网页版',
-    content: `小程序暂不支持报名/候补，请前往 ${WEB_URL} 登录后操作。`,
-    confirmText: '复制网址',
-    cancelText: '知道了',
-    success: (res) => {
-      if (res.confirm) {
-        wx.setClipboardData({ data: WEB_URL });
-      }
-    },
-  });
+function heroView(detail: MatchDetail, now: number): HeroView {
+  return buildHero(detail, getUser(), getPlayer(), getPermissions(), now);
 }
 
 interface TimerPage {
@@ -47,6 +39,7 @@ Page({
     hero: null as HeroView | null,
     recent: [] as MatchCardView[],
     features: HOME_FEATURES,
+    signupBusy: false,
   },
 
   onShow() {
@@ -82,10 +75,7 @@ Page({
       this.setData({ loading: true, error: '' });
     }
     try {
-      const page = await request<Page<MatchSummary>>(
-        'GET',
-        '/matches?sort=startAt:desc&pageSize=4',
-      );
+      const page = await listRecentMatches();
       if (seq !== requestSeq) {
         return;
       }
@@ -98,14 +88,14 @@ Page({
         return;
       }
 
-      const detail = await request<MatchDetail>('GET', `/matches/${first.id}`);
+      const detail = await fetchMatchDetail(first.id);
       if (seq !== requestSeq) {
         return;
       }
       heroDetail = detail;
       hasLoaded = true;
       this.setData({
-        hero: buildHero(detail, getUser(), getPlayer(), Date.now()),
+        hero: heroView(detail, Date.now()),
         recent: recent.map(buildMatchCard),
         loading: false,
         error: '',
@@ -129,16 +119,16 @@ Page({
     if (!heroDetail) {
       return;
     }
-    this.setData({ hero: buildHero(heroDetail, getUser(), getPlayer(), Date.now()) });
+    this.setData({ hero: heroView(heroDetail, Date.now()) });
   },
 
   retry() {
     void this.load(false);
   },
 
-  onCtaTap() {
+  async onCtaTap() {
     const hero = this.data.hero;
-    if (!hero || hero.cta.disabled) {
+    if (!hero || hero.cta.disabled || this.data.signupBusy) {
       return;
     }
     if (hero.cta.action === 'login') {
@@ -149,8 +139,25 @@ Page({
       void wx.navigateTo({ url: `/pages/match-detail/index?id=${hero.id}` });
       return;
     }
-    if (hero.cta.action === 'register') {
-      showWebOnly();
+    if (hero.cta.action !== 'register') {
+      return;
+    }
+    this.setData({ signupBusy: true });
+    try {
+      const registration = await signupMatch(hero.id);
+      invalidate('my-registrations');
+      wx.showToast({
+        title: registration.status === REGISTRATION_STATUS.WAITLISTED ? '已加入候补' : '报名成功',
+        icon: 'none',
+      });
+      await this.load(true);
+    } catch (error) {
+      wx.showToast({ title: errorMessage(error, '报名失败，请稍后重试'), icon: 'none' });
+      if (shouldRefreshAfterConflict(error)) {
+        await this.load(true);
+      }
+    } finally {
+      this.setData({ signupBusy: false });
     }
   },
 

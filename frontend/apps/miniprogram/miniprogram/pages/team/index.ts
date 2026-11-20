@@ -1,43 +1,33 @@
-import type { PlayerPublic } from '../../types/api';
-import { request } from '../../utils/request';
-
-interface Group {
-  position: number;
-  label: string;
-  players: PlayerPublic[];
-}
+import { fetchTeamStats, listMatchSeasons, listTeamPlayers } from '../../utils/api-client';
+import { currentShanghaiMonth } from '../../utils/datetime';
+import { buildTeamGroups, type TeamGroupView } from '../../utils/team-view';
 
 interface PickerEvent {
   detail: { value: string };
 }
 
-const GROUP_LABELS: Record<number, string> = {
-  0: '门将',
-  1: '后卫',
-  2: '中场',
-  3: '前锋',
-};
+let requestSeq = 0;
 
-function groupByPosition(players: PlayerPublic[]): Group[] {
-  const groups: Group[] = [0, 1, 2, 3].map((position) => ({
-    position,
-    label: GROUP_LABELS[position],
-    players: [],
-  }));
-  for (const player of players) {
-    const group = groups.find((item) => item.position === player.position);
-    if (group) {
-      group.players.push(player);
+function currentSeason(): string {
+  return currentShanghaiMonth().slice(0, 4) || String(new Date().getFullYear());
+}
+
+/** 与 Web mergeSeasonOptions 一致：过滤非法值、去重、倒序，并包含当前与已选赛季。 */
+function mergeSeasonOptions(items: readonly string[], selected: string): string[] {
+  const seasons = new Set<string>([currentSeason(), selected]);
+  for (const item of items) {
+    if (/^\d{4}$/.test(item)) {
+      seasons.add(item);
     }
   }
-  return groups.filter((group) => group.players.length > 0);
+  return [...seasons].sort((a, b) => b.localeCompare(a));
 }
 
 Page({
   data: {
     seasons: [] as string[],
     seasonIndex: 0,
-    groups: [] as Group[],
+    groups: [] as TeamGroupView[],
     loading: true,
     error: '',
   },
@@ -47,37 +37,78 @@ Page({
   },
 
   onSeasonChange(event: PickerEvent) {
-    this.setData({ seasonIndex: Number(event.detail.value) });
+    const seasonIndex = Number(event.detail.value);
+    if (seasonIndex === this.data.seasonIndex) {
+      return;
+    }
+    this.setData({ seasonIndex });
     void this.loadPlayers();
   },
 
   async load() {
-    this.setData({ loading: true, error: '' });
-    try {
-      const result = await request<{ items: string[] }>('GET', '/matches/seasons');
-      const seasons = (result.items || []).slice().sort((a, b) => b.localeCompare(a));
-      const current = String(new Date().getFullYear());
-      if (!seasons.includes(current)) {
-        seasons.unshift(current);
-      }
-      this.setData({ seasons, seasonIndex: Math.min(this.data.seasonIndex, seasons.length - 1) });
-    } catch {
-      // 赛季选项失败不阻塞球员列表，退化为不传 season。
-    }
+    await this.loadSeasonOptions();
     await this.loadPlayers();
   },
 
-  async loadPlayers() {
-    const season = this.data.seasons[this.data.seasonIndex];
-    const query = season ? `?all=true&season=${encodeURIComponent(season)}` : '?all=true';
-    this.setData({ loading: true, error: '' });
+  async loadSeasonOptions() {
+    const selected = this.data.seasons[this.data.seasonIndex] || currentSeason();
+    let items: string[] = [];
     try {
-      const result = await request<{ items: PlayerPublic[] }>('GET', `/team/players${query}`);
-      this.setData({ groups: groupByPosition(result.items || []) });
-    } catch (error) {
-      this.setData({ groups: [], error: (error as Error).message || '加载失败，请稍后重试' });
-    } finally {
-      this.setData({ loading: false });
+      items = await listMatchSeasons();
+    } catch {
+      // 选项失败不阻塞名单与统计；至少保留当前年份与已选赛季。
     }
+    const seasons = mergeSeasonOptions(items, selected);
+    this.setData({ seasons, seasonIndex: Math.max(0, seasons.indexOf(selected)) });
+  },
+
+  async loadPlayers() {
+    const seq = ++requestSeq;
+    const season = this.data.seasons[this.data.seasonIndex] || undefined;
+    this.setData({ loading: true, error: '' });
+
+    // 统计允许延迟：先渲染 PLR-01 名单，统计返回后再合并；缺失时降级为「—」。
+    const statsRequest = fetchTeamStats(season).catch(() => null);
+
+    try {
+      const players = await listTeamPlayers({ all: true, season });
+      if (seq !== requestSeq) {
+        return;
+      }
+      this.setData({ groups: buildTeamGroups(players, []), loading: false });
+      const stats = await statsRequest;
+      if (seq !== requestSeq || !stats) {
+        return;
+      }
+      this.setData({ groups: buildTeamGroups(players, stats.items || []) });
+    } catch (error) {
+      if (seq !== requestSeq) {
+        return;
+      }
+      this.setData({
+        groups: [],
+        loading: false,
+        error: (error as Error).message || '加载失败，请稍后重试',
+      });
+    }
+  },
+
+  onAvatarError(event: WechatMiniprogram.BaseEvent) {
+    const id = Number(event.currentTarget.dataset.id);
+    if (!id) {
+      return;
+    }
+    this.setData({
+      groups: this.data.groups.map((group) => ({
+        ...group,
+        players: group.players.map((player) =>
+          player.id === id ? { ...player, avatarUrl: '' } : player,
+        ),
+      })),
+    });
+  },
+
+  retry() {
+    void this.loadPlayers();
   },
 });

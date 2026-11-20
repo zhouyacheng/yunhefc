@@ -1,4 +1,5 @@
 import type { Page } from '../types/api';
+import { errorMessage } from './api-errors';
 
 export interface PagedFeedState<T> {
   key: string;
@@ -51,10 +52,6 @@ export function emptyPagedFeedState<T>(key: string): PagedFeedState<T> {
   };
 }
 
-function errorMessage(error: unknown): string {
-  return (error as Error).message || '加载失败，请稍后重试';
-}
-
 /** 分页列表 module：页面只消费 state 快照，代次与分页守卫留在 implementation。 */
 export function createPagedFeed<T>(options: PagedFeedOptions<T>): PagedFeed<T> {
   const { pageSize, initialKey, fetchPage, onChange } = options;
@@ -94,7 +91,7 @@ export function createPagedFeed<T>(options: PagedFeedOptions<T>): PagedFeed<T> {
       if (seq !== generation) {
         return;
       }
-      patch({ loading: false, loaded: true, error: errorMessage(error) });
+      patch({ loading: false, loaded: true, error: errorMessage(error, '加载失败，请稍后重试') });
     }
   }
 
@@ -139,7 +136,7 @@ export function createPagedFeed<T>(options: PagedFeedOptions<T>): PagedFeed<T> {
       if (seq !== generation) {
         return;
       }
-      patch({ loadingMore: false, error: errorMessage(error) });
+      patch({ loadingMore: false, error: errorMessage(error, '加载失败，请稍后重试') });
     }
   }
 

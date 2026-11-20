@@ -1,0 +1,80 @@
+<van-popup show="{{show}}" position="bottom" round custom-style="max-height: 88vh;" bind:close="close">
+  <view class="status-sheet">
+    <view class="status-sheet__head">
+      <text class="status-sheet__title">
+        {{mode === 'postpone' ? '延期比赛' : mode === 'cancel' ? '取消比赛' : '修改比赛状态'}}
+      </text>
+      <text class="status-sheet__close" bindtap="close">关闭</text>
+    </view>
+
+    <block wx:if="{{mode === 'list'}}">
+      <view class="status-sheet__hint">当前状态：{{currentLabel}}</view>
+      <view class="status-sheet__hint">选择「报名中」即重新开启报名；「已延期」「已取消」会打开对应表单。</view>
+      <view
+        wx:for="{{options}}"
+        wx:key="status"
+        class="status-option {{item.status === currentStatus ? 'status-option--current' : ''}} {{item.disabled ? 'status-option--disabled' : ''}}"
+        data-index="{{index}}"
+        bindtap="choose"
+      >
+        <view class="status-option__main">
+          <text class="status-option__label">{{item.label}}</text>
+          <text wx:if="{{item.status === currentStatus}}" class="status-option__current">当前</text>
+        </view>
+        <text wx:if="{{item.reason}}" class="status-option__reason">{{item.reason}}</text>
+      </view>
+      <text wx:if="{{error}}" class="form-error">{{error}}</text>
+    </block>
+
+    <block wx:elif="{{mode === 'postpone'}}">
+      <view class="status-field">
+        <text class="status-field__label">开始日期</text>
+        <picker mode="date" value="{{startDate}}" bindchange="onStartDate">
+          <view class="status-field__value">{{startDate || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="status-field">
+        <text class="status-field__label">开始时间</text>
+        <picker mode="time" value="{{startTime}}" bindchange="onStartTime">
+          <view class="status-field__value">{{startTime || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="status-field">
+        <text class="status-field__label">结束日期</text>
+        <picker mode="date" value="{{endDate}}" bindchange="onEndDate">
+          <view class="status-field__value">{{endDate || '请选择'}}</view>
+        </picker>
+      </view>
+      <view class="status-field">
+        <text class="status-field__label">结束时间</text>
+        <picker mode="time" value="{{endTime}}" bindchange="onEndTime">
+          <view class="status-field__value">{{endTime || '请选择'}}</view>
+        </picker>
+      </view>
+      <text class="status-sheet__hint">开赛需晚于当天 01:00，开始/结束相差 2–4 小时；截止与锁定时间将按新日期重算。</text>
+      <text wx:if="{{formError}}" class="form-error">{{formError}}</text>
+      <text wx:if="{{error}}" class="form-error">{{error}}</text>
+      <view class="status-sheet__actions">
+        <view class="btn btn--outline" bindtap="backToList">返回</view>
+        <view class="btn btn--primary" bindtap="submitPostpone">确认延期</view>
+      </view>
+    </block>
+
+    <block wx:else>
+      <textarea
+        class="status-reason"
+        value="{{reason}}"
+        maxlength="200"
+        placeholder="请填写取消原因（最多 200 字）"
+        bindinput="onReason"
+      ></textarea>
+      <text class="status-sheet__hint">{{reason.length}} / 200</text>
+      <text wx:if="{{formError}}" class="form-error">{{formError}}</text>
+      <text wx:if="{{error}}" class="form-error">{{error}}</text>
+      <view class="status-sheet__actions">
+        <view class="btn btn--outline" bindtap="backToList">返回</view>
+        <view class="btn btn--primary" bindtap="submitCancel">确认取消</view>
+      </view>
+    </block>
+  </view>
+</van-popup>

@@ -159,24 +159,6 @@ export function scheduleFeedKey(filters: ScheduleFilters): string {
   return entries.join('&');
 }
 
-/** MAT-02 固定 scope/sort，key 已编码。 */
-export function scheduleRequestPath(
-  key: string,
-  page: number,
-  pageSize = DEFAULT_PAGE_SIZE,
-): string {
-  const query = [
-    'scope=all',
-    'sort=startAt:desc',
-    `page=${Math.max(1, Math.floor(page) || 1)}`,
-    `pageSize=${pageSize}`,
-  ];
-  if (key) {
-    query.push(key);
-  }
-  return `/matches?${query.join('&')}`;
-}
-
 export function sameForm(a: ScheduleForm, b: ScheduleForm): boolean {
   return (
     a.type === b.type &&

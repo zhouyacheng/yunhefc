@@ -1,15 +1,10 @@
 // 与 frontend/packages/shared/src/match.ts 及 Web features/matches/presentation.ts 保持一致；
 // 小程序没有打包链路、不引共享包，因此本地移植并由 Vitest 锁定口径。
-import type { DerivedScore, MatchSummary } from '../types/api';
+import type { Attendance, DerivedScore, MatchSummary } from '../types/api';
+import { formatDateTime } from './datetime';
 
 export type StatusTone =
-  | 'open'
-  | 'closed'
-  | 'locked'
-  | 'live'
-  | 'finished'
-  | 'postponed'
-  | 'cancelled';
+  'open' | 'closed' | 'locked' | 'live' | 'finished' | 'postponed' | 'cancelled';
 export type TypeTone = 'external' | 'internal' | 'training' | 'friendly';
 export type ResultTone = 'win' | 'draw' | 'loss' | 'muted';
 
@@ -30,7 +25,7 @@ export const MATCH_TYPE_TEXT: Readonly<Record<number, string>> = {
   3: '友谊赛',
 };
 
-const EVENT_TYPE_TEXT: Readonly<Record<number, string>> = {
+export const EVENT_TYPE_TEXT: Readonly<Record<number, string>> = {
   0: '进球',
   1: '乌龙球',
   2: '换人',
@@ -50,12 +45,35 @@ export const POSITION_TEXT: Readonly<Record<number, string>> = {
   3: '前锋',
 };
 
-export const REGISTRATION_STATUS_TEXT: Readonly<Record<number, string>> = {
+const REGISTRATION_STATUS_TEXT: Readonly<Record<number, string>> = {
   0: '已确认',
   1: '候补中',
   2: '已取消',
   3: '已移除',
 };
+
+export const ATTENDANCE_STATUS_TEXT: Readonly<Record<number, string>> = {
+  0: '正常',
+  1: '缺勤',
+  2: '临时到场',
+};
+
+export const ATTENDANCE_SOURCE_TEXT: Readonly<Record<number, string>> = {
+  0: '自助签到',
+  1: '管理员',
+  2: '系统',
+};
+
+/** 考勤摘要：状态 · 来源 · 记录时间。 */
+export function attendanceText(attendance: Attendance | null | undefined): string {
+  if (!attendance) {
+    return '';
+  }
+  const status = ATTENDANCE_STATUS_TEXT[attendance.status] ?? '';
+  const source = ATTENDANCE_SOURCE_TEXT[attendance.source] ?? '';
+  const recorded = formatDateTime(attendance.recordedAt);
+  return [status, source, recorded].filter(Boolean).join(' · ');
+}
 
 export function statusTone(status: number | null | undefined): StatusTone {
   switch (status) {

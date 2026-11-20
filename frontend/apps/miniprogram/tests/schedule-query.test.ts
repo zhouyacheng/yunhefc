@@ -7,7 +7,6 @@ import {
   fromScheduleForm,
   sameForm,
   scheduleFeedKey,
-  scheduleRequestPath,
   toScheduleForm,
   type ScheduleForm,
 } from '../miniprogram/utils/schedule-query';
@@ -30,9 +29,6 @@ function form(overrides: Partial<ScheduleForm> = {}): ScheduleForm {
 describe('schedule defaults', () => {
   it('starts without any filter and without a month param', () => {
     expect(scheduleFeedKey(emptyScheduleFilters())).toBe('');
-    expect(scheduleRequestPath('', 1)).toBe(
-      '/matches?scope=all&sort=startAt:desc&page=1&pageSize=10',
-    );
   });
 
   it('prefills the current Shanghai month in the form only', () => {
@@ -102,20 +98,10 @@ describe('time filters', () => {
   });
 });
 
-describe('venue and request path', () => {
+describe('venue encoding', () => {
   it('trims and percent-encodes the venue exactly once', () => {
     const key = scheduleFeedKey(fromScheduleForm(form({ venue: '  聚龙 ' })));
     expect(key).toBe('venue=%E8%81%9A%E9%BE%99');
-    expect(scheduleRequestPath(key, 2)).toBe(
-      '/matches?scope=all&sort=startAt:desc&page=2&pageSize=10&venue=%E8%81%9A%E9%BE%99',
-    );
-  });
-
-  it('always sends scope, sort, page and pageSize', () => {
-    expect(scheduleRequestPath('status=4', 3, 20)).toBe(
-      '/matches?scope=all&sort=startAt:desc&page=3&pageSize=20&status=4',
-    );
-    expect(scheduleRequestPath('', 0)).toContain('page=1');
   });
 });
 

@@ -65,6 +65,14 @@
       </view>
 
       <text wx:if="{{warning}}" class="hint">{{warning}}</text>
+      <view wx:if="{{profileError}}" class="hint-row">
+        <text class="action-error">{{profileError}}</text>
+        <view
+          class="btn btn--small btn--outline"
+          bindtap="retryProfile"
+          hover-class="btn--pressed"
+        >{{profileLoading ? '加载中…' : '重试加载'}}</view>
+      </view>
       <text wx:if="{{error}}" class="action-error">{{error}}</text>
 
       <view

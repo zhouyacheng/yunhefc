@@ -1,4 +1,6 @@
-import type { AvatarUploadView, PlayerPublic, PlayerView } from '../../types/api';
+import type { PlayerProfileUpdate, PlayerView } from '../../types/api';
+import { listTeamPlayers, saveMyPlayer, uploadAvatar } from '../../utils/api-client';
+import { avatarInitial, avatarSrc } from '../../utils/avatar';
 import {
   buildOptions,
   MAX_SECONDARY,
@@ -8,13 +10,7 @@ import {
   validateProfile,
   withoutPrimary,
 } from '../../utils/profile-edit';
-import { ensureCsrf, request, uploadFile } from '../../utils/request';
 import { getPlayer, getUser, setPlayer } from '../../utils/session';
-
-interface TeamPlayersView {
-  items: PlayerPublic[];
-  total: number;
-}
 
 interface ValueEvent {
   detail: { value: string };
@@ -36,6 +32,8 @@ Page({
     saving: false,
     warning: '',
     error: '',
+    profileLoading: false,
+    profileError: '',
   },
 
   onLoad() {
@@ -62,7 +60,7 @@ Page({
     this.setData({
       loading: true,
       name: player.name,
-      initial: player.name.slice(0, 1) || '云',
+      initial: avatarInitial(player.name),
       region: player.region ?? '',
       position: player.position,
       positionIndex: Math.max(0, POSITION_CODES.indexOf(player.position)),
@@ -70,39 +68,63 @@ Page({
         player.position,
         withoutPrimary(player.secondaryPositions ?? [], player.position),
       ),
-      avatarPreview: player.avatarUrl ?? '',
+      avatarPreview: avatarSrc(player.avatarUrl) ?? '',
       warning: '',
       error: '',
+      profileError: '',
     });
 
     try {
-      const view = await request<TeamPlayersView>('GET', '/team/players?all=true');
-      const self = view.items.find((item) => item.id === player.id);
-      if (!self) {
-        this.setData({ warning: '未能加载完整资料，请重新填写地区与副位置' });
-        return;
-      }
-      const secondary = withoutPrimary(
-        self.secondaryPositions ?? [],
-        player.position,
-      ).slice(0, MAX_SECONDARY);
-      this.setData({
-        region: self.region ?? '',
-        secondaryOptions: buildOptions(player.position, secondary),
-      });
+      await this.fetchFullProfile(player);
     } catch (error) {
       this.setData({
         warning: '资料加载失败，请重新填写地区与副位置',
-        error: (error as Error).message || '',
+        profileError: (error as Error).message || '资料加载失败，请重试',
       });
     } finally {
       this.setData({ loading: false });
     }
   },
 
+  async fetchFullProfile(player: PlayerView): Promise<void> {
+    const players = await listTeamPlayers({ all: true });
+    const self = players.find((item) => item.id === player.id);
+    if (!self) {
+      this.setData({ warning: '未能加载完整资料，请重新填写地区与副位置' });
+      return;
+    }
+    const secondary = withoutPrimary(self.secondaryPositions ?? [], player.position).slice(
+      0,
+      MAX_SECONDARY,
+    );
+    this.setData({
+      region: self.region ?? '',
+      secondaryOptions: buildOptions(player.position, secondary),
+      warning: '',
+    });
+  },
+
+  async retryProfile() {
+    const player = getPlayer();
+    if (!player || this.data.profileLoading) {
+      return;
+    }
+    this.setData({ profileLoading: true, warning: '', profileError: '' });
+    try {
+      await this.fetchFullProfile(player);
+    } catch (error) {
+      this.setData({
+        warning: '资料加载失败，请重新填写地区与副位置',
+        profileError: (error as Error).message || '资料加载失败，请重试',
+      });
+    } finally {
+      this.setData({ profileLoading: false });
+    }
+  },
+
   onNameInput(event: ValueEvent) {
     const name = event.detail.value;
-    this.setData({ name, initial: name.slice(0, 1) || '云' });
+    this.setData({ name, initial: avatarInitial(name) });
   },
 
   onRegionInput(event: ValueEvent) {
@@ -173,8 +195,7 @@ Page({
   async upload(filePath: string) {
     this.setData({ uploading: true, error: '' });
     try {
-      await ensureCsrf();
-      const uploaded = await uploadFile<AvatarUploadView>('/files/avatar', filePath);
+      const uploaded = await uploadAvatar(filePath);
       this.setData({
         avatarPreview: uploaded.signedUrl,
         avatarObjectKey: uploaded.objectKey,
@@ -205,14 +226,7 @@ Page({
 
     this.setData({ saving: true, error: '' });
     try {
-      await ensureCsrf();
-      const payload: {
-        name: string;
-        region: string;
-        position: number;
-        secondaryPositions: number[];
-        avatarUrl?: string;
-      } = {
+      const payload: PlayerProfileUpdate = {
         name,
         region,
         position: this.data.position,
@@ -221,7 +235,7 @@ Page({
       if (this.data.avatarObjectKey) {
         payload.avatarUrl = this.data.avatarObjectKey;
       }
-      const saved = await request<PlayerView>('PATCH', '/me/player', payload);
+      const saved = await saveMyPlayer(payload);
       setPlayer(saved);
       wx.showToast({ title: '资料已保存', icon: 'none' });
       void wx.navigateBack();

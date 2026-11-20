@@ -7,7 +7,7 @@ page {
   background: var(--yh-bg);
   color: var(--yh-ink);
   font-size: 28rpx;
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', ui-sans-serif, system-ui, sans-serif;
 }
 
 .container {
@@ -16,9 +16,10 @@ page {
 
 .card {
   background: var(--yh-surface);
+  border: 2rpx solid var(--yh-line);
   border-radius: var(--yh-radius);
   box-shadow: var(--yh-shadow-sm);
-  padding: 24rpx;
+  padding: 32rpx;
   margin-bottom: 20rpx;
 }
 

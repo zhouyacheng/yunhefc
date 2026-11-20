@@ -1,33 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { homeCta, type HomeCtaInput } from '../miniprogram/utils/home-cta';
+import { homeCta } from '../miniprogram/utils/home-cta';
+import { REGISTRATION_STATUS, type SignupDecision } from '../miniprogram/utils/registration';
 
-const DEADLINE = '2026-12-03T12:00:00+08:00';
-
-function input(overrides: Partial<HomeCtaInput> = {}): HomeCtaInput {
+function decision(overrides: Partial<SignupDecision> = {}): SignupDecision {
   return {
-    authenticated: true,
-    userStatus: 1,
-    playerType: 1,
-    matchStatus: 0,
-    now: Date.parse('2026-12-03T10:00:00+08:00'),
-    signupDeadline: DEADLINE,
-    queue: {
-      capacity: 20,
-      guestCapacity: 4,
-      waitlistCapacity: 3,
-      confirmedCount: 5,
-      guestCount: 0,
-      waitlistCount: 0,
-    },
-    myRegistration: null,
+    kind: 'open',
+    action: 'signup',
+    visible: true,
+    label: '报名',
+    disabled: false,
+    reason: '',
+    registrationStatus: null,
     ...overrides,
   };
 }
 
 describe('homeCta', () => {
-  it('asks anonymous visitors to log in first', () => {
-    expect(homeCta(input({ authenticated: false }))).toEqual({
+  it('maps the anonymous decision to the login entry', () => {
+    expect(homeCta(decision({ kind: 'anonymous', action: 'login', label: '登录后报名' }))).toEqual({
       label: '登录后报名',
       action: 'login',
       disabled: false,
@@ -35,8 +26,19 @@ describe('homeCta', () => {
     });
   });
 
-  it('blocks pending accounts', () => {
-    expect(homeCta(input({ userStatus: 0 }))).toEqual({
+  it('maps the pending decision to a disabled CTA carrying the blocked reason', () => {
+    expect(
+      homeCta(
+        decision({
+          kind: 'pending',
+          action: 'none',
+          visible: false,
+          label: '',
+          disabled: true,
+          reason: '账号待审核，通过后可报名',
+        }),
+      ),
+    ).toEqual({
       label: '账号待审核，通过后可报名',
       action: 'none',
       disabled: true,
@@ -44,8 +46,35 @@ describe('homeCta', () => {
     });
   });
 
-  it('treats a deregistered status like a normal account branch', () => {
-    expect(homeCta(input({ userStatus: 2 }))).toEqual({
+  it('maps an active registration to the detail entry', () => {
+    expect(
+      homeCta(
+        decision({
+          kind: 'registered',
+          action: 'none',
+          visible: false,
+          label: '',
+          disabled: true,
+          registrationStatus: REGISTRATION_STATUS.CONFIRMED,
+        }),
+      ),
+    ).toEqual({ label: '查看详情', action: 'view-detail', disabled: false, reason: '已报名' });
+    expect(
+      homeCta(
+        decision({
+          kind: 'registered',
+          action: 'none',
+          visible: false,
+          label: '',
+          disabled: true,
+          registrationStatus: REGISTRATION_STATUS.WAITLISTED,
+        }),
+      ),
+    ).toEqual({ label: '查看详情', action: 'view-detail', disabled: false, reason: '候补中' });
+  });
+
+  it('maps the open decision to the register action', () => {
+    expect(homeCta(decision())).toEqual({
       label: '报名',
       action: 'register',
       disabled: false,
@@ -53,48 +82,16 @@ describe('homeCta', () => {
     });
   });
 
-  it('shows detail entry for confirmed and waitlisted registrations', () => {
-    expect(homeCta(input({ myRegistration: { status: 0 } }))).toMatchObject({
-      label: '查看详情',
-      action: 'view-detail',
-      disabled: false,
-      reason: '已报名',
-    });
-    expect(homeCta(input({ myRegistration: { status: 1 } }))).toMatchObject({
-      label: '查看详情',
-      action: 'view-detail',
-      disabled: false,
-      reason: '候补中',
-    });
-  });
-
-  it.each([
-    [1, '报名已截止'],
-    [2, '报名已锁定'],
-    [3, '比赛已开始'],
-    [4, '比赛已结束'],
-    [5, '比赛已延期'],
-    [6, '比赛已取消'],
-    [9, '当前不可报名'],
-  ])('disables closed match status %s', (matchStatus, label) => {
-    expect(homeCta(input({ matchStatus }))).toMatchObject({
-      label,
-      action: 'none',
-      disabled: true,
-    });
-  });
-
-  it('disables at the signup deadline', () => {
-    expect(homeCta(input({ now: Date.parse(DEADLINE) }))).toMatchObject({
-      label: '报名已截止',
-      disabled: true,
-    });
-  });
-
-  it('offers the waitlist when formal slots are full', () => {
+  it('maps the waitlist decision to the register action with its hint', () => {
     expect(
-      homeCta(input({ queue: { ...input().queue, confirmedCount: 20 } })),
-    ).toMatchObject({
+      homeCta(
+        decision({
+          kind: 'waitlist',
+          label: '加入候补',
+          reason: '正式名额已满，报名将进入候补',
+        }),
+      ),
+    ).toEqual({
       label: '加入候补',
       action: 'register',
       disabled: false,
@@ -102,36 +99,16 @@ describe('homeCta', () => {
     });
   });
 
-  it('blocks when formal and waitlist are both full', () => {
+  it('maps blocked decisions to a disabled CTA carrying the decision label', () => {
     expect(
       homeCta(
-        input({ queue: { ...input().queue, confirmedCount: 20, waitlistCount: 3 } }),
+        decision({
+          kind: 'blocked',
+          action: 'none',
+          label: '名额与候补已满',
+          disabled: true,
+        }),
       ),
-    ).toMatchObject({ label: '名额与候补已满', disabled: true });
-  });
-
-  it('blocks guests when guest slots are full', () => {
-    expect(
-      homeCta(
-        input({ playerType: 0, queue: { ...input().queue, guestCount: 4 } }),
-      ),
-    ).toMatchObject({ label: '外挂名额已满', disabled: true });
-  });
-
-  it('treats a missing player as a guest', () => {
-    expect(
-      homeCta(
-        input({ playerType: null, queue: { ...input().queue, guestCount: 4 } }),
-      ),
-    ).toMatchObject({ label: '外挂名额已满', disabled: true });
-  });
-
-  it('allows a formal player to register while slots remain', () => {
-    expect(homeCta(input())).toEqual({
-      label: '报名',
-      action: 'register',
-      disabled: false,
-      reason: '',
-    });
+    ).toEqual({ label: '名额与候补已满', action: 'none', disabled: true, reason: '' });
   });
 });

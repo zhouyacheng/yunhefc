@@ -1,0 +1,112 @@
+.status-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 36rpx 36rpx max(56rpx, env(safe-area-inset-bottom));
+}
+
+.status-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-sheet__title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.status-sheet__close {
+  color: var(--yh-muted);
+  font-size: 26rpx;
+}
+
+.status-sheet__hint {
+  color: var(--yh-muted);
+  font-size: 26rpx;
+  line-height: 1.5;
+}
+
+.status-option {
+  padding: 24rpx 28rpx;
+  background: var(--yh-surface);
+  border: 2rpx solid var(--yh-line);
+  border-radius: 20rpx;
+}
+
+.status-option--current {
+  border-color: var(--yh-green);
+}
+
+.status-option--disabled {
+  opacity: 0.5;
+}
+
+.status-option__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.status-option__label {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+
+.status-option__current {
+  color: var(--yh-green);
+  font-size: 24rpx;
+}
+
+.status-option__reason {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--yh-muted);
+  font-size: 24rpx;
+}
+
+.status-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  font-size: 28rpx;
+}
+
+.status-field__label {
+  color: var(--yh-muted);
+}
+
+.status-field__value {
+  min-width: 240rpx;
+  padding: 18rpx 20rpx;
+  text-align: right;
+  background: var(--yh-surface);
+  border: 2rpx solid var(--yh-line);
+  border-radius: 18rpx;
+}
+
+.status-reason {
+  width: 100%;
+  min-height: 176rpx;
+  padding: 20rpx;
+  box-sizing: border-box;
+  background: var(--yh-surface);
+  border: 2rpx solid var(--yh-line);
+  border-radius: 18rpx;
+}
+
+.status-sheet__actions {
+  display: flex;
+  gap: 24rpx;
+}
+
+.status-sheet__actions .btn {
+  flex: 1;
+  text-align: center;
+}
+
+.form-error {
+  color: var(--yh-red-ink);
+  font-size: 26rpx;
+}

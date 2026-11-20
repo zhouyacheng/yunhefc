@@ -4,8 +4,10 @@ import type { MatchDetail, MatchEvent } from '../miniprogram/types/api';
 import {
   buildEventRows,
   buildMatchDetailHeader,
+  buildRosterView,
   eventDetailText,
 } from '../miniprogram/utils/match-detail-view';
+import type { RosterSections } from '../miniprogram/utils/roster';
 
 function detail(overrides: Partial<MatchDetail> = {}): MatchDetail {
   return {
@@ -48,6 +50,7 @@ function event(overrides: Partial<MatchEvent> = {}): MatchEvent {
     minute: 23,
     half: 0,
     penalty: false,
+    version: 1,
     player: { id: 11, name: '张三' },
     ...overrides,
   };
@@ -161,6 +164,7 @@ describe('buildEventRows', () => {
         detailText: '张三 · 助攻 李四 · 点球',
         teamText: '云河FC',
         side: 'home',
+        canEdit: false,
       },
     ]);
   });
@@ -192,5 +196,87 @@ describe('buildEventRows', () => {
     expect(eventDetailText(event({ player: null }))).toBe('—');
     expect(buildEventRows([], match)).toEqual([]);
     expect(buildEventRows(null, match)).toEqual([]);
+  });
+
+  it('marks editable event rows through the injected predicate', () => {
+    const rows = buildEventRows([event()], match, (item) => item.type === 0);
+    expect(rows[0].canEdit).toBe(true);
+    expect(buildEventRows([event()], match)[0].canEdit).toBe(false);
+  });
+});
+
+describe('buildRosterView', () => {
+  it('turns roster sections into display rows', () => {
+    const sections: RosterSections = {
+      formalConfirmed: [
+        {
+          row: {
+            id: 1,
+            type: 1,
+            status: 0,
+            registeredAt: '2026-12-01T10:00:00+08:00',
+            player: { id: 11, name: '张三', jersey: 7, position: 2, skill: 6 },
+          },
+          attendance: {
+            id: 1,
+            status: 0,
+            source: 0,
+            recordedAt: '2026-12-06T19:00:00+08:00',
+            player: { id: 11, name: '张三', jersey: 7, position: 2 },
+          },
+          waitlistOrder: null,
+        },
+      ],
+      formalWaitlist: [
+        {
+          row: {
+            id: 2,
+            type: 1,
+            status: 1,
+            registeredAt: '2026-12-01T11:00:00+08:00',
+            player: { id: 12, name: '李四', jersey: null, position: 3, skill: 5 },
+          },
+          attendance: null,
+          waitlistOrder: 1,
+        },
+      ],
+      guestConfirmed: [
+        {
+          row: {
+            id: 3,
+            type: 0,
+            status: 0,
+            registeredAt: '2026-12-01T12:00:00+08:00',
+            player: { id: 13, name: '王五', jersey: 9, position: 0, skill: 4 },
+          },
+          attendance: null,
+          waitlistOrder: null,
+        },
+      ],
+      total: 3,
+    };
+
+    expect(buildRosterView(sections)).toMatchObject({
+      formal: [
+        {
+          name: '张三',
+          jerseyText: '#7',
+          positionText: '中场',
+          typeText: '正式',
+          attendanceText: '正常 · 自助签到',
+        },
+      ],
+      waitlist: [
+        {
+          name: '李四',
+          jerseyText: '—',
+          typeText: '候补',
+          waitlistText: '候补第 1 顺位',
+          attendanceText: '未记录',
+        },
+      ],
+      guest: [{ name: '王五', typeText: '外挂' }],
+      total: 3,
+    });
   });
 });

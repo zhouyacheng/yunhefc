@@ -119,3 +119,11 @@
   color: var(--yh-red);
   font-size: 24rpx;
 }
+
+.hint-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  align-items: center;
+  justify-content: space-between;
+}

@@ -1,14 +1,17 @@
-import type { AuthUser, MiniLoginResult, PlayerView } from '../types/api';
+import type { AuthUser, BindPhonePayload, MiniLoginResult, PlayerView } from '../types/api';
 import {
-  ensureCsrf,
-  request,
-  resetAuth,
-  setCsrf,
-  setUnauthorizedHandler,
-} from './request';
+  bindPhoneWithTicket,
+  fetchMe,
+  logoutRequest,
+  miniLogin,
+  sendBindSmsCode,
+} from './api-client';
+import { hasPermission as hasGrantedPermission } from './permissions';
+import { resetAuth, setCsrf, setUnauthorizedHandler } from './request';
 
 let currentUser: AuthUser | null = null;
 let currentPlayer: PlayerView | null = null;
+let currentPermissions: string[] = [];
 let bindTicket: string | null = null;
 let sessionPromise: Promise<AuthUser | null> | null = null;
 
@@ -18,6 +21,14 @@ export function getUser(): AuthUser | null {
 
 export function getPlayer(): PlayerView | null {
   return currentPlayer;
+}
+
+export function getPermissions(): string[] {
+  return currentPermissions;
+}
+
+export function hasPermission(code: string): boolean {
+  return hasGrantedPermission(currentPermissions, code);
 }
 
 export function setPlayer(player: PlayerView | null): void {
@@ -47,6 +58,7 @@ export function getBindTicket(): string | null {
 export function clearSession(): void {
   currentUser = null;
   currentPlayer = null;
+  currentPermissions = [];
   bindTicket = null;
   sessionPromise = null;
   resetAuth();
@@ -60,28 +72,29 @@ setUnauthorizedHandler(() => {
 });
 
 export async function logout(): Promise<void> {
-  await ensureCsrf();
-  await request('POST', '/auth/logout');
+  await logoutRequest();
   clearSession();
 }
 
 /** 静默探测登录态；未登录返回 null，不抛出。 */
 export async function restore(): Promise<AuthUser | null> {
   try {
-    const data = await request<{ user: AuthUser; player?: PlayerView | null }>('GET', '/me');
+    const data = await fetchMe();
     currentUser = data.user;
     currentPlayer = data.player ?? null;
+    currentPermissions = data.permissions ?? [];
     return data.user;
   } catch {
     currentUser = null;
     currentPlayer = null;
+    currentPermissions = [];
     return null;
   }
 }
 
 export async function login(): Promise<MiniLoginResult> {
   const code = await wxLogin();
-  const result = await request<MiniLoginResult>('POST', '/auth/mini/login', { code });
+  const result = await miniLogin(code);
   if (result.needBindPhone) {
     bindTicket = result.bindTicket;
     currentUser = null;
@@ -91,38 +104,28 @@ export async function login(): Promise<MiniLoginResult> {
   setCsrf(result.csrfToken);
   currentUser = result.user;
   currentPlayer = result.player ?? null;
+  currentPermissions = result.permissions ?? [];
   bindTicket = null;
   sessionPromise = Promise.resolve(result.user);
   return result;
-}
-
-export interface BindPhonePayload {
-  phone: string;
-  code: string;
-  name: string;
-  position: number;
 }
 
 export async function bindPhone(payload: BindPhonePayload): Promise<AuthUser> {
   if (!bindTicket) {
     throw new Error('登录已过期，请重新登录');
   }
-  const result = await request<{
-    user: AuthUser;
-    player?: PlayerView | null;
-    csrfToken: string;
-  }>('POST', '/auth/mini/bind-phone', { bindTicket, ...payload });
+  const result = await bindPhoneWithTicket(bindTicket, payload);
   setCsrf(result.csrfToken);
   currentUser = result.user;
   currentPlayer = result.player ?? null;
+  currentPermissions = result.permissions ?? [];
   bindTicket = null;
   sessionPromise = Promise.resolve(result.user);
   return result.user;
 }
 
 export async function sendSmsCode(phone: string): Promise<void> {
-  await ensureCsrf();
-  await request<{ expiresIn: number }>('POST', '/auth/sms-codes', { phone, purpose: 'BIND' });
+  await sendBindSmsCode(phone);
 }
 
 function wxLogin(): Promise<string> {

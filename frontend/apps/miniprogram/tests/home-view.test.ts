@@ -37,6 +37,8 @@ function detail(overrides: Partial<MatchDetail> = {}): MatchDetail {
   return {
     ...summary(),
     signupDeadline: '2026-12-06T00:00:00+08:00',
+    cancelLock: '2026-12-06T01:00:00+08:00',
+    version: 1,
     ...overrides,
   };
 }
@@ -46,7 +48,7 @@ const formalPlayer = { id: 1, type: 1 } as unknown as PlayerView;
 
 describe('home view', () => {
   it('builds the hero card and anonymous CTA from match data', () => {
-    const hero = buildHero(detail(), null, null, Date.parse('2026-12-06T12:00:00+08:00'));
+    const hero = buildHero(detail(), null, null, null, Date.parse('2026-12-06T12:00:00+08:00'));
 
     expect(hero.metaText).toBe('12月6日 周日 20:00 · 聚龙足球场');
     expect(hero.ordinalText).toBe('2026赛季第5场（累计9场）');
@@ -60,7 +62,14 @@ describe('home view', () => {
   it('builds the CTA from the current user registration', () => {
     const openMatch = detail({
       status: 0,
-      myRegistration: { status: 0 },
+      myRegistration: {
+        id: 1,
+        playerId: 1,
+        type: 1,
+        status: 0,
+        registeredAt: '2026-12-01T10:00:00+08:00',
+        active: true,
+      },
       signupDeadline: '2026-12-07T00:00:00+08:00',
     });
 
@@ -68,6 +77,7 @@ describe('home view', () => {
       openMatch,
       user,
       formalPlayer,
+      ['registration:create:own'],
       Date.parse('2026-12-06T12:00:00+08:00'),
     );
 
@@ -75,6 +85,67 @@ describe('home view', () => {
       label: '查看详情',
       action: 'view-detail',
       reason: '已报名',
+    });
+  });
+
+  it('maps the shared eligibility decision for viewers without signup permission', () => {
+    const openMatch = detail({ status: 0, signupDeadline: '2026-12-07T00:00:00+08:00' });
+
+    const hero = buildHero(
+      openMatch,
+      user,
+      formalPlayer,
+      [],
+      Date.parse('2026-12-06T12:00:00+08:00'),
+    );
+
+    expect(hero.cta).toMatchObject({
+      label: '没有报名权限',
+      action: 'none',
+      disabled: true,
+    });
+  });
+
+  it('maps pending accounts to the shared blocked reason', () => {
+    const openMatch = detail({ status: 0, signupDeadline: '2026-12-07T00:00:00+08:00' });
+
+    const hero = buildHero(
+      openMatch,
+      { ...user, status: 0 } as AuthUser,
+      formalPlayer,
+      ['registration:create:own'],
+      Date.parse('2026-12-06T12:00:00+08:00'),
+    );
+
+    expect(hero.cta).toEqual({
+      label: '账号待审核，通过后可报名',
+      action: 'none',
+      disabled: true,
+      reason: '',
+    });
+  });
+
+  it('maps a full formal pool to the waitlist CTA with its hint', () => {
+    const fullMatch = detail({
+      status: 0,
+      signupDeadline: '2026-12-07T00:00:00+08:00',
+      confirmedCount: 20,
+      waitlistCount: 0,
+    });
+
+    const hero = buildHero(
+      fullMatch,
+      user,
+      formalPlayer,
+      ['registration:create:own'],
+      Date.parse('2026-12-06T12:00:00+08:00'),
+    );
+
+    expect(hero.cta).toEqual({
+      label: '加入候补',
+      action: 'register',
+      disabled: false,
+      reason: '正式名额已满，报名将进入候补',
     });
   });
 

@@ -1,0 +1,87 @@
+<van-popup show="{{show}}" position="bottom" round custom-style="max-height: 90vh;" bind:close="close">
+  <scroll-view scroll-y class="event-sheet">
+    <view class="event-sheet__head">
+      <text class="event-sheet__title">{{editing ? '编辑事件' : '录入事件'}}</text>
+      <text class="event-sheet__close" bindtap="close">关闭</text>
+    </view>
+
+    <view class="event-field">
+      <text class="event-field__label">类型</text>
+      <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onType">
+        <view class="event-field__value">{{typeOptions[typeIndex].label}}</view>
+      </picker>
+    </view>
+
+    <view class="event-field">
+      <text class="event-field__label">球队</text>
+      <picker
+        mode="selector"
+        range="{{teamOptions}}"
+        range-key="label"
+        value="{{teamIndex}}"
+        disabled="{{teamLocked}}"
+        bindchange="onTeam"
+      >
+        <view class="event-field__value">{{teamOptions[teamIndex].label}}</view>
+      </picker>
+    </view>
+
+    <block wx:if="{{typeOptions[typeIndex].value === 2}}">
+      <view class="event-field">
+        <text class="event-field__label">换上</text>
+        <picker mode="selector" range="{{inOptions}}" range-key="label" value="{{inIndex}}" bindchange="onIn">
+          <view class="event-field__value">{{inOptions[inIndex].label}}</view>
+        </picker>
+      </view>
+      <view class="event-field">
+        <text class="event-field__label">换下</text>
+        <picker mode="selector" range="{{outOptions}}" range-key="label" value="{{outIndex}}" bindchange="onOut">
+          <view class="event-field__value">{{outOptions[outIndex].label}}</view>
+        </picker>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="event-field">
+        <text class="event-field__label">球员</text>
+        <picker mode="selector" range="{{playerOptions}}" range-key="label" value="{{playerIndex}}" bindchange="onPlayer">
+          <view class="event-field__value">{{playerOptions[playerIndex].label}}</view>
+        </picker>
+      </view>
+      <block wx:if="{{typeOptions[typeIndex].value === 0}}">
+        <view class="event-field">
+          <text class="event-field__label">助攻</text>
+          <picker mode="selector" range="{{assistOptions}}" range-key="label" value="{{assistIndex}}" bindchange="onAssist">
+            <view class="event-field__value">{{assistOptions[assistIndex].label}}</view>
+          </picker>
+        </view>
+        <view class="event-field event-field--inline">
+          <text class="event-field__label">点球</text>
+          <switch checked="{{penalty}}" bindchange="onPenalty" />
+        </view>
+      </block>
+    </block>
+
+    <view class="event-field">
+      <text class="event-field__label">半场</text>
+      <picker mode="selector" range="{{halfOptions}}" range-key="label" value="{{halfIndex}}" bindchange="onHalf">
+        <view class="event-field__value">{{halfOptions[halfIndex].label}}</view>
+      </picker>
+    </view>
+
+    <view class="event-field">
+      <text class="event-field__label">分钟</text>
+      <input class="event-field__input" type="number" value="{{minute}}" placeholder="1–120" bindinput="onMinute" />
+    </view>
+
+    <text wx:if="{{formError}}" class="form-error">{{formError}}</text>
+    <text wx:if="{{error}}" class="form-error">{{error}}</text>
+
+    <view class="event-sheet__actions">
+      <view class="btn btn--outline" bindtap="close">取消</view>
+      <view class="btn btn--primary {{busy ? 'btn--disabled' : ''}}" bindtap="submit">
+        {{editing ? '保存修改' : '保存事件'}}
+      </view>
+    </view>
+  </scroll-view>
+</van-popup>

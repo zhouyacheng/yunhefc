@@ -1,7 +1,6 @@
 package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -119,15 +118,18 @@ class AuditCoverageIT extends IntegrationTestSupport {
     }
 
     private void register(String phone) throws Exception {
+        CsrfSession csrf = csrfSession();
         mockMvc.perform(post("/api/v1/c/auth/sms-codes")
-                        .with(csrf())
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phone":"%s","purpose":"REGISTER"}
                                 """.formatted(phone)))
                 .andExpect(status().isOk());
         mockMvc.perform(post("/api/v1/c/auth/register")
-                        .with(csrf())
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phone":"%s","code":"123456","password":"Passw0rd!","name":"绑定留痕","position":2}

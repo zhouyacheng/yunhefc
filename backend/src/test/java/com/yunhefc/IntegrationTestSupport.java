@@ -151,14 +151,52 @@ abstract class IntegrationTestSupport {
         return new MiniLoginTicket(ticket == null ? null : ticket.toString(), cookie(result, "YHFC_C"));
     }
 
-    /** AUTH-02 仍需 CSRF；小程序端会先取 /auth/csrf，这里等价模拟。 */
-    protected void sendBindSmsCode(String phone) throws Exception {
+    /** 真实 CSRF 握手的产物：会话 Cookie + 请求头 token。 */
+    protected record CsrfSession(Cookie cookie, String token) {
+    }
+
+    /**
+     * AUTH-02 的真实 CSRF 握手：GET /auth/csrf 取 token 与会话 Cookie。
+     * <p>
+     * 同一测试方法里不得再混用 Spring Security Test 的 {@code .with(csrf())}：它会把共享
+     * CsrfFilter 的 tokenRepository 换成默认头名 X-CSRF-TOKEN 的测试仓库，直到下一个
+     * @BeforeEach 才复原，随后真实握手的 X-XSRF-TOKEN 会被判无效而返回 403。
+     */
+    protected CsrfSession csrfSession() throws Exception {
         MvcResult csrf = mockMvc.perform(get("/api/v1/c/auth/csrf"))
                 .andExpect(status().isOk())
                 .andReturn();
+        return new CsrfSession(cookie(csrf, "YHFC_C"), csrfToken(csrf));
+    }
+
+    /** B 端真实 CSRF 握手（登录前还没有 B 会话时使用）。 */
+    protected CsrfSession bCsrfSession() throws Exception {
+        MvcResult csrf = mockMvc.perform(get("/api/v1/b/auth/csrf"))
+                .andExpect(status().isOk())
+                .andReturn();
+        return new CsrfSession(cookie(csrf, "YHFC_B"), csrfToken(csrf));
+    }
+
+    /** 取指定 C 端会话的 CSRF token；写请求的 token 必须与 Cookie 同会话。 */
+    protected String cCsrfToken(Cookie cookie) throws Exception {
+        return csrfToken(mockMvc.perform(get("/api/v1/c/auth/csrf").cookie(cookie))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    /** 取指定 B 端会话的 CSRF token。 */
+    protected String bCsrfToken(Cookie cookie) throws Exception {
+        return csrfToken(mockMvc.perform(get("/api/v1/b/auth/csrf").cookie(cookie))
+                .andExpect(status().isOk())
+                .andReturn());
+    }
+
+    /** AUTH-02 仍需 CSRF；小程序端会先取 /auth/csrf，这里等价模拟。 */
+    protected void sendBindSmsCode(String phone) throws Exception {
+        CsrfSession csrf = csrfSession();
         mockMvc.perform(post("/api/v1/c/auth/sms-codes")
-                        .cookie(cookie(csrf, "YHFC_C"))
-                        .header("X-XSRF-TOKEN", csrfToken(csrf))
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phone":"%s","purpose":"BIND"}

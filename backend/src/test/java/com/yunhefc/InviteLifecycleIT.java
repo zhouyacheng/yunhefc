@@ -1,7 +1,6 @@
 package com.yunhefc;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -34,7 +33,7 @@ class InviteLifecycleIT extends IntegrationTestSupport {
 
         mockMvc.perform(post("/api/v1/c/invites/" + token + "/accept")
                         .cookie(guest)
-                        .with(csrf()))
+                        .header("X-XSRF-TOKEN", cCsrfToken(guest)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.player.type").value(1));
 
@@ -58,7 +57,7 @@ class InviteLifecycleIT extends IntegrationTestSupport {
 
         mockMvc.perform(post("/api/v1/c/invites/" + token + "/accept")
                         .cookie(user)
-                        .with(csrf()))
+                        .header("X-XSRF-TOKEN", cCsrfToken(user)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.matchId").value(matchId));
 
@@ -111,7 +110,7 @@ class InviteLifecycleIT extends IntegrationTestSupport {
 
         mockMvc.perform(post("/api/v1/b/invites")
                         .cookie(admin)
-                        .with(csrf())
+                        .header("X-XSRF-TOKEN", bCsrfToken(admin))
                         .header("Idempotency-Key", "missing-type-invite")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"expiresInDays\":7}"))
@@ -178,8 +177,10 @@ class InviteLifecycleIT extends IntegrationTestSupport {
     }
 
     private Cookie register(String phone, String inviteToken) throws Exception {
+        CsrfSession csrf = csrfSession();
         mockMvc.perform(post("/api/v1/c/auth/sms-codes")
-                        .with(csrf())
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phone":"%s","purpose":"REGISTER"}
@@ -187,7 +188,8 @@ class InviteLifecycleIT extends IntegrationTestSupport {
                 .andExpect(status().isOk());
         String invite = inviteToken == null ? "" : ",\"inviteToken\":\"" + inviteToken + "\"";
         MvcResult result = mockMvc.perform(post("/api/v1/c/auth/register")
-                        .with(csrf())
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phone":"%s","code":"123456","password":"Passw0rd!","name":"邀请生命周期","position":2%s}
@@ -204,8 +206,10 @@ class InviteLifecycleIT extends IntegrationTestSupport {
         Long roleId = jdbc.queryForObject(
                 "SELECT id FROM app_role WHERE code = 'ADMIN' AND team_id = 1", Long.class);
         jdbc.update("INSERT INTO user_role (user_id, role_id) VALUES (?, ?)", userId, roleId);
+        CsrfSession csrf = bCsrfSession();
         MvcResult result = mockMvc.perform(post("/api/v1/b/auth/login")
-                        .with(csrf())
+                        .cookie(csrf.cookie())
+                        .header("X-XSRF-TOKEN", csrf.token())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"phone":"%s","password":"Admin123!"}
@@ -218,7 +222,7 @@ class InviteLifecycleIT extends IntegrationTestSupport {
     private String createInvite(Cookie admin, String body) throws Exception {
         MvcResult result = mockMvc.perform(post("/api/v1/b/invites")
                         .cookie(admin)
-                        .with(csrf())
+                        .header("X-XSRF-TOKEN", bCsrfToken(admin))
                         .header("Idempotency-Key", "invite-lifecycle-" + System.nanoTime())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))

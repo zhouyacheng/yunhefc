@@ -1,4 +1,5 @@
-import type { AvatarUploadView, PlayerPublic, PlayerView } from '../../types/api';
+import type { PlayerProfileUpdate, PlayerView } from '../../types/api';
+import { listTeamPlayers, saveMyPlayer, uploadAvatar } from '../../utils/api-client';
 import { avatarInitial, avatarSrc } from '../../utils/avatar';
 import {
   buildOptions,
@@ -9,13 +10,7 @@ import {
   validateProfile,
   withoutPrimary,
 } from '../../utils/profile-edit';
-import { ensureCsrf, request, uploadFile } from '../../utils/request';
 import { getPlayer, getUser, setPlayer } from '../../utils/session';
-
-interface TeamPlayersView {
-  items: PlayerPublic[];
-  total: number;
-}
 
 interface ValueEvent {
   detail: { value: string };
@@ -92,8 +87,8 @@ Page({
   },
 
   async fetchFullProfile(player: PlayerView): Promise<void> {
-    const view = await request<TeamPlayersView>('GET', '/team/players?all=true');
-    const self = view.items.find((item) => item.id === player.id);
+    const players = await listTeamPlayers({ all: true });
+    const self = players.find((item) => item.id === player.id);
     if (!self) {
       this.setData({ warning: '未能加载完整资料，请重新填写地区与副位置' });
       return;
@@ -200,8 +195,7 @@ Page({
   async upload(filePath: string) {
     this.setData({ uploading: true, error: '' });
     try {
-      await ensureCsrf();
-      const uploaded = await uploadFile<AvatarUploadView>('/files/avatar', filePath);
+      const uploaded = await uploadAvatar(filePath);
       this.setData({
         avatarPreview: uploaded.signedUrl,
         avatarObjectKey: uploaded.objectKey,
@@ -232,14 +226,7 @@ Page({
 
     this.setData({ saving: true, error: '' });
     try {
-      await ensureCsrf();
-      const payload: {
-        name: string;
-        region: string;
-        position: number;
-        secondaryPositions: number[];
-        avatarUrl?: string;
-      } = {
+      const payload: PlayerProfileUpdate = {
         name,
         region,
         position: this.data.position,
@@ -248,7 +235,7 @@ Page({
       if (this.data.avatarObjectKey) {
         payload.avatarUrl = this.data.avatarObjectKey;
       }
-      const saved = await request<PlayerView>('PATCH', '/me/player', payload);
+      const saved = await saveMyPlayer(payload);
       setPlayer(saved);
       wx.showToast({ title: '资料已保存', icon: 'none' });
       void wx.navigateBack();

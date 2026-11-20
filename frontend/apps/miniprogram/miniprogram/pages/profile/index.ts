@@ -1,14 +1,14 @@
 import { WEB_URL } from '../../utils/config';
-import type {
-  AuthUser,
-  MyRegistration,
-  Notification,
-  NotificationReadAllResult,
-  Page,
-  PlayerView,
-} from '../../types/api';
+import type { AuthUser, PlayerView } from '../../types/api';
+import {
+  cancelMyRegistration,
+  fetchMatchDetail,
+  listMyRegistrations,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from '../../utils/api-client';
 import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
-import { cancelMyRegistration, fetchMatchDetail } from '../../utils/match-api';
 import { promotionText, registrationDecision } from '../../utils/registration';
 import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
 import { createPagedFeed, emptyPagedFeedState, type PagedFeed } from '../../utils/paged-feed';
@@ -24,7 +24,6 @@ import {
   type NotificationRow,
   type RegistrationRowView,
 } from '../../utils/profile-view';
-import { ensureCsrf, request } from '../../utils/request';
 import {
   getPermissions,
   getPlayer,
@@ -73,11 +72,7 @@ Page({
       pageSize: PAGE_SIZE,
       initialKey: 'all',
       fetchPage: async ({ key, page, pageSize }) => {
-        const unread = key === 'unread' ? '&unread=true' : '';
-        const result = await request<Page<Notification>>(
-          'GET',
-          `/notifications?page=${page}&pageSize=${pageSize}${unread}`,
-        );
+        const result = await listNotifications({ page, pageSize, unread: key === 'unread' });
         return { ...result, items: result.items.map(decorateNotification) };
       },
       onChange: (state) => {
@@ -94,10 +89,8 @@ Page({
       pageSize: PAGE_SIZE,
       initialKey: 'active',
       fetchPage: async ({ key, page, pageSize }) => {
-        const result = await request<Page<MyRegistration>>(
-          'GET',
-          `/me/registrations?scope=${key}&page=${page}&pageSize=${pageSize}`,
-        );
+        const scope = key === 'history' ? 'history' : 'active';
+        const result = await listMyRegistrations({ scope, page, pageSize });
         return { ...result, items: result.items.map(decorateRegistration) };
       },
       onChange: (state) => {
@@ -194,8 +187,7 @@ Page({
     try {
       if (item.unread) {
         try {
-          await ensureCsrf();
-          await request('POST', `/notifications/${id}/read`);
+          await markNotificationRead(id);
           const unreadCount = await refreshUnreadBadge();
           if (unreadCount !== null) {
             this.setData({ unreadCount });
@@ -221,8 +213,7 @@ Page({
     }
     this.setData({ markingAll: true, actionError: '', actionMessage: '' });
     try {
-      await ensureCsrf();
-      await request<NotificationReadAllResult>('POST', '/notifications/read-all');
+      await markAllNotificationsRead();
       await notificationFeed?.load();
       this.setData({ actionMessage: '已全部标记为已读', unreadCount: 0 });
       void refreshUnreadBadge();

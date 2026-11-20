@@ -1,5 +1,5 @@
-import type { MatchSummary, Page } from '../../types/api';
 import { currentShanghaiMonth } from '../../utils/datetime';
+import { listMatches } from '../../utils/api-client';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import {
   createPagedFeed,
@@ -7,7 +7,6 @@ import {
   type PagedFeed,
   type PagedFeedState,
 } from '../../utils/paged-feed';
-import { request } from '../../utils/request';
 import {
   DEFAULT_PAGE_SIZE,
   STATUS_OPTIONS,
@@ -16,7 +15,6 @@ import {
   fromScheduleForm,
   sameForm,
   scheduleFeedKey,
-  scheduleRequestPath,
   toScheduleForm,
   type ScheduleForm,
 } from '../../utils/schedule-query';
@@ -76,11 +74,13 @@ Page({
     feed = createPagedFeed<MatchCardView>({
       pageSize: DEFAULT_PAGE_SIZE,
       initialKey: scheduleFeedKey(filters),
-      fetchPage: async ({ key, page, pageSize }) => {
-        const result = await request<Page<MatchSummary>>(
-          'GET',
-          scheduleRequestPath(key, page, pageSize),
-        );
+      // appliedForm 是筛选的唯一来源；feed 只在 key 变化时重载，两者同步更新。
+      fetchPage: async ({ page, pageSize }) => {
+        const result = await listMatches({
+          filters: fromScheduleForm(this.data.appliedForm),
+          page,
+          pageSize,
+        });
         return { ...result, items: result.items.map(buildMatchCard) };
       },
       onChange: (state) => {
@@ -146,7 +146,8 @@ Page({
   },
 
   applyFilters(form: ScheduleForm) {
-    const key = scheduleFeedKey(fromScheduleForm(form));
+    const filters = fromScheduleForm(form);
+    const key = scheduleFeedKey(filters);
     this.setData({ appliedForm: { ...form } });
     if (key === feed?.state.key) {
       return;

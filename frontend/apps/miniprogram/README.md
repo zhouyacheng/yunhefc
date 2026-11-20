@@ -13,7 +13,9 @@ frontend/apps/miniprogram/
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
-    ├── utils/{config,request,session,notifications,datetime,presentation,paged-feed,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,api-errors,match-api,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view}.ts
+    ├── utils/{config,request,api-client,session,notifications,datetime,presentation,paged-feed,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view}.ts
+    │   ├── request.ts      # 传输层：Cookie jar、CSRF、ApiError
+    │   └── api-client.ts   # 唯一请求入口：按域暴露函数，路径/分页/幂等键集中于此
     ├── components/
     │   ├── status-sheet/        # 管理员状态操作与延期/取消表单
     │   └── event-form-sheet/    # 事件录入/本人编辑弹层

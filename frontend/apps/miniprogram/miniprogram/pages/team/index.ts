@@ -1,6 +1,5 @@
-import type { PlayerPublic, TeamStats } from '../../types/api';
+import { fetchTeamStats, listMatchSeasons, listTeamPlayers } from '../../utils/api-client';
 import { currentShanghaiMonth } from '../../utils/datetime';
-import { request } from '../../utils/request';
 import { buildTeamGroups, type TeamGroupView } from '../../utils/team-view';
 
 interface PickerEvent {
@@ -55,8 +54,7 @@ Page({
     const selected = this.data.seasons[this.data.seasonIndex] || currentSeason();
     let items: string[] = [];
     try {
-      const result = await request<{ items: string[] }>('GET', '/matches/seasons');
-      items = result.items || [];
+      items = await listMatchSeasons();
     } catch {
       // 选项失败不阻塞名单与统计；至少保留当前年份与已选赛季。
     }
@@ -66,24 +64,17 @@ Page({
 
   async loadPlayers() {
     const seq = ++requestSeq;
-    const season = this.data.seasons[this.data.seasonIndex];
-    const seasonQuery = season ? `season=${encodeURIComponent(season)}` : '';
-    const playersQuery = seasonQuery ? `?all=true&${seasonQuery}` : '?all=true';
-    const statsQuery = seasonQuery ? `?${seasonQuery}` : '';
+    const season = this.data.seasons[this.data.seasonIndex] || undefined;
     this.setData({ loading: true, error: '' });
 
     // 统计允许延迟：先渲染 PLR-01 名单，统计返回后再合并；缺失时降级为「—」。
-    const statsRequest = request<TeamStats>('GET', `/team/stats${statsQuery}`).catch(() => null);
+    const statsRequest = fetchTeamStats(season).catch(() => null);
 
     try {
-      const result = await request<{ items: PlayerPublic[] }>(
-        'GET',
-        `/team/players${playersQuery}`,
-      );
+      const players = await listTeamPlayers({ all: true, season });
       if (seq !== requestSeq) {
         return;
       }
-      const players = result.items || [];
       this.setData({ groups: buildTeamGroups(players, []), loading: false });
       const stats = await statsRequest;
       if (seq !== requestSeq || !stats) {

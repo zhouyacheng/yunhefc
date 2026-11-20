@@ -17,7 +17,7 @@ import {
   createMatchEvent,
   signupMatch,
   updateMatchEvent,
-} from '../../utils/match-api';
+} from '../../utils/api-client';
 import { MATCH_STATUS_TEXT, attendanceText } from '../../utils/presentation';
 import {
   REGISTRATION_STATUS,

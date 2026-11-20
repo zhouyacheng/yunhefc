@@ -1,11 +1,10 @@
-import type { MatchDetail, MatchSummary, Page } from '../../types/api';
+import type { MatchDetail } from '../../types/api';
+import { fetchMatchDetail, listRecentMatches, signupMatch } from '../../utils/api-client';
 import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
 import { buildHero, HOME_FEATURES, type HeroView } from '../../utils/home-view';
-import { signupMatch } from '../../utils/match-api';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import { REGISTRATION_STATUS } from '../../utils/registration';
 import { markMyRegistrationsDirty } from '../../utils/registration-signal';
-import { request } from '../../utils/request';
 import { getPermissions, getPlayer, getUser, sessionReady } from '../../utils/session';
 
 let requestSeq = 0;
@@ -76,10 +75,7 @@ Page({
       this.setData({ loading: true, error: '' });
     }
     try {
-      const page = await request<Page<MatchSummary>>(
-        'GET',
-        '/matches?sort=startAt:desc&pageSize=4',
-      );
+      const page = await listRecentMatches();
       if (seq !== requestSeq) {
         return;
       }
@@ -92,7 +88,7 @@ Page({
         return;
       }
 
-      const detail = await request<MatchDetail>('GET', `/matches/${first.id}`);
+      const detail = await fetchMatchDetail(first.id);
       if (seq !== requestSeq) {
         return;
       }

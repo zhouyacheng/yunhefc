@@ -31,6 +31,23 @@ export interface PlayerView {
   avatarUrl: string | null;
 }
 
+/** PLR-03 自助编辑资料；avatarUrl 只接受 FIL-01 返回的 objectKey。 */
+export interface PlayerProfileUpdate {
+  name: string;
+  region: string;
+  position: number;
+  secondaryPositions: number[];
+  avatarUrl?: string;
+}
+
+/** AUTH-21 绑定手机号：已有账号忽略 name/position，新账号必填。 */
+export interface BindPhonePayload {
+  phone: string;
+  code: string;
+  name: string;
+  position: number;
+}
+
 export interface MiniLoginResult {
   needBindPhone: boolean;
   bindTicket: string | null;

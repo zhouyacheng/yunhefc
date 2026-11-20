@@ -27,7 +27,7 @@ import {
   fetchLineup,
   fetchMatchDetail,
   fetchMyMatchRegistration,
-} from '../../utils/match-api';
+} from '../../utils/api-client';
 import { isInternalMatchType } from '../../utils/match-type';
 import { checkInWindowState, eventEditWindowOpen, eventEntryOpen } from '../../utils/match-window';
 import { statusOptions, type StatusOption } from '../../utils/match-status';

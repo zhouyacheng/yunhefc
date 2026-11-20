@@ -1,5 +1,4 @@
-import type { NotificationUnreadCount } from '../types/api';
-import { request } from './request';
+import { fetchUnreadNotificationCount } from './api-client';
 import { getUser } from './session';
 
 /** tabBar 顺序：首页 0、比赛 1、球队 2、我的 3。 */
@@ -16,7 +15,7 @@ export async function refreshUnreadBadge(): Promise<number | null> {
     return 0;
   }
   try {
-    const { count } = await request<NotificationUnreadCount>('GET', '/notifications/unread-count');
+    const count = await fetchUnreadNotificationCount();
     if (count > 0) {
       wx.setTabBarBadge({
         index: PROFILE_TAB_INDEX,

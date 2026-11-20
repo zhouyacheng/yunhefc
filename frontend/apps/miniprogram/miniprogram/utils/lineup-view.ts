@@ -60,7 +60,7 @@ export function buildLineupBoard(
         slotKey: slot.slotKey,
         x: slot.x,
         y: slot.y,
-        roleText: slot.roleLabel || positionText(slot.role),
+        roleText: positionText(slot.role),
         jerseyText: player ? `#${player.jersey ?? '—'}` : '',
         name: player ? player.name : '空位',
         filled: Boolean(player),

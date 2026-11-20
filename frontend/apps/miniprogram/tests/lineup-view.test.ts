@@ -39,8 +39,8 @@ const lineup: LineupView = {
     name: '3-3-1',
     isPreset: true,
     slots: [
-      { slotKey: 'GK', role: 0, roleLabel: '门将', x: 50, y: 90 },
-      { slotKey: 'LB', role: 1, roleLabel: '后卫', x: 20, y: 70 },
+      { slotKey: 'GK', role: 0, roleLabel: 'GOALKEEPER', x: 50, y: 90 },
+      { slotKey: 'LB', role: 1, roleLabel: 'DEFENDER', x: 20, y: 70 },
     ],
   },
   starters: [

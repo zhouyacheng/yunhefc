@@ -261,9 +261,9 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 ### 5.1 空库幂等
 
 - [ ] 全新空 MySQL 8.4 schema（无 `flyway_schema_history`）。
-- [ ] 用**迁移账号**执行 `flyway migrate`，V1–V9 全部成功。
+- [ ] 用**迁移账号**执行 `flyway migrate`，V1–V13 全部成功。
 - [ ] 再次执行 `flyway info`：无 pending / failed。
-- [ ] `flyway_schema_history` 记录为 V1–V9。
+- [ ] `flyway_schema_history` 记录为 V1–V13。
 - [ ] 应用以 `spring.flyway.enabled=false` 启动成功。
 - [ ] 用**应用账号**执行任意 DDL 必须失败（无 DDL 权限）。
 
@@ -273,14 +273,18 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 - [x] 发布前用迁移账号对生产库执行 `flyway migrate`，成功后才切 `current`。— 2026-11-15 用迁移账号重建库并执行 V1–V5，`flyway_schema_history` 全部 success=1
 - [ ] 迁移失败则不发版，保持上一版本在线。
-- [ ] 目标 sha 检出中复制 `backend/src/main/resources/db/migration/*.sql` 到 `/opt/yunhefc/migrations`（含 V9）。
+- [ ] 目标 sha 检出中复制 `backend/src/main/resources/db/migration/*.sql` 到 `/opt/yunhefc/migrations`（含 V13）。
 - [ ] `flyway info`：无 pending / failed。
-- [ ] `flyway migrate`：已有库补 V6/V7/V8/V9，`flyway_schema_history` 最新为 V9 且 success=1。
+- [ ] `flyway migrate`：已有库补到目标版本，`flyway_schema_history` 最新为 V13 且 success=1。
+- [ ] **`deploy.yml` 不执行迁移**：切 `current` 前必须先对生产库执行 `flyway info`，确认无 Pending/Failed；库版本落后于代码版本时会直接 500（见 2026-11-20 记录）。
 - [ ] V8 校验：`audit_log.operated_at` 存在（`datetime(3) NULL`）、`idx_audit_team_operated` 存在、历史行 `operated_at` 已回填。
 - [ ] V9 校验：`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`、`match_grouping_player.manual_score` 为 `decimal(3,2) NULL`，且两列无 1–5 范围外数据。
+- [ ] V13 校验：`app_user.mp_openid` 为 `varchar(64) ascii_bin NULL` 且位于 `openid` 之后，唯一索引 `uk_user_mp_openid` 存在。
 - [ ] 迁移成功后才触发 `deploy` workflow（`sha=<sha7>`）；迁移失败不发版。
 
 > **2026-11-15 实测**：初次为手工执行 `schema.sql` + `quartz.sql` 初始化（无 `flyway_schema_history`）；当日已按 `scripts/rc-db-reset.sh` 删除重建并跑通 V1–V5（39 张表含 Quartz 与 `flyway_schema_history`）。后续迁移从此可正常增量执行。
+
+> **2026-11-20 事故记录**：生产库停在 V8、镜像已含 V13 代码，`app_user` 查询报 `Unknown column 'mp_openid'`，手机号登录返回 500、小程序登录返回 42201。补跑 V9–V13 后恢复。V13 首次执行时 DDL 已生效但 Flyway 历史记为 failed；核对列与索引均与迁移一致后，用 `UPDATE flyway_schema_history SET success=1, execution_time=0 WHERE version='13'` 修正，未回退重做。
 
 ### 5.3 部署冒烟
 

@@ -43,22 +43,22 @@ describe('formatDateYmd / formatHourMinute', () => {
   });
 
   it('formatDateTime 组合日期与时刻', () => {
-    expect(formatDateTime('2026-12-03T20:00:00+08:00')).toBe('2026-12-03 20:00');
+    expect(formatDateTime('2026-12-03T20:00:00+08:00')).toBe('2026/12/03 20:00');
     expect(formatDateTime(null)).toBe('');
   });
 });
 
 describe('formatTimeRange', () => {
   it('同日输出起止时刻', () => {
-    expect(
-      formatTimeRange('2026-12-06T20:00:00+08:00', '2026-12-06T22:00:00+08:00'),
-    ).toBe('20:00–22:00');
+    expect(formatTimeRange('2026-12-06T20:00:00+08:00', '2026-12-06T22:00:00+08:00')).toBe(
+      '20:00–22:00',
+    );
   });
 
   it('跨天带出结束日期', () => {
-    expect(
-      formatTimeRange('2026-12-03T22:00:00+08:00', '2026-12-04T02:00:00+08:00'),
-    ).toBe('22:00–12/04 02:00');
+    expect(formatTimeRange('2026-12-03T22:00:00+08:00', '2026-12-04T02:00:00+08:00')).toBe(
+      '22:00–12/04 02:00',
+    );
   });
 
   it('缺少或非法结束时间时只显示开始时刻', () => {

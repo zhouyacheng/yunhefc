@@ -75,9 +75,22 @@ describe('profile view', () => {
       jerseyText: '9',
       positionText: '前锋',
       skillText: '4.50',
-      skillPercent: 90,
       pending: false,
     });
+    expect(identityOf(user, player).stars.map((star) => star.part)).toEqual([
+      'full',
+      'full',
+      'full',
+      'full',
+      'half',
+    ]);
+  });
+
+  it('only displays http(s) avatar URLs', () => {
+    expect(identityOf(user, { ...player, avatarUrl: 'oss://key' }).avatarUrl).toBe('');
+    expect(
+      identityOf(user, { ...player, avatarUrl: 'https://cdn.example.com/a.png' }).avatarUrl,
+    ).toBe('https://cdn.example.com/a.png');
   });
 
   it('marks pending accounts and falls back to the account name', () => {
@@ -88,9 +101,15 @@ describe('profile view', () => {
       jerseyText: '—',
       positionText: '—',
       skillText: '—',
-      skillPercent: 0,
       pending: true,
     });
+    expect(identity.stars.map((star) => star.part)).toEqual([
+      'empty',
+      'empty',
+      'empty',
+      'empty',
+      'empty',
+    ]);
   });
 
   it('decorates notifications with Shanghai time and unread state', () => {
@@ -108,7 +127,7 @@ describe('profile view', () => {
 
     expect(decorateNotification(item)).toMatchObject({
       id: 3,
-      timeText: '2026-12-03 20:00',
+      timeText: '2026/12/03 20:00',
       unread: true,
       refType: 'MATCH',
       refId: 11,
@@ -120,7 +139,13 @@ describe('profile view', () => {
 
   it('decorates registrations and voids cancelled matches', () => {
     const row: MyRegistration = {
-      registration: { id: 5, type: 1, status: 0, registeredAt: '2026-12-01T10:00:00+08:00' },
+      registration: {
+        id: 5,
+        type: 1,
+        status: 0,
+        registeredAt: '2026-12-01T10:00:00+08:00',
+        player: { id: 1, name: '球员', jersey: 7, position: 2, skill: 6 },
+      },
       match: summary(),
     };
 
@@ -128,14 +153,34 @@ describe('profile view', () => {
       matchId: 11,
       statusText: '已确认',
       statusTone: 'open',
-      timeText: '2026-12-06 20:00',
+      timeText: '2026/12/06 20:00',
       seasonText: '2026赛季第5场（累计9场）',
       matchStatusText: '报名中',
       matchStatusTone: 'open',
+      canCancel: true,
+      cancelLabel: '取消报名',
+      registrationStatus: 0,
     });
 
     expect(
       decorateRegistration({ ...row, match: summary({ status: 6, statusLabel: 'CANCELLED' }) }),
-    ).toMatchObject({ statusText: '已作废', statusTone: 'closed', matchStatusTone: 'cancelled' });
+    ).toMatchObject({
+      statusText: '已作废',
+      statusTone: 'closed',
+      matchStatusTone: 'cancelled',
+      canCancel: false,
+    });
+
+    expect(
+      decorateRegistration({
+        ...row,
+        registration: { ...row.registration, status: 1 },
+        match: summary({ status: 1 }),
+      }),
+    ).toMatchObject({ canCancel: true, cancelLabel: '取消候补' });
+
+    expect(
+      decorateRegistration({ ...row, match: summary({ status: 2, statusLabel: 'LOCKED' }) }),
+    ).toMatchObject({ canCancel: false, cancelLabel: '取消报名' });
   });
 });

@@ -1,4 +1,5 @@
 import type { AuthUser, MyRegistration, Notification, PlayerView } from '../types/api';
+import { avatarInitial, avatarSrc } from './avatar';
 import { formatDateTime } from './datetime';
 import {
   matchStatusText,
@@ -7,6 +8,7 @@ import {
   seasonMatchText,
   statusTone,
 } from './presentation';
+import { starParts, type SkillStarMark } from './skill';
 
 const ROLE_TEXT: Readonly<Record<string, string>> = {
   ADMIN: '管理员',
@@ -22,7 +24,7 @@ export interface IdentityView {
   jerseyText: string;
   positionText: string;
   skillText: string;
-  skillPercent: number;
+  stars: SkillStarMark[];
   avatarUrl: string;
   pending: boolean;
 }
@@ -48,6 +50,9 @@ export interface RegistrationRowView {
   seasonText: string;
   matchStatusText: string;
   matchStatusTone: string;
+  canCancel: boolean;
+  cancelLabel: string;
+  registrationStatus: number;
 }
 
 export function identityOf(user: AuthUser, player: PlayerView | null): IdentityView {
@@ -55,15 +60,15 @@ export function identityOf(user: AuthUser, player: PlayerView | null): IdentityV
   const roles = (user.roles || []).map((role) => ROLE_TEXT[role] ?? role);
   return {
     name,
-    initial: name.slice(0, 1) || '云',
+    initial: avatarInitial(name),
     roleText: roles.length ? roles.join(' / ') : '—',
     phoneMasked: user.phoneMasked,
     jerseyText:
       player?.jersey === null || player?.jersey === undefined ? '—' : String(player.jersey),
     positionText: player ? player.positionLabel || positionText(player.position) : '—',
     skillText: player ? player.skill.toFixed(2) : '—',
-    skillPercent: player ? Math.max(0, Math.min(100, (player.skill / 5) * 100)) : 0,
-    avatarUrl: player?.avatarUrl ?? '',
+    stars: starParts(player?.skill),
+    avatarUrl: avatarSrc(player?.avatarUrl) ?? '',
     pending: user.status === 0,
   };
 }
@@ -96,6 +101,7 @@ function registrationTone(status: number, voided: boolean): string {
 
 export function decorateRegistration(row: MyRegistration): RegistrationRowView {
   const voided = row.match.status === 6;
+  const active = row.registration.status === 0 || row.registration.status === 1;
   return {
     matchId: row.match.id,
     title: row.match.title,
@@ -106,5 +112,8 @@ export function decorateRegistration(row: MyRegistration): RegistrationRowView {
     seasonText: seasonMatchText(row.match),
     matchStatusText: matchStatusText(row.match.status),
     matchStatusTone: statusTone(row.match.status),
+    canCancel: !voided && active && (row.match.status === 0 || row.match.status === 1),
+    cancelLabel: row.registration.status === 1 ? '取消候补' : '取消报名',
+    registrationStatus: row.registration.status,
   };
 }

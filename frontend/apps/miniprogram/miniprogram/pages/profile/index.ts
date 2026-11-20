@@ -7,12 +7,15 @@ import type {
   Page,
   PlayerView,
 } from '../../types/api';
+import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
+import { cancelMyRegistration, fetchMatchDetail } from '../../utils/match-api';
+import { promotionText, registrationDecision } from '../../utils/registration';
 import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
+import { createPagedFeed, emptyPagedFeedState, type PagedFeed } from '../../utils/paged-feed';
 import {
-  createPagedFeed,
-  emptyPagedFeedState,
-  type PagedFeed,
-} from '../../utils/paged-feed';
+  consumeMyRegistrationsDirty,
+  markMyRegistrationsDirty,
+} from '../../utils/registration-signal';
 import {
   decorateNotification,
   decorateRegistration,
@@ -22,16 +25,18 @@ import {
   type RegistrationRowView,
 } from '../../utils/profile-view';
 import { ensureCsrf, request } from '../../utils/request';
-import { getPlayer, getUser, logout as logoutSession, restore } from '../../utils/session';
+import {
+  getPermissions,
+  getPlayer,
+  getUser,
+  logout as logoutSession,
+  restore,
+} from '../../utils/session';
 
 const PAGE_SIZE = 10;
 
 let notificationFeed: PagedFeed<NotificationRow> | null = null;
 let registrationFeed: PagedFeed<RegistrationRowView> | null = null;
-
-function errorMessage(error: unknown, fallback: string): string {
-  return (error as Error).message || fallback;
-}
 
 function loggedOutState() {
   return {
@@ -39,6 +44,7 @@ function loggedOutState() {
     player: null,
     identity: null,
     pending: false,
+    unreadCount: null,
     actionError: '',
     actionMessage: '',
   };
@@ -54,7 +60,9 @@ Page({
     notifications: emptyPagedFeedState<NotificationRow>('all'),
     registrations: emptyPagedFeedState<RegistrationRowView>('active'),
     markingAll: false,
+    unreadCount: null as number | null,
     busyId: 0,
+    cancelBusyId: 0,
     actionError: '',
     actionMessage: '',
   },
@@ -147,19 +155,20 @@ Page({
       pending,
       actionError: '',
     });
-    void refreshUnreadBadge();
+    void refreshUnreadBadge().then((unreadCount) => {
+      if (unreadCount !== null) {
+        this.setData({ unreadCount });
+      }
+    });
 
-    // 已加载过的列表保留分页位置；下拉刷新、切换账号或首次进入时才重载。
+    // 已加载过的列表保留分页位置；下拉刷新、切换账号、其他页面改动报名或首次进入时才重载。
+    const forceRegistrations = consumeMyRegistrationsDirty();
     const shouldLoadNotifications = force || switchedUser || !this.data.notifications.loaded;
     const shouldLoadRegistrations =
-      !pending && (force || switchedUser || !this.data.registrations.loaded);
+      !pending && (force || switchedUser || forceRegistrations || !this.data.registrations.loaded);
     await Promise.all([
-      shouldLoadNotifications
-        ? (notificationFeed?.load() ?? Promise.resolve())
-        : Promise.resolve(),
-      shouldLoadRegistrations
-        ? (registrationFeed?.load() ?? Promise.resolve())
-        : Promise.resolve(),
+      shouldLoadNotifications ? (notificationFeed?.load() ?? Promise.resolve()) : Promise.resolve(),
+      shouldLoadRegistrations ? (registrationFeed?.load() ?? Promise.resolve()) : Promise.resolve(),
     ]);
   },
 
@@ -187,7 +196,10 @@ Page({
         try {
           await ensureCsrf();
           await request('POST', `/notifications/${id}/read`);
-          void refreshUnreadBadge();
+          const unreadCount = await refreshUnreadBadge();
+          if (unreadCount !== null) {
+            this.setData({ unreadCount });
+          }
         } catch (error) {
           // 已读失败不阻断 MATCH 跳转。
           this.setData({ actionError: errorMessage(error, '标记已读失败，请稍后重试') });
@@ -195,6 +207,7 @@ Page({
         await notificationFeed?.load();
       }
       if (item.refType === 'MATCH' && typeof item.refId === 'number' && item.refId > 0) {
+        markMyRegistrationsDirty();
         await wx.navigateTo({ url: `/pages/match-detail/index?id=${item.refId}` });
       }
     } finally {
@@ -203,7 +216,7 @@ Page({
   },
 
   async markAllRead() {
-    if (this.data.markingAll) {
+    if (this.data.markingAll || this.data.unreadCount === 0) {
       return;
     }
     this.setData({ markingAll: true, actionError: '', actionMessage: '' });
@@ -211,7 +224,7 @@ Page({
       await ensureCsrf();
       await request<NotificationReadAllResult>('POST', '/notifications/read-all');
       await notificationFeed?.load();
-      this.setData({ actionMessage: '已全部标记为已读' });
+      this.setData({ actionMessage: '已全部标记为已读', unreadCount: 0 });
       void refreshUnreadBadge();
     } catch (error) {
       this.setData({ actionError: errorMessage(error, '全部已读失败，请稍后重试') });
@@ -234,7 +247,71 @@ Page({
 
   goMatch(event: WechatMiniprogram.BaseEvent) {
     const id = Number(event.currentTarget.dataset.id);
+    // 详情页可能取消报名；返回时强制重载进行中/历史列表。
+    markMyRegistrationsDirty();
     void wx.navigateTo({ url: `/pages/match-detail/index?id=${id}` });
+  },
+
+  async cancelRegistration(event: WechatMiniprogram.BaseEvent) {
+    const matchId = Number(event.currentTarget.dataset.id);
+    if (!matchId || this.data.cancelBusyId) {
+      return;
+    }
+    const row = (this.data.registrations.items as RegistrationRowView[]).find(
+      (item) => item.matchId === matchId,
+    );
+    if (!row) {
+      return;
+    }
+    this.setData({ cancelBusyId: matchId });
+    try {
+      const detail = await fetchMatchDetail(matchId);
+      const currentStatus = detail.myRegistration?.status ?? row.registrationStatus;
+      const { cancel } = registrationDecision({
+        authenticated: true,
+        pending: false,
+        playerType: getPlayer()?.type ?? null,
+        permissions: getPermissions(),
+        matchStatus: detail.status,
+        now: Date.now(),
+        signupDeadline: detail.signupDeadline,
+        cancelLock: detail.cancelLock,
+        queue: detail,
+        myRegistration: { status: currentStatus },
+      });
+      if (!cancel.visible || cancel.disabled) {
+        wx.showToast({ title: cancel.reason || '当前不可取消', icon: 'none' });
+        return;
+      }
+      const confirmed = await new Promise<boolean>((resolve) => {
+        wx.showModal({
+          title: cancel.label,
+          content: '确认取消本次报名？',
+          success: (result) => resolve(result.confirm),
+          fail: () => resolve(false),
+        });
+      });
+      if (!confirmed) {
+        return;
+      }
+      const result = await cancelMyRegistration(matchId);
+      wx.showModal({
+        title: '已取消',
+        content: promotionText(result, null, currentStatus),
+        showCancel: false,
+      });
+      await registrationFeed?.load();
+    } catch (error) {
+      wx.showToast({
+        title: errorMessage(error, '取消报名失败，请稍后重试'),
+        icon: 'none',
+      });
+      if (shouldRefreshAfterConflict(error)) {
+        await registrationFeed?.load();
+      }
+    } finally {
+      this.setData({ cancelBusyId: 0 });
+    }
   },
 
   goLogin() {

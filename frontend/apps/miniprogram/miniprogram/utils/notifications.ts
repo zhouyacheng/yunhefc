@@ -9,8 +9,8 @@ export function clearUnreadBadge(): void {
   wx.removeTabBarBadge({ index: PROFILE_TAB_INDEX, fail: () => undefined });
 }
 
-/** 刷新「我的」角标；未登录或请求失败时保持无角标。 */
-export async function refreshUnreadBadge(): Promise<number> {
+/** 刷新「我的」角标；未登录返回 0，请求失败返回 null（未知）。 */
+export async function refreshUnreadBadge(): Promise<number | null> {
   if (!getUser()) {
     clearUnreadBadge();
     return 0;
@@ -28,6 +28,6 @@ export async function refreshUnreadBadge(): Promise<number> {
     }
     return count;
   } catch {
-    return 0;
+    return null;
   }
 }

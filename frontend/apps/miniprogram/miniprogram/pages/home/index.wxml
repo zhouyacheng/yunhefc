@@ -52,10 +52,10 @@
         </view>
 
         <view
-          class="cta {{hero.cta.disabled ? 'cta--disabled' : ''}}"
+          class="cta {{hero.cta.disabled || signupBusy ? 'cta--disabled' : ''}}"
           bindtap="onCtaTap"
           hover-class="btn--pressed"
-        >{{hero.cta.label}}</view>
+        >{{signupBusy ? '提交中…' : hero.cta.label}}</view>
         <text wx:if="{{hero.cta.reason}}" class="hint">{{hero.cta.reason}}</text>
 
         <view class="ghost-link" data-id="{{hero.id}}" bindtap="goDetail" hover-class="link--pressed">

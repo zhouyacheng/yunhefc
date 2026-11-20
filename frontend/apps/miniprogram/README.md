@@ -1,6 +1,6 @@
 # 云河FC 微信小程序
 
-原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03 头部与事件）/ 球队 / 我的（通知、我的报名只读、资料编辑、退出登录）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；不提供报名/取消报名、签到、分享与订阅消息；报名类 CTA 只提示前往网页版，不发起报名请求。
+原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。不做比赛邀请/复制链接、分享、订阅消息、账号密码登录/找回密码与 B 端专属操作。
 
 ## 结构
 
@@ -13,14 +13,17 @@ frontend/apps/miniprogram/
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
-    ├── utils/{config,request,session,notifications,datetime,presentation,paged-feed,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view}.ts
+    ├── utils/{config,request,session,notifications,datetime,presentation,paged-feed,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,api-errors,match-api,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view}.ts
+    ├── components/
+    │   ├── status-sheet/        # 管理员状态操作与延期/取消表单
+    │   └── event-form-sheet/    # 事件录入/本人编辑弹层
     └── pages/
-        ├── home/                # tab：首页（镜像 Web C01）
+        ├── home/                # tab：首页（镜像 C01，真实报名）
         ├── schedule/            # tab：比赛（C02 筛选、富卡片、下拉/上拉）
-        ├── team/                # tab：球队
-        ├── profile/             # tab：我的（通知/我的报名/账号）
+        ├── team/                # tab：球队（C04 赛季、球员卡与赛季统计）
+        ├── profile/             # tab：我的（通知/我的报名与取消/账号）
         ├── profile-edit/        # 编辑资料与头像
-        ├── match-detail/        # 比赛详情（C03 头部 + 事件时间线，只读）
+        ├── match-detail/        # 比赛详情（C03 四 Tab：概览/事件/阵容/分组）
         ├── login/               # wx.login → AUTH-20
         ├── phone-bind/          # 手机号 + 短信 → AUTH-21
         └── spike/               # Phase 0 会话实验页，仅用于真机验证
@@ -31,6 +34,8 @@ frontend/apps/miniprogram/
 `wx.request` **不会**自动保存和回放 `Set-Cookie`。后端仍是 Cookie 会话（`YHFC_C` + `X-XSRF-TOKEN`），所以小程序端在 `utils/request.ts` 维护一个**内存 Cookie jar**：从响应头提取 `YHFC_C`，后续请求手动写入 `Cookie` 头。
 
 - 冷启动后 jar 清空，重新 `wx.login` 即可恢复；凭证不写 storage。
+- 权限码随登录、绑定与 `GET /c/me` 保存到内存 `session`，页面用 `hasPermission()` 控制报名/名单/事件/状态/阵容/分组入口；权限只是渲染依据，服务端仍强校验。
+- 写请求先 `ensureCsrf()`，高风险接口带每次操作新生成的 `Idempotency-Key`；状态与事件编辑再带 `version`。
 - 结论与实验记录见 `.scratch/miniprogram-login/spike.md`。
 - `pages/spike` 保留用于真机复验，验证完成后可删除。
 
@@ -61,4 +66,4 @@ pnpm --filter @yunhefc/miniprogram typecheck
 pnpm --filter @yunhefc/miniprogram test
 ```
 
-真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 状态 → 比赛（首屏无月份参数、筛选合并/互斥/清空、抽屉与选择层、下拉/上拉、返回不丢分页）→ 详情（头部元信息、取消/延期横幅、事件球员与中文标签、404）→ 球队 → 我的（通知已读、我的报名、编辑资料、头像）→ 退出登录 → 冷启动重登。iOS、Android 各一台。
+真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 报名/加入候补并刷新队列 → 比赛（首屏无月份参数、筛选合并/互斥/清空、抽屉与选择层、下拉/上拉、返回不丢分页）→ 详情（头部元信息、报名/取消/递补、签到、名单考勤、事件录入与本人编辑、阵容/分组只读、管理员状态 0–6、冲突刷新、取消/延期横幅、404）→ 球队 → 我的（通知已读、我的报名取消、编辑资料、头像）→ 退出登录 → 冷启动重登。iOS、Android 各一台。

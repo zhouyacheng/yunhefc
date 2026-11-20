@@ -4,13 +4,16 @@ import {
   bindPhone,
   clearSession,
   getBindTicket,
+  getPermissions,
   getPlayer,
   getUser,
+  hasPermission,
   login,
   restore,
   sendSmsCode,
   sessionReady,
 } from '../miniprogram/utils/session';
+import { MATCH_STATUS_ANY, REGISTRATION_CREATE_OWN } from '../miniprogram/utils/permissions';
 
 type WxOptions = {
   url: string;
@@ -240,6 +243,67 @@ describe('session', () => {
 
     expect(getUser()).toBeNull();
     expect(getPlayer()).toBeNull();
+  });
+
+  it('stores permissions returned by login', async () => {
+    responder = respond({
+      code: 0,
+      data: {
+        needBindPhone: false,
+        bindTicket: null,
+        user: { id: 7, name: '球员' },
+        player: { id: 1, type: 1 },
+        permissions: [REGISTRATION_CREATE_OWN],
+        csrfToken: 'csrf-1',
+      },
+    });
+
+    await login();
+
+    expect(getPermissions()).toEqual([REGISTRATION_CREATE_OWN]);
+    expect(hasPermission(REGISTRATION_CREATE_OWN)).toBe(true);
+    expect(hasPermission(MATCH_STATUS_ANY)).toBe(false);
+  });
+
+  it('stores permissions returned by /me', async () => {
+    responder = respond({
+      code: 0,
+      data: {
+        user: { id: 7, name: '球员' },
+        player: { id: 1, type: 1 },
+        roles: [],
+        permissions: [MATCH_STATUS_ANY],
+        unreadCount: 0,
+      },
+    });
+
+    await restore();
+
+    expect(hasPermission(MATCH_STATUS_ANY)).toBe(true);
+  });
+
+  it('clears permissions on logout and 401', async () => {
+    responder = respond({
+      code: 0,
+      data: {
+        user: { id: 7, name: '球员' },
+        player: { id: 1, type: 1 },
+        roles: [],
+        permissions: [MATCH_STATUS_ANY],
+        unreadCount: 0,
+      },
+    });
+    await restore();
+    expect(hasPermission(MATCH_STATUS_ANY)).toBe(true);
+
+    clearSession();
+    expect(getPermissions()).toEqual([]);
+    expect(hasPermission(MATCH_STATUS_ANY)).toBe(false);
+
+    await restore();
+    responder = respond({ code: 40101, message: '会话已过期' }, 401);
+    await expect(request('GET', '/matches')).rejects.toBeInstanceOf(ApiError);
+    expect(getPermissions()).toEqual([]);
   });
 
   it('rejects binding without a ticket', async () => {

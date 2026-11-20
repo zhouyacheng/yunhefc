@@ -21,7 +21,8 @@
 
 .identity {
   display: flex;
-  gap: 20rpx;
+  flex-wrap: wrap;
+  gap: 32rpx;
   align-items: center;
 }
 
@@ -30,8 +31,8 @@
   flex: none;
   align-items: center;
   justify-content: center;
-  width: 120rpx;
-  height: 120rpx;
+  width: 144rpx;
+  height: 144rpx;
   overflow: hidden;
   background: var(--yh-navy);
   border-radius: 50%;
@@ -44,7 +45,7 @@
 
 .avatar__initial {
   color: var(--yh-gold);
-  font-size: 48rpx;
+  font-size: 52rpx;
   font-weight: 800;
 }
 
@@ -61,8 +62,8 @@
 }
 
 .identity__name {
-  font-size: 40rpx;
-  font-weight: 800;
+  font-size: 48rpx;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -75,46 +76,25 @@
 .identity__meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 8rpx 20rpx;
+  gap: 8rpx 24rpx;
   align-items: center;
   color: var(--yh-muted);
-  font-size: 24rpx;
-}
-
-.stars {
-  position: relative;
-  display: inline-block;
-  font-size: 24rpx;
-  line-height: 1;
-  letter-spacing: 2rpx;
-}
-
-.stars__base {
-  color: var(--yh-line);
-}
-
-.stars__fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  overflow: hidden;
-  color: var(--yh-gold);
-  white-space: nowrap;
+  font-size: 26rpx;
 }
 
 .identity__edit {
-  flex: none;
+  width: 100%;
 }
 
 .section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 16rpx;
+  margin-bottom: 32rpx;
 }
 
 .section-head__title {
-  font-size: 32rpx;
+  font-size: 34rpx;
   font-weight: 700;
 }
 
@@ -127,37 +107,44 @@
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
-  margin-bottom: 16rpx;
+  margin-bottom: 28rpx;
 }
 
 .segmented {
-  display: flex;
-  padding: 4rpx;
-  background: var(--yh-surface-soft);
-  border-radius: var(--yh-radius-sm);
+  display: inline-flex;
+  padding: 6rpx;
+  background: var(--yh-slate-soft);
+  border-radius: 20rpx;
 }
 
 .segmented__item {
-  padding: 10rpx 22rpx;
+  min-height: 72rpx;
+  padding: 10rpx 28rpx;
   color: var(--yh-muted);
-  font-size: 24rpx;
+  font-size: 26rpx;
   font-weight: 600;
-  border-radius: 8rpx;
+  line-height: 52rpx;
+  border-radius: 16rpx;
 }
 
 .segmented__item--active {
-  color: var(--yh-green-ink);
-  background: var(--yh-green-soft);
+  color: var(--yh-ink);
+  background: var(--yh-surface);
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.12);
 }
 
 .section__segment {
-  margin-bottom: 16rpx;
+  margin-bottom: 24rpx;
 }
 
 .text-action {
   color: var(--yh-green);
   font-size: 26rpx;
   font-weight: 600;
+}
+
+.text-action--disabled {
+  color: var(--yh-muted);
 }
 
 .list {
@@ -167,8 +154,9 @@
 
 .notification {
   display: flex;
-  gap: 14rpx;
-  padding: 20rpx 0;
+  gap: 20rpx;
+  min-height: 88rpx;
+  padding: 24rpx 0;
   border-bottom: 1rpx dashed var(--yh-line);
 }
 
@@ -178,9 +166,9 @@
 
 .notification__dot {
   flex: none;
-  width: 14rpx;
-  height: 14rpx;
-  margin-top: 10rpx;
+  width: 16rpx;
+  height: 16rpx;
+  margin-top: 12rpx;
   background: var(--yh-green);
   border-radius: 50%;
 }
@@ -194,8 +182,8 @@
 
 .notification__title {
   color: var(--yh-muted);
-  font-size: 28rpx;
-  font-weight: 600;
+  font-size: 32rpx;
+  font-weight: 700;
 }
 
 .notification--unread .notification__title {
@@ -211,14 +199,15 @@
 
 .notification__meta {
   color: var(--yh-muted);
-  font-size: 22rpx;
+  font-size: 24rpx;
 }
 
 .registration {
   display: flex;
   flex-direction: column;
   gap: 8rpx;
-  padding: 20rpx 0;
+  min-height: 88rpx;
+  padding: 24rpx 0;
   border-bottom: 1rpx dashed var(--yh-line);
 }
 
@@ -237,10 +226,19 @@
 .registration__title {
   min-width: 0;
   overflow: hidden;
-  font-size: 28rpx;
-  font-weight: 600;
+  font-size: 32rpx;
+  font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.registration__cancel {
+  align-self: flex-start;
+}
+
+.btn--disabled {
+  opacity: 0.45;
+  pointer-events: none;
 }
 
 .list-more {
@@ -270,7 +268,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 22rpx 0;
+  min-height: 88rpx;
+  padding: 20rpx 0;
   font-size: 28rpx;
   border-bottom: 1rpx dashed var(--yh-line);
 }

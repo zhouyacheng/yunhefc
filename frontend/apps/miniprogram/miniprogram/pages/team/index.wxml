@@ -1,25 +1,76 @@
-<view class="container">
-  <view class="season-bar">
-    <picker mode="selector" range="{{seasons}}" value="{{seasonIndex}}" bindchange="onSeasonChange">
-      <view class="season-picker">赛季 {{seasons[seasonIndex] || '—'}} ▾</view>
-    </picker>
+<view class="container team-page">
+  <view class="page-head team-head">
+    <view>
+      <text class="page-head__eyebrow">SQUAD</text>
+      <view class="page-head__title">球队</view>
+    </view>
+    <view class="team-season">
+      <text class="team-season__label">赛季</text>
+      <picker mode="selector" range="{{seasons}}" value="{{seasonIndex}}" bindchange="onSeasonChange">
+        <view class="team-season__select">{{seasons[seasonIndex] || '—'}} ▾</view>
+      </picker>
+    </view>
   </view>
 
-  <van-loading wx:if="{{loading}}" />
+  <view wx:if="{{loading}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
 
-  <block wx:for="{{groups}}" wx:key="position" wx:for-item="group">
-    <view class="group-title">{{group.label}}</view>
-    <van-cell-group inset>
-      <van-cell
-        wx:for="{{group.players}}"
-        wx:key="id"
-        wx:for-item="player"
-        title="{{player.name}}{{player.jersey ? ' #' + player.jersey : ''}}"
-        label="{{player.positionLabel}} · 出场 {{player.appearances || 0}}"
-        value="{{player.skill}} 星"
-      />
-    </van-cell-group>
-  </block>
+  <view wx:elif="{{error}}" class="state">
+    <text class="muted">{{error}}</text>
+    <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+  </view>
 
-  <van-empty wx:if="{{!loading && groups.length === 0}}" description="{{error || '暂无球员'}}" />
+  <van-empty wx:elif="{{groups.length === 0}}" description="暂无球员" />
+
+  <view wx:else class="team-groups">
+    <view class="team-group" wx:for="{{groups}}" wx:key="position" wx:for-item="group">
+      <view class="team-group__head">
+        <view class="team-group__title">
+          <text>{{group.label}}</text>
+          <text class="muted small">{{group.players.length}} 人</text>
+        </view>
+      </view>
+
+      <view class="team-roster">
+        <view class="player-card" wx:for="{{group.players}}" wx:key="id" wx:for-item="player">
+          <view class="player-card__top">
+            <image
+              wx:if="{{player.avatarUrl}}"
+              class="player-card__avatar"
+              src="{{player.avatarUrl}}"
+              mode="aspectFill"
+              data-id="{{player.id}}"
+              binderror="onAvatarError"
+            />
+            <text wx:else class="player-card__avatar player-card__avatar--fallback">{{player.initial}}</text>
+            <text class="player-card__jersey">{{player.jerseyText}}</text>
+          </view>
+
+          <view class="player-card__body">
+            <text class="player-card__name">{{player.name}}</text>
+            <view class="player-card__meta muted small">
+              <text>{{player.positionText}}</text>
+              <text>{{player.regionText}}</text>
+            </view>
+            <view class="player-card__stars">
+              <view class="skill-stars">
+                <view
+                  wx:for="{{player.stars}}"
+                  wx:for-item="star"
+                  wx:key="key"
+                  class="skill-star skill-star--{{star.part}}"
+                ></view>
+              </view>
+            </view>
+            <view class="player-card__stats small">
+              <text>出场 {{player.appearances}}</text>
+              <text>进球 {{player.goalsText}}</text>
+              <text>助攻 {{player.assistsText}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
 </view>

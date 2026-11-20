@@ -81,23 +81,33 @@ function handleUnauthorized(): void {
   unauthorizedHandler?.();
 }
 
-export function request<T>(method: HttpMethod, path: string, data?: unknown): Promise<T> {
+export interface RequestOptions {
+  headers?: Record<string, string>;
+  /** 高风险写接口的幂等键；GET 忽略。 */
+  idempotencyKey?: string;
+}
+
+export function request<T>(
+  method: HttpMethod,
+  path: string,
+  data?: unknown,
+  options?: RequestOptions,
+): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const header = authHeader(method !== 'GET');
     header['Content-Type'] = 'application/json';
+    if (options?.headers) {
+      Object.assign(header, options.headers);
+    }
+    if (method !== 'GET' && options?.idempotencyKey) {
+      header['Idempotency-Key'] = options.idempotencyKey;
+    }
 
     wx.request({
       url: BASE_URL + path,
       // 官方类型/文档未列 PATCH，但运行时支持；保留 05 的 PATCH 契约，真机验收覆盖。
       method: method as unknown as
-        | 'GET'
-        | 'POST'
-        | 'PUT'
-        | 'DELETE'
-        | 'OPTIONS'
-        | 'HEAD'
-        | 'TRACE'
-        | 'CONNECT',
+        'GET' | 'POST' | 'PUT' | 'DELETE' | 'OPTIONS' | 'HEAD' | 'TRACE' | 'CONNECT',
       data: data as unknown as WechatMiniprogram.IAnyObject,
       header,
       success: (res) => {

@@ -13,11 +13,15 @@
     <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
   </view>
 
-  <block wx:if="{{header}}">
+  <block wx:if="{{detail && header}}">
     <view class="detail-hero">
       <view class="detail-hero__top">
         <text class="detail-hero__type">{{header.typeText}}</text>
-        <text class="status-pill status-pill--{{header.statusTone}}">{{header.statusText}}</text>
+        <view
+          class="status-pill status-pill--{{header.statusTone}} {{canChangeStatus ? 'status-pill--action' : ''}}"
+          bindtap="openStatus"
+          hover-class="{{canChangeStatus ? 'status-pill--pressed' : 'none'}}"
+        >{{header.statusText}}{{canChangeStatus ? ' ▾' : ''}}</view>
       </view>
 
       <view class="detail-hero__teams">
@@ -48,28 +52,387 @@
       </view>
     </view>
 
-    <view class="section-title">比赛事件</view>
-
-    <view wx:if="{{eventsLoading && events.length === 0}}" class="state state--inline">
-      <van-loading size="18px">事件加载中…</van-loading>
+    <view class="detail-tabs">
+      <view
+        wx:for="{{tabs}}"
+        wx:key="key"
+        class="detail-tab {{activeTab === item.key ? 'detail-tab--active' : ''}}"
+        data-key="{{item.key}}"
+        bindtap="switchTab"
+      >{{item.label}}</view>
     </view>
 
-    <view wx:elif="{{eventsError && events.length === 0}}" class="state state--inline">
-      <text class="muted">{{eventsError}}</text>
-      <view class="btn btn--small btn--outline" bindtap="retryEvents" hover-class="btn--pressed">重试</view>
-    </view>
+    <!-- 概览 -->
+    <block wx:if="{{activeTab === 'overview'}}">
+      <view class="overview-grid">
+        <view class="card registration-card">
+          <view class="card-head">
+            <text class="card-title">我的报名</text>
+            <text wx:if="{{registration}}" class="status-pill status-pill--{{registrationTone}}">{{registrationStatusText}}</text>
+          </view>
 
-    <van-empty wx:elif="{{events.length === 0}}" description="还没有事件记录" />
+          <block wx:if="{{detail.status === 6}}">
+            <text class="muted">比赛已取消，报名记录仅保留、已作废，不占名额。</text>
+            <view class="hero-queue">
+              <view class="hero-queue__item">
+                <view class="hero-queue__row"><text>历史报名</text><text class="hero-queue__value">{{detail.confirmedCount + detail.guestCount}}</text></view>
+              </view>
+              <view class="hero-queue__item">
+                <view class="hero-queue__row"><text>历史候补</text><text class="hero-queue__value">{{detail.waitlistCount}}</text></view>
+              </view>
+            </view>
+          </block>
 
-    <view wx:else class="timeline">
-      <view class="timeline__row timeline__row--{{item.side}}" wx:for="{{events}}" wx:key="id">
-        <text class="timeline__time">{{item.timeText}}</text>
-        <view class="event-card event-card--{{item.side}}">
-          <text class="event-card__type">{{item.typeText}}</text>
-          <text class="event-card__detail">{{item.detailText}}</text>
-          <text class="event-card__team">{{item.teamText}}</text>
+          <block wx:elif="{{!authenticated}}">
+            <text class="muted">登录后可报名与签到</text>
+            <view class="btn btn--primary" bindtap="goLogin" hover-class="btn--pressed">去登录</view>
+          </block>
+
+          <block wx:elif="{{pending}}">
+            <text class="notice">账号待审核：可以浏览比赛，暂不能报名或签到。</text>
+          </block>
+
+          <block wx:else>
+            <view class="hero-queue">
+              <view class="hero-queue__item" wx:for="{{queues}}" wx:key="key">
+                <view class="hero-queue__row">
+                  <text>{{item.label}}</text>
+                  <text class="hero-queue__value">{{item.count}} / {{item.capacity}}</text>
+                </view>
+                <view class="progress"><view class="progress__bar" style="width: {{item.percent}}%"></view></view>
+              </view>
+            </view>
+
+            <block wx:if="{{!hasActiveRegistration && signup}}">
+              <block wx:if="{{signup.visible}}">
+                <view
+                  wx:if="{{signup.action === 'login'}}"
+                  class="btn btn--primary"
+                  bindtap="goLogin"
+                  hover-class="btn--pressed"
+                >{{signup.label}}</view>
+                <view
+                  wx:else
+                  class="btn btn--primary {{signup.disabled || signupBusy ? 'btn--disabled' : ''}}"
+                  bindtap="signupNow"
+                  hover-class="btn--pressed"
+                >{{signupBusy ? '提交中…' : signup.label}}</view>
+              </block>
+              <text wx:if="{{signup.reason}}" class="hint">{{signup.reason}}</text>
+            </block>
+
+            <block wx:elif="{{hasActiveRegistration && cancel}}">
+              <view wx:if="{{attendanceText}}" class="attendance-status">
+                <text>考勤状态：{{attendanceText}}</text>
+              </view>
+              <block wx:elif="{{!checkInClosed}}">
+                <view
+                  wx:if="{{registration.status === 0}}"
+                  class="btn btn--primary {{checkInOpen ? '' : 'btn--disabled'}}"
+                  bindtap="checkInNow"
+                  hover-class="btn--pressed"
+                >{{checkInBusy ? '签到中…' : '签到'}}</view>
+                <text wx:if="{{checkInHint}}" class="hint">{{checkInHint}}</text>
+              </block>
+              <view
+                wx:if="{{cancel.visible}}"
+                class="btn btn--outline {{cancel.disabled || cancelBusy ? 'btn--disabled' : ''}}"
+                bindtap="cancelNow"
+                hover-class="btn--pressed"
+              >{{cancelBusy ? '取消中…' : cancel.label}}</view>
+              <text wx:if="{{cancel.reason}}" class="hint">{{cancel.reason}}</text>
+            </block>
+
+            <text wx:if="{{actionMessage}}" class="hint">{{actionMessage}}</text>
+            <text wx:if="{{actionError}}" class="action-error">{{actionError}}</text>
+          </block>
+        </view>
+
+        <block wx:if="{{detail.status !== 6}}">
+          <view wx:if="{{!authenticated}}" class="card roster-hint">
+            <text class="muted">登录后查看名单与考勤</text>
+          </view>
+          <view wx:elif="{{pending}}" class="card roster-hint">
+            <text class="muted">账号待审核，暂不可查看全队名单。</text>
+          </view>
+          <view wx:else class="card roster-card">
+            <view class="card-head">
+              <text class="card-title">名单与考勤</text>
+              <text class="muted small">{{roster ? roster.total : 0}} 人</text>
+            </view>
+            <view class="roster-toolbar">
+              <text class="muted small">按报名时间排序</text>
+            </view>
+
+            <view wx:if="{{rosterLoading}}" class="state state--inline"><van-loading size="18px">名单加载中…</van-loading></view>
+            <view wx:elif="{{rosterError}}" class="state state--inline">
+              <text class="muted">{{rosterError}}</text>
+              <view class="btn btn--small btn--outline" bindtap="retryRoster" hover-class="btn--pressed">重试</view>
+            </view>
+            <block wx:else>
+              <text wx:if="{{attendanceError}}" class="roster-warning">{{attendanceError}}</text>
+              <view wx:if="{{!canViewRoster && roster && roster.total > 0}}" class="hint">外挂仅显示本人报名。</view>
+
+              <view class="roster-section">
+                <view class="roster-section__head">
+                  <text class="roster-section__title">正式球员</text>
+                  <text class="muted small">{{roster.formal.length}} 人</text>
+                </view>
+                <view class="roster-row" wx:for="{{roster.formal}}" wx:key="playerId">
+                  <view class="roster-row__main">
+                    <view class="roster-row__name"><text>{{item.name}}</text><text class="muted small">{{item.jerseyText}}</text></view>
+                    <text class="muted small">{{item.positionText}}</text>
+                  </view>
+                  <text class="roster-attendance">{{item.attendanceText}}</text>
+                </view>
+                <text wx:if="{{roster.formal.length === 0}}" class="muted small">暂无正式球员报名</text>
+              </view>
+
+              <view class="roster-section">
+                <view class="roster-section__head">
+                  <text class="roster-section__title">候补</text>
+                  <text class="muted small">{{roster.waitlist.length}} 人</text>
+                </view>
+                <view class="roster-row" wx:for="{{roster.waitlist}}" wx:key="playerId">
+                  <view class="roster-row__main">
+                    <view class="roster-row__name"><text>{{item.name}}</text><text class="muted small">{{item.jerseyText}}</text></view>
+                    <text class="muted small">{{item.positionText}}</text>
+                  </view>
+                  <text wx:if="{{item.waitlistText}}" class="roster-order">{{item.waitlistText}}</text>
+                  <text class="roster-attendance">{{item.attendanceText}}</text>
+                </view>
+                <text wx:if="{{roster.waitlist.length === 0}}" class="muted small">暂无候补</text>
+              </view>
+
+              <view class="roster-section">
+                <view class="roster-section__head">
+                  <text class="roster-section__title">外挂</text>
+                  <text class="muted small">{{roster.guest.length}} 人</text>
+                </view>
+                <view class="roster-row" wx:for="{{roster.guest}}" wx:key="playerId">
+                  <view class="roster-row__main">
+                    <view class="roster-row__name"><text>{{item.name}}</text><text class="muted small">{{item.jerseyText}}</text></view>
+                    <text class="muted small">{{item.positionText}}</text>
+                  </view>
+                  <text class="roster-attendance">{{item.attendanceText}}</text>
+                </view>
+                <text wx:if="{{roster.guest.length === 0}}" class="muted small">暂无外挂报名</text>
+              </view>
+            </block>
+          </view>
+        </block>
+      </view>
+    </block>
+
+    <!-- 事件 -->
+    <block wx:elif="{{activeTab === 'events'}}">
+      <view class="card events-summary">
+        <view class="card-head"><text class="card-title">比赛事件</text><text class="muted small">{{rawEvents.length}} 条</text></view>
+        <view class="stat-grid">
+          <view class="stat-tile"><text class="stat-tile__value">{{eventStats.goals}}</text><text class="stat-tile__label">进球</text></view>
+          <view class="stat-tile"><text class="stat-tile__value">{{eventStats.cards}}</text><text class="stat-tile__label">牌</text></view>
+          <view class="stat-tile"><text class="stat-tile__value">{{eventStats.subs}}</text><text class="stat-tile__label">换人</text></view>
+        </view>
+        <text wx:if="{{detail.status === 4}}" class="muted small">最终比分 {{header.scoreText}}</text>
+      </view>
+
+      <view class="card events-panel">
+        <view wx:if="{{showEventCreate}}" class="event-actions">
+          <view
+            class="btn btn--small btn--primary {{canCreateEvent ? '' : 'btn--disabled'}}"
+            bindtap="openCreateEvent"
+            hover-class="btn--pressed"
+          >录入事件</view>
+        </view>
+        <text wx:if="{{showEventCreate && eventDisabledReason}}" class="hint">{{eventDisabledReason}}</text>
+
+        <view wx:if="{{eventsLoading}}" class="state state--inline"><van-loading size="18px">事件加载中…</van-loading></view>
+        <view wx:elif="{{eventsError}}" class="state state--inline">
+          <text class="muted">{{eventsError}}</text>
+          <view class="btn btn--small btn--outline" bindtap="retryEvents" hover-class="btn--pressed">重试</view>
+        </view>
+        <van-empty wx:elif="{{events.length === 0}}" description="还没有事件记录" />
+
+        <view wx:else class="team-timeline">
+          <view class="timeline-row" wx:for="{{events}}" wx:key="id">
+            <view class="timeline-axis">
+              <text class="timeline-time">{{item.timeText}}</text>
+              <view class="timeline-dot"></view>
+            </view>
+            <view class="timeline-side">
+              <view class="event-card event-card--{{item.side}}">
+                <view class="event-card__head">
+                  <text class="event-card__type">{{item.typeText}}</text>
+                  <text wx:if="{{item.canEdit}}" class="event-edit" data-id="{{item.id}}" bindtap="openEditEvent">编辑</text>
+                </view>
+                <text class="event-card__detail">{{item.detailText}}</text>
+                <text class="event-card__team">{{item.teamText}}</text>
+              </view>
+            </view>
+          </view>
         </view>
       </view>
-    </view>
+    </block>
+
+    <!-- 阵容 -->
+    <block wx:elif="{{activeTab === 'lineup'}}">
+      <view class="card lineup-summary">
+        <view class="card-head">
+          <text class="card-title">阵容</text>
+          <text class="muted small">{{lineup ? lineup.formationName : '尚未安排'}}</text>
+        </view>
+        <view class="lineup-side-switch">
+          <view
+            class="lineup-side {{lineupSide === 0 ? 'lineup-side--active' : ''}}"
+            data-side="0"
+            bindtap="switchLineupSide"
+          >{{detail.homeTeamName}}</view>
+          <view
+            class="lineup-side {{lineupSide === 1 ? 'lineup-side--active' : ''}}"
+            data-side="1"
+            bindtap="switchLineupSide"
+          >{{detail.awayTeamName}}</view>
+        </view>
+        <text wx:if="{{lineup && lineup.opponent}}" class="hint">对手方仅展示阵型与占位，不展示球员。</text>
+      </view>
+
+      <view class="card lineup-panel">
+        <view wx:if="{{lineupLoading}}" class="state state--inline"><van-loading size="18px">阵容加载中…</van-loading></view>
+        <view wx:elif="{{lineupError}}" class="state state--inline">
+          <text class="muted">{{lineupError}}</text>
+          <view class="btn btn--small btn--outline" bindtap="retryLineup" hover-class="btn--pressed">重试</view>
+        </view>
+        <block wx:elif="{{lineup}}">
+          <view class="lineup-pitch">
+            <view class="lineup-pitch-line"></view>
+            <view class="lineup-pitch-circle"></view>
+            <view
+              wx:for="{{lineup.slots}}"
+              wx:key="slotKey"
+              class="lineup-slot {{item.filled ? 'lineup-slot--filled' : ''}}"
+              style="left: {{item.x}}%; top: {{item.y}}%"
+            >
+              <block wx:if="{{item.filled}}">
+                <text class="lineup-slot__jersey">{{item.jerseyText}}</text>
+                <text class="lineup-slot__name">{{item.name}}</text>
+              </block>
+              <text wx:else class="lineup-slot__empty">{{item.roleText}}</text>
+            </view>
+          </view>
+
+          <view class="lineup-bench">
+            <view class="card-head">
+              <text class="card-title">替补</text>
+              <text class="muted small">{{lineup.bench.length}} 人</text>
+            </view>
+            <text wx:if="{{lineup.opponent}}" class="muted small">对手方不录入球员。</text>
+            <view wx:elif="{{lineup.bench.length}}" class="lineup-bench-list">
+              <text wx:for="{{lineup.bench}}" wx:key="id" class="lineup-bench-item">{{item.label}}</text>
+            </view>
+            <text wx:else class="muted small">暂无替补</text>
+          </view>
+        </block>
+      </view>
+    </block>
+
+    <!-- 分组 -->
+    <block wx:elif="{{activeTab === 'grouping'}}">
+      <view class="card grouping-summary">
+        <view class="card-head">
+          <text class="card-title">队内分组</text>
+          <text class="muted small">{{groupingBoard ? groupingBoard.statusText : '尚未生成'}}</text>
+        </view>
+        <view wx:if="{{groupingBoard && groupingBoard.hasGrouping}}" class="stat-grid">
+          <view class="stat-tile">
+            <text class="stat-tile__value">{{groupingBoard.columns[0].totalText}}</text>
+            <text class="stat-tile__label">{{groupingBoard.columns[0].teamName}}</text>
+          </view>
+          <view class="stat-tile">
+            <text class="stat-tile__value">{{groupingBoard.columns[1].totalText}}</text>
+            <text class="stat-tile__label">{{groupingBoard.columns[1].teamName}}</text>
+          </view>
+          <view class="stat-tile">
+            <text class="stat-tile__value">{{groupingBoard.diffText}}</text>
+            <text class="stat-tile__label">分差</text>
+          </view>
+        </view>
+      </view>
+
+      <view class="card grouping-panel">
+        <view wx:if="{{groupingLoading}}" class="state state--inline"><van-loading size="18px">分组加载中…</van-loading></view>
+        <view wx:elif="{{groupingError}}" class="state state--inline">
+          <text class="muted">{{groupingError}}</text>
+          <view class="btn btn--small btn--outline" bindtap="retryGrouping" hover-class="btn--pressed">重试</view>
+        </view>
+        <van-empty wx:elif="{{!groupingBoard || !groupingBoard.hasGrouping}}" description="尚未生成分组" />
+        <block wx:else>
+          <view wx:if="{{groupingBoard.warnings.length}}" class="grouping-warnings">
+            <text wx:for="{{groupingBoard.warnings}}" wx:key="*this" class="grouping-warning">{{item}}</text>
+          </view>
+
+          <view class="grouping-board">
+            <view class="grouping-column" wx:for="{{groupingBoard.columns}}" wx:key="key">
+              <view class="grouping-head">
+                <text class="grouping-head__title">{{item.label}}</text>
+                <text class="muted small">{{item.totalText}} 分</text>
+              </view>
+              <view wx:for="{{item.buckets}}" wx:for-item="bucket" wx:key="key" class="grouping-position">
+                <text class="grouping-position__title">{{bucket.label}}</text>
+                <view wx:for="{{bucket.players}}" wx:for-item="player" wx:key="playerId" class="grouping-row">
+                  <text class="grouping-row__label">{{player.label}}</text>
+                  <view class="grouping-row__meta">
+                    <view class="skill-stars">
+                      <view
+                        wx:for="{{player.stars}}"
+                        wx:for-item="star"
+                        wx:key="key"
+                        class="skill-star skill-star--{{star.part}}"
+                      ></view>
+                    </view>
+                    <text class="grouping-row__score">{{player.scoreText}}</text>
+                  </view>
+                </view>
+                <text wx:if="{{bucket.players.length === 0}}" class="muted small">—</text>
+              </view>
+            </view>
+          </view>
+
+          <view class="grouping-distribution">
+            <view wx:for="{{groupingBoard.distribution}}" wx:key="key" class="grouping-distribution__row">
+              <text class="grouping-distribution__label">{{item.label}}</text>
+              <text class="grouping-distribution__value">{{item.a}} : {{item.b}}</text>
+            </view>
+          </view>
+        </block>
+      </view>
+    </block>
+
+    <status-sheet
+      show="{{statusOpen}}"
+      options="{{statusOptions}}"
+      current-status="{{detail.status}}"
+      error="{{statusError}}"
+      initial-start-at="{{detail.startAt}}"
+      initial-end-at="{{detail.endAt}}"
+      bind:close="closeStatus"
+      bind:change="onStatusChange"
+      bind:postpone="onStatusPostpone"
+      bind:cancel="onStatusCancel"
+    />
+
+    <event-form-sheet
+      show="{{eventFormOpen}}"
+      match="{{detail}}"
+      players="{{eventPlayers}}"
+      grouping="{{eventGrouping}}"
+      editing="{{editingEvent}}"
+      version="{{editingVersion}}"
+      is-admin="{{isEventAdmin}}"
+      own-player-id="{{ownPlayerId}}"
+      busy="{{eventBusy}}"
+      error="{{eventError}}"
+      bind:close="closeEventForm"
+      bind:save="onEventSave"
+    />
   </block>
 </view>

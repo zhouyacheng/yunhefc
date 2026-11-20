@@ -137,6 +137,50 @@ describe('request', () => {
     expect(cleared).toBe(1);
   });
 
+  it('sends an idempotency key and custom headers on writes', async () => {
+    const seen: WxOptions[] = [];
+    setCsrf('t-1');
+    responder = (options) => {
+      seen.push(options);
+      options.success({ statusCode: 200, data: { code: 0, data: {} }, header: {} });
+    };
+
+    await request('POST', '/matches/1/registrations', undefined, {
+      idempotencyKey: 'idem-1',
+      headers: { 'X-Test': 'yes' },
+    });
+
+    expect(seen[0].header['Idempotency-Key']).toBe('idem-1');
+    expect(seen[0].header['X-Test']).toBe('yes');
+    expect(seen[0].header['X-XSRF-TOKEN']).toBe('t-1');
+  });
+
+  it('does not send an idempotency key on GET', async () => {
+    const seen: WxOptions[] = [];
+    responder = (options) => {
+      seen.push(options);
+      options.success({ statusCode: 200, data: { code: 0, data: {} }, header: {} });
+    };
+
+    await request('GET', '/matches', undefined, { idempotencyKey: 'idem-1' });
+
+    expect(seen[0].header['Idempotency-Key']).toBeUndefined();
+  });
+
+  it('sends csrf on DELETE', async () => {
+    const seen: WxOptions[] = [];
+    setCsrf('t-2');
+    responder = (options) => {
+      seen.push(options);
+      options.success({ statusCode: 200, data: { code: 0, data: {} }, header: {} });
+    };
+
+    await request('DELETE', '/matches/1/registrations/me', undefined, { idempotencyKey: 'idem-2' });
+
+    expect(seen[0].header['X-XSRF-TOKEN']).toBe('t-2');
+    expect(seen[0].header['Idempotency-Key']).toBe('idem-2');
+  });
+
   it('clears auth state and notifies the session on 401', async () => {
     responder = (options) =>
       options.success({

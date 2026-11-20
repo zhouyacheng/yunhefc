@@ -41,11 +41,13 @@
           <view class="identity__meta">
             <text>号码 {{identity.jerseyText}}</text>
             <text>位置 {{identity.positionText}}</text>
-            <view class="stars">
-              <text class="stars__base">★★★★★</text>
-              <view class="stars__fill" style="width: {{identity.skillPercent}}%;">
-                <text>★★★★★</text>
-              </view>
+            <view class="skill-stars">
+              <view
+                wx:for="{{identity.stars}}"
+                wx:for-item="star"
+                wx:key="key"
+                class="skill-star skill-star--{{star.part}}"
+              ></view>
             </view>
           </view>
         </view>
@@ -79,7 +81,10 @@
               bindtap="switchNotificationFilter"
             >只看未读</view>
           </view>
-          <view class="text-action" bindtap="markAllRead">{{markingAll ? '处理中…' : '全部已读'}}</view>
+          <view
+            class="text-action {{markingAll || unreadCount === 0 ? 'text-action--disabled' : ''}}"
+            bindtap="markAllRead"
+          >{{markingAll ? '处理中…' : '全部已读'}}</view>
         </view>
 
         <text wx:if="{{actionMessage}}" class="hint">{{actionMessage}}</text>
@@ -174,6 +179,13 @@
                   <text class="muted small">{{item.seasonText}}</text>
                   <text class="status-pill status-pill--{{item.matchStatusTone}}">{{item.matchStatusText}}</text>
                 </view>
+                <view
+                  wx:if="{{item.canCancel}}"
+                  class="btn btn--small btn--outline registration__cancel {{cancelBusyId === item.matchId ? 'btn--disabled' : ''}}"
+                  data-id="{{item.matchId}}"
+                  catchtap="cancelRegistration"
+                  hover-class="btn--pressed"
+                >{{cancelBusyId === item.matchId ? '取消中…' : item.cancelLabel}}</view>
               </view>
             </view>
             <view

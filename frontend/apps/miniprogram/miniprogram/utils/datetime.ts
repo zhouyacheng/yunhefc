@@ -1,4 +1,5 @@
-const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+import { SHANGHAI_OFFSET_MS } from './shanghai';
+
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 
 function pad(value: number): string {
@@ -78,10 +79,10 @@ export function formatHourMinute(value: string | null | undefined): string {
   return `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
-/** 数据字段：按 Asia/Shanghai 输出 `YYYY-MM-DD HH:mm`；无效值返回空串。 */
+/** 展示文案：按 Asia/Shanghai 输出 `YYYY/MM/DD HH:mm`；无效值返回空串。 */
 export function formatDateTime(value: string | null | undefined): string {
   const date = formatDateYmd(value);
-  return date ? `${date} ${formatHourMinute(value)}` : '';
+  return date ? `${date.replace(/-/g, '/')} ${formatHourMinute(value)}` : '';
 }
 
 function formatMonthDay(value: string | null | undefined): string {

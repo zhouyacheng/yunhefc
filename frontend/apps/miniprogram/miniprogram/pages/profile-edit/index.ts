@@ -1,4 +1,5 @@
 import type { AvatarUploadView, PlayerPublic, PlayerView } from '../../types/api';
+import { avatarInitial, avatarSrc } from '../../utils/avatar';
 import {
   buildOptions,
   MAX_SECONDARY,
@@ -36,6 +37,8 @@ Page({
     saving: false,
     warning: '',
     error: '',
+    profileLoading: false,
+    profileError: '',
   },
 
   onLoad() {
@@ -62,7 +65,7 @@ Page({
     this.setData({
       loading: true,
       name: player.name,
-      initial: player.name.slice(0, 1) || '云',
+      initial: avatarInitial(player.name),
       region: player.region ?? '',
       position: player.position,
       positionIndex: Math.max(0, POSITION_CODES.indexOf(player.position)),
@@ -70,39 +73,63 @@ Page({
         player.position,
         withoutPrimary(player.secondaryPositions ?? [], player.position),
       ),
-      avatarPreview: player.avatarUrl ?? '',
+      avatarPreview: avatarSrc(player.avatarUrl) ?? '',
       warning: '',
       error: '',
+      profileError: '',
     });
 
     try {
-      const view = await request<TeamPlayersView>('GET', '/team/players?all=true');
-      const self = view.items.find((item) => item.id === player.id);
-      if (!self) {
-        this.setData({ warning: '未能加载完整资料，请重新填写地区与副位置' });
-        return;
-      }
-      const secondary = withoutPrimary(
-        self.secondaryPositions ?? [],
-        player.position,
-      ).slice(0, MAX_SECONDARY);
-      this.setData({
-        region: self.region ?? '',
-        secondaryOptions: buildOptions(player.position, secondary),
-      });
+      await this.fetchFullProfile(player);
     } catch (error) {
       this.setData({
         warning: '资料加载失败，请重新填写地区与副位置',
-        error: (error as Error).message || '',
+        profileError: (error as Error).message || '资料加载失败，请重试',
       });
     } finally {
       this.setData({ loading: false });
     }
   },
 
+  async fetchFullProfile(player: PlayerView): Promise<void> {
+    const view = await request<TeamPlayersView>('GET', '/team/players?all=true');
+    const self = view.items.find((item) => item.id === player.id);
+    if (!self) {
+      this.setData({ warning: '未能加载完整资料，请重新填写地区与副位置' });
+      return;
+    }
+    const secondary = withoutPrimary(self.secondaryPositions ?? [], player.position).slice(
+      0,
+      MAX_SECONDARY,
+    );
+    this.setData({
+      region: self.region ?? '',
+      secondaryOptions: buildOptions(player.position, secondary),
+      warning: '',
+    });
+  },
+
+  async retryProfile() {
+    const player = getPlayer();
+    if (!player || this.data.profileLoading) {
+      return;
+    }
+    this.setData({ profileLoading: true, warning: '', profileError: '' });
+    try {
+      await this.fetchFullProfile(player);
+    } catch (error) {
+      this.setData({
+        warning: '资料加载失败，请重新填写地区与副位置',
+        profileError: (error as Error).message || '资料加载失败，请重试',
+      });
+    } finally {
+      this.setData({ profileLoading: false });
+    }
+  },
+
   onNameInput(event: ValueEvent) {
     const name = event.detail.value;
-    this.setData({ name, initial: name.slice(0, 1) || '云' });
+    this.setData({ name, initial: avatarInitial(name) });
   },
 
   onRegionInput(event: ValueEvent) {

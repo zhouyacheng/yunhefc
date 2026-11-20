@@ -6,6 +6,8 @@
   "enablePullDownRefresh": true,
   "usingComponents": {
     "van-empty": "@vant/weapp/empty/index",
-    "van-loading": "@vant/weapp/loading/index"
+    "van-loading": "@vant/weapp/loading/index",
+    "status-sheet": "../../components/status-sheet/index",
+    "event-form-sheet": "../../components/event-form-sheet/index"
   }
 }

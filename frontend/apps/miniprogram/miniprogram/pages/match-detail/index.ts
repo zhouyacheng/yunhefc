@@ -1,6 +1,7 @@
 import type {
   Attendance,
   AttendanceRow,
+  EventCreate,
   EventFormPlayer,
   GroupingView,
   MatchDetail,
@@ -80,6 +81,17 @@ function stopTimer(): void {
 
 function toast(title: string): void {
   wx.showToast({ title, icon: 'none' });
+}
+
+function confirm(title: string, content: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    wx.showModal({
+      title,
+      content,
+      success: (result) => resolve(result.confirm),
+      fail: () => resolve(false),
+    });
+  });
 }
 
 function checkInHintOf(
@@ -618,60 +630,232 @@ Page({
     }
   },
 
-  signupNow() {
-    return actions.signupNow(this);
+  /** 写操作结果落地：成功写 patch、提示并重载；冲突失败重载后按需重取事件版本。 */
+  async applyWriteOutcome(outcome: actions.WriteOutcome): Promise<void> {
+    if (outcome.ok) {
+      if (Object.keys(outcome.patch).length > 0) {
+        this.setData(outcome.patch);
+      }
+      if (outcome.toast) {
+        toast(outcome.toast);
+      }
+      await this.load(true);
+      return;
+    }
+    if (!outcome.reload) {
+      return;
+    }
+    await this.load(true);
+    if (outcome.refreshEventId !== null) {
+      const version = actions.refreshedEventVersion(this.data.rawEvents, outcome.refreshEventId);
+      if (version !== null) {
+        this.setData({ editingVersion: version });
+      }
+    }
   },
 
-  cancelNow() {
-    return actions.cancelNow(this);
+  async signupNow(): Promise<void> {
+    const state = this.data.signup;
+    if (
+      this.data.signupBusy ||
+      !state ||
+      !state.visible ||
+      state.action !== 'signup' ||
+      state.disabled
+    ) {
+      return;
+    }
+    const detail = this.data.detail;
+    if (!detail) {
+      return;
+    }
+    this.setData({ signupBusy: true, actionError: '', actionMessage: '' });
+    try {
+      const outcome = await actions.signup(detail.id);
+      if (!outcome.ok) {
+        this.setData({ actionError: outcome.error });
+      }
+      await this.applyWriteOutcome(outcome);
+    } finally {
+      this.setData({ signupBusy: false });
+    }
   },
 
-  checkInNow() {
-    return actions.checkInNow(this);
+  async cancelNow(): Promise<void> {
+    if (this.data.cancelBusy) {
+      return;
+    }
+    const detail = this.data.detail;
+    const cancel = this.data.cancel;
+    if (!detail || !cancel?.visible || cancel.disabled) {
+      return;
+    }
+    if (!(await confirm(cancel.label, '确认取消本次报名？'))) {
+      return;
+    }
+    const cancelledStatus = this.data.registration?.status ?? null;
+    this.setData({ cancelBusy: true, actionError: '', actionMessage: '' });
+    try {
+      const outcome = await actions.cancel({ matchId: detail.id, cancelledStatus });
+      if (!outcome.ok) {
+        this.setData({ actionError: outcome.error });
+      }
+      await this.applyWriteOutcome(outcome);
+    } finally {
+      this.setData({ cancelBusy: false });
+    }
+  },
+
+  async checkInNow(): Promise<void> {
+    if (this.data.checkInBusy || !this.data.checkInOpen) {
+      return;
+    }
+    this.setData({ checkInBusy: true, actionError: '', actionMessage: '' });
+    try {
+      const outcome = await actions.checkIn(this.data.id);
+      if (!outcome.ok) {
+        this.setData({ actionError: outcome.error });
+      }
+      await this.applyWriteOutcome(outcome);
+    } finally {
+      this.setData({ checkInBusy: false });
+    }
   },
 
   openStatus() {
-    actions.openStatus(this);
+    if (!this.data.canChangeStatus) {
+      return;
+    }
+    this.setData({ statusOpen: true, statusError: '' });
   },
 
   closeStatus() {
-    actions.closeStatus(this);
+    this.setData({ statusOpen: false });
   },
 
-  submitStatus(body: { status: number; reason?: string; startAt?: string; endAt?: string }) {
-    return actions.submitStatus(this, body);
+  async submitStatus(body: {
+    status: number;
+    reason?: string;
+    startAt?: string;
+    endAt?: string;
+  }): Promise<void> {
+    const detail = this.data.detail;
+    if (!detail || this.data.statusBusy) {
+      return;
+    }
+    this.setData({ statusBusy: true, statusError: '' });
+    try {
+      const outcome = await actions.changeStatus({
+        matchId: detail.id,
+        version: detail.version,
+        ...body,
+      });
+      if (!outcome.ok) {
+        this.setData({ statusError: outcome.error });
+      }
+      await this.applyWriteOutcome(outcome);
+    } finally {
+      this.setData({ statusBusy: false });
+    }
   },
 
   onStatusChange(event: WechatMiniprogram.CustomEvent) {
-    actions.onStatusChange(this, event);
+    void this.submitStatus({ status: Number(event.detail.status) });
   },
 
   onStatusPostpone(event: WechatMiniprogram.CustomEvent) {
-    actions.onStatusPostpone(this, event);
+    void this.submitStatus({
+      status: 5,
+      startAt: String(event.detail.startAt),
+      endAt: String(event.detail.endAt),
+    });
   },
 
   onStatusCancel(event: WechatMiniprogram.CustomEvent) {
-    actions.onStatusCancel(this, event);
+    void this.submitStatus({ status: 6, reason: String(event.detail.reason) });
   },
 
-  openCreateEvent() {
-    return actions.openCreateEvent(this);
+  async openCreateEvent(): Promise<void> {
+    if (!this.data.canCreateEvent) {
+      return;
+    }
+    if (this.data.eventPlayers.length === 0) {
+      await this.loadRoster();
+    }
+    await this.ensureEventGrouping();
+    this.setData({ editingEvent: null, editingVersion: 0, eventError: '', eventFormOpen: true });
   },
 
-  openEditEvent(event: WechatMiniprogram.BaseEvent) {
-    return actions.openEditEvent(this, event);
+  async openEditEvent(event: WechatMiniprogram.BaseEvent): Promise<void> {
+    const id = Number(event.currentTarget.dataset.id);
+    const target = this.data.rawEvents.find((item) => item.id === id);
+    if (!target) {
+      return;
+    }
+    const detail = this.data.detail;
+    if (
+      !detail ||
+      !eventEditAllowed(target, {
+        ownPlayerId: this.data.ownPlayerId || null,
+        hasEditOwn: this.data.canEditOwnPerm,
+        matchStatus: detail.status,
+        endAt: detail.endAt,
+        now: Date.now(),
+      })
+    ) {
+      return;
+    }
+    await this.ensureEventGrouping();
+    this.setData({
+      editingEvent: target,
+      editingVersion: target.version,
+      eventError: '',
+      eventFormOpen: true,
+    });
+  },
+
+  async ensureEventGrouping(): Promise<void> {
+    if (!this.data.canViewGrouping) {
+      return;
+    }
+    if (!this.data.grouping) {
+      await this.loadGrouping();
+    }
+    this.setData({ eventGrouping: this.data.grouping });
   },
 
   closeEventForm() {
-    actions.closeEventForm(this);
+    this.setData({ eventFormOpen: false, eventError: '' });
   },
 
-  onEventSave(event: WechatMiniprogram.CustomEvent) {
-    return actions.onEventSave(this, event);
+  async onEventSave(event: WechatMiniprogram.CustomEvent): Promise<void> {
+    const { payload, eventId, version } = event.detail as {
+      payload: EventCreate;
+      eventId: number | null;
+      version: number | null;
+    };
+    if (this.data.eventBusy) {
+      return;
+    }
+    this.setData({ eventBusy: true, eventError: '' });
+    try {
+      const outcome = await actions.saveEvent({
+        matchId: this.data.id,
+        payload,
+        eventId,
+        version,
+      });
+      if (!outcome.ok) {
+        this.setData({ eventError: outcome.error });
+      }
+      await this.applyWriteOutcome(outcome);
+    } finally {
+      this.setData({ eventBusy: false });
+    }
   },
 
   retryEvents() {
-    actions.retryEvents(this);
+    void this.loadEvents();
   },
 
   async loadLineup(side: number): Promise<void> {

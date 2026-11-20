@@ -1,6 +1,6 @@
 # 04 删除或深化 actions seam
 
-Status: needs-triage
+Status: resolved
 Blocked by: none
 
 ## 目标
@@ -42,10 +42,10 @@ Blocked by: none
 
 ## 验收
 
-- [ ] `MatchActionPage` 不再重述页面 data 字段。
-- [ ] 冲突后重载、事件 version 重取、报名成功通知仍有测试或等价验证。
-- [ ] 页面 WXML 绑定与用户可见行为不变。
-- [ ] `typecheck`、`test`、`pnpm lint` 通过。
+- [x] `MatchActionPage` 不再重述页面 data 字段。
+- [x] 冲突后重载、事件 version 重取、报名成功通知仍有测试或等价验证。
+- [x] 页面 WXML 绑定与用户可见行为不变。
+- [x] `typecheck`、`test`、`pnpm lint` 通过。
 
 ## 风险
 
@@ -54,3 +54,14 @@ Blocked by: none
 ## Comments
 
 - 2026-11-20 架构扫描开票（Worth exploring）。与 01 同改详情页，按 01 → 04 顺序实施。
+- 2026-11-21 实施完成（TDD），选择“深化 seam”：
+  - `pages/match-detail/actions.ts` 只保留写操作：`WriteOutcome = { ok: true, patch, toast } | { ok: false, error, reload, refreshEventId }`；`signup(matchId)`、`cancel({ matchId, cancelledStatus })`、`checkIn(matchId)`、`changeStatus({ matchId, version, status, reason?, startAt?, endAt? })`、`saveEvent({ matchId, payload, eventId, version })`。module 拥有端点选择、乐观锁版本、跨页报名失效、提示/错误文案与冲突重载判定。
+  - `MatchActionPage` 删除；页面新增 `applyWriteOutcome(outcome)` 统一落地 patch/toast/reload，并保留忙闲、守卫、确认弹窗与弹层开关。`refreshedEventVersion(events, eventId)` 抽为纯函数，事件更新冲突重载后由页面取新版本。
+  - 删除测试支持保留 seam：删掉 module 会把版本捕获、跨页失效、文案与冲突策略重新散回 6 个页面 handler；interface 已只剩领域输入，测试可跨 module 验证冲突路径。
+  - 新增 `tests/match-actions.test.ts`（20 例）：报名/候补文案与跨页失效、取消递补文案、签到 patch、状态乐观锁与延期/取消字段透传、事件新建/更新、四类冲突的 reload/refreshEventId、重载后取版本。
+  - 行为差异：取消成功后的递补提示由“重载后写入”改为“重载前写入 patch”。`load(true)` 在详情已存在时不清空 `actionMessage`，用户可见结果一致。
+  - 验证：`pnpm --filter @yunhefc/miniprogram typecheck`、`test`（27 文件 / 244 用例）、`frontend` 下 `pnpm lint`、`prettier --check`（改动文件）通过；WXML 未改，开发者工具/真机走查待补。
+- 2026-11-21 code-review（Standards / Spec 两轴）：
+  - 已改：`WriteOutcome.patch` 由 `Record<string, unknown>` 收成 `WritePatch`（actionMessage/attendance/attendanceText/statusOpen/eventFormOpen），写操作可触碰的页面字段显式且受类型检查；五个页面 handler 恢复 `try/finally` 忙闲复位；补状态延期/取消字段透传用例。
+  - 保留：五个 handler 保留同一骨架，不做 `runWrite` 合并——合并需要传 busy/error 字段名，会把 stringly-typed 键重新引入页面；`EventSave` 保留 `eventId/version` 可空对，混合态沿用“无版本按新建”的迁移前语义，不引入行为变化。
+  - 走查：本次把 6 个写流程编排迁回页面，属“涉及页面编排”，仍需开发者工具/真机走查后收尾；`Status: resolved` 沿用 01/03 的批次口径。

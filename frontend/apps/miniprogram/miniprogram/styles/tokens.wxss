@@ -1,0 +1,44 @@
+/* 与 frontend/apps/web/src/styles/main.css 的 --yh-* 变量保持一致，由 tests/tokens.test.ts 校验。 */
+page {
+  --yh-bg: #f4f6fa;
+  --yh-surface: #ffffff;
+  --yh-surface-soft: #f8fafc;
+  --yh-ink: #0f172a;
+  --yh-muted: #64748b;
+  --yh-line: #e2e8f0;
+  --yh-navy: #0b1220;
+  --yh-navy-2: #111c33;
+  --yh-green: #0f7a4d;
+  --yh-green-bright: #16a34a;
+  --yh-green-soft: #dcfce7;
+  --yh-green-ink: #166534;
+  --yh-gold: #f5c451;
+  --yh-amber: #b45309;
+  --yh-amber-soft: #fef3c7;
+  --yh-amber-line: #fde68a;
+  --yh-amber-ink: #92400e;
+  --yh-red: #dc2626;
+  --yh-red-soft: #fee2e2;
+  --yh-red-ink: #b91c1c;
+  --yh-blue: #2563eb;
+  --yh-blue-soft: #dbeafe;
+  --yh-blue-ink: #1d4ed8;
+  --yh-indigo-soft: #e0e7ff;
+  --yh-indigo-ink: #3730a3;
+  --yh-slate-soft: #f1f5f9;
+  --yh-slate-ink: #475569;
+  --yh-purple-soft: #ede9fe;
+  --yh-purple-ink: #5b21b6;
+  --yh-type-soft: #eef2ff;
+  --yh-event-home: #f97316;
+  --yh-pitch-from: #0b6b3a;
+  --yh-pitch-to: #064e2b;
+  --yh-shadow: 0 10px 30px rgba(15, 23, 42, 0.07);
+  --yh-shadow-sm: 0 4px 14px rgba(15, 23, 42, 0.06);
+  --yh-green-shadow: 0 6px 16px rgba(15, 122, 77, 0.24);
+  --yh-focus-shadow: 0 0 0 3px rgba(22, 163, 74, 0.14);
+  --yh-radius: 16px;
+  --yh-radius-sm: 10px;
+  --yh-page-pad-x: 20px;
+  --yh-page-pad-y: 20px;
+}

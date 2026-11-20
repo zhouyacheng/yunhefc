@@ -1,0 +1,18 @@
+.season-bar {
+  margin-bottom: 16rpx;
+}
+
+.season-picker {
+  display: inline-block;
+  background: var(--yh-surface);
+  border-radius: var(--yh-radius-sm);
+  padding: 14rpx 24rpx;
+  font-size: 26rpx;
+  color: var(--yh-green-ink);
+}
+
+.group-title {
+  margin: 20rpx 4rpx 12rpx;
+  font-weight: 600;
+  color: var(--yh-green-ink);
+}

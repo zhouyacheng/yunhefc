@@ -1,0 +1,25 @@
+<view class="container">
+  <view class="season-bar">
+    <picker mode="selector" range="{{seasons}}" value="{{seasonIndex}}" bindchange="onSeasonChange">
+      <view class="season-picker">赛季 {{seasons[seasonIndex] || '—'}} ▾</view>
+    </picker>
+  </view>
+
+  <van-loading wx:if="{{loading}}" />
+
+  <block wx:for="{{groups}}" wx:key="position" wx:for-item="group">
+    <view class="group-title">{{group.label}}</view>
+    <van-cell-group inset>
+      <van-cell
+        wx:for="{{group.players}}"
+        wx:key="id"
+        wx:for-item="player"
+        title="{{player.name}}{{player.jersey ? ' #' + player.jersey : ''}}"
+        label="{{player.positionLabel}} · 出场 {{player.appearances || 0}}"
+        value="{{player.skill}} 星"
+      />
+    </van-cell-group>
+  </block>
+
+  <van-empty wx:if="{{!loading && groups.length === 0}}" description="{{error || '暂无球员'}}" />
+</view>

@@ -1,0 +1,21 @@
+{
+  "name": "@yunhefc/miniprogram",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prepare:vant": "node scripts/prepare-vant.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "build": "pnpm run prepare:vant"
+  },
+  "dependencies": {
+    "@vant/weapp": "^1.11.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "miniprogram-api-typings": "^4.0.0",
+    "typescript": "~5.9.3",
+    "vitest": "^5.1.0"
+  }
+}

@@ -1,0 +1,28 @@
+<view class="container">
+  <view class="tabs">
+    <view class="tab {{scope === 'upcoming' ? 'active' : ''}}" data-scope="upcoming" bindtap="switchScope">即将开始</view>
+    <view class="tab {{scope === 'history' ? 'active' : ''}}" data-scope="history" bindtap="switchScope">历史比赛</view>
+  </view>
+
+  <view class="user-bar">
+    <text wx:if="{{user}}">{{user.name}} · 已登录</text>
+    <text wx:else class="muted" bindtap="goLogin">未登录，点此微信登录</text>
+  </view>
+
+  <van-loading wx:if="{{loading && rows.length === 0}}" />
+
+  <van-cell-group inset>
+    <van-cell
+      wx:for="{{rows}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bind:click="goDetail"
+      title="{{item.title}}"
+      value="{{item.scoreText || item.statusLabel}}"
+      label="{{item.dateText}} {{item.timeText}} · {{item.venue}} · {{item.typeLabel}}"
+      is-link
+    />
+  </van-cell-group>
+
+  <van-empty wx:if="{{!loading && rows.length === 0}}" description="{{error || '暂无比赛'}}" />
+</view>

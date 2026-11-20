@@ -1,0 +1,31 @@
+@import "styles/tokens.wxss";
+
+page {
+  background: var(--yh-bg);
+  color: var(--yh-ink);
+  font-size: 28rpx;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", sans-serif;
+}
+
+.container {
+  padding: var(--yh-page-pad-y) var(--yh-page-pad-x);
+}
+
+.card {
+  background: var(--yh-surface);
+  border-radius: var(--yh-radius);
+  box-shadow: var(--yh-shadow-sm);
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+}
+
+.muted {
+  color: var(--yh-muted);
+  font-size: 24rpx;
+}
+
+.empty {
+  padding: 80rpx 0;
+  text-align: center;
+  color: var(--yh-muted);
+}

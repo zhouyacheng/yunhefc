@@ -1,6 +1,6 @@
 # 云河FC 微信小程序
 
-原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。不做比赛邀请/复制链接、分享、订阅消息、账号密码登录/找回密码与 B 端专属操作。
+原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。首页对具备后台权限的账号显示「管理后台」，复制带 AUTH-18 一次性票据的链接（60 秒有效）到浏览器打开；个人主体小程序不支持 web-view，不做内嵌。不做比赛邀请/复制链接、分享、订阅消息、账号密码登录/找回密码与 B 端专属操作。
 
 ## 结构
 
@@ -13,7 +13,7 @@ frontend/apps/miniprogram/
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
-    ├── utils/{config,request,api-client,session,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view}.ts
+    ├── utils/{config,request,api-client,session,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view}.ts
     │   ├── request.ts      # 传输层：Cookie jar、CSRF、ApiError
     │   └── api-client.ts   # 唯一请求入口：按域暴露函数，路径/分页/幂等键集中于此
     ├── components/
@@ -68,4 +68,4 @@ pnpm --filter @yunhefc/miniprogram typecheck
 pnpm --filter @yunhefc/miniprogram test
 ```
 
-真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 报名/加入候补并刷新队列 → 比赛（首屏无月份参数、筛选合并/互斥/清空、抽屉与选择层、下拉/上拉、返回不丢分页）→ 详情（头部元信息、报名/取消/递补、签到、名单考勤、事件录入与本人编辑、阵容/分组只读、管理员状态 0–6、冲突刷新、取消/延期横幅、404）→ 球队 → 我的（通知已读、我的报名取消、编辑资料、头像）→ 退出登录 → 冷启动重登。iOS、Android 各一台。
+真机验收：`wx.login` → 首次绑定手机号 → 首页 CTA 报名/加入候补并刷新队列 → 管理后台入口（无权限不显示；有权限复制票据链接到浏览器兑换）→ 比赛（首屏无月份参数、筛选合并/互斥/清空、抽屉与选择层、下拉/上拉、返回不丢分页）→ 详情（头部元信息、报名/取消/递补、签到、名单考勤、事件录入与本人编辑、阵容/分组只读、管理员状态 0–6、冲突刷新、取消/延期横幅、404）→ 球队 → 我的（通知已读、我的报名取消、编辑资料、头像）→ 退出登录 → 冷启动重登。iOS、Android 各一台。

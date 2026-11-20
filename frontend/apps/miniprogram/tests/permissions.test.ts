@@ -3,6 +3,7 @@ import {
   ATTENDANCE_VIEW_ANY,
   MATCH_STATUS_ANY,
   REGISTRATION_CREATE_OWN,
+  hasBackendPermission,
   hasPermission,
   isPending,
 } from '../miniprogram/utils/permissions';
@@ -12,6 +13,15 @@ describe('hasPermission', () => {
     expect(hasPermission([REGISTRATION_CREATE_OWN], REGISTRATION_CREATE_OWN)).toBe(true);
     expect(hasPermission([ATTENDANCE_VIEW_ANY], MATCH_STATUS_ANY)).toBe(false);
     expect(hasPermission(null, MATCH_STATUS_ANY)).toBe(false);
+  });
+});
+
+describe('hasBackendPermission', () => {
+  it('ignores C-only permissions and requires at least one backend permission', () => {
+    expect(hasBackendPermission([REGISTRATION_CREATE_OWN])).toBe(false);
+    expect(hasBackendPermission([ATTENDANCE_VIEW_ANY])).toBe(true);
+    expect(hasBackendPermission([])).toBe(false);
+    expect(hasBackendPermission(null)).toBe(false);
   });
 });
 

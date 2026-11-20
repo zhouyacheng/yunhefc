@@ -129,6 +129,16 @@ export function sendBindSmsCode(phone: string): Promise<void> {
   return plainWrite<void>('POST', '/auth/sms-codes', { phone, purpose: 'BIND' });
 }
 
+export interface AdminTicketView {
+  ticket: string;
+  expiresIn: number;
+}
+
+/** AUTH-18 C→B 交接票据；60 秒内一次性兑换，无后台权限返回 40301。 */
+export function issueAdminTicket(): Promise<AdminTicketView> {
+  return plainWrite<AdminTicketView>('POST', '/auth/admin-ticket');
+}
+
 // ---- 比赛 ----
 
 export interface MatchListQuery {

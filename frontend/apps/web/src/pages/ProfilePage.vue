@@ -142,14 +142,6 @@ onMounted(() => {
             <span>微信绑定</span>
             <span class="muted">{{ session.user.wechatBound ? '已绑定' : '未绑定' }}</span>
           </div>
-          <RouterLink
-            class="security-row security-row--link"
-            :to="{ name: 'login', query: { mode: 'reset' } }"
-          >
-            <span>找回密码</span>
-            <span class="muted">短信验证码重置 →</span>
-          </RouterLink>
-
           <Button type="danger" plain block @click="logout">退出登录</Button>
         </section>
       </div>
@@ -262,10 +254,6 @@ onMounted(() => {
   padding: 10px 0;
   font-size: 14px;
   border-bottom: 1px dashed var(--yh-line);
-}
-
-.security-row--link {
-  color: var(--yh-green);
 }
 
 .profile-security :deep(.van-button) {

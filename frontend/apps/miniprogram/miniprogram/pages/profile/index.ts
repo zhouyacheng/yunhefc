@@ -1,4 +1,3 @@
-import { WEB_URL } from '../../utils/config';
 import type { AuthUser, PlayerView } from '../../types/api';
 import {
   cancelMyRegistration,
@@ -307,13 +306,6 @@ Page({
 
   goLogin() {
     void wx.navigateTo({ url: '/pages/login/index' });
-  },
-
-  copyPasswordReset() {
-    wx.setClipboardData({
-      data: `${WEB_URL}/login?mode=reset`,
-      success: () => wx.showToast({ title: '已复制网页地址', icon: 'none' }),
-    });
   },
 
   onAvatarError() {

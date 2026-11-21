@@ -273,7 +273,3 @@
   font-size: 28rpx;
   border-bottom: 1rpx dashed var(--yh-line);
 }
-
-.security-row--action {
-  color: var(--yh-green);
-}

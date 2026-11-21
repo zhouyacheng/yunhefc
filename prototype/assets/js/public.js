@@ -1188,7 +1188,6 @@ render();
           <div class="card-head"><h2>账号与安全</h2></div>
           <div class="profile-fields">
             <div><span>微信</span><b>${user.wechat ? '已绑定' : '未绑定'}</b></div>
-            <div><span>修改密码</span><b>短信验证码重置</b></div>
           </div>
           <p class="muted small">微信绑定与解绑在小程序中完成；解绑请联系管理员。</p>
         </section>

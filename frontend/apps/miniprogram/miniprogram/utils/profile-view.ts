@@ -65,7 +65,7 @@ export function identityOf(user: AuthUser, player: PlayerView | null): IdentityV
     phoneMasked: user.phoneMasked,
     jerseyText:
       player?.jersey === null || player?.jersey === undefined ? '—' : String(player.jersey),
-    positionText: player ? player.positionLabel || positionText(player.position) : '—',
+    positionText: player ? positionText(player.position) : '—',
     skillText: player ? player.skill.toFixed(2) : '—',
     stars: starParts(player?.skill),
     avatarUrl: avatarSrc(player?.avatarUrl) ?? '',

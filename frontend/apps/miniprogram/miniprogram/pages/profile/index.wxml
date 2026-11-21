@@ -210,10 +210,6 @@
           <text>微信绑定</text>
           <text class="muted">{{user.wechatBound ? '已绑定' : '未绑定'}}</text>
         </view>
-        <view class="security-row security-row--action" bindtap="copyPasswordReset">
-          <text>找回密码</text>
-          <text class="muted">复制网页地址 →</text>
-        </view>
         <view class="btn btn--block btn--danger-plain" bindtap="confirmLogout" hover-class="btn--pressed">
           退出登录
         </view>

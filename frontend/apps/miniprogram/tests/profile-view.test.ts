@@ -31,7 +31,8 @@ const player: PlayerView = {
   type: 1,
   typeLabel: 'PLAYER',
   position: 3,
-  positionLabel: '前锋',
+  // 服务端返回枚举名，页面必须按 code 映射中文
+  positionLabel: 'FORWARD',
   skill: 4.5,
   avatarUrl: null,
 };

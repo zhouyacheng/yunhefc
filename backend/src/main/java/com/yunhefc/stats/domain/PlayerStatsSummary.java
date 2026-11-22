@@ -22,6 +22,9 @@ public class PlayerStatsSummary {
     private Integer appearances;
     private Integer goals;
     private Integer assists;
+    private Integer ownGoals;
+    private Integer internalAppearances;
+    private Integer internalWins;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     @TableLogic

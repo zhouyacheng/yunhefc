@@ -5,11 +5,16 @@ import com.yunhefc.contracts.attendance.AttendanceReadPort;
 import com.yunhefc.contracts.attendance.AttendanceSnapshot;
 import com.yunhefc.contracts.event.EventStatsReadPort;
 import com.yunhefc.contracts.event.EventStatsSnapshot;
+import com.yunhefc.contracts.grouping.GroupingReadPort;
+import com.yunhefc.contracts.grouping.SavedGroupingSnapshot;
 import com.yunhefc.contracts.match.MatchReadPort;
 import com.yunhefc.contracts.match.MatchSnapshot;
+import com.yunhefc.contracts.match.MatchSummaryReadPort;
+import com.yunhefc.contracts.match.MatchSummarySnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.team.TeamReadPort;
+import com.yunhefc.stats.domain.InternalMatchScore;
 import com.yunhefc.stats.domain.PlayerStatsSummary;
 import com.yunhefc.stats.domain.PlayerTally;
 import com.yunhefc.stats.domain.StatsAggregator;
@@ -42,6 +47,8 @@ public class StatsRollupApplicationService {
     private final MatchReadPort matchReadPort;
     private final AttendanceReadPort attendanceReadPort;
     private final EventStatsReadPort eventStatsReadPort;
+    private final GroupingReadPort groupingReadPort;
+    private final MatchSummaryReadPort matchSummaryReadPort;
     private final PlayerReadPort playerReadPort;
     private final TeamReadPort teamReadPort;
     private final StatsSummaryReader summaryReader;
@@ -68,13 +75,21 @@ public class StatsRollupApplicationService {
         List<Long> matchIds = matches.stream().map(MatchSnapshot::id).toList();
         List<AttendanceSnapshot> attendance = attendanceReadPort.findByMatchIds(matchIds);
         List<EventStatsSnapshot> events = eventStatsReadPort.findByMatchIds(matchIds);
+        List<Long> internalMatchIds = matches.stream()
+                .filter(MatchSnapshot::internal)
+                .filter(MatchSnapshot::finished)
+                .map(MatchSnapshot::id)
+                .toList();
+        Map<Long, SavedGroupingSnapshot> groupings = savedGroupings(internalMatchIds);
+        Map<Long, InternalMatchScore> internalScores = internalScores(internalMatchIds, teamId);
 
         Map<String, Map<Long, PlayerTally>> talliesBySeason = new LinkedHashMap<>();
         Map<String, Set<Long>> existingBySeason = new LinkedHashMap<>();
         Set<Long> candidates = new HashSet<>();
         for (String season : seasons) {
             Map<Long, PlayerTally> tallies = StatsAggregator.tally(
-                    matchesBySeason.getOrDefault(season, List.of()), attendance, events);
+                    matchesBySeason.getOrDefault(season, List.of()), attendance, events,
+                    groupings, internalScores);
             Set<Long> existing = new HashSet<>(summaryReader.playerIds(teamId, season));
             talliesBySeason.put(season, tallies);
             existingBySeason.put(season, existing);
@@ -116,6 +131,27 @@ public class StatsRollupApplicationService {
         return results;
     }
 
+    /**
+     * 只读取已结束队内赛的分组；其他类型不参与胜率。
+     */
+    private Map<Long, SavedGroupingSnapshot> savedGroupings(List<Long> internalMatchIds) {
+        return internalMatchIds.isEmpty()
+                ? Map.of()
+                : groupingReadPort.findSavedByMatchIds(internalMatchIds);
+    }
+
+    /**
+     * 只读取已结束队内赛的最终比分；比分未知的场次由聚合器跳过。
+     */
+    private Map<Long, InternalMatchScore> internalScores(List<Long> internalMatchIds, Long teamId) {
+        if (internalMatchIds.isEmpty()) {
+            return Map.of();
+        }
+        return matchSummaryReadPort.findSummaries(internalMatchIds, teamId).values().stream()
+                .collect(Collectors.toMap(MatchSummarySnapshot::id,
+                        summary -> new InternalMatchScore(summary.scoreHome(), summary.scoreAway())));
+    }
+
     private static PlayerStatsSummary summary(Long teamId, String season, Long playerId,
                                               PlayerTally tally) {
         PlayerStatsSummary summary = new PlayerStatsSummary();
@@ -125,6 +161,9 @@ public class StatsRollupApplicationService {
         summary.setAppearances(tally.appearances());
         summary.setGoals(tally.goals());
         summary.setAssists(tally.assists());
+        summary.setOwnGoals(tally.ownGoals());
+        summary.setInternalAppearances(tally.internalAppearances());
+        summary.setInternalWins(tally.internalWins());
         return summary;
     }
 }

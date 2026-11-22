@@ -67,6 +67,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/api/v1/c/team/players",
                                 "/api/v1/c/team/stats",
+                                "/api/v1/c/team/leaderboards",
                                 "/api/v1/c/matches",
                                 "/api/v1/c/matches/*",
                                 "/api/v1/c/matches/*/events").permitAll()

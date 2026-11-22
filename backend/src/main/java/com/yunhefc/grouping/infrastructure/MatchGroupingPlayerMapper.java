@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
+import java.util.Collection;
 import java.util.List;
 
 @Mapper
@@ -22,6 +23,20 @@ public interface MatchGroupingPlayerMapper extends BaseMapper<MatchGroupingPlaye
             ORDER BY player_id
             """)
     List<MatchGroupingPlayer> selectByGroupingId(@Param("groupingId") Long groupingId);
+
+    @Select("""
+            <script>
+            SELECT id, grouping_id, player_id, team, manual_score, auto_score, final_score,
+                   created_at, is_deleted
+            FROM match_grouping_player
+            WHERE grouping_id IN
+            <foreach collection="groupingIds" item="groupingId" open="(" separator="," close=")">
+                #{groupingId}
+            </foreach>
+            ORDER BY grouping_id, player_id
+            </script>
+            """)
+    List<MatchGroupingPlayer> selectByGroupingIds(@Param("groupingIds") Collection<Long> groupingIds);
 
     @Delete("DELETE FROM match_grouping_player WHERE grouping_id = #{groupingId}")
     int deleteByGroupingId(@Param("groupingId") Long groupingId);

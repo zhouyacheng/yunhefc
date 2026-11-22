@@ -10,6 +10,7 @@
     if (page === 'matches') initMatches();
     if (page === 'match') initMatch();
     if (page === 'team') initTeam();
+    if (page === 'leaderboard') initLeaderboard();
     if (page === 'login') initLogin();
     if (page === 'profile') initProfile();
     if (page === 'invite') initInvite();
@@ -105,7 +106,7 @@
       <div class="section-head"><div><h2>二期能力</h2><p class="muted">首版先把比赛和报名跑通</p></div><span class="badge badge-soon">规划中</span></div>
       <div class="feature-grid">
         ${[
-          ['📈', '排行榜与身价', '年度出场、进球、助攻、胜率、缺勤与 AI 身价'],
+          ['📈', 'AI 身价', '基于位置、出场、进球与助攻的身价模型'],
           ['💰', '球队账本', '收入/支出分类，按月/年统计'],
           ['📸', '动态与相册', '比赛照片、B 站视频、点赞留言'],
           ['🗳️', '投票', '标题、图片选项、多选、截止时间'],
@@ -819,6 +820,7 @@ render();
           <div class="team-season">
             <label class="muted small" for="team-season">赛季</label>
             <select id="team-season" aria-label="赛季">${seasonOptions().map((item) => `<option value="${item}"${item === season ? ' selected' : ''}>${item}</option>`).join('')}</select>
+            <a class="link" href="leaderboard.html?season=${season}">排行榜 →</a>
             <span class="badge badge-open">${season} 赛季数据 · 最多延迟 1 分钟</span>
           </div>
         </div>
@@ -854,6 +856,138 @@ render();
         <span><b>${Number(row.assists) || 0}</b><small>助攻</small></span>
       </div>
     </article>`;
+  }
+
+  function initLeaderboard() {
+    const host = $('#leaderboard-content');
+    if (!host) return;
+    const formal = Y.state.players.filter((player) => player.type === 'PLAYER' && player.status === 'ACTIVE');
+    const currentSeason = String(new Date().getFullYear());
+    const params = new URLSearchParams(location.search);
+    const requested = params.get('season') || '';
+    let scope = params.get('scope') === 'all' ? 'all' : 'season';
+    let season = /^\d{4}$/.test(requested) ? requested : currentSeason;
+    const boards = [
+      { key: 'appearances', label: '出场', main: (e) => e.appearances, secondary: (e) => e.goals, value: (e) => `${e.appearances} 场`, sub: (e) => `进球 ${e.goals} · 助攻 ${e.assists}`, eligible: () => true },
+      { key: 'goals', label: '进球', main: (e) => e.goals, secondary: (e) => e.assists, value: (e) => `${e.goals} 球`, sub: (e) => `助攻 ${e.assists} · 出场 ${e.appearances}`, eligible: () => true },
+      { key: 'assists', label: '助攻', main: (e) => e.assists, secondary: (e) => e.goals, value: (e) => `${e.assists} 助`, sub: (e) => `进球 ${e.goals} · 出场 ${e.appearances}`, eligible: () => true },
+      { key: 'goalsPerMatch', label: '场均进球', main: (e) => (e.appearances ? e.goals / e.appearances : -1), secondary: (e) => e.goals, value: (e) => (e.appearances ? (e.goals / e.appearances).toFixed(2) : '—'), sub: (e) => `进球 ${e.goals} / 出场 ${e.appearances}`, eligible: (e) => e.appearances > 0 },
+      { key: 'assistsPerMatch', label: '场均助攻', main: (e) => (e.appearances ? e.assists / e.appearances : -1), secondary: (e) => e.assists, value: (e) => (e.appearances ? (e.assists / e.appearances).toFixed(2) : '—'), sub: (e) => `助攻 ${e.assists} / 出场 ${e.appearances}`, eligible: (e) => e.appearances > 0 },
+      { key: 'winRate', label: '胜率', main: (e) => (e.internalAppearances ? e.internalWins / e.internalAppearances : -1), secondary: (e) => e.internalWins, value: (e) => (e.internalAppearances ? `${((e.internalWins / e.internalAppearances) * 100).toFixed(1)}%` : '—'), sub: (e) => `队内赛 ${e.internalWins} 胜 / ${e.internalAppearances} 场`, eligible: (e) => e.internalAppearances > 0 },
+      { key: 'ownGoals', label: '乌龙', main: (e) => e.ownGoals, secondary: (e) => e.appearances, value: (e) => `${e.ownGoals} 乌龙`, sub: (e) => `出场 ${e.appearances}`, eligible: () => true }
+    ];
+    let boardKey = boards.some((item) => item.key === params.get('board')) ? params.get('board') : 'goals';
+
+    function seasonOptions() {
+      const seasons = new Set([currentSeason, season]);
+      (Y.state.matches || []).forEach((match) => {
+        if (match.season) seasons.add(match.season);
+        else if (match.startAt) seasons.add(String(new Date(match.startAt).getFullYear()));
+      });
+      return Array.from(seasons).sort().reverse();
+    }
+
+    function statsFor(player) {
+      const row = ((Y.state.teamSeasonStats || {})[season] || {})[player.id];
+      const base = row || (season === currentSeason
+        ? { appearances: player.appearances, goals: player.goals, assists: player.assists }
+        : { appearances: 0, goals: 0, assists: 0 });
+      const appearances = Number(base.appearances) || 0;
+      const internalAppearances = Math.round(appearances * 0.6);
+      const rate = Math.min(0.85, Math.max(0.2, (Number(player.skill) || 3) / 6));
+      return {
+        player,
+        appearances,
+        goals: Number(base.goals) || 0,
+        assists: Number(base.assists) || 0,
+        ownGoals: player.id % 4 === 0 ? 1 : 0,
+        internalAppearances,
+        internalWins: Math.round(internalAppearances * rate)
+      };
+    }
+
+    function ranked(board) {
+      const sorted = formal.map(statsFor).filter(board.eligible).sort((a, b) =>
+        board.main(b) - board.main(a)
+        || board.secondary(b) - board.secondary(a)
+        || (Number(a.player.jersey) || 999) - (Number(b.player.jersey) || 999)
+        || a.player.id - b.player.id);
+      let prev = null;
+      let prevRank = 0;
+      return sorted.map((entry, index) => {
+        const value = board.main(entry);
+        const rank = prev !== null && value === prev ? prevRank : index + 1;
+        prev = value;
+        prevRank = rank;
+        return { entry, rank };
+      });
+    }
+
+    function syncUrl() {
+      const url = new URL(location.href);
+      if (scope === 'all') {
+        url.searchParams.set('scope', 'all');
+        url.searchParams.delete('season');
+      } else {
+        url.searchParams.delete('scope');
+        if (season === currentSeason) url.searchParams.delete('season');
+        else url.searchParams.set('season', season);
+      }
+      if (boardKey === 'goals') url.searchParams.delete('board');
+      else url.searchParams.set('board', boardKey);
+      history.replaceState(null, '', url);
+    }
+
+    function render() {
+      const board = boards.find((item) => item.key === boardKey);
+      const rows = ranked(board);
+      host.innerHTML = `<div class="container section">
+        <div class="page-head">
+          <div><span class="eyebrow">LEADERBOARD</span><h1>排行榜</h1><p class="muted">${formal.length} 名正式球员 · ${scope === 'all' ? '生涯累计' : season + ' 赛季'} · 最多延迟 1 分钟</p></div>
+          <div class="team-season">
+            <label class="muted small" for="leaderboard-scope">窗口</label>
+            <select id="leaderboard-scope" aria-label="赛季或生涯累计">
+              ${seasonOptions().map((item) => `<option value="${item}"${scope === 'season' && item === season ? ' selected' : ''}>${item}</option>`).join('')}
+              <option value="all"${scope === 'all' ? ' selected' : ''}>生涯累计</option>
+            </select>
+            <a class="link" href="team.html${scope === 'season' ? `?season=${season}` : ''}">← 返回球队</a>
+          </div>
+        </div>
+        <div class="tabs">${boards.map((item) => `<button class="tab${item.key === boardKey ? ' active' : ''}" data-board="${item.key}">${item.label}</button>`).join('')}</div>
+        ${rows.length ? `<div class="table-wrap"><table class="data-table">
+          <thead><tr><th>名次</th><th>球员</th><th>${board.label}</th><th>明细</th></tr></thead>
+          <tbody>${rows.map(({ entry, rank }) => `<tr>
+            <td>${rank}</td>
+            <td><b>${esc(entry.player.name)}</b> <span class="muted">#${entry.player.jersey} · ${Y.positionLabel(entry.player.position)}</span></td>
+            <td><b>${board.value(entry)}</b></td>
+            <td class="muted">${board.sub(entry)}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : '<div class="empty-state"><p>当前窗口暂无符合条件的球员</p></div>'}
+        <p class="muted small">出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有已保存分组归属的场次；并列用标准竞赛排名（1、1、3）。原型数据为演示值。</p>
+      </div>`;
+      $$('[data-board]', host).forEach((button) => {
+        button.addEventListener('click', () => {
+          boardKey = button.dataset.board;
+          syncUrl();
+          render();
+        });
+      });
+      const select = $('#leaderboard-scope', host);
+      if (select) {
+        select.addEventListener('change', () => {
+          if (select.value === 'all') {
+            scope = 'all';
+          } else {
+            scope = 'season';
+            season = select.value;
+          }
+          syncUrl();
+          render();
+        });
+      }
+    }
+
+    render();
   }
 
   function initInvite() {

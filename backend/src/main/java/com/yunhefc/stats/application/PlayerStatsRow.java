@@ -13,6 +13,9 @@ public record PlayerStatsRow(
         int appearances,
         int goals,
         int assists,
+        int ownGoals,
+        int internalAppearances,
+        int internalWins,
         LocalDateTime updatedAt) {
 
     public static PlayerStatsRow of(PlayerStatsSummary summary, LocalDateTime updatedAt) {
@@ -22,6 +25,9 @@ public record PlayerStatsRow(
                 summary.getAppearances(),
                 summary.getGoals(),
                 summary.getAssists(),
+                summary.getOwnGoals(),
+                summary.getInternalAppearances(),
+                summary.getInternalWins(),
                 updatedAt);
     }
 }

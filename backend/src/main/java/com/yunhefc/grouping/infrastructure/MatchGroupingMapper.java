@@ -10,6 +10,8 @@ import org.apache.ibatis.annotations.Update;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
+import java.util.List;
 
 @Mapper
 public interface MatchGroupingMapper extends BaseMapper<MatchGrouping> {
@@ -31,6 +33,21 @@ public interface MatchGroupingMapper extends BaseMapper<MatchGrouping> {
             WHERE match_id = #{matchId} AND saved_at IS NOT NULL AND is_deleted = 0
             """)
     MatchGrouping selectSavedByMatch(@Param("matchId") Long matchId);
+
+    // 排行榜汇总按批次读取已保存分组，避免逐场查询。
+    @Select("""
+            <script>
+            SELECT id, match_id, manual_weight, auto_weight, roster_fingerprint, generated_at,
+                   saved_at, created_by, created_at, updated_at, is_deleted
+            FROM match_grouping
+            WHERE saved_at IS NOT NULL AND is_deleted = 0
+              AND match_id IN
+            <foreach collection="matchIds" item="matchId" open="(" separator="," close=")">
+                #{matchId}
+            </foreach>
+            </script>
+            """)
+    List<MatchGrouping> selectSavedByMatchIds(@Param("matchIds") Collection<Long> matchIds);
 
     @Update("""
             UPDATE match_grouping

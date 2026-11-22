@@ -34,6 +34,7 @@ public class PendingAccountFilter extends OncePerRequestFilter {
             new AllowedRoute("GET", "/api/v1/c/invites/*"),
             new AllowedRoute("GET", "/api/v1/c/team/players"),
             new AllowedRoute("GET", "/api/v1/c/team/stats"),
+            new AllowedRoute("GET", "/api/v1/c/team/leaderboards"),
             new AllowedRoute("GET", "/api/v1/c/matches"),
             new AllowedRoute("GET", "/api/v1/c/matches/*"),
             new AllowedRoute("GET", "/api/v1/c/matches/*/events"),

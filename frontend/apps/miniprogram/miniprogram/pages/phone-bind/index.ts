@@ -1,3 +1,4 @@
+import { errorMessage } from '../../utils/api-errors';
 import { refreshUnreadBadge } from '../../utils/notifications';
 import { ApiError } from '../../utils/request';
 import { bindPhone, getBindTicket, sendSmsCode } from '../../utils/session';
@@ -65,7 +66,7 @@ Page({
       this.setData({ countdown: 60 });
       startTimer(this);
     } catch (error) {
-      this.setData({ error: (error as Error).message || '验证码发送失败' });
+      this.setData({ error: errorMessage(error, '验证码发送失败') });
     } finally {
       this.setData({ sending: false });
     }
@@ -99,7 +100,7 @@ Page({
       const message =
         error instanceof ApiError && error.code === 40001
           ? '新手机号需要填写姓名并选择位置'
-          : (error as Error).message || '绑定失败，请稍后重试';
+          : errorMessage(error, '绑定失败，请稍后重试');
       this.setData({ error: message });
     } finally {
       this.setData({ submitting: false });

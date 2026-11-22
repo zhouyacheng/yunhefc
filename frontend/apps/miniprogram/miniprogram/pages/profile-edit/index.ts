@@ -1,5 +1,6 @@
 import type { PlayerProfileUpdate, PlayerView } from '../../types/api';
 import { listTeamPlayers, saveMyPlayer, uploadAvatar } from '../../utils/api-client';
+import { errorMessage } from '../../utils/api-errors';
 import { avatarInitial, avatarSrc } from '../../utils/avatar';
 import {
   buildOptions,
@@ -79,7 +80,7 @@ Page({
     } catch (error) {
       this.setData({
         warning: '资料加载失败，请重新填写地区与副位置',
-        profileError: (error as Error).message || '资料加载失败，请重试',
+        profileError: errorMessage(error, '资料加载失败，请重试'),
       });
     } finally {
       this.setData({ loading: false });
@@ -115,7 +116,7 @@ Page({
     } catch (error) {
       this.setData({
         warning: '资料加载失败，请重新填写地区与副位置',
-        profileError: (error as Error).message || '资料加载失败，请重试',
+        profileError: errorMessage(error, '资料加载失败，请重试'),
       });
     } finally {
       this.setData({ profileLoading: false });
@@ -201,7 +202,7 @@ Page({
         avatarObjectKey: uploaded.objectKey,
       });
     } catch (error) {
-      this.setData({ error: (error as Error).message || '头像上传失败，请重试' });
+      this.setData({ error: errorMessage(error, '头像上传失败，请重试') });
     } finally {
       this.setData({ uploading: false });
     }
@@ -240,7 +241,7 @@ Page({
       wx.showToast({ title: '资料已保存', icon: 'none' });
       void wx.navigateBack();
     } catch (error) {
-      this.setData({ error: (error as Error).message || '保存失败，请稍后重试' });
+      this.setData({ error: errorMessage(error, '保存失败，请稍后重试') });
     } finally {
       this.setData({ saving: false });
     }

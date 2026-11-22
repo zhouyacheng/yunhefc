@@ -184,7 +184,7 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 # ──────────────────────────────────────────────────────────────────────────
-# STAGES — 生产 RC 验收（只读检查；不修改生产）
+# STAGES — 生产 RC 验收（默认只读；唯一会写生产的是 §6.9 锁定验证，需显式确认）
 # ──────────────────────────────────────────────────────────────────────────
 
 TOTAL_STAGES=10
@@ -221,6 +221,7 @@ check_headers() {
 }
 
 banner "云河FC 生产 RC 验收"
+note "默认只读；唯一会写生产的是 Stage 9 的锁定验证（连发错误登录，锁定测试号约 15 分钟，需显式确认）。"
 
 # ── Stage 1 ───────────────────────────────────────────────────────────────
 stage "环境信息"
@@ -488,7 +489,7 @@ if confirm "执行 51 次错误登录？"; then
 fi
 warn "短信 6 次/分会发真实短信，向导不自动执行；请用专用号码手工验证并记录。"
 if command -v gitleaks >/dev/null 2>&1; then
-  if gitleaks detect --no-banner --redact --source . >/dev/null 2>&1; then
+  if gitleaks detect --no-banner --redact --source . --log-opts=--all >/dev/null 2>&1; then
     say "  ${GREEN}✓${RESET} gitleaks 无命中"; record "§6.10 gitleaks" "PASS"
   else
     warn "gitleaks 有命中或执行失败"; record "§6.10 gitleaks" "FAIL"
@@ -497,7 +498,8 @@ else
   warn "未安装 gitleaks，需手工执行"; record "§6.10 gitleaks" "SKIP"
 fi
 say "生产日志敏感信息抽查："
-note "ssh $ECS_SSH \"grep -Eai 'phone=|openid|password|token|authorization' /opt/yunhefc/logs/yunhefc.log | head -n 20\""
+note "在 ECS 上（先按 RUNBOOK §0 定义 compose_current）："
+note "compose_current logs --tail=200 backend | grep -Eai 'phone=|openid|password|token|authorization' | head -n 20"
 if confirm "日志无明文 phone/token/password/openid/Authorization？"; then
   record "§6.10 日志脱敏" "PASS"
 else
@@ -519,15 +521,15 @@ fi
 stage "§5.6 RDS 备份 / §6.11 端到端"
 open_url "https://rds.console.aliyun.com/"
 step "实例 → 备份恢复：自动备份开启、保留 7 天；binlog 开启且 PITR 可恢复到时间点。"
-if confirm "RDS 自动备份、7 天保留与 PITR 时间点均可见？"; then
+if confirm "RDS 自动备份、7 天保留与 PITR 时间点均可见？（风险接受项，未开启记 SKIP，不阻断）"; then
   record "§5.6 RDS 备份/PITR" "PASS"
 else
-  record "§5.6 RDS 备份/PITR" "FAIL"
+  record "§5.6 RDS 备份/PITR" "SKIP（§10 #18 风险接受）"
 fi
 open_url "$WEB"
 open_url "$ADMIN/"
 step "HTTPS 下 C/B 登录无重定向循环。"
-step "微信内完成授权并回到站内。"
+step "小程序真机完成 wx.login 登录与绑手机并回到站内。"
 step "无权限管理员访问 B 端被拒绝。"
 if confirm "§6.11 端到端三项全部通过？"; then
   record "§6.11 端到端" "PASS"

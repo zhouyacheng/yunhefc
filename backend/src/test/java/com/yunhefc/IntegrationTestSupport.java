@@ -137,8 +137,8 @@ abstract class IntegrationTestSupport {
         return JsonPath.read(result.getResponse().getContentAsString(), "$.data.token");
     }
 
-    /** 小程序登录结果：一次性票据 + 承载它的会话 Cookie（AUTH-21 必须带）。 */
-    protected record MiniLoginTicket(String ticket, Cookie cookie) {
+    /** 小程序登录结果：10 分钟一次性票据（AUTH-21 只需票据）。 */
+    protected record MiniLoginTicket(String ticket) {
     }
 
     protected MiniLoginTicket miniLogin(String code) throws Exception {
@@ -148,7 +148,7 @@ abstract class IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andReturn();
         Object ticket = JsonPath.read(result.getResponse().getContentAsString(), "$.data.bindTicket");
-        return new MiniLoginTicket(ticket == null ? null : ticket.toString(), cookie(result, "YHFC_C"));
+        return new MiniLoginTicket(ticket == null ? null : ticket.toString());
     }
 
     /** 真实 CSRF 握手的产物：会话 Cookie + 请求头 token。 */

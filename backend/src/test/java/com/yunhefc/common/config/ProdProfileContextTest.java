@@ -1,9 +1,11 @@
 package com.yunhefc.common.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 class ProdProfileContextTest {
 
@@ -15,6 +17,7 @@ class ProdProfileContextTest {
                 .run(context -> {
                     assertThat(context).hasNotFailed();
                     assertThat(context).hasSingleBean(ProdStartupValidator.class);
+                    assertThat(context).hasSingleBean(SchemaVersionGuard.class);
                 });
     }
 
@@ -53,6 +56,7 @@ class ProdProfileContextTest {
                                             String dbPassword, String redisPassword) {
         return new ApplicationContextRunner()
                 .withUserConfiguration(ProdValidationConfig.class)
+                .withBean(JdbcTemplate.class, () -> mock(JdbcTemplate.class))
                 .withPropertyValues(
                         "yunhefc.session.cookie-secure=" + cookieSecure,
                         "yunhefc.session.cookie-domain=" + cookieDomain,

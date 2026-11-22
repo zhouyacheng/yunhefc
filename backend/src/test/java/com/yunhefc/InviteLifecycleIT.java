@@ -77,7 +77,6 @@ class InviteLifecycleIT extends IntegrationTestSupport {
         sendBindSmsCode("13900000221");
 
         mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
-                        .cookie(pending.cookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"bindTicket":"%s","phone":"13900000221","code":"123456"}
@@ -95,7 +94,6 @@ class InviteLifecycleIT extends IntegrationTestSupport {
         sendBindSmsCode("13900000251");
 
         mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
-                        .cookie(pending.cookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"bindTicket":"%s","phone":"13900000251","code":"123456"}

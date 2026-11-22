@@ -213,6 +213,44 @@ ask ECS_PORT "SSH 端口 [22]："
 ECS_PORT="${ECS_PORT:-22}"
 SSH_OPTS+=(-p "$ECS_PORT")
 SCP_OPTS+=(-P "$ECS_PORT")
+
+# 主机指纹来自可信渠道（本机 known_hosts 或控制台手工获取），不使用 ssh-keyscan。
+KNOWN_HOSTS_FILE="$(mktemp)"
+trap 'rm -f "$KNOWN_HOSTS_FILE"' EXIT
+HOST_KEY_NAME="$ECS_IP"
+if [[ "$ECS_PORT" != "22" ]]; then
+  HOST_KEY_NAME="[$ECS_IP]:$ECS_PORT"
+fi
+HOST_KEYS=""
+if ssh-keygen -F "$HOST_KEY_NAME" -f "$HOME/.ssh/known_hosts" >/dev/null 2>&1; then
+  HOST_KEYS="$(ssh-keygen -F "$HOST_KEY_NAME" -f "$HOME/.ssh/known_hosts" | grep -v '^#' || true)"
+else
+  say "从阿里云控制台「实例详情 → 远程连接」或可信终端的 known_hosts 获取主机公钥，不要用 ssh-keyscan。"
+  ask ECS_HOST_KEY "ECS 主机公钥（known_hosts 行；可只粘贴 ssh-ed25519 AAAA...）："
+  if [[ -n "$ECS_HOST_KEY" ]]; then
+    if [[ "$ECS_HOST_KEY" == *" "*" "* ]]; then
+      HOST_KEYS="$ECS_HOST_KEY"
+    else
+      HOST_KEYS="$HOST_KEY_NAME $ECS_HOST_KEY"
+    fi
+  fi
+fi
+if [[ -n "$HOST_KEYS" ]]; then
+  printf '%s\n' "$HOST_KEYS" > "$KNOWN_HOSTS_FILE"
+  chmod 600 "$KNOWN_HOSTS_FILE"
+  say "  主机指纹："
+  printf '%s\n' "$HOST_KEYS" | ssh-keygen -lf - 2>/dev/null | sed 's/^/    /' || true
+  if ! confirm "指纹可信，继续？"; then
+    warn "主机指纹未确认，中止"
+    exit 1
+  fi
+  SSH_OPTS+=(-o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o StrictHostKeyChecking=yes)
+  SCP_OPTS+=(-o UserKnownHostsFile="$KNOWN_HOSTS_FILE" -o StrictHostKeyChecking=yes)
+else
+  warn "未获得可信主机公钥；SSH 遇到未知主机会中止"
+  SSH_OPTS+=(-o StrictHostKeyChecking=yes)
+  SCP_OPTS+=(-o StrictHostKeyChecking=yes)
+fi
 # 默认取 origin/main 的 sha7：沿用硬编码旧提交会把落后多天的代码发到生产。
 MAIN_SHA7=$(git rev-parse --short=7 origin/main 2>/dev/null || git rev-parse --short=7 HEAD 2>/dev/null || true)
 while :; do
@@ -351,8 +389,7 @@ if [[ -n "$PUB_KEY" ]]; then
     remote "install -d -m 700 -o '$ECS_USER' -g '$ECS_USER' '/home/$ECS_USER/.ssh'"
     printf '%s\n' "$PUB_KEY" | remote "umask 077; cat > '/home/$ECS_USER/.ssh/authorized_keys'"
     remote "chown '$ECS_USER:$ECS_USER' '/home/$ECS_USER/.ssh/authorized_keys'; chmod 600 '/home/$ECS_USER/.ssh/authorized_keys'"
-    if ssh -i "$DEPLOY_KEY" -p "$ECS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=no \
-         -o UserKnownHostsFile=/dev/null "$ECS_USER@$ECS_IP" 'docker ps' >/dev/null 2>&1; then
+    if ssh -i "$DEPLOY_KEY" "${SSH_OPTS[@]}" "$ECS_USER@$ECS_IP" 'docker ps' >/dev/null 2>&1; then
       say "  ${GREEN}✓${RESET} $ECS_USER@$ECS_IP SSH + docker 可用"
       KEY_VERIFIED=1
     else
@@ -364,8 +401,7 @@ if [[ -n "$PUB_KEY" ]]; then
     SKIPPED+=("安装 deploy 公钥")
   fi
 fi
-if (( ! KEY_VERIFIED )) && ssh -i "$DEPLOY_KEY" -p "$ECS_PORT" -o BatchMode=yes \
-     -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+if (( ! KEY_VERIFIED )) && ssh -i "$DEPLOY_KEY" "${SSH_OPTS[@]}" \
      "$ECS_USER@$ECS_IP" 'docker ps' >/dev/null 2>&1; then
   # 没装新公钥但现有私钥能登录：说明 ECS 端已有对应公钥，可以安全写入 CI。
   say "  ${GREEN}✓${RESET} 现有私钥已可登录 $ECS_USER@$ECS_IP"
@@ -374,10 +410,9 @@ fi
 
 # ── Stage 4 ───────────────────────────────────────────────────────────────
 stage "GitHub 仓库变量与密钥"
-HOST_KEYS="$(ssh-keyscan -p "$ECS_PORT" -t ed25519 "$ECS_IP" 2>/dev/null || true)"
 if [[ -z "$HOST_KEYS" ]]; then
-  warn "ssh-keyscan 未取到主机指纹"
-  SKIPPED+=("ECS_KNOWN_HOSTS（手工 ssh-keyscan）")
+  warn "未获得可信主机公钥，跳过 ECS_KNOWN_HOSTS"
+  SKIPPED+=("GitHub secret ECS_KNOWN_HOSTS（需可信主机公钥）")
 else
   say "  主机指纹："
   printf '%s\n' "$HOST_KEYS" | ssh-keygen -lf - 2>/dev/null | sed 's/^/    /' || true
@@ -418,14 +453,12 @@ if remote 'test -s /opt/yunhefc/.env && stat -c %a /opt/yunhefc/.env | grep -qx 
 else
   warn "/opt/yunhefc/.env 缺失或权限不是 600"; SKIPPED+=("生产 .env")
 fi
-if ssh -i "$DEPLOY_KEY" -p "$ECS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=no \
-     -o UserKnownHostsFile=/dev/null "$ECS_USER@$ECS_IP" 'docker ps' >/dev/null 2>&1; then
+if ssh -i "$DEPLOY_KEY" "${SSH_OPTS[@]}" "$ECS_USER@$ECS_IP" 'docker ps' >/dev/null 2>&1; then
   say "  ${GREEN}✓${RESET} CI 身份可登录"
 else
   warn "CI 身份无法登录"; SKIPPED+=("CI SSH 登录")
 fi
-if ssh -i "$DEPLOY_KEY" -p "$ECS_PORT" -o BatchMode=yes -o StrictHostKeyChecking=no \
-     -o UserKnownHostsFile=/dev/null "$ECS_USER@$ECS_IP" \
+if ssh -i "$DEPLOY_KEY" "${SSH_OPTS[@]}" "$ECS_USER@$ECS_IP" \
      'set -a; . /opt/yunhefc/env/acr.env; set +a
       printf "%s" "$ACR_PASSWORD" | docker login "$ACR_REGISTRY" -u "$ACR_USERNAME" --password-stdin >/dev/null
       for n in yunhefc-backend yunhefc-nginx; do

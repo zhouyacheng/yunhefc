@@ -356,12 +356,13 @@ while :; do
   [[ "$MIGRATION_VERSION" == "$expected_version" ]] && break
   warn "版本必须为 $expected_version（当前输入：${MIGRATION_VERSION:-空}）"
 done
-if confirm "目标库已有业务数据；一次性 DATETIME 平移脚本已执行且仅执行一次？"; then
-  record "迁移" "latest=$MIGRATION_VERSION datetime-shift=done"
-else
-  confirm "确认是空库或已授权跳过一次性平移？" \
-    || abort "先按 RUNBOOK §1.3 执行一次性平移脚本，再重跑。"
+warn "2026-11-18 起生产镜像已以 +08 墙钟写入；整表 DATETIME 平移只适用于从未有过 +08 写入的库。"
+if confirm "确认本次不执行整表平移（已在 +08 口径，或库中无旧口径数据）？"; then
   record "迁移" "latest=$MIGRATION_VERSION datetime-shift=skipped"
+else
+  confirm "已核对库中不存在 2026-11-18 之后的写入、已备份，仍要整表平移？" \
+    || abort "跨口径库禁止整表平移；先按 RUNBOOK §1.3 判定，再决定是否定向修复。"
+  record "迁移" "latest=$MIGRATION_VERSION datetime-shift=done"
 fi
 
 # ── Stage 7 ───────────────────────────────────────────────────────────────

@@ -116,7 +116,7 @@ DOMAIN_VALUE="$(env_value "$ENV_FILE" DOMAIN)"
 # prod 启动会校验 PUBLIC_BASE_URL 与 CORS 单源；这里提前拦截，避免切版后才 crash-loop。
 PUBLIC_BASE_URL_VALUE="$(env_value "$ENV_FILE" PUBLIC_BASE_URL)"
 [[ "$PUBLIC_BASE_URL_VALUE" == "https://www.$DOMAIN_VALUE" ]] \
-    || die "$ENV_FILE 的 PUBLIC_BASE_URL 必须等于 https://www.$DOMAIN_VALUE（不带路径与末尾斜杠）"
+    || die "$ENV_FILE 的 PUBLIC_BASE_URL 必须等于 https://www.${DOMAIN_VALUE}（不带路径与末尾斜杠）"
 CORS_ORIGINS_VALUE="$(env_value "$ENV_FILE" CORS_ALLOWED_ORIGINS)"
 CORS_ORIGIN_COUNT="$(printf '%s\n' "$CORS_ORIGINS_VALUE" \
     | tr ',' '\n' | sed '/^[[:space:]]*$/d' | wc -l | tr -d ' ')"

@@ -211,7 +211,7 @@ expect_code() {
   if [[ "$code" == "$expected" ]]; then
     say "  ${GREEN}✓${RESET} $label ($code)"; record "冒烟" "$label PASS ($code)"
   else
-    warn "$label 期望 ${expected}，实际 ${code:-无响应}"; record "冒烟" "$label FAIL (期望 $expected，实际 ${code:-无响应})"
+    warn "$label 期望 ${expected}，实际 ${code:-无响应}"; record "冒烟" "$label FAIL (期望 ${expected}，实际 ${code:-无响应})"
   fi
 }
 
@@ -222,7 +222,7 @@ stage "预检与回滚预案"
 say "检查本地状态、发布窗口与回滚出口。"
 branch=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$branch" != "qua" ]]; then
-  abort "当前分支是 $branch，发布必须从 qua 发起。"
+  abort "当前分支是 ${branch}，发布必须从 qua 发起。"
 fi
 say "  ✓ 当前分支 qua"
 dirty=$(git status --porcelain | grep -v '^??' || true)
@@ -313,18 +313,18 @@ else
   confirm "仍要合并？" || abort "CI 未过，不合并。"
 fi
 head_sha7=$(git rev-parse --short=7 origin/qua)
-say "PR head：$head_sha7（注意：部署 tag 用合并后的 main 提交）"
+say "PR head：${head_sha7}（注意：部署 tag 用合并后的 main 提交）"
 confirm "确认合并到 main？此操作会触发 main CI 与镜像构建。" || abort "未合并。"
 gh pr merge "$PR_NUMBER" --merge || abort "合并失败（冲突或检查未过）。"
 git fetch --prune origin main || abort "合并后 fetch main 失败。"
 MERGE_SHA7=$(git rev-parse --short=7 origin/main)
 write_env MERGE_SHA7 "$MERGE_SHA7"
 say "  ✓ main 合并提交：$MERGE_SHA7"
-record "合并" "PR #$PR_NUMBER → main $MERGE_SHA7（PR head $head_sha7）"
+record "合并" "PR #$PR_NUMBER → main ${MERGE_SHA7}（PR head ${head_sha7}）"
 
 # ── Stage 5 ───────────────────────────────────────────────────────────────
 stage "等待 main 镜像产出"
-say "查找 main 上 $MERGE_SHA7 的 CI run；images job 产出 sha-$MERGE_SHA7。"
+say "查找 main 上 $MERGE_SHA7 的 CI run；images job 产出 sha-${MERGE_SHA7}。"
 run_id=""
 for _ in $(seq 1 12); do
   run_id=$(gh run list --workflow ci.yml --branch main --limit 10 --json databaseId,headSha \
@@ -352,9 +352,9 @@ expected_version="$(find "$repo_root/backend/src/main/resources/db/migration" -m
 [[ -n "$expected_version" ]] || abort "未找到 Flyway 迁移文件，无法确定目标版本。"
 say "RUNBOOK §1.3：先 flyway migrate，再 flyway info 确认 latest=${expected_version} 且 success=1。"
 while :; do
-  ask MIGRATION_VERSION "flyway info 的最新版本号（应为 $expected_version）："
+  ask MIGRATION_VERSION "flyway info 的最新版本号（应为 ${expected_version}）："
   [[ "$MIGRATION_VERSION" == "$expected_version" ]] && break
-  warn "版本必须为 $expected_version（当前输入：${MIGRATION_VERSION:-空}）"
+  warn "版本必须为 ${expected_version}（当前输入：${MIGRATION_VERSION:-空}）"
 done
 warn "2026-11-18 起生产镜像已以 +08 墙钟写入；整表 DATETIME 平移只适用于从未有过 +08 写入的库。"
 if confirm "确认本次不执行整表平移（已在 +08 口径，或库中无旧口径数据）？"; then
@@ -398,7 +398,7 @@ if ! gh run watch "$deploy_run" --exit-status; then
         || warn "回滚命令失败，按 RUNBOOK §2 手工处置。"
     fi
   else
-    warn "current 未指向 releases/$MERGE_SHA7，部署尚未完成切换。"
+    warn "current 未指向 releases/${MERGE_SHA7}，部署尚未完成切换。"
     say "此时执行 --rollback 会多退一版，放弃上一版好版本；请按 RUNBOOK §2 查因，不要回滚。"
   fi
   abort "部署失败，已按实际切换状态处置；保留现场后再分析。"

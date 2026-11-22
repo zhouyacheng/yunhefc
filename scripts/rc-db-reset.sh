@@ -137,7 +137,7 @@ run_sql() {
 # 连接失败不能被当成“库不存在”，否则会在错误实例上建库。
 if ! db_list=$(run_sql "SHOW DATABASES LIKE '$DB_DB'" 2>/tmp/rc-db-probe.log); then
   tail -3 /tmp/rc-db-probe.log | sed 's/^/    /'
-  die "无法连接 $DB_HOST:$DB_PORT，请检查网络/迁移账号（未做任何变更）"
+  die "无法连接 $DB_HOST:${DB_PORT}，请检查网络/迁移账号（未做任何变更）"
 fi
 if [[ -n "$(printf '%s' "$db_list" | tr -d '\r')" ]]; then
   say "  库 $DB_DB 已存在，clean 后重建"
@@ -196,14 +196,14 @@ compose up -d --no-deps backend >/dev/null
 compose restart backend >/dev/null   # 库已重建，旧连接必须丢弃
 # readiness 跟着验收域名走，避免探到旧环境或无关域名上报 200。
 HEALTH_URL="${RC_HEALTH_URL:-https://www.$RC_DOMAIN/actuator/health}"
-say "  等待 backend readiness（$HEALTH_URL）…"
+say "  等待 backend readiness（${HEALTH_URL}）…"
 ready=0
 for _ in $(seq 1 36); do
   code=$(curl -skS --noproxy '*' -o /dev/null -w '%{http_code}' --max-time 5 "$HEALTH_URL" 2>/dev/null || true)
   if [[ "$code" == "200" ]]; then ready=1; break; fi
   sleep 5
 done
-(( ready )) || die "readiness 未通过（$HEALTH_URL），查看 docker logs yunhefc-backend-1"
+(( ready )) || die "readiness 未通过（${HEALTH_URL}），查看 docker logs yunhefc-backend-1"
 ok "backend 就绪"
 
 remote "umask 077; docker run --rm --network host --env-file '$REMOTE_ENV' \

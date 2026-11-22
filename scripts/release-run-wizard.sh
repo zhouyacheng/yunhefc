@@ -236,6 +236,10 @@ git fetch --prune origin || abort "git fetch 失败，检查网络与远端。"
 counts=$(git rev-list --left-right --count origin/qua...HEAD)
 behind=${counts%%[[:space:]]*}; ahead=${counts##*[[:space:]]}
 [[ "$behind" == "0" ]] || warn "落后 origin/qua $behind 个提交"
+if [[ "$ahead" != "0" ]]; then
+  warn "本地 qua 领先 origin/qua $ahead 个提交；PR 会基于旧 head，漏掉这些提交。"
+  abort "先执行 git push origin qua，再重跑本向导。"
+fi
 say "  待合并到 main：$ahead 个提交"
 seed_acceptance RC_DOMAIN
 seed_acceptance ECS_SSH

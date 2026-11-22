@@ -34,7 +34,7 @@ Acceptance baseline: [research/05-acceptance-matrix.md](research/05-acceptance-m
 
 ### 0.2 验收环境
 
-- **自动化证据**：main 分支 CI（后端 `mvn verify`、前端 `pnpm typecheck/build/test`、Playwright E2E 使用 MySQL 8.4 + Redis 6.2.24 service 容器）。
+- **自动化证据**：PR CI（后端 `mvn verify`、前端 `pnpm typecheck/build/test`）+ main CI（Playwright E2E 使用 MySQL 8.4 + Redis 6.2.24 service 容器与真实后端；main 后端仅打包，不重复 verify）。合并用 merge commit 时以 PR head 的 verify run 为准，并在证据中记录 run URL。
 - **人工演示与真实外部服务**：B4 完成后的**生产 RC**（不对外、不公告）。包括真实短信、小程序真机登录、OSS 上传与签名 URL、同源冒烟、首位管理员登录。
 - 本地产物只用于开发自测，不作为签收证据。
 
@@ -63,7 +63,7 @@ Acceptance baseline: [research/05-acceptance-matrix.md](research/05-acceptance-m
 | # | 门槛 | 证据 | 结果 | 日期 |
 |---|---|---|---|---|
 | 1 | B0 基座完成门 | `batches.md` §2 B0；RC 发布 + 回滚演练记录 | ☐ | |
-| 2 | B1 后端与契约完成门 | `mvn verify` 全绿；92/92 接口；空库 Flyway 幂等 | ☐ | |
+| 2 | B1 后端与契约完成门 | `mvn verify` 全绿（PR run）；95/95 接口；空库 Flyway 幂等 | ☐ | |
 | 3 | B2 B 端页面完成门 | 6 条页面 Playwright 全绿；`pnpm -r` 全绿 | ☐ | |
 | 4 | B3 C-A 公开页完成门 | 7 条页面 Playwright 全绿；无 console error | ☐ | |
 | 5 | B4 C-B 互动与小程序登录完成门 | C03 闭环 + 小程序真机登录验收 | ☐ 小程序登录真机已验（2026-11-20，见 `.scratch/miniprogram-login/spike.md`）；C03 闭环待 RC | |
@@ -425,6 +425,7 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 | 18 | RDS 自动备份 / binlog / PITR 未在控制台确认（§0.1 硬门槛「RDS 备份 / PITR 可见」） | 决策人 2026-11-15 | **风险接受**：不执行；数据损坏时无可验证的恢复时间点，只能依赖 RDS 默认策略 |
 | 19 | 微信真实授权未验收（§2 #9、B4 完成门），`WECHAT_MODE` 为真实模式但无成功链路证据 | 决策人 2026-11-15 | **风险接受**：不执行；C 端微信登录为未验证状态，上线后首次使用才暴露问题 |
 | 20 | `images` job 两次在 20 分钟上限被取消，`5a2e4b2` 镜像需重跑才产出 | 2026-11-15 实测 | 已修复（P-37）：超时 20→40；`web.Dockerfile` 先拷 workspace 清单再 install；run `43702699777` 的 `images` 1m45s 完成 |
+| 21 | 生产自 2026-11-18 起已以 +08 墙钟写入（首个部署 `c5fcb4a`，2026-11-21 为 `0fe8195`）；11-18 之前若存在未平移行，其时间早 8 小时 | 决策人 2026-11-22 | **风险接受**：本次不执行整表平移、不做定向修复；旧数据保留 8h 偏差 |
 
 **延期项**（仅限非阻断 UI/性能/文档；逐条记录）：
 

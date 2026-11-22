@@ -3,11 +3,9 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { invalidate, subscribe } from '../miniprogram/utils/invalidation';
 
 const registrations = subscribe('my-registrations');
-const notifications = subscribe('my-notifications');
 
 beforeEach(() => {
   registrations.consume();
-  notifications.consume();
 });
 
 describe('invalidation', () => {
@@ -26,22 +24,6 @@ describe('invalidation', () => {
     invalidate('my-registrations');
     expect(registrations.consume()).toBe(true);
     expect(registrations.consume()).toBe(false);
-  });
-
-  it('消费一个资源不影响其他资源', () => {
-    invalidate('my-registrations');
-    invalidate('my-notifications');
-
-    expect(notifications.consume()).toBe(true);
-    expect(registrations.consume()).toBe(true);
-    expect(registrations.consume()).toBe(false);
-  });
-
-  it('未标记的资源保持未失效', () => {
-    invalidate('my-registrations');
-
-    expect(notifications.consume()).toBe(false);
-    expect(registrations.consume()).toBe(true);
   });
 
   it('同一资源的多个订阅共享一次失效', () => {

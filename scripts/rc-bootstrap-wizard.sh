@@ -238,7 +238,7 @@ fi
 
 # ── Stage 3 ───────────────────────────────────────────────────────────────
 stage "TLS 证书"
-say "证书只需覆盖 www.$RC_DOMAIN；裸域/旧子域不提供 HTTPS。nginx 固定读取 fullchain.pem / privkey.pem。"
+say "证书只需覆盖 www.${RC_DOMAIN}；裸域/旧子域不提供 HTTPS。nginx 固定读取 fullchain.pem / privkey.pem。"
 ask CERT_FULLCHAIN "本地 fullchain.pem 路径："
 ask CERT_PRIVKEY "本地 privkey.pem 路径："
 if [[ -f "$CERT_FULLCHAIN" && -f "$CERT_PRIVKEY" ]]; then
@@ -253,7 +253,7 @@ if [[ -f "$CERT_FULLCHAIN" && -f "$CERT_PRIVKEY" ]]; then
       || printf '%s\n' "$san_lines" | grep -Fqx "DNS:*.$RC_DOMAIN"; then
     say "  ${GREEN}✓${RESET} SAN 覆盖 www.$RC_DOMAIN"
   else
-    warn "SAN 未覆盖 www.$RC_DOMAIN，浏览器会报证书错误"
+    warn "SAN 未覆盖 www.${RC_DOMAIN}，浏览器会报证书错误"
   fi
   scp "${SCP_OPTS[@]}" "$CERT_FULLCHAIN" "$ECS_SSH:/opt/yunhefc/certs/fullchain.pem"
   scp "${SCP_OPTS[@]}" "$CERT_PRIVKEY" "$ECS_SSH:/opt/yunhefc/certs/privkey.pem"
@@ -273,8 +273,11 @@ ask ACR_NAMESPACE "ACR namespace [zyc1013]："
 ACR_NAMESPACE="${ACR_NAMESPACE:-zyc1013}"
 ask ACR_USERNAME "只读拉取账号："
 ask_secret ACR_PASSWORD "只读拉取密码："
-ask SHA7 "要部署的 commit sha7 [ea92ad4]："
-SHA7="${SHA7:-ea92ad4}"
+ask SHA7 "要部署的 commit sha7（7 位小写十六进制）："
+if [[ ! "$SHA7" =~ ^[0-9a-f]{7}$ ]]; then
+  warn "sha7 必填且必须为 7 位小写十六进制，请从 main 的合并提交获取"
+  exit 1
+fi
 {
   printf 'ACR_REGISTRY=%s\n' "$ACR_REGISTRY"
   printf 'ACR_NAMESPACE=%s\n' "$ACR_NAMESPACE"
@@ -389,6 +392,6 @@ say ""
 say "下一步（迁移 + 首发）："
 note "1. 在目标 commit 检出中复制 backend/src/main/resources/db/migration/*.sql 到 /opt/yunhefc/migrations/"
 note "2. 用迁移账号执行 flyway migrate（RUNBOOK §1.3）"
-note "3. 准备 /opt/yunhefc/releases/sha-$SHA7/ 的 compose 快照与 release.env"
-note "4. /opt/yunhefc/bin/release.sh --sha $SHA7"
+note "3. 准备 /opt/yunhefc/releases/$SHA7/ 的 compose 快照与 release.env"
+note "4. /opt/yunhefc/releases/$SHA7/bin/release.sh --sha $SHA7"
 finish

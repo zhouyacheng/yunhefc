@@ -25,4 +25,8 @@
 
 ## 写操作 outcome
 
-小程序 `pages/match-detail/actions.ts`：比赛详情写操作只接收领域输入（比赛 id、版本、报名状态、事件 payload），返回 `WriteOutcome`（patch/toast/error/reload/refreshEventId）；setData、忙闲标记、确认弹窗与弹层开关由页面负责。
+小程序写操作只接收领域输入，返回 `WriteOutcome`（patch/toast/error/reload/refreshEventId）；setData、忙闲标记、确认弹窗与弹层开关由页面负责。报名/取消当前仍由首页、我的、比赛详情三页各自调用；批次 2 票 04 将收拢到 `utils/registration-writes.ts` 供三页共用。签到、状态修改与事件录入仍在 `pages/match-detail/actions.ts`，复用同一类型。
+
+## 派生状态装配
+
+目标态（批次 2 票 05）：小程序 `utils/match-detail-state.ts` 把比赛详情、本人报名、会话与当前时间派生为页面 patch 与报名/取消决策，页面只应用结果、不重算规则。当前派生逻辑仍在 `pages/match-detail/index.ts` 的 `syncWindowState()`。

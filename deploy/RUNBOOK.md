@@ -156,9 +156,29 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
 - V13 只新增 `app_user.mp_openid` 与唯一索引，不改动旧 `openid` 与存量数据；旧镜像可继续运行。旧 `openid` 将在后续版本（V14）备份并显式批准后删除。
 - V11 曾把 `app_user.phone` 改为可空；V12 会**删除**所有 `phone IS NULL` 的账号，并级联清理其球员档案、报名、考勤、事件（含事件历史）、阵容槽位、分组成员、统计、通知、角色、邀请使用与幂等键，然后恢复 `NOT NULL`。仍由其他球员参与的事件只置空被删的助攻。执行 V12 前必须先备份，并运行 `SELECT COUNT(*) FROM app_user WHERE phone IS NULL;` 核对范围；若存在真实账号，先人工补绑或另案处理，不要直接迁移。
 
-#### 一次性迁移：DATETIME 转 Asia/Shanghai（P-63，仅本次发布）
+#### 一次性迁移：DATETIME 转 Asia/Shanghai（P-63）
 
-新镜像首次发布前，若目标库已有业务数据：
+> **2026-11-18 起生产已运行含 +08 统一的镜像**（首个部署 `c5fcb4a`，2026-11-21 为 `0fe8195`）。
+> 本脚本只适用于“尚未产生 +08 写入”的库。**若库中已有 2026-11-18 之后的行，禁止整表平移**，
+> 否则这些行会被再推快 8 小时。跨口径库只能按切换时间点定向修复，或接受旧数据偏差。
+
+**判定（只读，先做）**：
+
+```sql
+SELECT MAX(created_at) AS max_created, NOW() AS db_now,
+       TIMESTAMPDIFF(MINUTE, MAX(created_at), NOW()) AS lag_minutes
+FROM audit_log;
+
+SELECT DATE(created_at) AS d, COUNT(*) AS c
+FROM audit_log
+WHERE created_at BETWEEN '2026-11-16' AND '2026-11-21'
+GROUP BY DATE(created_at) ORDER BY d;
+```
+
+- `lag_minutes` 接近 0、按天计数连续 → 已在 +08 口径，**跳过**。
+- 11-18 前后出现 8 小时断崖 → 跨口径库，**禁止整表平移**，另按切换点处理。
+
+仅在“库中全部业务行都早于首个 +08 镜像且从未平移过”时执行：
 
 1. 停止 backend，完成 RDS 备份或确认 PITR 时间点。
 2. 执行一次性脚本（**只执行一次**，重复执行会再次 +8h）：
@@ -167,7 +187,7 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
 mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/migrate-datetime-utc-to-shanghai.sql
 ```
 
-3. 抽样确认 `team_match.start_at`、`audit_log.created_at` 等恰好 +8h，且 `updated_at` 未被 `NOW()` 覆盖。
+3. 抽样确认 `team_match.start_at`、`audit_log.created_at` 与 `audit_log.operated_at` 等恰好 +8h，且 `updated_at` 未被 `NOW()` 覆盖。脚本自带防重复执行检查：若检测到未来时间戳会直接中止。
 4. 确认 `/opt/yunhefc/.env` 的 `DB_URL` 已改为 `serverTimezone=Asia/Shanghai`（应用连接池会覆盖该参数，但保持一致便于排查），再启动新镜像。
 5. 历史 `fix-audit-log-utc.sql` 已作废，禁止再执行。
 

@@ -1,3 +1,4 @@
+import { errorMessage } from '../../utils/api-errors';
 import { refreshUnreadBadge } from '../../utils/notifications';
 import { login } from '../../utils/session';
 
@@ -24,7 +25,7 @@ Page({
     } catch (error) {
       this.setData({
         status: 'error',
-        message: (error as Error).message || '微信登录失败，请重试',
+        message: errorMessage(error, '微信登录失败，请重试'),
       });
     }
   },

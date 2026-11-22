@@ -7,6 +7,7 @@ import {
   fromScheduleForm,
   sameForm,
   scheduleFeedKey,
+  toAppliedForm,
   toScheduleForm,
   type ScheduleForm,
 } from '../miniprogram/utils/schedule-query';
@@ -35,6 +36,17 @@ describe('schedule defaults', () => {
     const defaults = toScheduleForm(emptyScheduleFilters(), NOW);
     expect(defaults).toEqual(form({ month: '2026-11' }));
     expect(scheduleFeedKey(emptyScheduleFilters())).toBe('');
+  });
+
+  it('keeps the prefilled month out of the applied form until a filter changes', () => {
+    const applied = toAppliedForm(emptyScheduleFilters());
+    expect(applied.month).toBe('');
+    expect(scheduleFeedKey(fromScheduleForm(applied))).toBe('');
+  });
+
+  it('keeps an explicitly selected month in the applied form', () => {
+    const applied = toAppliedForm({ ...emptyScheduleFilters(), month: '2026-10' });
+    expect(applied.month).toBe('2026-10');
   });
 
   it('lets the prefilled month participate after any filter change', () => {

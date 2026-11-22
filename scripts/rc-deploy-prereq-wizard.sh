@@ -224,8 +224,8 @@ while :; do
   SHA7=""
 done
 if [[ -n "$MAIN_SHA7" && "$SHA7" != "$MAIN_SHA7" ]]; then
-  warn "所选 sha7 与 origin/main（$MAIN_SHA7）不一致"
-  confirm "仍要部署 $SHA7？" || { warn "已取消"; exit 1; }
+  warn "所选 sha7 与 origin/main（${MAIN_SHA7}）不一致"
+  confirm "仍要部署 ${SHA7}？" || { warn "已取消"; exit 1; }
 fi
 write_env RC_DOMAIN "$RC_DOMAIN"
 write_env ECS_SSH "$ECS_SSH"
@@ -303,7 +303,7 @@ else
         || printf '%s\n' "$san_lines" | grep -Fqx "DNS:*.$RC_DOMAIN"; then
       say "  ${GREEN}✓${RESET} SAN 覆盖 www.$RC_DOMAIN"
     else
-      warn "SAN 未覆盖 www.$RC_DOMAIN，浏览器会报证书错误"
+      warn "SAN 未覆盖 www.${RC_DOMAIN}，浏览器会报证书错误"
       SKIPPED+=("证书 SAN 覆盖 www.$RC_DOMAIN")
     fi
     scp "${SCP_OPTS[@]}" "$CERT_FULLCHAIN" "$ECS_SSH:/opt/yunhefc/certs/fullchain.pem"

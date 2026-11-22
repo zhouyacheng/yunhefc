@@ -184,7 +184,7 @@ finish() {
 # Replace the example below. Set TOTAL_STAGES to match the stages you write.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=9
+TOTAL_STAGES=10
 ENV_FILE="${RELEASE_ENV_FILE:-deploy/.env.release}"
 ACCEPTANCE_ENV="deploy/.env.acceptance"
 RELEASE_LOG="${RELEASE_LOG:-.scratch/mvp-release/release-runs/$(date +%F).md}"
@@ -211,7 +211,7 @@ expect_code() {
   if [[ "$code" == "$expected" ]]; then
     say "  ${GREEN}✓${RESET} $label ($code)"; record "冒烟" "$label PASS ($code)"
   else
-    warn "$label 期望 ${expected}，实际 ${code:-无响应}"; record "冒烟" "$label FAIL (期望 $expected，实际 ${code:-无响应})"
+    warn "$label 期望 ${expected}，实际 ${code:-无响应}"; record "冒烟" "$label FAIL (期望 ${expected}，实际 ${code:-无响应})"
   fi
 }
 
@@ -222,7 +222,7 @@ stage "预检与回滚预案"
 say "检查本地状态、发布窗口与回滚出口。"
 branch=$(git rev-parse --abbrev-ref HEAD)
 if [[ "$branch" != "qua" ]]; then
-  abort "当前分支是 $branch，发布必须从 qua 发起。"
+  abort "当前分支是 ${branch}，发布必须从 qua 发起。"
 fi
 say "  ✓ 当前分支 qua"
 dirty=$(git status --porcelain | grep -v '^??' || true)
@@ -236,9 +236,14 @@ git fetch --prune origin || abort "git fetch 失败，检查网络与远端。"
 counts=$(git rev-list --left-right --count origin/qua...HEAD)
 behind=${counts%%[[:space:]]*}; ahead=${counts##*[[:space:]]}
 [[ "$behind" == "0" ]] || warn "落后 origin/qua $behind 个提交"
+if [[ "$ahead" != "0" ]]; then
+  warn "本地 qua 领先 origin/qua $ahead 个提交；PR 会基于旧 head，漏掉这些提交。"
+  abort "先执行 git push origin qua，再重跑本向导。"
+fi
 say "  待合并到 main：$ahead 个提交"
 seed_acceptance RC_DOMAIN
 seed_acceptance ECS_SSH
+[[ -n "${ECS_SSH:-}" ]] || ask ECS_SSH "ECS SSH 目标（user@host）："
 ask CUTOVER_AT "cutover 时间（YYYY-MM-DD HH:MM，工作日 20:00 后）："
 ask RELEASE_NOTE "发布备注（写入 deploy.yml 与通知）："
 write_env CUTOVER_AT "$CUTOVER_AT"
@@ -312,18 +317,18 @@ else
   confirm "仍要合并？" || abort "CI 未过，不合并。"
 fi
 head_sha7=$(git rev-parse --short=7 origin/qua)
-say "PR head：$head_sha7（注意：部署 tag 用合并后的 main 提交）"
+say "PR head：${head_sha7}（注意：部署 tag 用合并后的 main 提交）"
 confirm "确认合并到 main？此操作会触发 main CI 与镜像构建。" || abort "未合并。"
 gh pr merge "$PR_NUMBER" --merge || abort "合并失败（冲突或检查未过）。"
 git fetch --prune origin main || abort "合并后 fetch main 失败。"
 MERGE_SHA7=$(git rev-parse --short=7 origin/main)
 write_env MERGE_SHA7 "$MERGE_SHA7"
 say "  ✓ main 合并提交：$MERGE_SHA7"
-record "合并" "PR #$PR_NUMBER → main $MERGE_SHA7（PR head $head_sha7）"
+record "合并" "PR #$PR_NUMBER → main ${MERGE_SHA7}（PR head ${head_sha7}）"
 
 # ── Stage 5 ───────────────────────────────────────────────────────────────
 stage "等待 main 镜像产出"
-say "查找 main 上 $MERGE_SHA7 的 CI run；images job 产出 sha-$MERGE_SHA7。"
+say "查找 main 上 $MERGE_SHA7 的 CI run；images job 产出 sha-${MERGE_SHA7}。"
 run_id=""
 for _ in $(seq 1 12); do
   run_id=$(gh run list --workflow ci.yml --branch main --limit 10 --json databaseId,headSha \
@@ -344,6 +349,27 @@ say "  ✓ images job 成功，镜像 tag：sha-$MERGE_SHA7"
 record "镜像" "$run_url images=success"
 
 # ── Stage 6 ───────────────────────────────────────────────────────────────
+stage "生产库迁移（门禁）"
+repo_root="$(git rev-parse --show-toplevel)"
+expected_version="$(find "$repo_root/backend/src/main/resources/db/migration" -maxdepth 1 -name 'V*__*.sql' \
+  | sed -E 's|.*/V([0-9]+)__.*|\1|' | sort -n | tail -n1)"
+[[ -n "$expected_version" ]] || abort "未找到 Flyway 迁移文件，无法确定目标版本。"
+say "RUNBOOK §1.3：先 flyway migrate，再 flyway info 确认 latest=${expected_version} 且 success=1。"
+while :; do
+  ask MIGRATION_VERSION "flyway info 的最新版本号（应为 ${expected_version}）："
+  [[ "$MIGRATION_VERSION" == "$expected_version" ]] && break
+  warn "版本必须为 ${expected_version}（当前输入：${MIGRATION_VERSION:-空}）"
+done
+warn "2026-11-18 起生产镜像已以 +08 墙钟写入；整表 DATETIME 平移只适用于从未有过 +08 写入的库。"
+if confirm "确认本次不执行整表平移（已在 +08 口径，或库中无旧口径数据）？"; then
+  record "迁移" "latest=$MIGRATION_VERSION datetime-shift=skipped"
+else
+  confirm "已核对库中不存在 2026-11-18 之后的写入、已备份，仍要整表平移？" \
+    || abort "跨口径库禁止整表平移；先按 RUNBOOK §1.3 判定，再决定是否定向修复。"
+  record "迁移" "latest=$MIGRATION_VERSION datetime-shift=done"
+fi
+
+# ── Stage 7 ───────────────────────────────────────────────────────────────
 stage "触发生产部署（红线）"
 say "将执行："
 note "gh workflow run deploy.yml --ref main -f sha=$MERGE_SHA7 -f note=\"$RELEASE_NOTE\""
@@ -366,17 +392,25 @@ open_url "$deploy_url"
 say "等待 Environment 审批与部署（timeout 20 分钟）。"
 if ! gh run watch "$deploy_run" --exit-status; then
   warn "部署失败"
-  say "回滚：ssh $ECS_SSH '/opt/yunhefc/current/bin/release.sh --rollback'"
-  if confirm "现在执行回滚？"; then
-    ssh "${SSH_OPTS[@]}" "$ECS_SSH" '/opt/yunhefc/current/bin/release.sh --rollback' \
-      || warn "回滚命令失败，按 RUNBOOK §2 手工处置。"
+  current_target="$(ssh "${SSH_OPTS[@]}" "$ECS_SSH" \
+    'readlink -f /opt/yunhefc/current 2>/dev/null' || true)"
+  note "current → ${current_target:-未知}"
+  if [[ "$current_target" == *"/releases/$MERGE_SHA7" ]]; then
+    say "回滚：ssh $ECS_SSH '/opt/yunhefc/current/bin/release.sh --rollback'"
+    if confirm "新版本已切换但健康检查/冒烟失败，现在回滚？"; then
+      ssh "${SSH_OPTS[@]}" "$ECS_SSH" '/opt/yunhefc/current/bin/release.sh --rollback' \
+        || warn "回滚命令失败，按 RUNBOOK §2 手工处置。"
+    fi
+  else
+    warn "current 未指向 releases/${MERGE_SHA7}，部署尚未完成切换。"
+    say "此时执行 --rollback 会多退一版，放弃上一版好版本；请按 RUNBOOK §2 查因，不要回滚。"
   fi
-  abort "部署失败，已按选择处置；保留现场后再分析。"
+  abort "部署失败，已按实际切换状态处置；保留现场后再分析。"
 fi
 say "  ✓ 部署完成：$deploy_url"
 record "部署" "$deploy_url success"
 
-# ── Stage 7 ───────────────────────────────────────────────────────────────
+# ── Stage 8 ───────────────────────────────────────────────────────────────
 stage "部署冒烟"
 seed_acceptance RC_DOMAIN
 seed_acceptance ECS_SSH
@@ -389,7 +423,7 @@ while :; do
   warn "域名必须是小写裸域名（如 example.com），不带 scheme/路径/端口"
   write_env RC_DOMAIN ""
 done
-ask ECS_SSH "ECS SSH 目标（user@host）："
+[[ -n "${ECS_SSH:-}" ]] || ask ECS_SSH "ECS SSH 目标（user@host）："
 WEB="https://www.$RC_DOMAIN"
 export NO_PROXY="${NO_PROXY:+$NO_PROXY,}www.$RC_DOMAIN,$RC_DOMAIN"
 export no_proxy="$NO_PROXY"
@@ -425,7 +459,7 @@ else
   warn "unhealthy 容器：$unhealthy"; record "冒烟" "容器健康 FAIL"
 fi
 
-# ── Stage 8 ───────────────────────────────────────────────────────────────
+# ── Stage 9 ───────────────────────────────────────────────────────────────
 stage "RC 验收"
 say "运行只读验收向导：scripts/rc-acceptance-wizard.sh"
 say "它会追加结果到 deploy/rc-acceptance-results.md。"
@@ -442,7 +476,7 @@ if (( fails > 0 )); then
   confirm "仍继续签收？" || abort "先处置 FAIL 项，再重跑本向导。"
 fi
 
-# ── Stage 9 ───────────────────────────────────────────────────────────────
+# ── Stage 10 ──────────────────────────────────────────────────────────────
 stage "观测与签收"
 say "T+30 分钟判定；任一异常 → 15 分钟内回滚："
 step "5xx：发布后 30 分钟是否异常升高"

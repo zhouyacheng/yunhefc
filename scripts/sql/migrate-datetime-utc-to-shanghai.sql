@@ -1,16 +1,34 @@
 -- 一次性迁移：DATETIME(3) 存储从 UTC 墙钟改为 Asia/Shanghai（+08:00）墙钟。
 --
 -- 背景：2026-11-17 起应用连接池固定 connectionTimeZone=Asia/Shanghai +
--- session time_zone='+08:00'；存量行仍是 UTC 墙钟，必须整体 +8h，否则读取后 instant 偏移 8 小时。
+-- session time_zone='+08:00'；此前写入的存量行仍是 UTC 墙钟，需整体 +8h。
+--
+-- 禁止场景（2026-11-18 起）：生产镜像已以 +08 墙钟写入（首个 +08 镜像 c5fcb4a，
+-- 2026-11-21 为 0fe8195）。库中若已有该时间之后的行，整表平移会把它们再推快 8 小时；
+-- 跨口径库只能按切换时间点定向修复，或接受旧数据偏差。执行前先按 RUNBOOK §1.3 做只读判定。
 --
 -- 前置：
 --   1. 停止 backend，完成 RDS 备份或确认 PITR 时间点。
---   2. 确认 audit_log 没有执行过 fix-audit-log-utc.sql 之外的二次修正；混杂数据需先人工核对。
---   3. 仅执行一次。回滚方式：对同一批列统一 - INTERVAL 8 HOUR。
+--   2. 已完成 Flyway V1–V13（V8 新增并回填 audit_log.operated_at）。
+--   3. 确认 audit_log 没有执行过 fix-audit-log-utc.sql 之外的二次修正；混杂数据需先人工核对。
+--   4. 仅执行一次。回滚方式：对同一批列统一 - INTERVAL 8 HOUR。
 --
 -- 说明：每张表显式同时更新 updated_at，避免 ON UPDATE CURRENT_TIMESTAMP(3) 覆盖成 NOW()。
 
 SET NAMES utf8mb4;
+
+-- 防重复执行：首次平移后，最近 8 小时内写入的行会落在“未来”。
+-- 命中时下面的 SELECT 因子查询返回多行而中止（ERROR 1242），避免再次 +8 小时。
+-- 需要 CREATE ROUTINE 之外的额外权限为零，迁移账号可直接执行。
+SET @suspect := (
+    (SELECT COUNT(*) FROM team WHERE created_at > NOW() + INTERVAL 2 HOUR)
+  + (SELECT COUNT(*) FROM app_user WHERE created_at > NOW() + INTERVAL 2 HOUR)
+  + (SELECT COUNT(*) FROM team_match WHERE created_at > NOW() + INTERVAL 2 HOUR)
+  + (SELECT COUNT(*) FROM audit_log WHERE created_at > NOW() + INTERVAL 2 HOUR)
+  + (SELECT COUNT(*) FROM notification WHERE created_at > NOW() + INTERVAL 2 HOUR)
+);
+SELECT IF(@suspect > 0, (SELECT 1 UNION ALL SELECT 2), 1) AS _datetime_shift_guard;
+
 START TRANSACTION;
 
 UPDATE team SET created_at = DATE_ADD(created_at, INTERVAL 8 HOUR),
@@ -79,7 +97,8 @@ UPDATE player_stats_summary SET updated_at = DATE_ADD(updated_at, INTERVAL 8 HOU
 UPDATE notification SET read_at = DATE_ADD(read_at, INTERVAL 8 HOUR),
                         created_at = DATE_ADD(created_at, INTERVAL 8 HOUR);
 
-UPDATE audit_log SET created_at = DATE_ADD(created_at, INTERVAL 8 HOUR);
+UPDATE audit_log SET created_at = DATE_ADD(created_at, INTERVAL 8 HOUR),
+                     operated_at = DATE_ADD(operated_at, INTERVAL 8 HOUR);
 
 UPDATE outbox_event SET next_retry_at = DATE_ADD(next_retry_at, INTERVAL 8 HOUR),
                         lease_until = DATE_ADD(lease_until, INTERVAL 8 HOUR),

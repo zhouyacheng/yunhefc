@@ -98,7 +98,6 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
         bindPhone(pending, payload).andExpect(status().isOk());
 
         mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
-                        .cookie(pending.cookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(payload))
                 .andExpect(status().isUnauthorized())
@@ -106,14 +105,12 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
     }
 
     @Test
-    void bindWithoutTheLoginSessionIsRejected() throws Exception {
-        MiniLoginTicket pending = miniLogin("no-session");
-
+    void unknownBindTicketIsRejected() throws Exception {
         mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"bindTicket":"%s","phone":"13900000057","code":"123456","name":"无会话","position":1}
-                                """.formatted(pending.ticket())))
+                                {"bindTicket":"not-issued","phone":"13900000057","code":"123456","name":"无票据","position":1}
+                                """))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(40101));
     }
@@ -163,7 +160,6 @@ class MiniProgramAuthIT extends IntegrationTestSupport {
 
     private ResultActions bindPhone(MiniLoginTicket pending, String payload) throws Exception {
         return mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
-                .cookie(pending.cookie())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(payload));
     }

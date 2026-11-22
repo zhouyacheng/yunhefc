@@ -9,6 +9,7 @@ import com.yunhefc.common.config.OutboxProperties;
 import com.yunhefc.common.config.RetentionProperties;
 import com.yunhefc.common.config.SessionProperties;
 import com.yunhefc.common.config.SmsProperties;
+import com.yunhefc.common.config.SmsRateLimitProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -23,6 +24,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
         RetentionProperties.class,
         SessionProperties.class,
         SmsProperties.class,
+        SmsRateLimitProperties.class,
         InviteProperties.class
 })
 public class YunhefcApplication {

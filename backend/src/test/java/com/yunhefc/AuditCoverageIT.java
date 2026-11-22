@@ -89,7 +89,6 @@ class AuditCoverageIT extends IntegrationTestSupport {
         MiniLoginTicket pending = miniLogin(code);
         sendBindSmsCode(phone);
         mockMvc.perform(post("/api/v1/c/auth/mini/bind-phone")
-                        .cookie(pending.cookie())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"bindTicket":"%s","phone":"%s","code":"123456"}

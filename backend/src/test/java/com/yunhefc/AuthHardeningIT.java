@@ -327,6 +327,21 @@ class AuthHardeningIT extends IntegrationTestSupport {
                 .isEqualTo(String.valueOf(retryAfterSeconds));
     }
 
+    @Test
+    void smsIsRateLimitedPerIp() throws Exception {
+        for (int i = 0; i < 10; i++) {
+            sendSms("139000002%02d".formatted(i));
+        }
+        mockMvc.perform(post("/api/v1/c/auth/sms-codes")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000299","purpose":"REGISTER"}
+                                """))
+                .andExpect(status().isTooManyRequests())
+                .andExpect(jsonPath("$.code").value(42901));
+    }
+
     private Cookie register(String phone) throws Exception {
         sendSms(phone);
         MvcResult result = mockMvc.perform(post("/api/v1/c/auth/register")

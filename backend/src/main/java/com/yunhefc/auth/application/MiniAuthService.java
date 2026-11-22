@@ -13,6 +13,7 @@ import com.yunhefc.auth.dto.MiniDtos.MiniLoginRequest;
 import com.yunhefc.auth.dto.MiniDtos.MiniLoginResponse;
 import com.yunhefc.auth.infrastructure.AppRoleMapper;
 import com.yunhefc.auth.infrastructure.AppUserMapper;
+import com.yunhefc.auth.infrastructure.MiniBindTicketStore;
 import com.yunhefc.auth.infrastructure.TeamMapper;
 import com.yunhefc.auth.infrastructure.UserRoleMapper;
 import com.yunhefc.auth.miniprogram.MiniProgramClient;
@@ -33,7 +34,6 @@ import com.yunhefc.infra.storage.AvatarUrlSigner;
 import com.yunhefc.player.application.PlayerProfileApplicationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,11 +41,8 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -55,7 +52,6 @@ public class MiniAuthService {
 
     private static final Logger log = LoggerFactory.getLogger(MiniAuthService.class);
     private static final Pattern PHONE = Pattern.compile("^1\\d{10}$");
-    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final MiniProgramProperties properties;
     private final MiniProgramClient client;
@@ -66,6 +62,7 @@ public class MiniAuthService {
     private final PlayerReadPort playerReadPort;
     private final PlayerProfileApplicationService playerProfileService;
     private final SmsCodeService smsCodeService;
+    private final MiniBindTicketStore bindTicketStore;
     private final LoginAttemptService loginAttemptService;
     private final AuditRecorder auditRecorder;
     private final AuthSessionService sessionService;
@@ -80,11 +77,8 @@ public class MiniAuthService {
         AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
                 .eq(AppUser::getMpOpenid, openid));
         if (user == null) {
-            // 未绑定：openid 与一次性票据只存在服务端会话里，不落 Redis、不创建无手机号账号。
-            String ticket = newTicket();
-            HttpSession session = servletRequest.getSession(true);
-            session.setAttribute(SessionKeys.MINI_OPENID, openid);
-            session.setAttribute(SessionKeys.MINI_BIND_TICKET, ticket);
+            // 未绑定：签发 10 分钟一次性票据（Redis 只存哈希），不创建无手机号账号。
+            String ticket = bindTicketStore.save(openid);
             return new MiniLoginResponse(true, ticket, null, null, null, null);
         }
         AuthResponse session = login(user, servletRequest, response);
@@ -96,25 +90,12 @@ public class MiniAuthService {
     public AuthResponse bindPhone(MiniBindPhoneRequest request, HttpServletRequest servletRequest,
                                   HttpServletResponse response) {
         requireEnabled();
-        HttpSession session = servletRequest.getSession(false);
-        String openid = session == null ? null : (String) session.getAttribute(SessionKeys.MINI_OPENID);
-        String expectedTicket = session == null ? null
-                : (String) session.getAttribute(SessionKeys.MINI_BIND_TICKET);
-        if (openid == null || openid.isBlank()
-                || expectedTicket == null || !Objects.equals(expectedTicket, request.bindTicket())) {
+        // 票据一次性：消费即失效，绑手机失败不恢复，用户需重新登录获取新票据。
+        String openid = bindTicketStore.consume(request.bindTicket());
+        if (openid == null || openid.isBlank()) {
             throw new BusinessException(ErrorCode.UNAUTHENTICATED, "小程序登录已过期，请重新登录");
         }
-        // 先取走票据，第二个并发请求立即失效；业务失败再恢复，允许用户改正后重试。
-        session.removeAttribute(SessionKeys.MINI_OPENID);
-        session.removeAttribute(SessionKeys.MINI_BIND_TICKET);
-
-        try {
-            return bindPhoneInternal(request, openid, servletRequest, response);
-        } catch (RuntimeException ex) {
-            session.setAttribute(SessionKeys.MINI_OPENID, openid);
-            session.setAttribute(SessionKeys.MINI_BIND_TICKET, expectedTicket);
-            throw ex;
-        }
+        return bindPhoneInternal(request, openid, servletRequest, response);
     }
 
     private AuthResponse bindPhoneInternal(MiniBindPhoneRequest request, String openid,
@@ -255,11 +236,5 @@ public class MiniAuthService {
         if (!properties.isEnabled()) {
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "小程序登录未启用");
         }
-    }
-
-    private static String newTicket() {
-        byte[] bytes = new byte[32];
-        RANDOM.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

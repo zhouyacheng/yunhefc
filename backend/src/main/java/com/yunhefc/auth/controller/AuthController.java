@@ -14,6 +14,7 @@ import com.yunhefc.auth.dto.AuthDtos.SessionResponse;
 import com.yunhefc.auth.dto.AuthDtos.SmsCodeRequest;
 import com.yunhefc.common.api.ApiResponse;
 import com.yunhefc.common.config.LoginRateLimitProperties;
+import com.yunhefc.common.config.SmsRateLimitProperties;
 import com.yunhefc.common.ratelimit.RedisRateLimiter;
 import com.yunhefc.common.security.AuthSessionService;
 import com.yunhefc.common.security.CurrentUser;
@@ -43,6 +44,7 @@ public class AuthController {
     private final AuthSessionService authSessionService;
     private final RedisRateLimiter rateLimiter;
     private final LoginRateLimitProperties loginRateLimit;
+    private final SmsRateLimitProperties smsRateLimit;
 
     @GetMapping("/auth/csrf")
     public ApiResponse<Map<String, String>> csrf(CsrfToken token) {
@@ -50,7 +52,11 @@ public class AuthController {
     }
 
     @PostMapping("/auth/sms-codes")
-    public ApiResponse<Map<String, Integer>> sms(@Valid @RequestBody SmsCodeRequest request) {
+    public ApiResponse<Map<String, Integer>> sms(@Valid @RequestBody SmsCodeRequest request,
+                                                 HttpServletRequest servletRequest) {
+        // 03 §5：5 次/分/号码 + 10 次/小时/IP；getRemoteAddr 由 forward-headers-strategy 还原真实 IP。
+        rateLimiter.check("sms-ip:" + servletRequest.getRemoteAddr(),
+                smsRateLimit.ipMaxPerHour(), Duration.ofHours(1));
         rateLimiter.check("sms:" + Hashing.sha256(request.phone()), 5, Duration.ofMinutes(1));
         return ApiResponse.ok(Map.of("expiresIn", authService.sendSms(request.phone(), request.purpose())));
     }

@@ -35,7 +35,7 @@ import type {
 import { errorMessage } from './api-errors';
 import { newIdempotencyKey } from './idempotency';
 import { ensureCsrf, request, uploadFile } from './request';
-import { DEFAULT_PAGE_SIZE, scheduleFeedKey, type ScheduleFilters } from './schedule-query';
+import { DEFAULT_PAGE_SIZE, filterQueryString, type ScheduleFilters } from './match-query';
 
 const ROSTER_PAGE_SIZE = 100;
 
@@ -142,7 +142,7 @@ export function issueAdminTicket(): Promise<AdminTicketView> {
 // ---- 比赛 ----
 
 export interface MatchListQuery {
-  /** 已归一的筛选；编码口径由 schedule-query 统一维护。 */
+  /** 已归一的筛选；编码口径由 match-query 统一维护。 */
   filters?: ScheduleFilters;
   page?: number;
   pageSize?: number;
@@ -152,7 +152,7 @@ export interface MatchListQuery {
 export function listMatches(query: MatchListQuery = {}): Promise<Page<MatchSummary>> {
   const page = Math.max(1, Math.floor(query.page ?? 1) || 1);
   const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
-  const filters = query.filters ? scheduleFeedKey(query.filters) : '';
+  const filters = query.filters ? filterQueryString(query.filters) : '';
   const suffix = filters ? `&${filters}` : '';
   return request<Page<MatchSummary>>(
     'GET',

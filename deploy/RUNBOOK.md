@@ -167,7 +167,7 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
 mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/migrate-datetime-utc-to-shanghai.sql
 ```
 
-3. 抽样确认 `team_match.start_at`、`audit_log.created_at` 等恰好 +8h，且 `updated_at` 未被 `NOW()` 覆盖。
+3. 抽样确认 `team_match.start_at`、`audit_log.created_at` 与 `audit_log.operated_at` 等恰好 +8h，且 `updated_at` 未被 `NOW()` 覆盖。脚本自带防重复执行检查：若检测到未来时间戳会直接中止。
 4. 确认 `/opt/yunhefc/.env` 的 `DB_URL` 已改为 `serverTimezone=Asia/Shanghai`（应用连接池会覆盖该参数，但保持一致便于排查），再启动新镜像。
 5. 历史 `fix-audit-log-utc.sql` 已作废，禁止再执行。
 

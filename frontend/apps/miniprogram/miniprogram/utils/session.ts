@@ -14,6 +14,8 @@ let currentPlayer: PlayerView | null = null;
 let currentPermissions: string[] = [];
 let bindTicket: string | null = null;
 let sessionPromise: Promise<AuthUser | null> | null = null;
+/** 用户显式退出后禁止静默续登，直到再次主动登录；clearSession 会复位。 */
+let silentLoginSuppressed = false;
 
 export function getUser(): AuthUser | null {
   return currentUser;
@@ -37,6 +39,9 @@ export function setPlayer(player: PlayerView | null): void {
 
 /** 启动探测与等待共用：先 restore，未登录再静默 wx.login；并发只执行一次，永不 reject。 */
 export function sessionReady(): Promise<AuthUser | null> {
+  if (silentLoginSuppressed) {
+    return Promise.resolve(null);
+  }
   if (!sessionPromise) {
     sessionPromise = restore()
       .then(async (user) => {
@@ -61,6 +66,7 @@ export function clearSession(): void {
   currentPermissions = [];
   bindTicket = null;
   sessionPromise = null;
+  silentLoginSuppressed = false;
   resetAuth();
 }
 
@@ -72,8 +78,18 @@ setUnauthorizedHandler(() => {
 });
 
 export async function logout(): Promise<void> {
-  await logoutRequest();
+  // 显式退出后不再静默续登；请求失败且会话仍在时恢复，避免网络抖动把用户登出。
+  silentLoginSuppressed = true;
+  try {
+    await logoutRequest();
+  } catch (error) {
+    if (getUser()) {
+      silentLoginSuppressed = false;
+    }
+    throw error;
+  }
   clearSession();
+  silentLoginSuppressed = true;
 }
 
 /** 静默探测登录态；未登录返回 null，不抛出。 */
@@ -93,6 +109,7 @@ export async function restore(): Promise<AuthUser | null> {
 }
 
 export async function login(): Promise<MiniLoginResult> {
+  silentLoginSuppressed = false;
   const code = await wxLogin();
   const result = await miniLogin(code);
   if (result.needBindPhone) {

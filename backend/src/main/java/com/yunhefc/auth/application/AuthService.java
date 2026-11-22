@@ -273,9 +273,10 @@ public class AuthService implements UserAccessPort {
             throw new BusinessException(ErrorCode.PHONE_EXISTS);
         }
         loginAttemptService.clear(phone);
+        // 快照存原文，脱敏在读取层统一完成（05 §3.11）。
         auditRecorder.recordCurrent("PHONE_CHANGE", "USER", userId,
-                java.util.Map.of("phone", UserViewAssembler.maskPhone(before)),
-                java.util.Map.of("phone", UserViewAssembler.maskPhone(phone)));
+                java.util.Map.of("phone", before),
+                java.util.Map.of("phone", phone));
         return userView(user);
     }
 

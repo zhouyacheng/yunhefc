@@ -15,6 +15,7 @@ import {
   fromScheduleForm,
   sameForm,
   scheduleFeedKey,
+  toAppliedForm,
   toScheduleForm,
   type ScheduleForm,
 } from '../../utils/schedule-query';
@@ -49,7 +50,7 @@ Page({
   data: {
     feed: emptyPagedFeedState<MatchCardView>('') as PagedFeedState<MatchCardView>,
     form: toScheduleForm(emptyScheduleFilters()) as ScheduleForm,
-    appliedForm: toScheduleForm(emptyScheduleFilters()) as ScheduleForm,
+    appliedForm: toAppliedForm(emptyScheduleFilters()) as ScheduleForm,
     typeOptions: TYPE_OPTIONS,
     statusOptions: STATUS_OPTIONS,
     typeIndex: 0,
@@ -67,7 +68,7 @@ Page({
     const form = toScheduleForm(filters);
     this.setData({
       form,
-      appliedForm: { ...form },
+      appliedForm: toAppliedForm(filters),
       monthPickerValue: `${form.month}-01`,
     });
 
@@ -243,7 +244,7 @@ Page({
     const key = scheduleFeedKey(filters);
     this.setData({
       form,
-      appliedForm: { ...form },
+      appliedForm: toAppliedForm(filters),
       typeIndex: 0,
       statusIndex: 0,
       monthPickerValue: `${form.month}-01`,

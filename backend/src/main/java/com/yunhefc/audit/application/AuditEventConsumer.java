@@ -25,7 +25,7 @@ public class AuditEventConsumer {
                         @Header(KafkaHeaders.RECEIVED_PARTITION) int partition,
                         @Header(KafkaHeaders.OFFSET) long offset,
                         Acknowledgment acknowledgment) {
-        log.info("audit event received, topic={}, partition={}, offset={}, messageLength={}",
+        log.debug("audit event received, topic={}, partition={}, offset={}, messageLength={}",
                 topic, partition, offset, message.length());
         handler.apply(message, topic, partition, offset);
         acknowledgment.acknowledge();

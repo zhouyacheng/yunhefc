@@ -54,7 +54,7 @@ public class AuditEventHandler {
             auditLog.setIp(asString(payload.get("ip")));
             auditLog.setOperatedAt(asTime(payload.get("operateAt"), event.eventId()));
             auditLogMapper.insert(auditLog);
-            log.info("audit event processed, eventId={}, teamId={}, action={}, targetType={}, "
+            log.debug("audit event processed, eventId={}, teamId={}, action={}, targetType={}, "
                             + "targetId={}, actorUserId={}, actorName={}, requestId={}, operateAt={}, "
                             + "topic={}, partition={}, offset={}",
                     event.eventId(), auditLog.getTeamId(), auditLog.getAction(),

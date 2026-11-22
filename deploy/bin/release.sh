@@ -123,6 +123,17 @@ CORS_ORIGIN_COUNT="$(printf '%s\n' "$CORS_ORIGINS_VALUE" \
 [[ "$CORS_ORIGIN_COUNT" == "1" && "$CORS_ORIGINS_VALUE" == "$PUBLIC_BASE_URL_VALUE" ]] \
     || die "$ENV_FILE 的 CORS_ALLOWED_ORIGINS 必须恰为 $PUBLIC_BASE_URL_VALUE 单源"
 
+# 与 ProdStartupValidator 对齐：这四项不合格会在切版后 crash-loop。
+[[ "$(env_value "$ENV_FILE" SESSION_COOKIE_SECURE)" == "true" ]] \
+    || die "$ENV_FILE 的 SESSION_COOKIE_SECURE 必须为 true"
+[[ -z "$(env_value "$ENV_FILE" SESSION_COOKIE_DOMAIN)" ]] \
+    || die "$ENV_FILE 的 SESSION_COOKIE_DOMAIN 必须为空（host-only Cookie）"
+DB_PASSWORD_VALUE="$(env_value "$ENV_FILE" DB_PASSWORD)"
+[[ -n "$DB_PASSWORD_VALUE" && "$DB_PASSWORD_VALUE" != "yunhefc" ]] \
+    || die "$ENV_FILE 的 DB_PASSWORD 不得为空或使用默认值 yunhefc"
+[[ -n "$(env_value "$ENV_FILE" REDIS_PASSWORD)" ]] \
+    || die "$ENV_FILE 的 REDIS_PASSWORD 不得为空"
+
 release_dir=""
 if [[ "$MODE" == "rollback" ]]; then
     if [[ -n "$SHA" ]]; then
@@ -224,12 +235,21 @@ smoke() {
         || { log "冒烟失败: 公开读接口"; return 1; }
 
     local path code
-    for path in /actuator/env /v3/api-docs /swagger-ui/index.html; do
+    for path in /actuator/env /actuator/beans /v3/api-docs /swagger-ui/index.html \
+                /api/v1/c/auth/wechat/authorize; do
         code="$(curl -sSk -o /dev/null -w '%{http_code}' --max-time "$SMOKE_TIMEOUT" \
             --resolve "www.$resolve_www" "$www$path")"
         [[ "$code" == "404" ]] \
             || { log "冒烟失败: $path 期望 404，实际 $code"; return 1; }
     done
+
+    # 小程序登录端点必须拒绝空 code（checklist §5.3）。
+    local mini_code
+    mini_code="$(curl -sSk -o /dev/null -w '%{http_code}' --max-time "$SMOKE_TIMEOUT" \
+        -X POST -H 'Content-Type: application/json' -d '{"code":""}' \
+        --resolve "www.$resolve_www" "$www/api/v1/c/auth/mini/login")"
+    [[ "$mini_code" == "400" ]] \
+        || { log "冒烟失败: mini/login 空 code 期望 400，实际 $mini_code"; return 1; }
 
     log "冒烟通过"
 }

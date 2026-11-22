@@ -9,6 +9,7 @@ import {
   getUser,
   hasPermission,
   login,
+  logout,
   restore,
   sendSmsCode,
   sessionReady,
@@ -243,6 +244,28 @@ describe('session', () => {
 
     expect(getUser()).toBeNull();
     expect(getPlayer()).toBeNull();
+  });
+
+  it('does not silently sign in again after an explicit logout', async () => {
+    responder = respond({
+      code: 0,
+      data: {
+        needBindPhone: false,
+        bindTicket: null,
+        user: { id: 7, name: '球员' },
+        player: { id: 1, type: 1 },
+        csrfToken: 'csrf-1',
+      },
+    });
+    await login();
+
+    responder = respond({ code: 0, data: {} });
+    await logout();
+    const callsAfterLogout = calls.length;
+
+    expect(await sessionReady()).toBeNull();
+    expect(getUser()).toBeNull();
+    expect(calls).toHaveLength(callsAfterLogout);
   });
 
   it('stores permissions returned by login', async () => {

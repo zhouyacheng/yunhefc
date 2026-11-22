@@ -5,12 +5,26 @@
 --
 -- 前置：
 --   1. 停止 backend，完成 RDS 备份或确认 PITR 时间点。
---   2. 确认 audit_log 没有执行过 fix-audit-log-utc.sql 之外的二次修正；混杂数据需先人工核对。
---   3. 仅执行一次。回滚方式：对同一批列统一 - INTERVAL 8 HOUR。
+--   2. 已完成 Flyway V1–V13（V8 新增并回填 audit_log.operated_at）。
+--   3. 确认 audit_log 没有执行过 fix-audit-log-utc.sql 之外的二次修正；混杂数据需先人工核对。
+--   4. 仅执行一次。回滚方式：对同一批列统一 - INTERVAL 8 HOUR。
 --
 -- 说明：每张表显式同时更新 updated_at，避免 ON UPDATE CURRENT_TIMESTAMP(3) 覆盖成 NOW()。
 
 SET NAMES utf8mb4;
+
+-- 防重复执行：首次平移后，最近 8 小时内写入的行会落在“未来”。
+-- 命中时下面的 SELECT 因子查询返回多行而中止（ERROR 1242），避免再次 +8 小时。
+-- 需要 CREATE ROUTINE 之外的额外权限为零，迁移账号可直接执行。
+SET @suspect := (
+    (SELECT COUNT(*) FROM team WHERE created_at > NOW() + INTERVAL 2 HOUR)
+  + (SELECT COUNT(*) FROM app_user WHERE created_at > NOW() + INTERVAL 2 HOUR)
+  + (SELECT COUNT(*) FROM team_match WHERE created_at > NOW() + INTERVAL 2 HOUR)
+  + (SELECT COUNT(*) FROM audit_log WHERE created_at > NOW() + INTERVAL 2 HOUR)
+  + (SELECT COUNT(*) FROM notification WHERE created_at > NOW() + INTERVAL 2 HOUR)
+);
+SELECT IF(@suspect > 0, (SELECT 1 UNION ALL SELECT 2), 1) AS _datetime_shift_guard;
+
 START TRANSACTION;
 
 UPDATE team SET created_at = DATE_ADD(created_at, INTERVAL 8 HOUR),
@@ -79,7 +93,8 @@ UPDATE player_stats_summary SET updated_at = DATE_ADD(updated_at, INTERVAL 8 HOU
 UPDATE notification SET read_at = DATE_ADD(read_at, INTERVAL 8 HOUR),
                         created_at = DATE_ADD(created_at, INTERVAL 8 HOUR);
 
-UPDATE audit_log SET created_at = DATE_ADD(created_at, INTERVAL 8 HOUR);
+UPDATE audit_log SET created_at = DATE_ADD(created_at, INTERVAL 8 HOUR),
+                     operated_at = DATE_ADD(operated_at, INTERVAL 8 HOUR);
 
 UPDATE outbox_event SET next_retry_at = DATE_ADD(next_retry_at, INTERVAL 8 HOUR),
                         lease_until = DATE_ADD(lease_until, INTERVAL 8 HOUR),

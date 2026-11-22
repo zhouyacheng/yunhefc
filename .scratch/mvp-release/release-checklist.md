@@ -34,7 +34,7 @@ Acceptance baseline: [research/05-acceptance-matrix.md](research/05-acceptance-m
 
 ### 0.2 验收环境
 
-- **自动化证据**：main 分支 CI（后端 `mvn verify`、前端 `pnpm typecheck/build/test`、Playwright E2E 使用 MySQL 8.4 + Redis 6.2.24 service 容器）。
+- **自动化证据**：PR CI（后端 `mvn verify`、前端 `pnpm typecheck/build/test`）+ main CI（Playwright E2E 使用 MySQL 8.4 + Redis 6.2.24 service 容器与真实后端；main 后端仅打包，不重复 verify）。合并用 merge commit 时以 PR head 的 verify run 为准，并在证据中记录 run URL。
 - **人工演示与真实外部服务**：B4 完成后的**生产 RC**（不对外、不公告）。包括真实短信、小程序真机登录、OSS 上传与签名 URL、同源冒烟、首位管理员登录。
 - 本地产物只用于开发自测，不作为签收证据。
 
@@ -63,7 +63,7 @@ Acceptance baseline: [research/05-acceptance-matrix.md](research/05-acceptance-m
 | # | 门槛 | 证据 | 结果 | 日期 |
 |---|---|---|---|---|
 | 1 | B0 基座完成门 | `batches.md` §2 B0；RC 发布 + 回滚演练记录 | ☐ | |
-| 2 | B1 后端与契约完成门 | `mvn verify` 全绿；92/92 接口；空库 Flyway 幂等 | ☐ | |
+| 2 | B1 后端与契约完成门 | `mvn verify` 全绿（PR run）；95/95 接口；空库 Flyway 幂等 | ☐ | |
 | 3 | B2 B 端页面完成门 | 6 条页面 Playwright 全绿；`pnpm -r` 全绿 | ☐ | |
 | 4 | B3 C-A 公开页完成门 | 7 条页面 Playwright 全绿；无 console error | ☐ | |
 | 5 | B4 C-B 互动与小程序登录完成门 | C03 闭环 + 小程序真机登录验收 | ☐ 小程序登录真机已验（2026-11-20，见 `.scratch/miniprogram-login/spike.md`）；C03 闭环待 RC | |

@@ -273,8 +273,11 @@ ask ACR_NAMESPACE "ACR namespace [zyc1013]："
 ACR_NAMESPACE="${ACR_NAMESPACE:-zyc1013}"
 ask ACR_USERNAME "只读拉取账号："
 ask_secret ACR_PASSWORD "只读拉取密码："
-ask SHA7 "要部署的 commit sha7 [ea92ad4]："
-SHA7="${SHA7:-ea92ad4}"
+ask SHA7 "要部署的 commit sha7（7 位小写十六进制）："
+if [[ ! "$SHA7" =~ ^[0-9a-f]{7}$ ]]; then
+  warn "sha7 必填且必须为 7 位小写十六进制，请从 main 的合并提交获取"
+  exit 1
+fi
 {
   printf 'ACR_REGISTRY=%s\n' "$ACR_REGISTRY"
   printf 'ACR_NAMESPACE=%s\n' "$ACR_NAMESPACE"
@@ -389,6 +392,6 @@ say ""
 say "下一步（迁移 + 首发）："
 note "1. 在目标 commit 检出中复制 backend/src/main/resources/db/migration/*.sql 到 /opt/yunhefc/migrations/"
 note "2. 用迁移账号执行 flyway migrate（RUNBOOK §1.3）"
-note "3. 准备 /opt/yunhefc/releases/sha-$SHA7/ 的 compose 快照与 release.env"
-note "4. /opt/yunhefc/bin/release.sh --sha $SHA7"
+note "3. 准备 /opt/yunhefc/releases/$SHA7/ 的 compose 快照与 release.env"
+note "4. /opt/yunhefc/releases/$SHA7/bin/release.sh --sha $SHA7"
 finish

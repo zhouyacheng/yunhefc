@@ -569,16 +569,16 @@ Page({
     const entryOpen = eventEntryOpen(detail.status);
     const playerWindowOpen = eventEditWindowOpen(detail.endAt, now);
     const showEventCreate = !this.data.pending && this.data.canCreatePerm && !closed;
-    const eventDisabledReason =
-      !showEventCreate || isAdmin
-        ? ''
-        : !entryOpen
-          ? closed
-            ? '已取消/已延期的比赛不可录入事件'
-            : '仅进行中或已结束的比赛可录入事件'
-          : !playerWindowOpen
-            ? '已超过赛后 24 小时可编辑窗口'
-            : '';
+    // 管理员不受赛后 24h 限制，但仍需解释「未开赛/已取消」；其余禁用原因对所有人显示。
+    const eventDisabledReason = !showEventCreate
+      ? ''
+      : !entryOpen
+        ? closed
+          ? '已取消/已延期的比赛不可录入事件'
+          : '仅进行中或已结束的比赛可录入事件'
+        : !isAdmin && !playerWindowOpen
+          ? '已超过赛后 24 小时可编辑窗口'
+          : '';
     this.setData({
       now,
       signup,

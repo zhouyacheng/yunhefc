@@ -1,6 +1,6 @@
 -- 云河FC 测试数据清理脚本（事故恢复用）
 -- 用途：在误执行 scripts/sql/test-data.sql 的库中，硬删除其插入的测试数据及运行期衍生数据。
--- 前提：生产库由 Flyway V1–V12 初始化，且不存在需要保留的真实用户/比赛；本脚本保留种子与 id=1 管理员。
+-- 前提：生产库由 Flyway V1–V13 初始化，且不存在需要保留的真实用户/比赛；本脚本保留种子与 id=1 管理员。
 --
 -- 注意：
 --   1. 本脚本是事故清理，不是业务删除路径。正常业务流程仍按 docs/rules/database-rules.md §4
@@ -9,7 +9,7 @@
 --   3. 使用具备 CREATE TEMPORARY TABLES 与业务表 DELETE 权限的账号（yunhefc_migrator 或 DBA），
 --      不要使用仅有 DML 权限的 yunhefc_app。
 --   4. 不删除：team id=1、app_role、permission、role_permission、system_setting、V4 预置阵型模板、id=1 管理员。
---   5. 不重置 AUTO_INCREMENT；清理后 app_user 新 id 从 1036、team_match 从 1006 起，功能无影响。
+--   5. 不重置 AUTO_INCREMENT；清理后新 id 从当前自增位继续（不回收已删除 id），功能无影响。
 --   6. 执行命令：mysql -h <rds-host> -u <dba> -p yunhefc < scripts/sql/test-data-cleanup.sql
 --   7. 预检未通过时脚本会在删除前报错退出（错误含 __yunhefc_preflight_failed_abort__），
 --      此时未删除任何数据；请核对 precheck.* 输出后人工处理。
@@ -40,7 +40,9 @@ INSERT INTO tmp_test_user (id) VALUES
   (1011), (1012), (1013), (1014), (1015),
   (1016), (1017), (1018), (1019), (1020),
   (1021), (1022), (1023),
-  (1030), (1031), (1032), (1033), (1034), (1035);
+  (1030), (1031), (1032), (1033), (1034), (1035),
+  (1040), (1041), (1042), (1043), (1044), (1045), (1046), (1047), (1048), (1049),
+  (1050), (1051), (1052), (1053), (1054), (1055), (1056), (1057), (1058), (1059);
 
 DROP TEMPORARY TABLE IF EXISTS tmp_test_player;
 CREATE TEMPORARY TABLE tmp_test_player (

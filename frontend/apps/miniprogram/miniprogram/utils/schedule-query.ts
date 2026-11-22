@@ -76,6 +76,11 @@ export function toScheduleForm(
   };
 }
 
+/** 应用态表单：与展示表单不同，默认月份只在用户改动筛选后才参与查询。 */
+export function toAppliedForm(filters: ScheduleFilters): ScheduleForm {
+  return { ...toScheduleForm(filters), month: filters.month ?? '' };
+}
+
 export function fromScheduleForm(form: ScheduleForm): ScheduleFilters {
   return normalize({
     type: parseCode(form.type, TYPE_CODES),

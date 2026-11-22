@@ -72,7 +72,7 @@ log.info("matches loaded, count={}, durationMs={}", matches.size(), durationMs);
 ```
 
 - 循环内只记录失败项，且设置上限或采样。
-- Kafka 单条消息、Quartz 定时任务、健康检查与心跳不打印 INFO。
+- Kafka 单条消息、Quartz 定时任务、健康检查与心跳不逐条打印 INFO；每日保留清理任务在批次结束时以 INFO 汇总删除数量（票 09 口径）。
 - 高频事件使用 DEBUG 或指标统计，生产环境默认关闭 DEBUG。
 
 ### 2.5 异常打印保留堆栈

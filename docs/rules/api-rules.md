@@ -98,6 +98,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 4. 待审核（PENDING）只允许公开读、登录/登出、AUTH-01/14、AUTH-10、短信/小程序登录、邀请落地、自助资料/头像、通知只读与标记已读（NTF-01~04）；其他写接口返回 `ACCOUNT_PENDING`。
 5. 未登录返回 401，无权限返回 403；不用 404 隐藏权限。
 6. 前端路由守卫只做导航控制，真实权限必须由后端校验。
+7. CSRF 豁免仅限 `POST /api/v1/c/auth/mini/login` 与 `POST /api/v1/c/auth/mini/bind-phone`：两者由小程序 `wx.request` 调用，不依赖浏览器自动携带 Cookie；login 在会话建立前没有可轮换的 CSRF token，bind-phone 以一次性票据为凭证，仍受票据校验与限流约束。其余写接口一律校验 CSRF，不得新增豁免。
 
 ---
 

@@ -19,13 +19,14 @@ Acceptance baseline: [research/05-acceptance-matrix.md](research/05-acceptance-m
 
 - B0–B4 全部完成门通过（`batches.md` §2）。
 - 112 条 MVP 验收全部通过（§3）；9 条当前无覆盖项由 B1–B4 补齐后必须有**页面级证据**。
-- F0 外部证据齐全（§2），不能用 mock 替代生产。
+- F0 外部证据齐全（§2），不能用 mock 替代生产；§10 已风险接受项除外。
 - 安全 11 项通过（§6）。
 - 空库 Flyway 幂等与发布前迁移通过（§5）。
 - RC 发布与回滚演练各完成一次（B0 完成门）。
 - 同源冒烟与首位管理员 runbook 登录通过（§5）。
-- RDS 自动备份 / binlog / PITR 可恢复时间点在控制台可见（§5.4）。
-- cutover 前 main 已冻结 ≥24 小时，最终签收在 cutover 前 24 小时内完成。
+- cutover 前 24 小时起冻结 main，最终签收在 cutover 前 24 小时内完成。
+
+**不计入硬门槛的风险接受项**（只复核，不阻塞；执行时在 §10 确认接受人与日期）：RDS 自动备份 / binlog / PITR 可见性（§10 #18，2026-11-15）；微信网页授权真实链路（§10 #19，2026-11-15；P-74 后该链路已删除，由小程序真机登录替代）。
 
 **可延期（不影响 112 条验收、安全基线与数据完整性）**
 
@@ -52,7 +53,8 @@ Acceptance baseline: [research/05-acceptance-matrix.md](research/05-acceptance-m
 | 类型 | 记录方式 |
 |---|---|
 | 自动化 | 测试类/用例名 + CI run URL + 结果 |
-| 人工演示 | 截图或录屏路径 + 日期 + 操作人 + 环境 |
+| 人工演示（高风险：TLS、ICP 备案、真机登录、MATCH-09 / EVENT-15 / LINEUP-07） | 截图或录屏路径 + 日期 + 操作人 + 环境 |
+| 人工演示（其余） | 日期 + 操作人 + 一句结论；不要求截图 |
 | 外部服务 | 控制台截图 / 命令输出 / 真机收码截图 / 小程序真机登录截图 |
 | 配置检查 | 命令与原始输出（`curl -I`、`openssl`、`redis-cli` 等） |
 
@@ -68,12 +70,12 @@ Acceptance baseline: [research/05-acceptance-matrix.md](research/05-acceptance-m
 | 4 | B3 C-A 公开页完成门 | 7 条页面 Playwright 全绿；无 console error | ☐ | |
 | 5 | B4 C-B 互动与小程序登录完成门 | C03 闭环 + 小程序真机登录验收 | ☐ 小程序登录真机已验（2026-11-20，见 `.scratch/miniprogram-login/spike.md`）；C03 闭环待 RC | |
 | 6 | 112 条 MVP 验收全绿 | §3 签收表 | ☐ | |
-| 7 | F0 外部证据齐全 | §2 | ☐ | |
+| 7 | F0 外部证据齐全（§10 #19 已接受项除外） | §2 | ☐ | |
 | 8 | 安全 11 项通过 | §6 | ☐ | |
 | 9 | 空库 Flyway 幂等 + 发布前迁移 | §5.1–§5.3 | ☐ | |
 | 10 | 同源冒烟 + 首位管理员 runbook | §5.4–§5.5 | ☐ | |
-| 11 | RDS 备份 / PITR 可见 | §5.6 | ☐ 不执行（2026-11-15 决策，§10 #18） | |
-| 12 | 24 小时冻结 + 前 24 小时签收 | §0.3、§11 | ☐ | |
+| 11 | ~~RDS 备份 / PITR 可见~~（风险接受，不计入门槛） | §5.6 | ☑ 不执行（2026-11-15，§10 #18） | |
+| 12 | cutover 前 24h 起冻结 + 前 24h 签收 | §0.3、§11 | ☐ | |
 
 **结论**：☐ Go　☐ No-go（原因：____）
 
@@ -101,7 +103,7 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 ## §3 112 条 MVP 验收记录
 
-口径：全部通过才可 cutover；页面需求必须有页面级证据（Playwright，或人工演示 + 截图）。基线见 [research/05-acceptance-matrix.md](research/05-acceptance-matrix.md)。「结果」执行时填「通过 / 不通过 / 人工通过」。
+口径：全部通过才可 cutover；页面需求必须有页面级证据（Playwright，或人工演示按 §0.4 分级留证）。基线见 [research/05-acceptance-matrix.md](research/05-acceptance-matrix.md)。「结果」执行时填「通过 / 不通过 / 人工通过」。
 
 | # | 需求 | 验收点（简） | 验证方式 | 证据来源 | 环境 | 结果 | 日期 |
 |---|---|---|---|---|---|---|---|
@@ -278,7 +280,8 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 - [ ] 目标 sha 检出中复制 `backend/src/main/resources/db/migration/*.sql` 到 `/opt/yunhefc/migrations`（含 V13）。
 - [ ] `flyway migrate`：已有库补到目标版本，`flyway_schema_history` 最新为 V13 且 success=1。
 - [ ] `flyway info`：无 pending / failed。
-- [ ] **切 `current` 前的版本门禁**：`deploy.yml` 与 `release.sh` 都不执行迁移，必须人工确认 `flyway info` 与目标版本一致；库落后于代码时依赖新列/新表的接口会报错（本次为登录 500，见 2026-11-20 记录）。
+- [ ] **切 `current` 前的版本门禁**：`deploy.yml` 与 `release.sh` 都不执行迁移，必须人工确认 `flyway info` 与目标版本一致；后端启动自检（下一条）兜底，库落后时部署必然失败。
+- [ ] **后端启动自检**：新镜像比对 `flyway_schema_history` 最高成功版本与代码期望版本；库落后 fail-fast（readiness 不通过），库超前（回滚）放行。自检失败先补迁移再重试，不得手工改历史表绕过。
 - [ ] V8 校验：`audit_log.operated_at` 存在（`datetime(3) NULL`）、`idx_audit_team_operated` 存在、历史行 `operated_at` 已回填。
 - [ ] V9 校验：`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`、`match_grouping_player.manual_score` 为 `decimal(3,2) NULL`，且两列无 1–5 范围外数据。
 - [ ] V10–V12 校验：`match_grouping.manual_weight/auto_weight` 为 `decimal(5,2) NOT NULL`；`grouping.*` 系统配置为 0 行；`app_user.phone` 为 `varchar(20) NOT NULL` 且 `phone IS NULL` 计数为 0（V12 会删除无手机号账号及其关联数据，执行前先备份）。
@@ -296,7 +299,8 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 - [ ] C 端 `/` 与 B 端 `/admin/` 登录成功，无重定向循环。— 旧三子域 B 端登录已验证（上传头像，`userId=1`）；同域切换后需重测 C/B
 - [ ] www 敏感端点 `/actuator/env`、`/actuator/beans`、`/v3/api-docs`、`/swagger-ui/**` 均 404（api 子域已取消）。— 待同域切换后重测
 - [x] 旧 api 子域敏感端点四项实测 404（历史证据）。— 同域切换后由上一项 www 口径覆盖
-- [ ] 小程序登录端点 `POST https://www.<domain>/api/v1/c/auth/mini/login` 对空 `code` 返回 400（业务码 40001），且 `/c/auth/wechat/**` 已不存在。未认证请求先被安全链拦为 **401**（`anyRequest().authenticated()` 先于路由匹配）；已登录请求才应得到 404。
+- [ ] 小程序登录端点 `POST https://www.<domain>/api/v1/c/auth/mini/login` 对空 `code` 返回 400（业务码 40001）。
+- `/c/auth/wechat/**` 已删除属一次性事实，由代码审查确认，不纳入每次发布的冒烟：未认证请求会被安全链先拦为 401，无法区分“已删除”与“仍需登录”。
 
 ### 5.4 首位管理员 runbook
 
@@ -426,6 +430,7 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 | 19 | 微信真实授权未验收（§2 #9、B4 完成门），`WECHAT_MODE` 为真实模式但无成功链路证据 | 决策人 2026-11-15 | **风险接受**：不执行；C 端微信登录为未验证状态，上线后首次使用才暴露问题 |
 | 20 | `images` job 两次在 20 分钟上限被取消，`5a2e4b2` 镜像需重跑才产出 | 2026-11-15 实测 | 已修复（P-37）：超时 20→40；`web.Dockerfile` 先拷 workspace 清单再 install；run `43702699777` 的 `images` 1m45s 完成 |
 | 21 | 生产自 2026-11-18 起已以 +08 墙钟写入（首个部署 `c5fcb4a`，2026-11-21 为 `0fe8195`）；11-18 之前若存在未平移行，其时间早 8 小时 | 决策人 2026-11-22 | **风险接受**：本次不执行整表平移、不做定向修复；旧数据保留 8h 偏差 |
+| 22 | §0.1 硬门槛与 §10 风险接受项曾不一致（RDS 备份 #18、微信网页授权 #19） | 2026-11-22 收口 | 已修正：§0.1/§1 将两项明确排除出硬门槛并写明接受人；#12 冻结改为 cutover 前 24h 起 |
 
 **延期项**（仅限非阻断 UI/性能/文档；逐条记录）：
 

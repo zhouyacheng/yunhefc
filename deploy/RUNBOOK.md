@@ -156,6 +156,10 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
 - V13 只新增 `app_user.mp_openid` 与唯一索引，不改动旧 `openid` 与存量数据；旧镜像可继续运行。旧 `openid` 将在后续版本（V14）备份并显式批准后删除。
 - V11 曾把 `app_user.phone` 改为可空；V12 会**删除**所有 `phone IS NULL` 的账号，并级联清理其球员档案、报名、考勤、事件（含事件历史）、阵容槽位、分组成员、统计、通知、角色、邀请使用与幂等键，然后恢复 `NOT NULL`。仍由其他球员参与的事件只置空被删的助攻。执行 V12 前必须先备份，并运行 `SELECT COUNT(*) FROM app_user WHERE phone IS NULL;` 核对范围；若存在真实账号，先人工补绑或另案处理，不要直接迁移。
 
+#### 启动自检兜底（P-83）
+
+新镜像在 prod 启动时比对 `flyway_schema_history` 最高成功版本与代码期望版本：库落后时 fail-fast，readiness 不会通过，`release.sh` 以「readiness 未通过」失败。此时先补跑 `flyway migrate` 再重新部署，不手工修改历史表；库比代码新（回滚旧镜像）放行。
+
 #### 一次性迁移：DATETIME 转 Asia/Shanghai（P-63）
 
 > **2026-11-18 起生产已运行含 +08 统一的镜像**（首个部署 `c5fcb4a`，2026-11-21 为 `0fe8195`）。
@@ -191,7 +195,9 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/migrate-datetim
 4. 确认 `/opt/yunhefc/.env` 的 `DB_URL` 已改为 `serverTimezone=Asia/Shanghai`（应用连接池会覆盖该参数，但保持一致便于排查），再启动新镜像。
 5. 历史 `fix-audit-log-utc.sql` 已作废，禁止再执行。
 
-### 1.4 首次发布
+### 1.4 首次发布（break-glass）
+
+> 常规发布入口是 GitHub Actions `deploy`（§6.2）。本节的手工路径只在 Actions 不可用或首次引导时使用；每次 break-glass 发布必须在 `.scratch/mvp-release/release-runs/<date>.md` 记录原因、执行人、sha 与结果。
 
 1. 由 CI/Rsync 准备 release 目录（正常由 `deploy.yml` 完成）：
 
@@ -247,13 +253,15 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://www.<domain>/actuator/env   # 
 curl -sS -o /dev/null -w '%{http_code}\n' http://<domain>/   # 301
 ```
 
-RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐项覆盖冒烟、TLS、响应头、CORS、暴露面、迁移账号、限流与 RDS 备份；结果写入 `deploy/rc-acceptance-results.md`。
+RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐项覆盖冒烟、TLS、响应头、CORS、暴露面、迁移账号、限流与 RDS 备份；结果写入 `deploy/rc-acceptance-results.md`。向导默认只读；唯一会写生产的是 §6.9 锁定验证（会锁定测试号约 15 分钟，需显式确认）。
 
 ---
 
 ## 2. 日常发布与回滚
 
 发布只能手动触发并人工批准；主分支合并只产出不可变镜像 `sha-<7>`，禁止 `latest`。
+
+**唯一常规入口**：GitHub Actions `deploy`（§6.2）。下面的 SSH 命令仅用于 break-glass（workflow 不可用或紧急回滚），每次使用需在 `.scratch/mvp-release/release-runs/<date>.md` 记录原因、执行人、sha 与结果。
 
 ```bash
 # 发布（release 目录由 deploy.yml 准备）
@@ -277,9 +285,9 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 
 发布前人工检查：
 
-1. ACR 中 `yunhefc-backend:sha-<7>`、`yunhefc-nginx:sha-<7>`、`yunhefc-infra-kafka:3.7.2`、`yunhefc-infra-redis:6.2.24` 四个 manifest 都存在。
+1. ACR 中 `yunhefc-backend:sha-<7>`、`yunhefc-nginx:sha-<7>`、`yunhefc-infra-kafka:3.7.2`、`yunhefc-infra-redis:6.2.24` 四个 manifest 都存在（`release.sh` 会自动校验；手工检查仅用于提前确认）。
 2. `flyway migrate` 已成功，`flyway_schema_history` 为最新。
-3. RDS 控制台可见：自动备份开启、保留 7 天、binlog 开启、最近备份与 PITR 可恢复时间点覆盖回滚窗口；覆盖不了则推迟发布。
+3. RDS 自动备份 / binlog / PITR：按检查单 §10 #18 风险接受，不阻塞发布；如需恢复能力，发布前自行确认，不再作为推迟发布的理由。
 
 ---
 
@@ -424,7 +432,7 @@ COMMIT;
 | `45011`（频率限制） | 小程序侧调用过频；降低重试频率 |
 | 请求被拒绝、提示不在合法域名 | 小程序后台未登记 `www.<domain>`，或使用了裸域/HTTP |
 | 登录后立即 401 | 小程序端未维护 Cookie jar；`wx.request` 不自动回放 `Set-Cookie`，需手动回传 `Cookie` 头（见 `.scratch/miniprogram-login/spike.md`） |
-| 绑定手机号返回 `40101` | `bindTicket` 过期（10 分钟）或已使用；重新 `wx.login` 获取新票据 |
+| 绑定手机号返回 `40101` | `bindTicket` 过期（10 分钟）、已使用或绑手机失败已消耗；重新 `wx.login` 获取新票据 |
 
 小程序发布流程：微信开发者工具上传 → 小程序后台提交审核 → 审核通过后发布。后端镜像不包含小程序代码。
 
@@ -501,7 +509,7 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 
 ### 6.2 手动发布
 
-1. 发布前按 §1.3 用迁移账号执行 `flyway migrate`，并完成 §2 的发布前检查；workflow 不执行 SQL、不补迁移。
+1. 发布前按 §1.3 用迁移账号执行 `flyway migrate`，并完成 §2 的发布前检查；workflow 不执行 SQL、不补迁移。库落后时后端启动自检会让 readiness 失败，部署失败后先补迁移再重试。
 2. 合并到 main 后等待 `ci` 的 `e2e` 与 `images` 成功，记下该 commit 的 7 位 sha。
 3. `Actions → deploy → Run workflow`：填 `sha`（7 位小写十六进制）与可选 `note`。
 4. workflow 依次：校验 sha 格式与仓库变量 → 校验 commit 属于 `origin/main` → `docker manifest inspect` 校验双镜像 → 固定主机指纹 SSH → 把目标 commit 的 `deploy/` 快照（compose、nginx、bin、Dockerfile、RUNBOOK；不含 `.env`/`.env.*`）与 `release.env`（`IMAGE_TAG=sha-<7>`）写入 `/opt/yunhefc/releases/<sha7>/` → 执行 `release.sh --sha <sha7>`。

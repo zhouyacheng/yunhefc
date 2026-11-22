@@ -194,6 +194,12 @@ verify_images() {
         image_exists "$image" || die "镜像不存在: $image"
         log "镜像可用: $image"
     done
+    # 基础设施镜像由 CI mirror-infra 同步到 ACR（P-35 / RUNBOOK §2）。
+    for image in "$IMAGE_REGISTRY/yunhefc-infra-kafka:3.7.2" \
+            "$IMAGE_REGISTRY/yunhefc-infra-redis:6.2.24"; do
+        image_exists "$image" || die "基础设施镜像不存在: $image"
+        log "镜像可用: $image"
+    done
 }
 
 wait_ready() {
@@ -242,12 +248,7 @@ smoke() {
             || { log "冒烟失败: $path 期望 404，实际 $code"; return 1; }
     done
 
-    # 已删除的微信网页授权端点：未认证请求先被安全链拦为 401；若仍作为公开端点存在则为 200/302。
-    code="$(curl -sSk -o /dev/null -w '%{http_code}' --max-time "$SMOKE_TIMEOUT" \
-        --resolve "www.$resolve_www" "$www/api/v1/c/auth/wechat/authorize")"
-    [[ "$code" == "404" || "$code" == "401" ]] \
-        || { log "冒烟失败: /api/v1/c/auth/wechat/authorize 期望 404/401，实际 $code"; return 1; }
-
+    # 冒烟只断言每次发版都必须成立的不变量；一次性清理项不复验（06 §107）。
     # 小程序登录端点必须拒绝空 code（checklist §5.3）。
     local mini_code
     mini_code="$(curl -sSk -o /dev/null -w '%{http_code}' --max-time "$SMOKE_TIMEOUT" \

@@ -235,13 +235,18 @@ smoke() {
         || { log "冒烟失败: 公开读接口"; return 1; }
 
     local path code
-    for path in /actuator/env /actuator/beans /v3/api-docs /swagger-ui/index.html \
-                /api/v1/c/auth/wechat/authorize; do
+    for path in /actuator/env /actuator/beans /v3/api-docs /swagger-ui/index.html; do
         code="$(curl -sSk -o /dev/null -w '%{http_code}' --max-time "$SMOKE_TIMEOUT" \
             --resolve "www.$resolve_www" "$www$path")"
         [[ "$code" == "404" ]] \
             || { log "冒烟失败: $path 期望 404，实际 $code"; return 1; }
     done
+
+    # 已删除的微信网页授权端点：未认证请求先被安全链拦为 401；若仍作为公开端点存在则为 200/302。
+    code="$(curl -sSk -o /dev/null -w '%{http_code}' --max-time "$SMOKE_TIMEOUT" \
+        --resolve "www.$resolve_www" "$www/api/v1/c/auth/wechat/authorize")"
+    [[ "$code" == "404" || "$code" == "401" ]] \
+        || { log "冒烟失败: /api/v1/c/auth/wechat/authorize 期望 404/401，实际 $code"; return 1; }
 
     # 小程序登录端点必须拒绝空 code（checklist §5.3）。
     local mini_code

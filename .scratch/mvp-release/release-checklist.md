@@ -296,7 +296,7 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 - [ ] C 端 `/` 与 B 端 `/admin/` 登录成功，无重定向循环。— 旧三子域 B 端登录已验证（上传头像，`userId=1`）；同域切换后需重测 C/B
 - [ ] www 敏感端点 `/actuator/env`、`/actuator/beans`、`/v3/api-docs`、`/swagger-ui/**` 均 404（api 子域已取消）。— 待同域切换后重测
 - [x] 旧 api 子域敏感端点四项实测 404（历史证据）。— 同域切换后由上一项 www 口径覆盖
-- [ ] 小程序登录端点 `POST https://www.<domain>/api/v1/c/auth/mini/login` 对空 `code` 返回 400（业务码 40001），且 `/c/auth/wechat/**` 已不存在（404）。— 待新镜像上线后验证
+- [ ] 小程序登录端点 `POST https://www.<domain>/api/v1/c/auth/mini/login` 对空 `code` 返回 400（业务码 40001），且 `/c/auth/wechat/**` 已不存在。未认证请求先被安全链拦为 **401**（`anyRequest().authenticated()` 先于路由匹配）；已登录请求才应得到 404。
 
 ### 5.4 首位管理员 runbook
 

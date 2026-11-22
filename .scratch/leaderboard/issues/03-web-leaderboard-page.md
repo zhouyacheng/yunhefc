@@ -1,6 +1,6 @@
 # 03 Web C 端：C10 排行榜
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01, 02
 
 ## 目标

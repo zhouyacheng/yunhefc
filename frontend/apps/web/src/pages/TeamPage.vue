@@ -132,14 +132,19 @@ onMounted(() => {
         <p class="eyebrow">SQUAD</p>
         <h1>球队</h1>
       </div>
-      <label class="team-season">
-        <span>赛季</span>
-        <select aria-label="赛季" :value="season" @change="changeSeason">
-          <option v-for="option in seasonOptions" :key="option" :value="option">
-            {{ option }}
-          </option>
-        </select>
-      </label>
+      <div class="team-head__side">
+        <label class="team-season">
+          <span>赛季</span>
+          <select aria-label="赛季" :value="season" @change="changeSeason">
+            <option v-for="option in seasonOptions" :key="option" :value="option">
+              {{ option }}
+            </option>
+          </select>
+        </label>
+        <RouterLink class="ghost-link" :to="{ name: 'leaderboards', query: { season } }">
+          排行榜 →
+        </RouterLink>
+      </div>
     </header>
 
     <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>
@@ -212,6 +217,12 @@ onMounted(() => {
   gap: 12px 24px;
   align-items: flex-end;
   justify-content: space-between;
+}
+
+.team-head__side {
+  display: flex;
+  gap: 16px;
+  align-items: flex-end;
 }
 
 .team-season {

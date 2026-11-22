@@ -20,7 +20,7 @@ import { queuePercent, scoreText, statusTone, winnerSide } from '../features/mat
 import { useSessionStore } from '../stores/session';
 
 const FEATURES = [
-  { icon: '📈', title: '排行榜与身价', text: '年度出场、进球、助攻、胜率、缺勤与 AI 身价' },
+  { icon: '📈', title: 'AI 身价', text: '基于位置、出场、进球与助攻的身价模型' },
   { icon: '💰', title: '球队账本', text: '收入/支出分类，按月/年统计' },
   { icon: '📸', title: '动态与相册', text: '比赛照片、B 站视频、点赞留言' },
   { icon: '🗳️', title: '投票', text: '标题、图片选项、多选、截止时间' },

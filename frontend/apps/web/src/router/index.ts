@@ -48,6 +48,11 @@ export const router = createRouter({
         },
         { path: 'team', name: 'team', component: () => import('../pages/TeamPage.vue') },
         {
+          path: 'leaderboards',
+          name: 'leaderboards',
+          component: () => import('../pages/LeaderboardPage.vue'),
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('../pages/ProfilePage.vue'),

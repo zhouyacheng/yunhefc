@@ -7,6 +7,7 @@ export * from './chunk-reload';
 export * from './event';
 export * from './format';
 export * from './invite';
+export * from './leaderboard';
 export * from './lineup';
 export * from './match';
 export * from './notification';

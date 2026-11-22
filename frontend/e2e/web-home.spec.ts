@@ -23,6 +23,9 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
   );
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
   // 最近比赛取 Hero 之后的 3 场：1001、1003、1005。
+  // 排行榜已上线，二期能力只剩 AI 身价。
+  await expect(page.locator('.feature-card').filter({ hasText: 'AI 身价' })).toBeVisible();
+  await expect(page.locator('.feature-card').filter({ hasText: '排行榜与身价' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '最近比赛' })).toBeVisible();
   await expect(page.locator('.home-section .match-card')).toHaveCount(3);
   await expect(page.locator('.home-section .match-card-link[href="/matches/1006"]')).toHaveCount(0);

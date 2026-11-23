@@ -39,3 +39,6 @@ deploy/rc-acceptance-results.md
 .vscode/
 .DS_Store
 logs
+
+# 本地审查快照，不入库
+.scratch/review/

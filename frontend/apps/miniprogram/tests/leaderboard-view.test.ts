@@ -46,7 +46,7 @@ describe('榜单 Tab', () => {
 });
 
 describe('行视图', () => {
-  it('预计算名次、号码、位置、头像回落与当前榜文案', () => {
+  it('预计算名次、头像回落与当前榜文案', () => {
     const rows = buildLeaderboardRows(
       [
         entry({

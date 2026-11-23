@@ -28,6 +28,7 @@ frontend/apps/miniprogram/
         ├── match-detail/        # 比赛详情（C03 四 Tab：概览/事件/阵容/分组）
         ├── login/               # wx.login → AUTH-20
         ├── phone-bind/          # 手机号 + 短信 → AUTH-21
+        ├── leaderboard/         # 排行榜（MP09：单行五列表格）
         └── spike/               # Phase 0 会话实验页，仅用于真机验证
 ```
 

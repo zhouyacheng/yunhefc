@@ -184,12 +184,12 @@
   font-weight: 800;
 }
 
-/* 必须位于三个具体样式之后，靠 source order 覆盖颜色与字重。 */
-.lb-stat--zero {
+.lb-stat--current.lb-stat--zero,
+.lb-stat--history.lb-stat--zero,
+.lb-stat--career.lb-stat--zero {
   color: var(--yh-muted);
   font-weight: 500;
 }
-
 
 .lb-note {
   display: block;

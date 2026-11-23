@@ -298,7 +298,13 @@ test('C10 排行榜：生涯累计窗口隐藏累计固定列', async ({ page })
   await expect(page.locator('.lb-stat--career')).toHaveCount(0);
   await expect(page.locator('.lb-stat--history')).toHaveCount(0);
 
-  await page.getByLabel('赛季筛选').selectOption(CURRENT);
+  const select = page.getByLabel('赛季筛选');
+  await expect(select).toHaveValue('');
+  await expect(select.locator('option', { hasText: '生涯累计' })).toHaveCount(0);
+  await expect(select.locator('option', { hasText: '请选择赛季' })).toBeDisabled();
+
+  await select.selectOption(CURRENT);
+  await expect(page).toHaveURL(/\/leaderboards$/);
   await expect(page.locator('.lb-stat--career')).toHaveCount(5);
   await expect(page.locator('.lb-stat--history')).toHaveCount(5);
 

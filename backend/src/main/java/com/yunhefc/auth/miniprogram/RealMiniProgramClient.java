@@ -44,19 +44,20 @@ public class RealMiniProgramClient implements MiniProgramClient {
             node = body == null || body.isBlank() ? null : objectMapper.readTree(body);
         } catch (Exception ex) {
             log.warn("mini program code2session response parse failed", ex);
-            node = null;
+            throw new MiniProgramException(MiniProgramException.Reason.PROVIDER_ERROR);
         }
         if (node == null || node.isNull()) {
-            log.warn("mini program code2session response parse failed");
+            log.warn("mini program code2session response empty");
             throw new MiniProgramException(MiniProgramException.Reason.PROVIDER_ERROR);
         }
         // 只取 openid；session_key 与 unionid 不读取、不保存、不记录。
         if (node.hasNonNull("openid") && !node.get("openid").asText().isBlank()) {
+            log.debug("mini program code2session ok");
             return new WechatSession(node.get("openid").asText());
         }
         int errcode = node.path("errcode").asInt(0);
-        String errmsg = node.path("errmsg").asText("");
-        log.warn("mini program code2session rejected, errcode={}, errmsg={}", errcode, errmsg);
+        // errmsg 可能回显请求细节，只保留 errcode 用于定位（logging-rules §2.6）。
+        log.warn("mini program code2session rejected, errcode={}", errcode);
         if (errcode == 40029 || errcode == 40163) {
             throw new MiniProgramException(MiniProgramException.Reason.INVALID_CODE);
         }

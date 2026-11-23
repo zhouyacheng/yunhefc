@@ -30,10 +30,10 @@ function firstValue(raw: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
 }
 
-/** 非法或缺失回退默认进球榜。 */
+/** 非法或缺失回退默认出场榜。 */
 export function parseLeaderboardBoard(raw: unknown): LeaderboardBoardKey {
   const value = firstValue(raw);
-  return BOARD_KEY_SET.has(value) ? (value as LeaderboardBoardKey) : 'goals';
+  return BOARD_KEY_SET.has(value) ? (value as LeaderboardBoardKey) : 'appearances';
 }
 
 /** 仅精确匹配 all 时进入生涯累计。 */
@@ -59,7 +59,7 @@ export function serializeLeaderboardQuery(
 ): Record<string, string> {
   const result: Record<string, string> =
     query.scope === 'all' ? { scope: 'all' } : serializeTeamSeason(query.season, now);
-  if (query.board !== 'goals') {
+  if (query.board !== 'appearances') {
     result.board = query.board;
   }
   return result;

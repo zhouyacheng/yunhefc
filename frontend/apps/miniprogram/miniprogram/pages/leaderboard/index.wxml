@@ -1,0 +1,69 @@
+<view class="container leaderboard-page">
+  <view class="page-head lb-head">
+    <view>
+      <text class="page-head__eyebrow">LEADERBOARD</text>
+      <view class="page-head__title">排行榜</view>
+      <text wx:if="{{summary}}" class="muted">{{summary}}</text>
+    </view>
+    <view class="lb-window">
+      <text class="lb-window__label">赛季</text>
+      <picker
+        mode="selector"
+        range="{{windows}}"
+        range-key="label"
+        value="{{windowIndex}}"
+        bindchange="onWindowChange"
+      >
+        <view class="lb-window__select">{{windows[windowIndex].label}} ▾</view>
+      </picker>
+    </view>
+  </view>
+
+  <view class="lb-tabs">
+    <view
+      wx:for="{{boards}}"
+      wx:key="key"
+      class="lb-tab {{boardKey === item.key ? 'lb-tab--active' : ''}}"
+      data-key="{{item.key}}"
+      bindtap="onBoardChange"
+    >{{item.label}}</view>
+  </view>
+
+  <view wx:if="{{loading}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
+
+  <view wx:elif="{{error}}" class="state">
+    <text class="muted">{{error}}</text>
+    <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+  </view>
+
+  <van-empty wx:elif="{{rows.length === 0}}" description="当前窗口暂无符合条件的球员" />
+
+  <view wx:else class="lb-list">
+    <view class="lb-row" wx:for="{{rows}}" wx:key="playerId">
+      <text class="lb-rank {{index === 0 ? 'lb-rank--top' : ''}}">{{item.rank}}</text>
+      <image
+        wx:if="{{item.avatarUrl}}"
+        class="lb-avatar"
+        src="{{item.avatarUrl}}"
+        mode="aspectFill"
+        data-id="{{item.playerId}}"
+        binderror="onAvatarError"
+      />
+      <text wx:else class="lb-avatar lb-avatar--fallback">{{item.initial}}</text>
+      <view class="lb-info">
+        <text class="lb-name">{{item.name}}</text>
+        <text class="lb-meta">{{item.jerseyText}} · {{item.positionText}}</text>
+      </view>
+      <view class="lb-value">
+        <text class="lb-main">{{item.mainText}}</text>
+        <text class="lb-detail">{{item.secondaryText}}</text>
+      </view>
+    </view>
+  </view>
+
+  <text class="lb-note">
+    出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有分组归属的场次；并列采用标准竞赛排名（1、1、3）。
+  </text>
+</view>

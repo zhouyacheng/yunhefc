@@ -1,6 +1,6 @@
 # 04 小程序：MP09 排行榜
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01, 02
 
 ## 目标

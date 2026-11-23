@@ -12,6 +12,8 @@ import type {
   EventTimeline,
   EventUpdate,
   GroupingView,
+  Leaderboard,
+  LeaderboardScope,
   LineupView,
   MatchDetail,
   MatchEvent,
@@ -340,4 +342,18 @@ export async function listTeamPlayers(query: TeamPlayersQuery = {}): Promise<Pla
 /** STA-01 赛季统计；缺省当前年份。 */
 export function fetchTeamStats(season?: string): Promise<TeamStats> {
   return request<TeamStats>('GET', `/team/stats${queryString({ season })}`);
+}
+
+export interface LeaderboardsQuery {
+  season?: string;
+  scope?: LeaderboardScope;
+}
+
+/** STA-03 排行榜；生涯累计忽略并省略 season。 */
+export function fetchLeaderboards(query: LeaderboardsQuery = {}): Promise<Leaderboard> {
+  const season = query.scope === 'all' ? undefined : query.season;
+  return request<Leaderboard>(
+    'GET',
+    `/team/leaderboards${queryString({ season, scope: query.scope })}`,
+  );
 }

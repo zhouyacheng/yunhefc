@@ -1,0 +1,150 @@
+.lb-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24rpx 48rpx;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.lb-window {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-left: auto;
+  color: var(--yh-muted);
+  font-size: 24rpx;
+  font-weight: 600;
+}
+
+.lb-window__select {
+  display: inline-flex;
+  align-items: center;
+  min-height: 68rpx;
+  white-space: nowrap;
+  padding: 12rpx 18rpx;
+  color: var(--yh-ink);
+  font-size: 26rpx;
+  background: var(--yh-surface);
+  border: 1rpx solid var(--yh-line);
+  border-radius: 18rpx;
+}
+
+.lb-tabs {
+  display: flex;
+  gap: 8rpx;
+  margin: 32rpx 0 28rpx;
+  overflow-x: auto;
+  white-space: nowrap;
+  border-bottom: 2rpx solid var(--yh-line);
+}
+
+.lb-tab {
+  flex: 0 0 auto;
+  min-height: 80rpx;
+  padding: 20rpx 28rpx;
+  color: var(--yh-muted);
+  font-size: 28rpx;
+  font-weight: 600;
+  text-align: center;
+  border-bottom: 4rpx solid transparent;
+}
+
+.lb-tab--active {
+  color: var(--yh-ink);
+  font-weight: 700;
+  border-bottom-color: var(--yh-green);
+}
+
+.lb-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx;
+  background: var(--yh-surface);
+  border: 1rpx solid var(--yh-line);
+  border-radius: var(--yh-radius-sm);
+  box-shadow: var(--yh-shadow-sm);
+}
+
+.lb-rank {
+  flex: none;
+  width: 56rpx;
+  color: var(--yh-muted);
+  font-size: 36rpx;
+  font-weight: 800;
+  text-align: center;
+}
+
+.lb-rank--top {
+  color: var(--yh-gold);
+}
+
+.lb-avatar {
+  flex: none;
+  width: 72rpx;
+  height: 72rpx;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--yh-slate-soft);
+}
+
+.lb-avatar--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--yh-green);
+  font-size: 28rpx;
+  font-weight: 800;
+}
+
+.lb-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4rpx;
+  min-width: 0;
+}
+
+.lb-name {
+  overflow: hidden;
+  font-size: 30rpx;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-meta,
+.lb-detail {
+  display: block;
+  color: var(--yh-muted);
+  font-size: 22rpx;
+}
+
+.lb-value {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 2rpx;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.lb-main {
+  font-size: 34rpx;
+  font-weight: 800;
+}
+
+.lb-note {
+  display: block;
+  margin-top: 36rpx;
+  color: var(--yh-muted);
+  font-size: 24rpx;
+  line-height: 1.7;
+}

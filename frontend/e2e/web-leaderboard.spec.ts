@@ -162,7 +162,7 @@ const activeTab = (page: Page) => page.locator('.detail-tab--active');
 const names = (page: Page) => page.locator('.lb-name');
 const ranks = (page: Page) => page.locator('.lb-rank');
 
-test('C10 排行榜：访客默认进球榜、7 榜切换不重新请求', async ({ page }) => {
+test('C10 排行榜：访客默认出场榜、7 榜切换不重新请求', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const requests = await mockLeaderboard(page);
   await mockSeasons(page);
@@ -175,15 +175,15 @@ test('C10 排行榜：访客默认进球榜、7 榜切换不重新请求', async
 
   const tabs = page.locator('.detail-tab');
   await expect(tabs).toHaveText(['出场', '进球', '助攻', '场均进球', '场均助攻', '胜率', '乌龙']);
-  await expect(activeTab(page)).toHaveText('进球');
+  await expect(activeTab(page)).toHaveText('出场');
 
   await expect(page.locator('.lb-row')).toHaveCount(5);
-  // 进球并列按助攻定序；同为 2 球时出场多者在前。
-  await expect(names(page)).toHaveText(['排行乙', '排行甲', '排行丙', '排行戊', '排行丁']);
-  await expect(ranks(page)).toHaveText(['1', '1', '3', '4', '4']);
+  // 出场降序；零出场球员仍保留在计数榜。
+  await expect(names(page)).toHaveText(['排行甲', '排行乙', '排行丙', '排行戊', '排行丁']);
+  await expect(ranks(page)).toHaveText(['1', '2', '3', '4', '5']);
   expect(requests).toHaveLength(1);
 
-  for (const label of ['出场', '助攻', '场均进球', '场均助攻', '胜率', '乌龙', '进球']) {
+  for (const label of ['进球', '助攻', '场均进球', '场均助攻', '胜率', '乌龙', '出场']) {
     await board(page, label).click();
     await expect(activeTab(page)).toHaveText(label);
   }
@@ -256,7 +256,7 @@ test('C10 排行榜：直链恢复与非法参数静默回退', async ({ page })
 
   await page.goto('/leaderboards?season=26&scope=career&board=shirt');
   await expect(page.getByLabel('赛季或生涯累计')).toHaveValue(CURRENT);
-  await expect(activeTab(page)).toHaveText('进球');
+  await expect(activeTab(page)).toHaveText('出场');
   await expect(page.locator('.lb-row')).toHaveCount(5);
   expect(requests.at(-1)?.get('season')).toBe(CURRENT);
   expect(requests.at(-1)?.get('scope')).toBe('season');

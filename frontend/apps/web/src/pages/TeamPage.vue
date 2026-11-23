@@ -221,7 +221,8 @@ onMounted(() => {
 
 .team-head__side {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
   align-items: flex-end;
 }
 
@@ -235,7 +236,6 @@ onMounted(() => {
 }
 
 .team-season select {
-  min-width: 132px;
   min-height: 34px;
   padding: 6px 9px;
   color: var(--yh-ink);

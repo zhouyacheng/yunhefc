@@ -4,11 +4,14 @@
       <text class="page-head__eyebrow">SQUAD</text>
       <view class="page-head__title">球队</view>
     </view>
-    <view class="team-season">
-      <text class="team-season__label">赛季</text>
-      <picker mode="selector" range="{{seasons}}" value="{{seasonIndex}}" bindchange="onSeasonChange">
-        <view class="team-season__select">{{seasons[seasonIndex] || '—'}} ▾</view>
-      </picker>
+    <view class="team-head__side">
+      <view class="team-season">
+        <text class="team-season__label">赛季</text>
+        <picker mode="selector" range="{{seasons}}" value="{{seasonIndex}}" bindchange="onSeasonChange">
+          <view class="team-season__select">{{seasons[seasonIndex] || '—'}} ▾</view>
+        </picker>
+      </view>
+      <view class="team-head__link" bindtap="openLeaderboard">排行榜 →</view>
     </view>
   </view>
 

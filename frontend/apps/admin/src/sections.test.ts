@@ -8,7 +8,7 @@ describe('ADMIN_NAV_GROUPS', () => {
     expect(
       ADMIN_NAV_GROUPS.map((group) => ({ label: group.label, sections: [...group.sections] })),
     ).toEqual([
-      { label: '运营', sections: ['matches', 'registrations', 'events'] },
+      { label: '运营', sections: ['matches', 'registrations', 'events', 'activities', 'ledger'] },
       { label: '战术', sections: ['lineup', 'grouping'] },
       { label: '球队', sections: ['players', 'roles'] },
       { label: '系统', sections: ['invites', 'settings', 'audit'] },

@@ -328,6 +328,8 @@ public class AuthService implements UserAccessPort {
         addSection(sections, permissions, "settings", "settings:view:any");
         addSection(sections, permissions, "audit", "audit:view:any");
         addSection(sections, permissions, "invites", "invite:manage:any");
+        addSection(sections, permissions, "activities", "activity:manage:any");
+        addSection(sections, permissions, "ledger", "ledger:view:any");
         return sections;
     }
 

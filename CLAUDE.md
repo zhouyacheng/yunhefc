@@ -34,12 +34,12 @@
 - **技术栈固定**：Java 21、Spring Boot 3.5.x、MyBatis-Plus、Flyway、MySQL 8.4、Redis 6.2.24、Kafka 3.7.2（单节点 KRaft）、Quartz JDBC、Vue 3 + Vite + TypeScript、C 端 Vant、B 端 Element Plus、Docker Compose + Nginx。
 - **文件存储**：统一使用阿里云 OSS；开发、测试、生产同一 OSS，私有 Bucket + 签名 URL。
 - **数据库约定**：
-  - 枚举字段 `TINYINT UNSIGNED`，`COMMENT` 写数字与枚举映射；27 张业务表带表级中文 `COMMENT`，所有字段带中文 `COMMENT`。
-  - 27 张业务表均有 `is_deleted`（0-未删除；1-伪删除）；查询默认过滤 `is_deleted=0`。
+  - 枚举字段 `TINYINT UNSIGNED`，`COMMENT` 写数字与枚举映射；31 张业务表带表级中文 `COMMENT`，所有字段带中文 `COMMENT`。
+  - 31 张业务表均有 `is_deleted`（0-未删除；1-伪删除）；查询默认过滤 `is_deleted=0`。
   - `registration.active` 为 0/1（1-有效；0-无效）；`active_unique` 承担唯一键。
   - 业务表 0 物理外键；Quartz 11 表、5 个框架外键为官方例外。
   - **永不使用 `CHECK`**：数据库永久禁用任何 `CHECK`/`chk_` 约束；枚举、范围与跨字段规则全部由应用层强校验（04 §8.1）。
-  - 伪删除不释放唯一键；现有 60 条业务索引保留（P-74 V13 新增 `uk_user_mp_openid`；旧 `openid` 删除后回到 59），不重复建可覆盖索引。
+  - 伪删除不释放唯一键；现有 72 条业务索引保留（P-74 V13 新增 `uk_user_mp_openid`，P-92 V16 新增 12 条；V15 删除旧 `openid` 唯一键后回到 71），不重复建可覆盖索引。
 - **API 约定**：
   - 路径 `/api/v1/c/**`（C 端）、`/api/v1/b/**`（B 端）；统一 envelope，成功 `code=0`。
   - HTTP 状态码表达类别；body 返回 `code/message/data/requestId`。

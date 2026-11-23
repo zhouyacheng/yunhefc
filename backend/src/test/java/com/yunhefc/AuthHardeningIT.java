@@ -59,6 +59,30 @@ class AuthHardeningIT extends IntegrationTestSupport {
     }
 
     @Test
+    void backendSectionsExposeActivitiesAndLedger() throws Exception {
+        Cookie admin = adminLogin("13900000120");
+        mockMvc.perform(get("/api/v1/b/me").cookie(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sections[?(@ == 'activities')]").exists())
+                .andExpect(jsonPath("$.data.sections[?(@ == 'ledger')]").exists());
+
+        Long playerUserId = insertActiveUser("13900000121", "Passw0rd!");
+        assignRole(playerUserId, "PLAYER");
+        MvcResult login = mockMvc.perform(post("/api/v1/b/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"phone":"13900000121","password":"Passw0rd!"}
+                                """))
+                .andExpect(status().isOk())
+                .andReturn();
+        mockMvc.perform(get("/api/v1/b/me").cookie(cookie(login, "YHFC_B")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.sections[?(@ == 'activities')]").doesNotExist())
+                .andExpect(jsonPath("$.data.sections[?(@ == 'ledger')]").exists());
+    }
+
+    @Test
     void passwordResetAllowsLoginWithNewPassword() throws Exception {
         String phone = "13900000993";
         jdbc.update("INSERT INTO app_user (phone, password_hash, status) VALUES (?, ?, 1)",

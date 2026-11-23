@@ -112,6 +112,9 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
    - `V12__restore_user_phone_not_null.sql`：清理无手机号账号及相关数据，恢复 `app_user.phone NOT NULL`。
    - `V13__add_user_mp_openid.sql`：新增 `app_user.mp_openid` 与 `uk_user_mp_openid`；旧 `openid` 保留只读（P-74）。
    - `V14__leaderboard_stats.sql`：`player_stats_summary` 新增 `internal_appearances`、`internal_wins`、`own_goals`，仅加列不建索引（P-84）。
+   - `V15`：保持空号，等待 `openid` 清理单独批准。
+   - `V16__team_activity_ledger.sql`：新增 `team_activity`、`activity_signup`、`ledger_category`、`team_ledger_entry` 四表与索引，并补 `notification.type` 列注释 12/13（P-92、P-99）。
+   - `V17__seed_activity_ledger.sql`：新增 5 个活动/账本权限码与角色授权，写入 7 个内置账本分类（P-92）。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。

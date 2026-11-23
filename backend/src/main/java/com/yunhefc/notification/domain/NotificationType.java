@@ -16,7 +16,9 @@ public enum NotificationType implements CodedEnum {
     MATCH_CANCELLED(8),
     ROLE_CHANGED(9),
     ACCOUNT_APPROVED(10),
-    ACCOUNT_DISABLED(11);
+    ACCOUNT_DISABLED(11),
+    ACTIVITY_CREATED(12),
+    ACTIVITY_CANCELLED(13);
 
     @EnumValue
     private final int code;

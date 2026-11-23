@@ -9,6 +9,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.common.util.ImageSniffer;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -18,12 +19,12 @@ class AvatarImageTest {
 
     @Test
     void acceptsJpegPngAndWebpHeader() {
-        assertThat(AvatarImage.validate(JPEG)).isEqualTo(AvatarImage.Format.JPEG);
+        assertThat(AvatarImage.validate(JPEG)).isEqualTo(ImageSniffer.Format.JPEG);
         assertThat(AvatarImage.validate(JPEG).extension()).isEqualTo("jpg");
         assertThat(AvatarImage.validate(JPEG).contentType()).isEqualTo("image/jpeg");
-        assertThat(AvatarImage.validate(PNG)).isEqualTo(AvatarImage.Format.PNG);
+        assertThat(AvatarImage.validate(PNG)).isEqualTo(ImageSniffer.Format.PNG);
         assertThat(AvatarImage.validate(PNG).extension()).isEqualTo("png");
-        assertThat(AvatarImage.validate(WEBP)).isEqualTo(AvatarImage.Format.WEBP);
+        assertThat(AvatarImage.validate(WEBP)).isEqualTo(ImageSniffer.Format.WEBP);
         assertThat(AvatarImage.validate(WEBP).extension()).isEqualTo("webp");
     }
 
@@ -44,7 +45,7 @@ class AvatarImageTest {
     void acceptsExactlyTwoMebibytes() {
         byte[] content = new byte[(int) AvatarImage.MAX_BYTES];
         System.arraycopy(JPEG, 0, content, 0, JPEG.length);
-        assertThat(AvatarImage.validate(content)).isEqualTo(AvatarImage.Format.JPEG);
+        assertThat(AvatarImage.validate(content)).isEqualTo(ImageSniffer.Format.JPEG);
     }
 
     @Test

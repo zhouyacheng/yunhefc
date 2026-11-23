@@ -6,6 +6,7 @@ import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.security.AuthPrincipal;
+import com.yunhefc.common.util.ImageSniffer;
 import com.yunhefc.infra.storage.OssGateway;
 import com.yunhefc.player.domain.AvatarImage;
 import com.yunhefc.player.domain.Player;
@@ -49,7 +50,7 @@ public class AvatarUploadApplicationService {
 
     private AvatarUploadView store(Long userId, MultipartFile file) {
         byte[] content = read(file);
-        AvatarImage.Format format = AvatarImage.validate(content);
+        ImageSniffer.Format format = AvatarImage.validate(content);
         String objectKey = "avatar/" + userId + "/" + Ulid.generate() + "." + format.extension();
         try {
             ossGateway.putObject(objectKey, content, format.contentType());

@@ -240,7 +240,7 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/bootstrap-admin
 ```
 
 4. 校验：
-   - 末尾 `admin_permissions` = **28**；
+   - 末尾 `admin_permissions` = **33**；
    - `https://www.<domain>/admin/` 用该手机号/密码登录成功；
    - C 端 `/c/me` 返回的 `player` 非空；
    - 登录后立即走 C 端「忘记密码」短信重置（AUTH-06）把初始口令换成个人口令，确认新口令可登录，并从运维记录中删除初始口令。

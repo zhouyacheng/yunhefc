@@ -16,7 +16,8 @@ class ArchitectureTest {
 
     private static final String[] BUSINESS_DOMAINS = {
             "auth", "player", "match", "registration", "attendance", "event", "lineup",
-            "grouping", "notification", "audit", "settings", "query", "stats"
+            "grouping", "notification", "audit", "settings", "query", "stats",
+            "activity", "ledger"
     };
 
     @ArchTest
@@ -30,6 +31,12 @@ class ArchitectureTest {
             noClasses().that().resideInAnyPackage("com.yunhefc.common..", "com.yunhefc.contracts..")
                     .should().dependOnClassesThat().resideInAnyPackage(domainPackages())
                     .because("common/contracts 是横切基础包，不能反向依赖业务域");
+
+    @ArchTest
+    static final ArchRule domainLayerMustNotDependOnInfrastructure =
+            noClasses().that().resideInAPackage("com.yunhefc..domain..")
+                    .should().dependOnClassesThat().resideInAPackage("com.yunhefc.infra..")
+                    .because("依赖方向 controller → application → domain；领域层不得反向依赖 infra 实现");
 
     @ArchTest
     static void domainsMustNotAccessOtherDomainInfrastructure(JavaClasses classes) {

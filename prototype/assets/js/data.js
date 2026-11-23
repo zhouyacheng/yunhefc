@@ -544,11 +544,16 @@
     { code: 'settings:view:any', label: '查看系统设置', group: '球员/权限' },
     { code: 'settings:manage:any', label: '管理系统设置', group: '球员/权限' },
     { code: 'invite:create:match', label: '创建比赛邀请', group: '邀请' },
-    { code: 'invite:manage:any', label: '管理邀请', group: '邀请' }
+    { code: 'invite:manage:any', label: '管理邀请', group: '邀请' },
+    { code: 'activity:signup:own', label: '报名/取消本人活动报名', group: '活动' },
+    { code: 'activity:view:any', label: '查看活动报名名单', group: '活动' },
+    { code: 'activity:manage:any', label: '管理活动', group: '活动' },
+    { code: 'ledger:view:any', label: '查看账本', group: '账本' },
+    { code: 'ledger:manage:any', label: '维护账本', group: '账本' }
   ];
 
   const guestPermissions = ['player:edit:own', 'registration:create:own', 'attendance:checkin:own'];
-  const playerPermissions = guestPermissions.concat(['attendance:view:any', 'lineup:view:any', 'grouping:view:any', 'event:create:own', 'event:edit:own', 'invite:create:match']);
+  const playerPermissions = guestPermissions.concat(['attendance:view:any', 'lineup:view:any', 'grouping:view:any', 'event:create:own', 'event:edit:own', 'invite:create:match', 'activity:signup:own', 'activity:view:any', 'ledger:view:any']);
 
   const roles = [
     { code: 'GUEST', name: '外挂球员', isDefault: true, permissions: guestPermissions },

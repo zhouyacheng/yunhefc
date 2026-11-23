@@ -9,6 +9,7 @@ import java.util.Set;
 public final class BackendPermissions {
 
     private static final Set<String> C_ONLY = Set.of(
+            "activity:signup:own",
             "attendance:checkin:own",
             "event:create:own",
             "event:edit:own",

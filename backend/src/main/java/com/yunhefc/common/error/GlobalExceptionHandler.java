@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest()
                 .body(ApiResponse.error(ErrorCode.VALIDATION_FAILED.code(),
                         ErrorCode.VALIDATION_FAILED.message(),
-                        Map.of("details", Map.of("file", "图片不能超过 2MB"))));
+                        Map.of("details", Map.of("file", "文件超过上传上限"))));
     }
 
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)

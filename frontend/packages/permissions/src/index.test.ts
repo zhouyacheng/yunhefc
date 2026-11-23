@@ -11,9 +11,9 @@ import {
 } from './index';
 
 describe('permission catalogue', () => {
-  it('exposes the 28 permission codes from 05 §5.1', () => {
-    expect(ALL_PERMISSIONS).toHaveLength(28);
-    expect(new Set(ALL_PERMISSIONS).size).toBe(28);
+  it('exposes the 33 permission codes from 05 §5.1', () => {
+    expect(ALL_PERMISSIONS).toHaveLength(33);
+    expect(new Set(ALL_PERMISSIONS).size).toBe(33);
     expect(ALL_PERMISSIONS).toContain('attendance:checkin:own');
     expect(ALL_PERMISSIONS).toContain('user:approve:any');
   });
@@ -55,7 +55,7 @@ describe('hasPermission', () => {
 
 describe('admin sections', () => {
   it('defines every backend section and maps it to 05 §5.1', () => {
-    expect(ADMIN_SECTIONS).toHaveLength(10);
+    expect(ADMIN_SECTIONS).toHaveLength(12);
     expect(ADMIN_SECTIONS).not.toContain('dashboard');
     expect(Object.keys(ADMIN_SECTION_PERMISSIONS)).toEqual([...ADMIN_SECTIONS]);
     expect(ADMIN_SECTION_PERMISSIONS.matches).toEqual(['match:view:any']);
@@ -68,6 +68,8 @@ describe('admin sections', () => {
     expect(ADMIN_SECTION_PERMISSIONS.settings).toEqual(['settings:view:any']);
     expect(ADMIN_SECTION_PERMISSIONS.audit).toEqual(['audit:view:any']);
     expect(ADMIN_SECTION_PERMISSIONS.invites).toEqual(['invite:manage:any']);
+    expect(ADMIN_SECTION_PERMISSIONS.activities).toEqual(['activity:manage:any']);
+    expect(ADMIN_SECTION_PERMISSIONS.ledger).toEqual(['ledger:view:any']);
   });
 
   it('checks the section permission for every section', () => {
@@ -77,6 +79,8 @@ describe('admin sections', () => {
 
   it('separates backend permissions from C-only permissions', () => {
     expect(hasBackendPermission(['registration:create:own'])).toBe(false);
+    expect(hasBackendPermission(['activity:signup:own'])).toBe(false);
+    expect(hasBackendPermission(['activity:view:any'])).toBe(true);
     expect(hasBackendPermission(['match:view:any'])).toBe(true);
     expect(hasBackendPermission([])).toBe(false);
   });

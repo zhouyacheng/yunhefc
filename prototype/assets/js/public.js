@@ -1003,7 +1003,7 @@ render();
         </div>
         <div class="tabs">${boards.map((item) => `<button class="tab${item.key === boardKey ? ' active' : ''}" data-board="${item.key}">${item.label}</button>`).join('')}</div>
         ${rows.length ? `<div class="table-wrap"><table class="data-table">
-          <thead><tr><th>名次</th><th>球员</th><th>${mainHeader}</th>${scope === 'season' ? '<th>历史累计</th><th>生涯累计</th>' : ''}</tr></thead>
+          <thead><tr><th aria-hidden="true"></th><th>球员</th><th>${mainHeader}</th>${scope === 'season' ? '<th>历史累计</th><th>生涯累计</th>' : ''}</tr></thead>
           <tbody>${rows.map(({ entry, rank }) => `<tr>
             <td>${rank}</td>
             <td><b>${esc(entry.player.name)}</b></td>

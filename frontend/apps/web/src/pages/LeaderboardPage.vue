@@ -308,7 +308,7 @@ onMounted(() => {
 .lb-row {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto;
-  column-gap: 12px;
+  column-gap: 20px;
   align-items: center;
 }
 
@@ -323,6 +323,7 @@ onMounted(() => {
 
 .lb-head-rank {
   text-align: center;
+  visibility: hidden;
 }
 
 .lb-head-stats,

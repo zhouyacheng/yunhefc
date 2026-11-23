@@ -868,13 +868,13 @@ render();
     let scope = params.get('scope') === 'all' ? 'all' : 'season';
     let season = /^\d{4}$/.test(requested) ? requested : currentSeason;
     const boards = [
-      { key: 'appearances', label: '出场', main: (e) => e.appearances, secondary: (e) => e.goals, value: (e) => `${e.appearances} 场`, sub: (e) => `进球 ${e.goals} · 助攻 ${e.assists}`, eligible: () => true },
-      { key: 'goals', label: '进球', main: (e) => e.goals, secondary: (e) => e.assists, value: (e) => `${e.goals} 球`, sub: (e) => `助攻 ${e.assists} · 出场 ${e.appearances}`, eligible: () => true },
-      { key: 'assists', label: '助攻', main: (e) => e.assists, secondary: (e) => e.goals, value: (e) => `${e.assists} 助`, sub: (e) => `进球 ${e.goals} · 出场 ${e.appearances}`, eligible: () => true },
-      { key: 'goalsPerMatch', label: '场均进球', main: (e) => (e.appearances ? e.goals / e.appearances : -1), secondary: (e) => e.goals, value: (e) => (e.appearances ? (e.goals / e.appearances).toFixed(2) : '—'), sub: (e) => `进球 ${e.goals} / 出场 ${e.appearances}`, eligible: (e) => e.appearances > 0 },
-      { key: 'assistsPerMatch', label: '场均助攻', main: (e) => (e.appearances ? e.assists / e.appearances : -1), secondary: (e) => e.assists, value: (e) => (e.appearances ? (e.assists / e.appearances).toFixed(2) : '—'), sub: (e) => `助攻 ${e.assists} / 出场 ${e.appearances}`, eligible: (e) => e.appearances > 0 },
-      { key: 'winRate', label: '胜率', main: (e) => (e.internalAppearances ? e.internalWins / e.internalAppearances : -1), secondary: (e) => e.internalWins, value: (e) => (e.internalAppearances ? `${((e.internalWins / e.internalAppearances) * 100).toFixed(1)}%` : '—'), sub: (e) => `队内赛 ${e.internalWins} 胜 / ${e.internalAppearances} 场`, eligible: (e) => e.internalAppearances > 0 },
-      { key: 'ownGoals', label: '乌龙', main: (e) => e.ownGoals, secondary: (e) => e.appearances, value: (e) => `${e.ownGoals} 乌龙`, sub: (e) => `出场 ${e.appearances}`, eligible: () => true }
+      { key: 'appearances', label: '出场', main: (e) => e.appearances, secondary: (e) => e.goals, value: (e) => `${e.appearances}`, eligible: () => true },
+      { key: 'goals', label: '进球', main: (e) => e.goals, secondary: (e) => e.assists, value: (e) => `${e.goals}`, eligible: () => true },
+      { key: 'assists', label: '助攻', main: (e) => e.assists, secondary: (e) => e.goals, value: (e) => `${e.assists}`, eligible: () => true },
+      { key: 'goalsPerMatch', label: '场均进球', main: (e) => (e.appearances ? e.goals / e.appearances : -1), secondary: (e) => e.goals, value: (e) => (e.appearances ? (e.goals / e.appearances).toFixed(2) : '0.00'), eligible: (e) => e.appearances > 0 },
+      { key: 'assistsPerMatch', label: '场均助攻', main: (e) => (e.appearances ? e.assists / e.appearances : -1), secondary: (e) => e.assists, value: (e) => (e.appearances ? (e.assists / e.appearances).toFixed(2) : '0.00'), eligible: (e) => e.appearances > 0 },
+      { key: 'winRate', label: '胜率', main: (e) => (e.internalAppearances ? e.internalWins / e.internalAppearances : -1), secondary: (e) => e.internalWins, value: (e) => (e.internalAppearances ? `${((e.internalWins / e.internalAppearances) * 100).toFixed(1)}%` : '—'), eligible: (e) => e.internalAppearances > 0 },
+      { key: 'ownGoals', label: '乌龙', main: (e) => e.ownGoals, secondary: (e) => e.appearances, value: (e) => `${e.ownGoals}`, eligible: () => true }
     ];
     let boardKey = boards.some((item) => item.key === params.get('board')) ? params.get('board') : 'appearances';
 
@@ -887,16 +887,15 @@ render();
       return Array.from(seasons).sort().reverse();
     }
 
-    function statsFor(player) {
-      const row = ((Y.state.teamSeasonStats || {})[season] || {})[player.id];
-      const base = row || (season === currentSeason
+    function statsForSeason(player, seasonKey) {
+      const row = ((Y.state.teamSeasonStats || {})[seasonKey] || {})[player.id];
+      const base = row || (seasonKey === currentSeason
         ? { appearances: player.appearances, goals: player.goals, assists: player.assists }
         : { appearances: 0, goals: 0, assists: 0 });
       const appearances = Number(base.appearances) || 0;
       const internalAppearances = Math.round(appearances * 0.6);
       const rate = Math.min(0.85, Math.max(0.2, (Number(player.skill) || 3) / 6));
       return {
-        player,
         appearances,
         goals: Number(base.goals) || 0,
         assists: Number(base.assists) || 0,
@@ -905,6 +904,52 @@ render();
         internalWins: Math.round(internalAppearances * rate)
       };
     }
+
+    function statsFor(player) {
+      const selected = statsForSeason(player, season);
+      const current = statsForSeason(player, currentSeason);
+      const history = historyFor(player);
+      const career = {
+        appearances: history.appearances + current.appearances,
+        goals: history.goals + current.goals,
+        assists: history.assists + current.assists,
+        ownGoals: history.ownGoals + current.ownGoals,
+        internalAppearances: history.internalAppearances + current.internalAppearances,
+        internalWins: history.internalWins + current.internalWins
+      };
+      return {
+        player,
+        ...(scope === 'all' ? career : selected),
+        career,
+        history
+      };
+    }
+
+    function historyFor(player) {
+      const store = Y.state.teamSeasonStats || {};
+      const totals = {
+        appearances: 0,
+        goals: 0,
+        assists: 0,
+        ownGoals: 0,
+        internalAppearances: 0,
+        internalWins: 0
+      };
+      Object.keys(store)
+        .filter((item) => /^\d{4}$/.test(item) && Number(item) < Number(currentSeason))
+        .forEach((item) => {
+          if (!store[item][player.id]) return;
+          const stats = statsForSeason(player, item);
+          totals.appearances += stats.appearances;
+          totals.goals += stats.goals;
+          totals.assists += stats.assists;
+          totals.ownGoals += stats.ownGoals;
+          totals.internalAppearances += stats.internalAppearances;
+          totals.internalWins += stats.internalWins;
+        });
+      return totals;
+    }
+
 
     function ranked(board) {
       const sorted = formal.map(statsFor).filter(board.eligible).sort((a, b) =>
@@ -941,6 +986,9 @@ render();
     function render() {
       const board = boards.find((item) => item.key === boardKey);
       const rows = ranked(board);
+      const mainHeader = scope === 'all'
+        ? '生涯累计'
+        : (season === currentSeason ? '当前赛季' : `${season} 赛季`);
       host.innerHTML = `<div class="container section">
         <div class="page-head">
           <div><span class="eyebrow">LEADERBOARD</span><h1>排行榜</h1><p class="muted">${formal.length} 名正式球员 · ${scope === 'all' ? '生涯累计' : season + ' 赛季'} · 最多延迟 1 分钟</p></div>
@@ -955,15 +1003,15 @@ render();
         </div>
         <div class="tabs">${boards.map((item) => `<button class="tab${item.key === boardKey ? ' active' : ''}" data-board="${item.key}">${item.label}</button>`).join('')}</div>
         ${rows.length ? `<div class="table-wrap"><table class="data-table">
-          <thead><tr><th>名次</th><th>球员</th><th>${board.label}</th><th>明细</th></tr></thead>
+          <thead><tr><th aria-hidden="true"></th><th>球员</th><th>${mainHeader}</th>${scope === 'season' ? '<th>历史累计</th><th>生涯累计</th>' : ''}</tr></thead>
           <tbody>${rows.map(({ entry, rank }) => `<tr>
             <td>${rank}</td>
-            <td><b>${esc(entry.player.name)}</b> <span class="muted">#${entry.player.jersey} · ${Y.positionLabel(entry.player.position)}</span></td>
+            <td><b>${esc(entry.player.name)}</b></td>
             <td><b>${board.value(entry)}</b></td>
-            <td class="muted">${board.sub(entry)}</td>
+            ${scope === 'season' ? `<td><b>${board.value(entry.history)}</b></td><td><b>${board.value(entry.career)}</b></td>` : ''}
           </tr>`).join('')}</tbody>
         </table></div>` : '<div class="empty-state"><p>当前窗口暂无符合条件的球员</p></div>'}
-        <p class="muted small">出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有已保存分组归属的场次；并列用标准竞赛排名（1、1、3）。原型数据为演示值。</p>
+        <p class="muted small">出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有已保存分组归属的场次；并列用标准竞赛排名（1、1、3）。生涯累计=当前赛季+历史累计；历史累计为早于当前年份的所有赛季汇总，不含当前赛季；三组均只显示当前榜单主指标；生涯累计窗口下两组均隐藏。原型数据为演示值。</p>
       </div>`;
       $$('[data-board]', host).forEach((button) => {
         button.addEventListener('click', () => {

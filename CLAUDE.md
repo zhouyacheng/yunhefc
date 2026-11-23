@@ -2,11 +2,11 @@
 
 ## 0. 当前阶段
 
-- **设计冻结**：需求 v1.35；设计文档 01 v0.25、02 v0.62、03 v1.33、04 v0.30、05 v0.57、06 v2.05。
-- **评审通过**：P-01~P-84 已确认；设计成果不再主动变更。
-- **代码状态**：MVP 功能已全部实现。`backend/` 单部署单元覆盖 M01–M11 与横切支撑（认证/RBAC/邀请/Redis 会话/Outbox/Kafka、球员档案与球队页、比赛与状态机、报名/候补/递补、考勤与签到、事件与比分、阵容、分组、通知 NTF-01~04 + 7 类触发 + 90 天物理删除、审计查询与年度导出、系统设置、OSS 上传与签名读、真实短信、微信小程序登录（AUTH-20/21）、prod 配置 fail-fast 与保留任务）；`frontend/` pnpm workspace 覆盖 C 端 C01–C09（C10 排行榜已设计、待实施）与 B 端 B02–B11（B01 已下线），含 api-client/permissions/shared 与 Vitest + Playwright；`frontend/apps/miniprogram` 为微信小程序端（P-74~P-82，登录、首页（对齐 C01，含管理后台票据入口）、比赛（对齐 C02）、球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）、我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全）、资料编辑、比赛详情（对齐 C03：报名/取消/候补递补、签到、名单考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改）、排行榜（MP09，已设计待实施），进行中）；`deploy/`（Docker Compose、Nginx、Dockerfile、RUNBOOK）与 `.github/workflows/ci.yml`、`deploy.yml` 已建立。
+- **设计冻结**：需求 v1.36；设计文档 01 v0.26、02 v0.64、03 v1.33、04 v0.31、05 v0.58、06 v2.07。
+- **评审通过**：P-01~P-86 已确认；设计成果不再主动变更。
+- **代码状态**：MVP 功能已全部实现。`backend/` 单部署单元覆盖 M01–M11 与横切支撑（认证/RBAC/邀请/Redis 会话/Outbox/Kafka、球员档案与球队页、比赛与状态机、报名/候补/递补、考勤与签到、事件与比分、阵容、分组、通知 NTF-01~04 + 7 类触发 + 90 天物理删除、审计查询与年度导出、系统设置、OSS 上传与签名读、真实短信、微信小程序登录（AUTH-20/21）、prod 配置 fail-fast 与保留任务）；`frontend/` pnpm workspace 覆盖 C 端 C01–C10（含排行榜历史累计固定列）与 B 端 B02–B11（B01 已下线），含 api-client/permissions/shared 与 Vitest + Playwright；`frontend/apps/miniprogram` 为微信小程序端（P-74~P-82，登录、首页（对齐 C01，含管理后台票据入口）、比赛（对齐 C02）、球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）、我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全）、资料编辑、比赛详情（对齐 C03：报名/取消/候补递补、签到、名单考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改）、排行榜（MP09，含生涯与历史累计固定列），进行中）；`deploy/`（Docker Compose、Nginx、Dockerfile、RUNBOOK）与 `.github/workflows/ci.yml`、`deploy.yml` 已建立。
 - **原型定位**：`prototype/` 仅演示交互与信息架构，不是生产代码；正式实现以设计文档为准。
-- **下一步**：`.scratch/` 下既有实施票已关闭；小程序 P-75/P-76/P-77 已人工验收，P-78/P-79/P-80/P-81 处于实施与验收阶段；完成 P-78/P-79/P-80/P-81 开发者工具/真机验收后，先完成 qua→main PR 与生产部署（解除旧镜像登录问题），再进入生产 RC 验收——按 `.scratch/mvp-release/release-checklist.md` 与 `scripts/rc-acceptance-wizard.sh` 执行，先确认 cutover 窗口、外部凭证与验收证据口径；新的功能批次需先明确终点与范围再出票。排行榜（P-84）后端 STA-03 与 Flyway V14 已实施，Web C10 与小程序 MP09 待按 `.scratch/leaderboard/` 继续。
+- **下一步**：`.scratch/` 下既有实施票已关闭；小程序 P-75/P-76/P-77 已人工验收，P-78/P-79/P-80/P-81 处于实施与验收阶段；完成 P-78/P-79/P-80/P-81 开发者工具/真机验收后，先完成 qua→main PR 与生产部署（解除旧镜像登录问题），再进入生产 RC 验收——按 `.scratch/mvp-release/release-checklist.md` 与 `scripts/rc-acceptance-wizard.sh` 执行，先确认 cutover 窗口、外部凭证与验收证据口径；新的功能批次需先明确终点与范围再出票。排行榜（P-84/P-85/P-86）后端 STA-03、生涯与历史累计固定列、Web C10（含隐藏名次表头标签）与小程序 MP09 已实施，待开发者工具/真机验收。
 
 ## 1. 唯一事实源
 

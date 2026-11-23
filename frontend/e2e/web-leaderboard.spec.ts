@@ -2,6 +2,19 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { collectConsoleErrors } from './support';
 
+/** STA-03 累计口径（与 packages/shared LeaderboardTotals 字段一致）。 */
+interface LeaderboardTotals {
+  appearances: number;
+  goals: number;
+  assists: number;
+  ownGoals: number;
+  internalAppearances: number;
+  internalWins: number;
+  winRate: number | null;
+  goalsPerMatch: number;
+  assistsPerMatch: number;
+}
+
 /** STA-03 列表项（与 packages/shared LeaderboardEntry 字段一致）。 */
 interface LeaderboardEntry {
   playerId: number;
@@ -18,6 +31,8 @@ interface LeaderboardEntry {
   winRate: number | null;
   goalsPerMatch: number;
   assistsPerMatch: number;
+  career: LeaderboardTotals | null;
+  history: LeaderboardTotals | null;
 }
 
 function currentShanghaiSeason(): string {
@@ -25,6 +40,30 @@ function currentShanghaiSeason(): string {
 }
 
 const CURRENT = currentShanghaiSeason();
+
+const BASE_HISTORY: LeaderboardTotals = {
+  appearances: 20,
+  goals: 10,
+  assists: 6,
+  ownGoals: 2,
+  internalAppearances: 10,
+  internalWins: 6,
+  winRate: 60,
+  goalsPerMatch: 0.5,
+  assistsPerMatch: 0.3,
+};
+
+const BASE_CAREER: LeaderboardTotals = {
+  appearances: 30,
+  goals: 15,
+  assists: 9,
+  ownGoals: 3,
+  internalAppearances: 15,
+  internalWins: 10,
+  winRate: 66.7,
+  goalsPerMatch: 0.5,
+  assistsPerMatch: 0.3,
+};
 
 const BASE_ENTRIES: LeaderboardEntry[] = [
   {
@@ -42,6 +81,8 @@ const BASE_ENTRIES: LeaderboardEntry[] = [
     winRate: 66.7,
     goalsPerMatch: 0.5,
     assistsPerMatch: 0.1,
+    career: BASE_CAREER,
+    history: BASE_HISTORY,
   },
   {
     playerId: 12,
@@ -58,6 +99,8 @@ const BASE_ENTRIES: LeaderboardEntry[] = [
     winRate: 50,
     goalsPerMatch: 0.63,
     assistsPerMatch: 0.38,
+    career: BASE_CAREER,
+    history: BASE_HISTORY,
   },
   {
     playerId: 13,
@@ -74,6 +117,8 @@ const BASE_ENTRIES: LeaderboardEntry[] = [
     winRate: 66.7,
     goalsPerMatch: 0.67,
     assistsPerMatch: 0.33,
+    career: BASE_CAREER,
+    history: BASE_HISTORY,
   },
   {
     playerId: 14,
@@ -90,6 +135,8 @@ const BASE_ENTRIES: LeaderboardEntry[] = [
     winRate: null,
     goalsPerMatch: 0,
     assistsPerMatch: 0,
+    career: BASE_CAREER,
+    history: BASE_HISTORY,
   },
   {
     playerId: 15,
@@ -106,6 +153,8 @@ const BASE_ENTRIES: LeaderboardEntry[] = [
     winRate: 40,
     goalsPerMatch: 0.4,
     assistsPerMatch: 0.4,
+    career: BASE_CAREER,
+    history: BASE_HISTORY,
   },
 ];
 
@@ -127,7 +176,11 @@ async function mockLeaderboard(page: Page): Promise<URLSearchParams[]> {
       const season = scope === 'all' ? null : (params.get('season') ?? CURRENT);
       const items =
         scope === 'all'
-          ? patchEntries(13, { assists: 6 })
+          ? patchEntries(13, { assists: 6 }).map((entry) => ({
+              ...entry,
+              career: null,
+              history: null,
+            }))
           : season === '2025'
             ? patchEntries(11, { goals: 8, goalsPerMatch: 0.8 })
             : BASE_ENTRIES;
@@ -193,6 +246,51 @@ test('C10 排行榜：访客默认出场榜、7 榜切换不重新请求', async
   expect(errors).toEqual([]);
 });
 
+test('C10 排行榜：三组数据只展示当前榜单主指标', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const requests = await mockLeaderboard(page);
+  await mockSeasons(page);
+
+  await page.goto('/leaderboards');
+  await expect(page.locator('.lb-row')).toHaveCount(5);
+  await expect(page.locator('.lb-head-stat')).toHaveText(['当前赛季', '历史累计', '生涯累计']);
+  await expect(page.locator('.lb-stat--career')).toHaveCount(5);
+  await expect(page.locator('.lb-stat--history')).toHaveCount(5);
+
+  const firstRow = page.locator('.lb-row').filter({ hasText: '排行甲' });
+  await expect(firstRow.locator('.lb-stat--current .lb-stat-value')).toHaveText('10');
+  await expect(firstRow.locator('.lb-stat--career .lb-stat-value')).toHaveText('30');
+  await expect(firstRow.locator('.lb-stat--history .lb-stat-value')).toHaveText('20');
+
+  // 切到进球榜后三组都只显示进球数，且不重新请求。
+  await board(page, '进球').click();
+  const firstRowAfter = page.locator('.lb-row').filter({ hasText: '排行甲' });
+  await expect(firstRowAfter.locator('.lb-stat--current .lb-stat-value')).toHaveText('5');
+  await expect(firstRowAfter.locator('.lb-stat--career .lb-stat-value')).toHaveText('15');
+  await expect(firstRowAfter.locator('.lb-stat--history .lb-stat-value')).toHaveText('10');
+  expect(requests).toHaveLength(1);
+
+  expect(errors).toEqual([]);
+});
+
+test('C10 排行榜：生涯累计窗口隐藏累计固定列', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await mockLeaderboard(page);
+  await mockSeasons(page);
+
+  await page.goto('/leaderboards?scope=all');
+  await expect(page.locator('.lb-row')).toHaveCount(5);
+  await expect(page.locator('.lb-head-stat')).toHaveText(['生涯累计']);
+  await expect(page.locator('.lb-stat--career')).toHaveCount(0);
+  await expect(page.locator('.lb-stat--history')).toHaveCount(0);
+
+  await page.getByLabel('赛季或生涯累计').selectOption(CURRENT);
+  await expect(page.locator('.lb-stat--career')).toHaveCount(5);
+  await expect(page.locator('.lb-stat--history')).toHaveCount(5);
+
+  expect(errors).toEqual([]);
+});
+
 test('C10 排行榜：赛季与生涯切换写入 URL 并按窗口重新请求', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const requests = await mockLeaderboard(page);
@@ -205,6 +303,7 @@ test('C10 排行榜：赛季与生涯切换写入 URL 并按窗口重新请求',
   await select.selectOption('2025');
   await expect(page).toHaveURL(/\/leaderboards\?season=2025$/);
   await expect(names(page).first()).toHaveText('排行甲');
+  await expect(page.locator('.lb-head-stat--current')).toHaveText('2025 赛季');
   expect(requests).toHaveLength(2);
   expect(requests[1]?.get('season')).toBe('2025');
   expect(requests[1]?.get('scope')).toBe('season');
@@ -235,7 +334,7 @@ test('C10 排行榜：胜率榜排除零分母并展示口径说明', async ({ p
   await expect(activeTab(page)).toHaveText('胜率');
   await expect(names(page)).toHaveText(['排行丙', '排行甲', '排行乙', '排行戊']);
   await expect(ranks(page)).toHaveText(['1', '1', '3', '4']);
-  const mainValues = page.locator('.lb-main');
+  const mainValues = page.locator('.lb-stat--current .lb-stat-value');
   await expect(mainValues.nth(0)).toHaveText('66.7%');
   await expect(mainValues.nth(1)).toHaveText('66.7%');
   await expect(page.getByText('排行丁')).toHaveCount(0);

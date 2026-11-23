@@ -40,25 +40,47 @@
 
   <van-empty wx:elif="{{rows.length === 0}}" description="当前窗口暂无符合条件的球员" />
 
-  <view wx:else class="lb-list">
-    <view class="lb-row" wx:for="{{rows}}" wx:key="playerId">
-      <text class="lb-rank {{index === 0 ? 'lb-rank--top' : ''}}">{{item.rank}}</text>
-      <image
-        wx:if="{{item.avatarUrl}}"
-        class="lb-avatar"
-        src="{{item.avatarUrl}}"
-        mode="aspectFill"
-        data-id="{{item.playerId}}"
-        binderror="onAvatarError"
-      />
-      <text wx:else class="lb-avatar lb-avatar--fallback">{{item.initial}}</text>
-      <view class="lb-info">
-        <text class="lb-name">{{item.name}}</text>
-        <text class="lb-meta">{{item.jerseyText}} · {{item.positionText}}</text>
-      </view>
-      <view class="lb-value">
-        <text class="lb-main">{{item.mainText}}</text>
-        <text class="lb-detail">{{item.secondaryText}}</text>
+  <view wx:else class="lb-board">
+    <view class="lb-board-head {{hasTotals ? '' : 'lb-board-head--single'}}">
+      <text class="lb-head-stat">{{mainLabel}}</text>
+      <text wx:if="{{hasTotals}}" class="lb-head-stat">历史累计</text>
+      <text wx:if="{{hasTotals}}" class="lb-head-stat">生涯累计</text>
+    </view>
+
+    <view class="lb-list">
+      <view class="lb-row" wx:for="{{rows}}" wx:key="playerId">
+        <view class="lb-main-row">
+          <text class="lb-rank {{index === 0 ? 'lb-rank--top' : ''}}">{{item.rank}}</text>
+          <image
+            wx:if="{{item.avatarUrl}}"
+            class="lb-avatar"
+            src="{{item.avatarUrl}}"
+            mode="aspectFill"
+            data-id="{{item.playerId}}"
+            binderror="onAvatarError"
+          />
+          <text wx:else class="lb-avatar lb-avatar--fallback">{{item.initial}}</text>
+          <view class="lb-info">
+            <text class="lb-name">{{item.name}}</text>
+          </view>
+        </view>
+
+        <view class="lb-stats {{hasTotals ? '' : 'lb-stats--single'}}">
+          <text
+            class="lb-stat lb-stat--current {{item.currentZero ? 'lb-stat--zero' : ''}}"
+            aria-label="{{mainLabel}} {{item.currentText}}"
+          >{{item.currentText}}</text>
+          <text
+            wx:if="{{hasTotals}}"
+            class="lb-stat lb-stat--history {{item.historyZero ? 'lb-stat--zero' : ''}}"
+            aria-label="历史累计 {{item.historyText}}"
+          >{{item.historyText}}</text>
+          <text
+            wx:if="{{hasTotals}}"
+            class="lb-stat lb-stat--career {{item.careerZero ? 'lb-stat--zero' : ''}}"
+            aria-label="生涯累计 {{item.careerText}}"
+          >{{item.careerText}}</text>
+        </view>
       </view>
     </view>
   </view>

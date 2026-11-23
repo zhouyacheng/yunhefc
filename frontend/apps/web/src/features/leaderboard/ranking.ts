@@ -1,4 +1,4 @@
-import type { LeaderboardEntry } from '@yunhefc/shared';
+import type { LeaderboardEntry, LeaderboardTotals } from '@yunhefc/shared';
 
 import type { LeaderboardBoardKey } from './query';
 
@@ -11,8 +11,7 @@ export interface LeaderboardBoard {
   key: LeaderboardBoardKey;
   label: string;
   eligible: (entry: LeaderboardEntry) => boolean;
-  mainText: (entry: LeaderboardEntry) => string;
-  secondaryText: (entry: LeaderboardEntry) => string;
+  mainText: (totals: LeaderboardTotals) => string;
 }
 
 interface BoardDef extends LeaderboardBoard {
@@ -31,8 +30,7 @@ function integerBoard(
   label: string,
   main: (entry: LeaderboardEntry) => number,
   secondary: ((entry: LeaderboardEntry) => number)[],
-  mainText: (entry: LeaderboardEntry) => string,
-  secondaryText: (entry: LeaderboardEntry) => string,
+  mainText: (totals: LeaderboardTotals) => string,
 ): BoardDef {
   return {
     key,
@@ -42,7 +40,6 @@ function integerBoard(
     sameMain: (a, b) => main(a) === main(b),
     secondary,
     mainText,
-    secondaryText,
   };
 }
 
@@ -52,8 +49,7 @@ function ratioBoard(
   numerator: (entry: LeaderboardEntry) => number,
   denominator: (entry: LeaderboardEntry) => number,
   secondary: ((entry: LeaderboardEntry) => number)[],
-  mainText: (entry: LeaderboardEntry) => string,
-  secondaryText: (entry: LeaderboardEntry) => string,
+  mainText: (totals: LeaderboardTotals) => string,
 ): BoardDef {
   // 交叉相乘比较原始分数，避免两位小数展示值影响排序与并列判定。
   const cross = (a: LeaderboardEntry, b: LeaderboardEntry): number =>
@@ -66,12 +62,11 @@ function ratioBoard(
     sameMain: (a, b) => cross(a, b) === 0,
     secondary,
     mainText,
-    secondaryText,
   };
 }
 
-const percent = (entry: LeaderboardEntry): string =>
-  entry.winRate === null ? '—' : `${entry.winRate.toFixed(1)}%`;
+const percent = (totals: LeaderboardTotals): string =>
+  totals.winRate === null ? '—' : `${totals.winRate.toFixed(1)}%`;
 
 /** 榜单顺序即 02 §5.11 的 Tab 顺序；默认出场榜。 */
 export const LEADERBOARD_BOARDS: readonly BoardDef[] = [
@@ -80,24 +75,21 @@ export const LEADERBOARD_BOARDS: readonly BoardDef[] = [
     '出场',
     (entry) => entry.appearances,
     [(entry) => entry.goals, (entry) => entry.assists],
-    (entry) => `${entry.appearances} 场`,
-    (entry) => `进球 ${entry.goals} · 助攻 ${entry.assists}`,
+    (totals) => `${totals.appearances}`,
   ),
   integerBoard(
     'goals',
     '进球',
     (entry) => entry.goals,
     [(entry) => entry.assists, (entry) => entry.appearances],
-    (entry) => `${entry.goals} 球`,
-    (entry) => `助攻 ${entry.assists} · 出场 ${entry.appearances}`,
+    (totals) => `${totals.goals}`,
   ),
   integerBoard(
     'assists',
     '助攻',
     (entry) => entry.assists,
     [(entry) => entry.goals, (entry) => entry.appearances],
-    (entry) => `${entry.assists} 助`,
-    (entry) => `进球 ${entry.goals} · 出场 ${entry.appearances}`,
+    (totals) => `${totals.assists}`,
   ),
   ratioBoard(
     'goalsPerMatch',
@@ -105,8 +97,7 @@ export const LEADERBOARD_BOARDS: readonly BoardDef[] = [
     (entry) => entry.goals,
     (entry) => entry.appearances,
     [(entry) => entry.goals],
-    (entry) => entry.goalsPerMatch.toFixed(2),
-    (entry) => `进球 ${entry.goals} / 出场 ${entry.appearances}`,
+    (totals) => totals.goalsPerMatch.toFixed(2),
   ),
   ratioBoard(
     'assistsPerMatch',
@@ -114,8 +105,7 @@ export const LEADERBOARD_BOARDS: readonly BoardDef[] = [
     (entry) => entry.assists,
     (entry) => entry.appearances,
     [(entry) => entry.assists],
-    (entry) => entry.assistsPerMatch.toFixed(2),
-    (entry) => `助攻 ${entry.assists} / 出场 ${entry.appearances}`,
+    (totals) => totals.assistsPerMatch.toFixed(2),
   ),
   ratioBoard(
     'winRate',
@@ -124,15 +114,13 @@ export const LEADERBOARD_BOARDS: readonly BoardDef[] = [
     (entry) => entry.internalAppearances,
     [(entry) => entry.internalWins],
     percent,
-    (entry) => `队内赛 ${entry.internalWins} 胜 / ${entry.internalAppearances} 场`,
   ),
   integerBoard(
     'ownGoals',
     '乌龙',
     (entry) => entry.ownGoals,
     [(entry) => entry.appearances],
-    (entry) => `${entry.ownGoals} 乌龙`,
-    (entry) => `出场 ${entry.appearances}`,
+    (totals) => `${totals.ownGoals}`,
   ),
 ];
 

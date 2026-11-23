@@ -56,7 +56,106 @@ class LeaderboardIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.items[1].appearances").value(0))
                 .andExpect(jsonPath("$.data.items[1].winRate").value(nullValue()))
                 .andExpect(jsonPath("$.data.items[1].goalsPerMatch").value(0.0))
-                .andExpect(jsonPath("$.data.items[1].assistsPerMatch").value(0.0));
+                .andExpect(jsonPath("$.data.items[1].assistsPerMatch").value(0.0))
+                .andExpect(jsonPath("$.data.items[1].history.appearances").value(0))
+                .andExpect(jsonPath("$.data.items[1].history.winRate").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[1].history.goalsPerMatch").value(0.0));
+    }
+
+    @Test
+    void historyExcludesFutureSeasonsAndZeroFillsMissingPlayers() throws Exception {
+        int current = Integer.parseInt(season());
+        String future = String.valueOf(current + 1);
+        Long noHistory = formalPlayer("13900007032", "排行无历史", 12, 2);
+        Long onlyFuture = formalPlayer("13900007033", "排行未来", 13, 2);
+        Long onlyCurrent = formalPlayer("13900007034", "排行仅当年", 14, 2);
+        Long malformedSeason = formalPlayer("13900007036", "排行非法赛季", 16, 2);
+        insertStats(onlyFuture, future, 9, 9, 9, 9, 9, 9);
+        insertStats(onlyCurrent, season(), 4, 3, 2, 1, 4, 3);
+        insertStats(malformedSeason, "202", 9, 9, 9, 9, 9, 9);
+
+        mockMvc.perform(get("/api/v1/c/team/leaderboards"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].playerId").value(noHistory))
+                .andExpect(jsonPath("$.data.items[0].history.appearances").value(0))
+                .andExpect(jsonPath("$.data.items[1].playerId").value(onlyFuture))
+                .andExpect(jsonPath("$.data.items[1].history.appearances").value(0))
+                .andExpect(jsonPath("$.data.items[1].history.goals").value(0))
+                .andExpect(jsonPath("$.data.items[1].history.internalWins").value(0))
+                .andExpect(jsonPath("$.data.items[1].history.winRate").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[1].career.appearances").value(0))
+                .andExpect(jsonPath("$.data.items[1].career.goals").value(0))
+                .andExpect(jsonPath("$.data.items[2].playerId").value(onlyCurrent))
+                .andExpect(jsonPath("$.data.items[2].history.appearances").value(0))
+                .andExpect(jsonPath("$.data.items[2].history.goals").value(0))
+                .andExpect(jsonPath("$.data.items[2].history.assistsPerMatch").value(0.0))
+                .andExpect(jsonPath("$.data.items[3].playerId").value(malformedSeason))
+                .andExpect(jsonPath("$.data.items[3].history.appearances").value(0))
+                .andExpect(jsonPath("$.data.items[3].history.goals").value(0))
+                .andExpect(jsonPath("$.data.items[3].career.appearances").value(0))
+                .andExpect(jsonPath("$.data.items[3].career.goals").value(0));
+    }
+
+    @Test
+    void careerScopeReturnsNullHistory() throws Exception {
+        int current = Integer.parseInt(season());
+        Long player = formalPlayer("13900007035", "排行生涯无历史列", 15, 2);
+        insertStats(player, season(), 2, 1, 0, 0, 2, 1);
+        insertStats(player, String.valueOf(current - 1), 3, 2, 1, 0, 3, 2);
+
+        mockMvc.perform(get("/api/v1/c/team/leaderboards").param("scope", "all"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.season").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[0].appearances").value(5))
+                .andExpect(jsonPath("$.data.items[0].goals").value(3))
+                .andExpect(jsonPath("$.data.items[0].history").value(nullValue()))
+                .andExpect(jsonPath("$.data.items[0].career").value(nullValue()));
+    }
+
+    @Test
+    void seasonScopeIncludesFixedHistoryExcludingCurrentSeason() throws Exception {
+        int current = Integer.parseInt(season());
+        String previous = String.valueOf(current - 1);
+        String beforePrevious = String.valueOf(current - 2);
+        Long player = formalPlayer("13900007031", "排行历史", 11, 2);
+        insertStats(player, season(), 4, 3, 2, 1, 4, 3);
+        insertStats(player, previous, 2, 1, 0, 0, 2, 1);
+        insertStats(player, beforePrevious, 3, 2, 1, 0, 3, 2);
+
+        mockMvc.perform(get("/api/v1/c/team/leaderboards"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].appearances").value(4))
+                .andExpect(jsonPath("$.data.items[0].goals").value(3))
+                .andExpect(jsonPath("$.data.items[0].history.appearances").value(5))
+                .andExpect(jsonPath("$.data.items[0].history.goals").value(3))
+                .andExpect(jsonPath("$.data.items[0].history.assists").value(1))
+                .andExpect(jsonPath("$.data.items[0].history.ownGoals").value(0))
+                .andExpect(jsonPath("$.data.items[0].history.internalAppearances").value(5))
+                .andExpect(jsonPath("$.data.items[0].history.internalWins").value(3))
+                .andExpect(jsonPath("$.data.items[0].history.winRate").value(60.0))
+                .andExpect(jsonPath("$.data.items[0].history.goalsPerMatch").value(0.6))
+                .andExpect(jsonPath("$.data.items[0].history.assistsPerMatch").value(0.2))
+                .andExpect(jsonPath("$.data.items[0].career.appearances").value(9))
+                .andExpect(jsonPath("$.data.items[0].career.goals").value(6))
+                .andExpect(jsonPath("$.data.items[0].career.assists").value(3))
+                .andExpect(jsonPath("$.data.items[0].career.ownGoals").value(1))
+                .andExpect(jsonPath("$.data.items[0].career.internalAppearances").value(9))
+                .andExpect(jsonPath("$.data.items[0].career.internalWins").value(6))
+                .andExpect(jsonPath("$.data.items[0].career.winRate").value(66.7))
+                .andExpect(jsonPath("$.data.items[0].career.goalsPerMatch").value(0.67))
+                .andExpect(jsonPath("$.data.items[0].career.assistsPerMatch").value(0.33));
+
+        // 查看历史赛季时主指标跟随所选赛季，历史累计固定为早于当前年的合计。
+        mockMvc.perform(get("/api/v1/c/team/leaderboards").param("season", beforePrevious))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].appearances").value(3))
+                .andExpect(jsonPath("$.data.items[0].goals").value(2))
+                .andExpect(jsonPath("$.data.items[0].winRate").value(66.7))
+                .andExpect(jsonPath("$.data.items[0].history.appearances").value(5))
+                .andExpect(jsonPath("$.data.items[0].history.goals").value(3))
+                .andExpect(jsonPath("$.data.items[0].history.winRate").value(60.0))
+                .andExpect(jsonPath("$.data.items[0].career.appearances").value(9))
+                .andExpect(jsonPath("$.data.items[0].career.goals").value(6));
     }
 
     @Test

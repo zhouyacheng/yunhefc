@@ -24,6 +24,8 @@ const base: LeaderboardEntry = {
   winRate: null,
   goalsPerMatch: 0,
   assistsPerMatch: 0,
+  career: null,
+  history: null,
 };
 
 function entry(patch: Partial<LeaderboardEntry>): LeaderboardEntry {
@@ -199,17 +201,9 @@ describe('展示文案', () => {
     );
     expect(leaderboardBoard('winRate').mainText(entry({ winRate: 66.7 }))).toBe('66.7%');
     expect(leaderboardBoard('winRate').mainText(entry({ winRate: null }))).toBe('—');
-    expect(leaderboardBoard('ownGoals').mainText(entry({ ownGoals: 0 }))).toBe('0 乌龙');
+    expect(leaderboardBoard('ownGoals').mainText(entry({ ownGoals: 0 }))).toBe('0');
   });
 
-  it('副指标文案', () => {
-    expect(
-      leaderboardBoard('winRate').secondaryText(entry({ internalWins: 4, internalAppearances: 6 })),
-    ).toBe('队内赛 4 胜 / 6 场');
-    expect(leaderboardBoard('goals').secondaryText(entry({ assists: 3, appearances: 8 }))).toBe(
-      '助攻 3 · 出场 8',
-    );
-  });
 });
 
 describe('行视图', () => {
@@ -241,17 +235,12 @@ describe('行视图', () => {
       playerId: 1,
       rank: 1,
       name: '张三',
-      jerseyText: '#7',
-      positionText: '前锋',
       avatarUrl: 'https://cdn.example.com/a.png',
       initial: '张',
-      mainText: '2 球',
-      secondaryText: '助攻 1 · 出场 0',
+      currentText: '2',
     });
     expect(rows[1]).toMatchObject({
       playerId: 2,
-      jerseyText: '#—',
-      positionText: '门将',
       avatarUrl: '',
       initial: '李',
     });
@@ -259,5 +248,57 @@ describe('行视图', () => {
 
   it('空名单返回空行', () => {
     expect(buildLeaderboardRows([], 'goals')).toEqual([]);
+  });
+
+  it('生涯与历史累计只展示当前榜单主指标，无累计返回 null', () => {
+    const history = {
+      appearances: 12,
+      goals: 5,
+      assists: 3,
+      ownGoals: 1,
+      internalAppearances: 6,
+      internalWins: 4,
+      winRate: 66.7,
+      goalsPerMatch: 0.42,
+      assistsPerMatch: 0.25,
+    };
+    const rows = buildLeaderboardRows(
+      [
+        entry({
+          playerId: 1,
+          career: { ...history, appearances: 15, goals: 6 },
+          history,
+        }),
+        entry({ playerId: 2, name: '无累计', career: null, history: null }),
+      ],
+      'appearances',
+    );
+
+    expect(rows[0].careerText).toBe('15');
+    expect(rows[0].historyText).toBe('12');
+    expect(rows[1].careerText).toBeNull();
+    expect(rows[1].historyText).toBeNull();
+  });
+
+  it('切换榜单时累计展示当前榜单主指标', () => {
+    const history = {
+      appearances: 12,
+      goals: 5,
+      assists: 3,
+      ownGoals: 1,
+      internalAppearances: 6,
+      internalWins: 4,
+      winRate: null,
+      goalsPerMatch: 0,
+      assistsPerMatch: 0,
+    };
+    const entries = [entry({ playerId: 1, career: history, history })];
+    const appearances = buildLeaderboardRows(entries, 'appearances');
+    const goals = buildLeaderboardRows(entries, 'goals');
+
+    expect(appearances[0].careerText).toBe('12');
+    expect(goals[0].careerText).toBe('5');
+    expect(appearances[0].historyText).toBe('12');
+    expect(goals[0].historyText).toBe('5');
   });
 });

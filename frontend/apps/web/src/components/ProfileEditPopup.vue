@@ -182,7 +182,10 @@ async function onFileChange(event: Event): Promise<void> {
       return;
     }
     avatarObjectKey.value = uploaded.objectKey;
-    avatarPreview.value = uploaded.signedUrl;
+    // mock OSS 返回 mock://，浏览器无法渲染；不可显示时保留本地预览。
+    if (isDisplayableAvatarUrl(uploaded.signedUrl)) {
+      avatarPreview.value = uploaded.signedUrl;
+    }
     previewBroken.value = false;
   } catch {
     if (uploadSeq !== avatarUploadSeq) {

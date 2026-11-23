@@ -197,8 +197,9 @@ Page({
     this.setData({ uploading: true, error: '' });
     try {
       const uploaded = await uploadAvatar(filePath);
+      // mock OSS 返回 mock://，无法渲染；回落到本地临时文件预览。
       this.setData({
-        avatarPreview: uploaded.signedUrl,
+        avatarPreview: avatarSrc(uploaded.signedUrl) ?? filePath,
         avatarObjectKey: uploaded.objectKey,
       });
     } catch (error) {

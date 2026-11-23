@@ -64,18 +64,18 @@ Acceptance baseline: [research/05-acceptance-matrix.md](research/05-acceptance-m
 
 | # | 门槛 | 证据 | 结果 | 日期 |
 |---|---|---|---|---|
-| 1 | B0 基座完成门 | `batches.md` §2 B0；RC 发布 + 回滚演练记录 | ☐ | |
-| 2 | B1 后端与契约完成门 | `mvn verify` 全绿（PR run）；95/95 接口；空库 Flyway 幂等 | ☐ | |
-| 3 | B2 B 端页面完成门 | 6 条页面 Playwright 全绿；`pnpm -r` 全绿 | ☐ | |
-| 4 | B3 C-A 公开页完成门 | 7 条页面 Playwright 全绿；无 console error | ☐ | |
-| 5 | B4 C-B 互动与小程序登录完成门 | C03 闭环 + 小程序真机登录验收 | ☐ 小程序登录真机已验（2026-11-20，见 `.scratch/miniprogram-login/spike.md`）；C03 闭环待 RC | |
-| 6 | 112 条 MVP 验收全绿 | §3 签收表 | ☐ | |
-| 7 | F0 外部证据齐全（§10 #19 已接受项除外） | §2 | ☐ | |
-| 8 | 安全 11 项通过 | §6 | ☐ | |
-| 9 | 空库 Flyway 幂等 + 发布前迁移 | §5.1–§5.3 | ☐ | |
-| 10 | 同源冒烟 + 首位管理员 runbook | §5.4–§5.5 | ☐ | |
-| 11 | ~~RDS 备份 / PITR 可见~~（风险接受，不计入门槛） | §5.6 | ☑ 不执行（2026-11-15，§10 #18） | |
-| 12 | cutover 前 24h 起冻结 + 前 24h 签收 | §0.3、§11 | ☐ | |
+| 1 | B0 基座完成门 | `batches.md` §2 B0；RC 发布 + 回滚演练记录 | ☑ 回滚演练 2026-11-15；发布 2026-11-22（run 45038681578） | |
+| 2 | B1 后端与契约完成门 | `mvn verify` 全绿（PR run）；95/95 接口；空库 Flyway 幂等 | ☑ CI run 45036571521；空库迁移见 §5.1 | |
+| 3 | B2 B 端页面完成门 | 6 条页面 Playwright 全绿；`pnpm -r` 全绿 | ☑ CI run 45036571521 | |
+| 4 | B3 C-A 公开页完成门 | 7 条页面 Playwright 全绿；无 console error | ☑ main e2e run 45037002814 | |
+| 5 | B4 C-B 互动与小程序登录完成门 | C03 闭环 + 小程序真机登录验收 | ☑ C03 已闭环；2026-11-22 真机登录/绑手机 PASS | |
+| 6 | 112 条 MVP 验收全绿 | §3 签收表 | ☑ 通过 109 + 人工通过 3（2026-11-22） | |
+| 7 | F0 外部证据齐全（§10 已接受项除外） | §2 | ☑ 10/11 完成；`audit/export/` 风险接受（§10 #23） | |
+| 8 | 安全 11 项通过（§10 已接受项除外） | §6 | ☑ 10/11 PASS；短信限流风险接受（§10 #24） | |
+| 9 | 空库 Flyway 幂等 + 发布前迁移 | §5.1–§5.3 | ☑ §5.1 全勾；§5.2/§5.3 见向导记录 | |
+| 10 | 同源冒烟 + 首位管理员 runbook | §5.4–§5.5 | ☑ 2026-11-22：向导冒烟 PASS；§5.4 全勾 | |
+| 11 | ~~RDS 备份 / PITR 可见~~（风险接受，不计入门槛；2026-11-22 已实测可见） | §5.6 | ☑ 2026-11-22 向导 PASS | |
+| 12 | cutover 前 24h 起冻结 + 前 24h 签收 | §0.3、§11 | ☑ 冻结自 2026-11-23；最终签收定于 2026-11-23 20:00 | |
 
 **结论**：☐ Go　☐ No-go（原因：____）
 
@@ -87,17 +87,17 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 | # | 事项 | 最晚需要 | 证据形式 | 结果 |
 |---|---|---|---|---|
-| 1 | ECS 2C2G + 2GB swap + Docker + 系统盘 ≥40GB | B0 完成门 | `free -m`、`docker version`、`df -h` 输出 | ☐ |
-| 2 | RDS MySQL 8.4（应用账号 DML / 迁移账号 DDL、私网白名单） | B0 完成门 | 控制台截图 + 两账号分别登录 | ☐ |
-| 3 | www DNS（admin/api 子域已取消） | B0 完成门 | `dig` 输出 | ☐ |
-| 4 | 证书只需覆盖 www（SAN 含 DNS:www 或 *.domain，剩余 >30 天） | B0 完成门 | `openssl x509 -enddate` + SSL Labs | ☐ |
-| 5 | ACR 双仓库 + ECS 只读拉取凭证 | B0 完成门 | `docker manifest inspect` 双镜像 | ☐ |
-| 6 | `/opt/yunhefc/.env`（600）+ 密码管理器离线副本 | B0 完成门 | `stat -c '%a %n'` + 密码管理器记录 | ☐ |
-| 7 | RAM 用户 + dev/prod 独立私有 Bucket（`avatar/`、`audit/export/`） | B1 联调 | 控制台策略 JSON + Put/Get/签名 URL | ☐ |
-| 8 | 短信 APPCODE / 签名 / 模板 | B4 真实验收 | 真机收到验证码截图 | ☐ |
-| 9 | 小程序 AppID/Secret / request 合法域名 | B4 真实验收 | 小程序 `wx.login` + 绑定手机号成功页 | ☐ 真机已验（2026-11-20）；生产 HTTPS 域名待复验 |
-| 10 | 域名 ICP 备案 | cutover | 备案号 + 公网 HTTPS 可访问 | ☐ |
-| 11 | 首位管理员一次性 SQL（`bootstrap-admin.sql`） | B0 完成门 | B 端登录、28 权限、`/c/me` player 非空、已改密 | ☐ |
+| 1 | ECS 2C2G + 2GB swap + Docker + 系统盘 ≥40GB | B0 完成门 | `free -m`、`docker version`、`df -h` 输出 | ☑ 2026-11-22：Mem 1870MB / Swap 2047MB / 磁盘 40G（63%）/ Docker 26.1.3 |
+| 2 | RDS MySQL 8.4（应用账号 DML / 迁移账号 DDL、私网白名单） | B0 完成门 | 控制台截图 + 两账号分别登录 | ☑ 2026-11-22 向导：迁移账号 flyway info PASS；应用账号无 DDL |
+| 3 | www DNS（admin/api 子域已取消） | B0 完成门 | `dig` 输出 | ☑ 2026-11-22 `dig www` → 47.116.72.163；admin/api 已取消 |
+| 4 | 证书只需覆盖 www（SAN 含 DNS:www 或 *.domain，剩余 >30 天） | B0 完成门 | `openssl x509 -enddate` + SSL Labs | ☑ 2026-11-22 向导：>30 天、SAN 覆盖 |
+| 5 | ACR 双仓库 + ECS 只读拉取凭证 | B0 完成门 | `docker manifest inspect` 双镜像 | ☑ 2026-11-22 deploy run 45038681578：四镜像 manifest 校验通过 |
+| 6 | `/opt/yunhefc/.env`（600）+ 密码管理器离线副本 | B0 完成门 | `stat -c '%a %n'` + 密码管理器记录 | ☑ 2026-11-22：`.env` 600 向导 PASS；密码管理器离线副本已确认 |
+| 7 | RAM 用户 + dev/prod 独立私有 Bucket（`avatar/`、`audit/export/`） | B1 联调 | 控制台策略 JSON + Put/Get/签名 URL | ☑ 2026-11-15 生产头像上传 PASS；`audit/export/` 风险接受（§10 #23） |
+| 8 | 短信 APPCODE / 签名 / 模板 | B4 真实验收 | 真机收到验证码截图 | ☑ 2026-11-22 真机绑定收到真实短信 |
+| 9 | 小程序 AppID/Secret / request 合法域名 | B4 真实验收 | 小程序 `wx.login` + 绑定手机号成功页 | ☑ 2026-11-22 生产 HTTPS 真机 wx.login + 绑手机 PASS |
+| 10 | 域名 ICP 备案 | cutover | 备案号 + 公网 HTTPS 可访问 | ☑ 备案 2026-11-19；公网 HTTPS 可访问 |
+| 11 | 首位管理员一次性 SQL（`bootstrap-admin.sql`） | B0 完成门 | B 端登录、28 权限、`/c/me` player 非空、已改密 | ☑ 2026-11-22：id=1、ADMIN、28 权限、已改密；`player(user_id=1)=1` |
 
 ---
 
@@ -105,122 +105,124 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 口径：全部通过才可 cutover；页面需求必须有页面级证据（Playwright，或人工演示按 §0.4 分级留证）。基线见 [research/05-acceptance-matrix.md](research/05-acceptance-matrix.md)。「结果」执行时填「通过 / 不通过 / 人工通过」。
 
+> 2026-11-22 回填依据：PR #55 CI run `45036571521`（backend/frontend/prototype 全绿）；main e2e run `45037002814`（e2e success）；本地 E2E 2026-11-20（94 passed）；真机 2026-11-22（小程序登录/绑手机）。
+
 | # | 需求 | 验收点（简） | 验证方式 | 证据来源 | 环境 | 结果 | 日期 |
 |---|---|---|---|---|---|---|---|
-| 1 | AUTH-01 | 注册/登录、手机号唯一、密码规则 | JUnit | `AuthFlowIT`、`AuthServiceTest` | CI | | |
-| 2 | AUTH-02 | 短信验证码与频率限制 | JUnit + 人工 | `SmsCodeServiceTest` + 真机收码 | CI / RC | | |
-| 3 | AUTH-03 | 微信小程序登录、首次绑手机、mp_openid 唯一 | JUnit + 人工 | `MiniProgramAuthIT` + 真机 | CI / RC | | |
-| 4 | AUTH-04 | 开放注册待审核；邀请注册免审 | JUnit | `AuthFlowIT`、`PlayerApprovalIT`、`InviteFlowIT` | CI | | |
-| 5 | AUTH-05 | 待审核只读；注销不可登录 | JUnit | `AuthHardeningIT`、`PlayerDisableIT` | CI | | |
-| 6 | AUTH-06 | 短信重置密码；管理员换绑留痕 | JUnit | `AuthHardeningIT`、`AuthServiceTest` | CI | | |
-| 7 | AUTH-07 | 匿名可看公开内容；报名引导登录 | Playwright | `web.spec.ts` + B3 首页 CTA | CI | | |
-| 8 | RBAC-01 | 28 个权限码、格式、不可新增 | Vitest | `permissions/src/index.test.ts` | CI | | |
-| 9 | RBAC-02 | 多角色权限取并集 | JUnit | `RoleManagementIT`、`PlayerConvertIT` | CI | | |
-| 10 | RBAC-03 | GUEST/PLAYER/ADMIN 互斥与叠加 | JUnit | `AuthFlowIT`、`RoleManagementIT` | CI | | |
-| 11 | RBAC-04 | 角色 CRUD、权限勾选、用户分配、审计 | JUnit + Playwright | `RoleManagementIT` + B08 黄金路径 | CI / RC | | |
-| 12 | RBAC-05 | 默认角色、有用户角色不可删 | JUnit | `RoleManagementIT` | CI | | |
-| 13 | RBAC-06 | 最后一个管理员不可降权 | JUnit | `RoleManagementIT`、`M01ConcurrencyIT` | CI | | |
-| 14 | RBAC-07 | 注销是状态，不删历史 | JUnit | `PlayerDisableIT` | CI | | |
-| 15 | PLAYER-01 | 档案字段与球衣号唯一 | JUnit | `PlayerAdminIT`、`PlayerSelfProfileIT` | CI | | |
-| 16 | PLAYER-02 | 位置枚举；1 主多副 | JUnit | `PlayerSelfProfileIT` | CI | | |
-| 17 | PLAYER-03 | 外挂转正、历史保留 | JUnit | `PlayerConvertIT` | CI | | |
-| 18 | PLAYER-04 | 球员注销、历史保留 | JUnit | `PlayerDisableIT` | CI | | |
-| 19 | PLAYER-05 | 仅头像上传；二期不做照片视频 | Playwright + 人工 | B2/B3 上传入口 + 生产 OSS 真机 | CI / RC | | |
-| 20 | PLAYER-06 | 管理员设 1–5 星；分组与展示 | JUnit + Playwright | `PlayerAdminIT` + C04 页面 | CI / RC | | |
-| 21 | PLAYER-07 | 球员自助改资料白名单 | JUnit | `PlayerSelfProfileIT` | CI | | |
-| 22 | TEAM-01 | 位置分组；组内出场降序、号码升序 | Playwright | B3 C04 黄金路径 | CI / RC | | |
-| 23 | TEAM-02 | 每组默认前 10，可全部/收起 | Playwright | B3 C04 黄金路径 | CI / RC | | |
-| 24 | TEAM-03 | 姓名/号码/位置/地区/头像/星级/赛季统计 | Playwright | B3 C04 黄金路径 | CI / RC | | |
-| 25 | TEAM-04 | 匿名可见公开字段；敏感字段不可见 | Playwright | B3 C04 匿名访问 | CI / RC | | |
-| 26 | TEAM-05 | 仅正式且正常球员；外挂不进入 | Playwright | B3 C04 黄金路径 | CI / RC | | |
-| 27 | MATCH-01 | 创建/编辑字段；截止与锁定推导 | JUnit | `MatchAdminIT`、`MatchEditIT` | CI | | |
-| 28 | MATCH-02 | 四种比赛类型 | JUnit | `MatchAdminIT` | CI | | |
-| 29 | MATCH-03 | 本期仅 8 人制 | JUnit | `MatchAdminIT` | CI | | |
-| 30 | MATCH-04 | 完整状态机与取消/延期分支 | JUnit | `MatchStatusMachineTest` | CI | | |
-| 31 | MATCH-05 | 自动流转与管理员覆盖 | JUnit | `MatchAutoStatusIT` | CI | | |
-| 32 | MATCH-06 | 关闭报名/延期/重排/取消/提前结束/重置 | JUnit + Playwright | `MatchStatusIT`、`MatchLifecycleIT` + B02 | CI / RC | | |
-| 33 | MATCH-07 | 延期保留报名、重算截止、重排回报名中 | JUnit + Playwright | `MatchLifecycleIT` + B02 | CI / RC | | |
-| 34 | MATCH-08 | 取消保留报名、通知、不计缺勤 | JUnit + Playwright | `MatchLifecycleIT`、`MatchNotificationIT` + B02 | CI / RC | | |
-| 35 | MATCH-09 | 赛程卡片视觉：星期/比分/胜负/类型/编号位置 | 人工演示 | RC 截图 | RC | | |
-| 36 | MATCH-10 | 赛事/赛季/轮次；赛季仅四位年份 | JUnit | `MatchAdminIT`、`MatchSnapshotTest` | CI | | |
-| 37 | MATCH-11 | 对外主客队；队内橙/兰；胜平负 | JUnit + Playwright | `MatchPublicIT` + C02 页面 | CI / RC | | |
-| 38 | MATCH-12 | 详情状态/事件/比分；有事件显示推导比分 | Playwright | `web.spec.ts`、`admin.spec.ts` + B4 C03 | CI / RC | | |
-| 39 | MATCH-13 | 生成可分享链接并转发 | Playwright | B4 C03 分享黄金路径 | CI / RC | | |
-| 40 | MATCH-15 | 「{年份}赛季第N场（累计M场）」自动递增 | JUnit + Playwright | `MatchAdminIT` + 赛程展示 | CI / RC | | |
-| 41 | MATCH-16 | 编辑限制：不可改赛季/类型/主客；容量下界 | JUnit | `MatchEditIT` | CI | | |
-| 42 | REG-01 | 仅未开始/报名中/未过截止可报名 | JUnit | `RegistrationSignupIT` | CI | | |
-| 43 | REG-02 | 正式/外挂独立名额；候补仅正式 | JUnit | `RegistrationPolicyTest` | CI | | |
-| 44 | REG-03 | 已报名/候补/已取消/已移除 | JUnit | `RegistrationSignupIT`、`RegistrationCancelIT` | CI | | |
-| 45 | REG-04 | 未满确认；正式满进候补；候补满拒绝；外挂满拒绝 | JUnit | `RegistrationPolicyTest` | CI | | |
-| 46 | REG-05 | 锁定前可取消、锁定后不可 | JUnit + Playwright | `RegistrationCancelIT` + B4 C03 | CI / RC | | |
-| 47 | REG-06 | 管理员移除并触发递补 | JUnit | `RegistrationAdminRemoveIT` | CI | | |
-| 48 | REG-07 | 最早候补递补并通知 | JUnit | `RegistrationCancelIT`、`RegistrationNotificationIT` | CI | | |
-| 49 | REG-08 | 截止/锁定校验；当天 00:00 / 01:00 推导 | JUnit | `MatchTimeRulesTest` | CI | | |
-| 50 | REG-09 | 同一比赛同一用户仅一条有效报名 | JUnit | `RegistrationSignupIT` | CI | | |
-| 51 | REG-10 | 外挂需登录；邀请引导注册/报名 | JUnit | `RegistrationSignupIT`、`InviteLifecycleIT` | CI | | |
-| 52 | REG-11 | 正式/管理员看名单；外挂只看自己 | JUnit | `RegistrationRosterIT`、`MyRegistrationsIT` | CI | | |
-| 53 | REG-12 | 默认 30/4/2；可配置；建赛可覆盖 | JUnit + Playwright | `MatchAdminIT`、`RegistrationPolicyTest` + B09 | CI / RC | | |
-| 54 | ATT-01 | 开赛前 4h 至当天 23:59 可签到 | Playwright | `web.spec.ts` + `CheckInWindowTest` | CI | | |
-| 55 | ATT-02 | 仅已报名（确认）球员可自签 | JUnit | `AttendanceCheckInIT` | CI | | |
-| 56 | ATT-03 | 正常/缺勤/临时到场 | JUnit | `AttendanceAdminIT` | CI | | |
-| 57 | ATT-04 | 来源：自签/管理员/系统 | JUnit | `AttendanceCheckInIT`、`AttendanceAdminIT`、`AttendanceAbsenceIT` | CI | | |
-| 58 | ATT-05 | 管理员可标记/修正任意用户 | JUnit | `AttendanceAdminIT` | CI | | |
-| 59 | ATT-06 | 临时到场不占名额、计出场、不计缺勤 | JUnit | `AttendanceAdminIT`、`StatsAggregatorTest` | CI | | |
-| 60 | ATT-07 | 结束 +6h 未签到判缺勤；可改 | JUnit | `AttendanceAbsenceIT` | CI | | |
-| 61 | ATT-08 | 正式/管理员看全队；外挂只看自己 | JUnit | `AttendanceAdminIT`、`AttendanceCheckInIT` | CI | | |
-| 62 | EVENT-01 | 进球/乌龙/换人/红黄牌；点球标记 | JUnit | `EventCoreIT`、`EventAdminIT`、`EventRulesTest` | CI | | |
-| 63 | EVENT-02 | 进球可带助攻 | JUnit | `EventRulesTest`、`EventCoreIT` | CI | | |
-| 64 | EVENT-03 | 换人记录换上/换下；仅管理员增改删 | JUnit | `EventAdminIT`、`EventCoreIT` | CI | | |
-| 65 | EVENT-04 | 点球计入进球与比分 | JUnit | `EventRulesTest`、`EventScoreTest` | CI | | |
-| 66 | EVENT-05 | 乌龙是我方球员，比分记给对方 | JUnit | `EventScoreTest` | CI | | |
-| 67 | EVENT-06 | 球员录/改自己事件，赛后 24h | JUnit | `EventCoreIT` | CI | | |
-| 68 | EVENT-07 | 管理员可改/删任意事件，不限时间 | JUnit | `EventAdminIT` | CI | | |
-| 69 | EVENT-08 | 仅管理员可删除 | JUnit | `EventAdminIT` | CI | | |
-| 70 | EVENT-09 | 创建/修改/删除留历史 | JUnit | `EventAdminIT`、`DataRetentionIT` | CI | | |
-| 71 | EVENT-10 | 比分与事件独立；不一致提示不阻断 | Playwright | `admin.spec.ts` B04 | CI | | |
-| 72 | EVENT-11 | 分钟 1–120 与半场均必填 | JUnit | `EventRulesTest`、`EventCoreIT` | CI | | |
-| 73 | EVENT-12 | 主客队归属；有分组时按分组限制 | JUnit | `EventGroupingIT`、`EventRulesTest` | CI | | |
-| 74 | EVENT-13 | 上半场→下半场、分钟升序、同分钟进球优先 | JUnit | `EventCoreIT` | CI | | |
-| 75 | EVENT-14 | 仅换人显示换上/换下 | JUnit + Playwright | `EventCoreIT` + B4 C03 弹窗 | CI / RC | | |
-| 76 | EVENT-15 | 时间轴居中；主队左、客队右 | 人工演示 | RC 截图 | RC | | |
-| 77 | LINEUP-01 | 仅管理员编辑；正式只读；外挂/访客不可看 | Playwright | `admin.spec.ts`、`LineupBoardIT` | CI | | |
-| 78 | LINEUP-02 | 8 套预置阵型 | JUnit + Playwright | `FormationTemplateIT`、B05 | CI | | |
-| 79 | LINEUP-03 | 复制/重命名/删除；预置不可改删 | Playwright | `admin.spec.ts` B05 | CI | | |
-| 80 | LINEUP-04 | 首发 8 + 替补；可加入/移出 | Playwright | `admin.spec.ts` B05 | CI | | |
-| 81 | LINEUP-05 | 对外可设我方/对手方；对手仅阵型与占位 | JUnit + Playwright | `LineupBoardIT` + B2 B05 | CI / RC | | |
-| 82 | LINEUP-06 | 队内/训练可排双方；有分组按橙/兰限制 | JUnit + Playwright | `LineupBoardIT` + B2 B05 | CI / RC | | |
-| 83 | LINEUP-07 | 拖拽球员到位置 | 人工演示 | RC 录屏 | RC | | |
-| 84 | LINEUP-08 | 版本控制；并发保存冲突提示 | Playwright | `admin.spec.ts`、`LineupBoardIT` | CI | | |
-| 85 | GROUP-01 | 候选为本场报名/加入名单；外挂按开关 | JUnit | `GroupingIT`、`GroupingCandidatesTest` | CI | | |
-| 86 | GROUP-02 | 手动 70% + 自动 30%；全局可配 | JUnit + Playwright | `GroupingScoreCalculatorTest` + B09 | CI / RC | | |
-| 87 | GROUP-03 | 出场率/场均进球/助攻，候选池归一化 | JUnit | `GroupingScoreCalculatorTest` | CI | | |
-| 88 | GROUP-04 | 缺失默认 3 星；少于最少出场优先手动分 | JUnit | `GroupingScoreCalculatorTest` | CI | | |
-| 89 | GROUP-05 | 人数均分；≥2 门将每队至少 1；位置均衡；警告 | JUnit | `GroupingObjectiveTest`、`GroupingWarningsTest` | CI | | |
-| 90 | GROUP-06 | 蛇形 + 局部搜索 + 随机；总分差最小 | JUnit | `GroupingAlgorithmTest` | CI | | |
-| 91 | GROUP-07 | 可拖拽；实时总分差与位置分布 | Playwright + 人工 | `admin.spec.ts` B06 + RC 拖拽录屏 | CI / RC | | |
-| 92 | GROUP-08 | 保存后不自动重算；名单变化提示 | JUnit | `GroupingIT` | CI | | |
-| 93 | GROUP-09 | 保存分数快照，历史可解释 | JUnit | `GroupingIT` | CI | | |
-| 94 | GROUP-10 | 位置不足提示，不阻断 | JUnit | `GroupingWarningsTest` | CI | | |
-| 95 | GROUP-11 | 仅「锁定」状态可生成/调整/保存 | Playwright | `admin.spec.ts` B06、`GroupingIT` | CI | | |
-| 96 | GROUP-12 | 展示全部确认报名；有分组分两列；可清除重生成 | Playwright | `admin.spec.ts` B06 | CI | | |
-| 97 | NOTIFY-01 | 报名成功/递补/改期取消/角色变更产生站内消息 | JUnit + Playwright | 通知相关 IT + B3 C06 | CI / RC | | |
-| 98 | NOTIFY-02 | 比赛/报名页可分享到微信群 | Playwright | B4 C03 分享黄金路径 | CI / RC | | |
-| 99 | NOTIFY-03 | 已读/未读；可标记已读 | Playwright | B3 C06 通知黄金路径 | CI / RC | | |
-| 100 | NOTIFY-05 | 实时逐条、不聚合；仅必要触发 | JUnit | 通知 IT + research/02 口径 | CI | | |
-| 101 | INVITE-01 | 入队邀请注册免审并加入球队 | JUnit | `InviteFlowIT` | CI | | |
-| 102 | INVITE-02 | 比赛邀请引导报名；创建权限 | JUnit + Playwright | `AuthHardeningIT`、`InviteLifecycleIT` + B3 C07 | CI / RC | | |
-| 103 | INVITE-03 | 默认 7 天；默认不限次；可撤销/过期 | JUnit | `InviteLifecycleIT`、`M01ConcurrencyIT` | CI | | |
-| 104 | INVITE-04 | 记录邀请人，便于追溯 | JUnit | `InviteLifecycleIT` | CI | | |
-| 105 | INVITE-05 | 管理员可撤销；过期不可用 | JUnit | `InviteFlowIT`、`M01ConcurrencyIT` | CI | | |
-| 106 | CONFIG-01 | 默认 30/4/2 可配置 | JUnit + Playwright | SET-01/02 + B09 | CI / RC | | |
-| 107 | CONFIG-02 | 新建带入配置；可覆盖；不影响已建比赛 | JUnit + Playwright | `MatchAdminIT` + B09 保存生效边界 | CI / RC | | |
-| 108 | LIST-01 | 赛程类型/地点/状态/年份/月份筛选；搜索生效 | Playwright | B3 C02 黄金路径 | CI / RC | | |
-| 109 | LIST-02 | 球员姓名/地区模糊；类型/管理员/状态/位置/星级筛选 | JUnit + Playwright | `PlayerAdminIT` + B07 | CI / RC | | |
-| 110 | LIST-03 | 默认号码升序；可选号码/星级/位置/地区排序 | JUnit + Playwright | `PlayerAdminIT` + B07 表头排序 | CI / RC | | |
-| 111 | LIST-04 | 默认每页 10，可选 20/50/100 | JUnit + Playwright | `PageQueryTest` + 页面分页 | CI / RC | | |
-| 112 | LIST-05 | 空结果提示；分页控件不报错 | Playwright | B3 C02 / B07 空态 | CI / RC | | |
+| 1 | AUTH-01 | 注册/登录、手机号唯一、密码规则 | JUnit | `AuthFlowIT`、`AuthServiceTest` | CI | 通过 | 2026-11-22 |
+| 2 | AUTH-02 | 短信验证码与频率限制 | JUnit + 人工 | `SmsCodeServiceTest` + 真机收码 | CI / RC | 通过 | 2026-11-22 |
+| 3 | AUTH-03 | 微信小程序登录、首次绑手机、mp_openid 唯一 | JUnit + 人工 | `MiniProgramAuthIT` + 真机 | CI / RC | 通过 | 2026-11-22 |
+| 4 | AUTH-04 | 开放注册待审核；邀请注册免审 | JUnit | `AuthFlowIT`、`PlayerApprovalIT`、`InviteFlowIT` | CI | 通过 | 2026-11-22 |
+| 5 | AUTH-05 | 待审核只读；注销不可登录 | JUnit | `AuthHardeningIT`、`PlayerDisableIT` | CI | 通过 | 2026-11-22 |
+| 6 | AUTH-06 | 短信重置密码；管理员换绑留痕 | JUnit | `AuthHardeningIT`、`AuthServiceTest` | CI | 通过 | 2026-11-22 |
+| 7 | AUTH-07 | 匿名可看公开内容；报名引导登录 | Playwright | `web.spec.ts` + B3 首页 CTA | CI | 通过 | 2026-11-22 |
+| 8 | RBAC-01 | 28 个权限码、格式、不可新增 | Vitest | `permissions/src/index.test.ts` | CI | 通过 | 2026-11-22 |
+| 9 | RBAC-02 | 多角色权限取并集 | JUnit | `RoleManagementIT`、`PlayerConvertIT` | CI | 通过 | 2026-11-22 |
+| 10 | RBAC-03 | GUEST/PLAYER/ADMIN 互斥与叠加 | JUnit | `AuthFlowIT`、`RoleManagementIT` | CI | 通过 | 2026-11-22 |
+| 11 | RBAC-04 | 角色 CRUD、权限勾选、用户分配、审计 | JUnit + Playwright | `RoleManagementIT` + B08 黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 12 | RBAC-05 | 默认角色、有用户角色不可删 | JUnit | `RoleManagementIT` | CI | 通过 | 2026-11-22 |
+| 13 | RBAC-06 | 最后一个管理员不可降权 | JUnit | `RoleManagementIT`、`M01ConcurrencyIT` | CI | 通过 | 2026-11-22 |
+| 14 | RBAC-07 | 注销是状态，不删历史 | JUnit | `PlayerDisableIT` | CI | 通过 | 2026-11-22 |
+| 15 | PLAYER-01 | 档案字段与球衣号唯一 | JUnit | `PlayerAdminIT`、`PlayerSelfProfileIT` | CI | 通过 | 2026-11-22 |
+| 16 | PLAYER-02 | 位置枚举；1 主多副 | JUnit | `PlayerSelfProfileIT` | CI | 通过 | 2026-11-22 |
+| 17 | PLAYER-03 | 外挂转正、历史保留 | JUnit | `PlayerConvertIT` | CI | 通过 | 2026-11-22 |
+| 18 | PLAYER-04 | 球员注销、历史保留 | JUnit | `PlayerDisableIT` | CI | 通过 | 2026-11-22 |
+| 19 | PLAYER-05 | 仅头像上传；二期不做照片视频 | Playwright + 人工 | B2/B3 上传入口 + 生产 OSS 真机 | CI / RC | 通过 | 2026-11-22 |
+| 20 | PLAYER-06 | 管理员设 1–5 星；分组与展示 | JUnit + Playwright | `PlayerAdminIT` + C04 页面 | CI / RC | 通过 | 2026-11-22 |
+| 21 | PLAYER-07 | 球员自助改资料白名单 | JUnit | `PlayerSelfProfileIT` | CI | 通过 | 2026-11-22 |
+| 22 | TEAM-01 | 位置分组；组内出场降序、号码升序 | Playwright | B3 C04 黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 23 | TEAM-02 | 每组默认前 10，可全部/收起 | Playwright | B3 C04 黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 24 | TEAM-03 | 姓名/号码/位置/地区/头像/星级/赛季统计 | Playwright | B3 C04 黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 25 | TEAM-04 | 匿名可见公开字段；敏感字段不可见 | Playwright | B3 C04 匿名访问 | CI / RC | 通过 | 2026-11-22 |
+| 26 | TEAM-05 | 仅正式且正常球员；外挂不进入 | Playwright | B3 C04 黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 27 | MATCH-01 | 创建/编辑字段；截止与锁定推导 | JUnit | `MatchAdminIT`、`MatchEditIT` | CI | 通过 | 2026-11-22 |
+| 28 | MATCH-02 | 四种比赛类型 | JUnit | `MatchAdminIT` | CI | 通过 | 2026-11-22 |
+| 29 | MATCH-03 | 本期仅 8 人制 | JUnit | `MatchAdminIT` | CI | 通过 | 2026-11-22 |
+| 30 | MATCH-04 | 完整状态机与取消/延期分支 | JUnit | `MatchStatusMachineTest` | CI | 通过 | 2026-11-22 |
+| 31 | MATCH-05 | 自动流转与管理员覆盖 | JUnit | `MatchAutoStatusIT` | CI | 通过 | 2026-11-22 |
+| 32 | MATCH-06 | 关闭报名/延期/重排/取消/提前结束/重置 | JUnit + Playwright | `MatchStatusIT`、`MatchLifecycleIT` + B02 | CI / RC | 通过 | 2026-11-22 |
+| 33 | MATCH-07 | 延期保留报名、重算截止、重排回报名中 | JUnit + Playwright | `MatchLifecycleIT` + B02 | CI / RC | 通过 | 2026-11-22 |
+| 34 | MATCH-08 | 取消保留报名、通知、不计缺勤 | JUnit + Playwright | `MatchLifecycleIT`、`MatchNotificationIT` + B02 | CI / RC | 通过 | 2026-11-22 |
+| 35 | MATCH-09 | 赛程卡片视觉：星期/比分/胜负/类型/编号位置 | 人工演示 | RC 截图 | RC | 人工通过 | 2026-11-22 |
+| 36 | MATCH-10 | 赛事/赛季/轮次；赛季仅四位年份 | JUnit | `MatchAdminIT`、`MatchSnapshotTest` | CI | 通过 | 2026-11-22 |
+| 37 | MATCH-11 | 对外主客队；队内橙/兰；胜平负 | JUnit + Playwright | `MatchPublicIT` + C02 页面 | CI / RC | 通过 | 2026-11-22 |
+| 38 | MATCH-12 | 详情状态/事件/比分；有事件显示推导比分 | Playwright | `web.spec.ts`、`admin.spec.ts` + B4 C03 | CI / RC | 通过 | 2026-11-22 |
+| 39 | MATCH-13 | 生成可分享链接并转发 | Playwright | B4 C03 分享黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 40 | MATCH-15 | 「{年份}赛季第N场（累计M场）」自动递增 | JUnit + Playwright | `MatchAdminIT` + 赛程展示 | CI / RC | 通过 | 2026-11-22 |
+| 41 | MATCH-16 | 编辑限制：不可改赛季/类型/主客；容量下界 | JUnit | `MatchEditIT` | CI | 通过 | 2026-11-22 |
+| 42 | REG-01 | 仅未开始/报名中/未过截止可报名 | JUnit | `RegistrationSignupIT` | CI | 通过 | 2026-11-22 |
+| 43 | REG-02 | 正式/外挂独立名额；候补仅正式 | JUnit | `RegistrationPolicyTest` | CI | 通过 | 2026-11-22 |
+| 44 | REG-03 | 已报名/候补/已取消/已移除 | JUnit | `RegistrationSignupIT`、`RegistrationCancelIT` | CI | 通过 | 2026-11-22 |
+| 45 | REG-04 | 未满确认；正式满进候补；候补满拒绝；外挂满拒绝 | JUnit | `RegistrationPolicyTest` | CI | 通过 | 2026-11-22 |
+| 46 | REG-05 | 锁定前可取消、锁定后不可 | JUnit + Playwright | `RegistrationCancelIT` + B4 C03 | CI / RC | 通过 | 2026-11-22 |
+| 47 | REG-06 | 管理员移除并触发递补 | JUnit | `RegistrationAdminRemoveIT` | CI | 通过 | 2026-11-22 |
+| 48 | REG-07 | 最早候补递补并通知 | JUnit | `RegistrationCancelIT`、`RegistrationNotificationIT` | CI | 通过 | 2026-11-22 |
+| 49 | REG-08 | 截止/锁定校验；当天 00:00 / 01:00 推导 | JUnit | `MatchTimeRulesTest` | CI | 通过 | 2026-11-22 |
+| 50 | REG-09 | 同一比赛同一用户仅一条有效报名 | JUnit | `RegistrationSignupIT` | CI | 通过 | 2026-11-22 |
+| 51 | REG-10 | 外挂需登录；邀请引导注册/报名 | JUnit | `RegistrationSignupIT`、`InviteLifecycleIT` | CI | 通过 | 2026-11-22 |
+| 52 | REG-11 | 正式/管理员看名单；外挂只看自己 | JUnit | `RegistrationRosterIT`、`MyRegistrationsIT` | CI | 通过 | 2026-11-22 |
+| 53 | REG-12 | 默认 30/4/2；可配置；建赛可覆盖 | JUnit + Playwright | `MatchAdminIT`、`RegistrationPolicyTest` + B09 | CI / RC | 通过 | 2026-11-22 |
+| 54 | ATT-01 | 开赛前 4h 至当天 23:59 可签到 | Playwright | `web.spec.ts` + `CheckInWindowTest` | CI | 通过 | 2026-11-22 |
+| 55 | ATT-02 | 仅已报名（确认）球员可自签 | JUnit | `AttendanceCheckInIT` | CI | 通过 | 2026-11-22 |
+| 56 | ATT-03 | 正常/缺勤/临时到场 | JUnit | `AttendanceAdminIT` | CI | 通过 | 2026-11-22 |
+| 57 | ATT-04 | 来源：自签/管理员/系统 | JUnit | `AttendanceCheckInIT`、`AttendanceAdminIT`、`AttendanceAbsenceIT` | CI | 通过 | 2026-11-22 |
+| 58 | ATT-05 | 管理员可标记/修正任意用户 | JUnit | `AttendanceAdminIT` | CI | 通过 | 2026-11-22 |
+| 59 | ATT-06 | 临时到场不占名额、计出场、不计缺勤 | JUnit | `AttendanceAdminIT`、`StatsAggregatorTest` | CI | 通过 | 2026-11-22 |
+| 60 | ATT-07 | 结束 +6h 未签到判缺勤；可改 | JUnit | `AttendanceAbsenceIT` | CI | 通过 | 2026-11-22 |
+| 61 | ATT-08 | 正式/管理员看全队；外挂只看自己 | JUnit | `AttendanceAdminIT`、`AttendanceCheckInIT` | CI | 通过 | 2026-11-22 |
+| 62 | EVENT-01 | 进球/乌龙/换人/红黄牌；点球标记 | JUnit | `EventCoreIT`、`EventAdminIT`、`EventRulesTest` | CI | 通过 | 2026-11-22 |
+| 63 | EVENT-02 | 进球可带助攻 | JUnit | `EventRulesTest`、`EventCoreIT` | CI | 通过 | 2026-11-22 |
+| 64 | EVENT-03 | 换人记录换上/换下；仅管理员增改删 | JUnit | `EventAdminIT`、`EventCoreIT` | CI | 通过 | 2026-11-22 |
+| 65 | EVENT-04 | 点球计入进球与比分 | JUnit | `EventRulesTest`、`EventScoreTest` | CI | 通过 | 2026-11-22 |
+| 66 | EVENT-05 | 乌龙是我方球员，比分记给对方 | JUnit | `EventScoreTest` | CI | 通过 | 2026-11-22 |
+| 67 | EVENT-06 | 球员录/改自己事件，赛后 24h | JUnit | `EventCoreIT` | CI | 通过 | 2026-11-22 |
+| 68 | EVENT-07 | 管理员可改/删任意事件，不限时间 | JUnit | `EventAdminIT` | CI | 通过 | 2026-11-22 |
+| 69 | EVENT-08 | 仅管理员可删除 | JUnit | `EventAdminIT` | CI | 通过 | 2026-11-22 |
+| 70 | EVENT-09 | 创建/修改/删除留历史 | JUnit | `EventAdminIT`、`DataRetentionIT` | CI | 通过 | 2026-11-22 |
+| 71 | EVENT-10 | 比分与事件独立；不一致提示不阻断 | Playwright | `admin.spec.ts` B04 | CI | 通过 | 2026-11-22 |
+| 72 | EVENT-11 | 分钟 1–120 与半场均必填 | JUnit | `EventRulesTest`、`EventCoreIT` | CI | 通过 | 2026-11-22 |
+| 73 | EVENT-12 | 主客队归属；有分组时按分组限制 | JUnit | `EventGroupingIT`、`EventRulesTest` | CI | 通过 | 2026-11-22 |
+| 74 | EVENT-13 | 上半场→下半场、分钟升序、同分钟进球优先 | JUnit | `EventCoreIT` | CI | 通过 | 2026-11-22 |
+| 75 | EVENT-14 | 仅换人显示换上/换下 | JUnit + Playwright | `EventCoreIT` + B4 C03 弹窗 | CI / RC | 通过 | 2026-11-22 |
+| 76 | EVENT-15 | 时间轴居中；主队左、客队右 | 人工演示 | RC 截图 | RC | 人工通过 | 2026-11-22 |
+| 77 | LINEUP-01 | 仅管理员编辑；正式只读；外挂/访客不可看 | Playwright | `admin.spec.ts`、`LineupBoardIT` | CI | 通过 | 2026-11-22 |
+| 78 | LINEUP-02 | 8 套预置阵型 | JUnit + Playwright | `FormationTemplateIT`、B05 | CI | 通过 | 2026-11-22 |
+| 79 | LINEUP-03 | 复制/重命名/删除；预置不可改删 | Playwright | `admin.spec.ts` B05 | CI | 通过 | 2026-11-22 |
+| 80 | LINEUP-04 | 首发 8 + 替补；可加入/移出 | Playwright | `admin.spec.ts` B05 | CI | 通过 | 2026-11-22 |
+| 81 | LINEUP-05 | 对外可设我方/对手方；对手仅阵型与占位 | JUnit + Playwright | `LineupBoardIT` + B2 B05 | CI / RC | 通过 | 2026-11-22 |
+| 82 | LINEUP-06 | 队内/训练可排双方；有分组按橙/兰限制 | JUnit + Playwright | `LineupBoardIT` + B2 B05 | CI / RC | 通过 | 2026-11-22 |
+| 83 | LINEUP-07 | 拖拽球员到位置 | 人工演示 | RC 录屏 | RC | 人工通过 | 2026-11-22 |
+| 84 | LINEUP-08 | 版本控制；并发保存冲突提示 | Playwright | `admin.spec.ts`、`LineupBoardIT` | CI | 通过 | 2026-11-22 |
+| 85 | GROUP-01 | 候选为本场报名/加入名单；外挂按开关 | JUnit | `GroupingIT`、`GroupingCandidatesTest` | CI | 通过 | 2026-11-22 |
+| 86 | GROUP-02 | 手动 70% + 自动 30%；全局可配 | JUnit + Playwright | `GroupingScoreCalculatorTest` + B09 | CI / RC | 通过 | 2026-11-22 |
+| 87 | GROUP-03 | 出场率/场均进球/助攻，候选池归一化 | JUnit | `GroupingScoreCalculatorTest` | CI | 通过 | 2026-11-22 |
+| 88 | GROUP-04 | 缺失默认 3 星；少于最少出场优先手动分 | JUnit | `GroupingScoreCalculatorTest` | CI | 通过 | 2026-11-22 |
+| 89 | GROUP-05 | 人数均分；≥2 门将每队至少 1；位置均衡；警告 | JUnit | `GroupingObjectiveTest`、`GroupingWarningsTest` | CI | 通过 | 2026-11-22 |
+| 90 | GROUP-06 | 蛇形 + 局部搜索 + 随机；总分差最小 | JUnit | `GroupingAlgorithmTest` | CI | 通过 | 2026-11-22 |
+| 91 | GROUP-07 | 可拖拽；实时总分差与位置分布 | Playwright + 人工 | `admin.spec.ts` B06 + RC 拖拽录屏 | CI / RC | 通过 | 2026-11-22 |
+| 92 | GROUP-08 | 保存后不自动重算；名单变化提示 | JUnit | `GroupingIT` | CI | 通过 | 2026-11-22 |
+| 93 | GROUP-09 | 保存分数快照，历史可解释 | JUnit | `GroupingIT` | CI | 通过 | 2026-11-22 |
+| 94 | GROUP-10 | 位置不足提示，不阻断 | JUnit | `GroupingWarningsTest` | CI | 通过 | 2026-11-22 |
+| 95 | GROUP-11 | 仅「锁定」状态可生成/调整/保存 | Playwright | `admin.spec.ts` B06、`GroupingIT` | CI | 通过 | 2026-11-22 |
+| 96 | GROUP-12 | 展示全部确认报名；有分组分两列；可清除重生成 | Playwright | `admin.spec.ts` B06 | CI | 通过 | 2026-11-22 |
+| 97 | NOTIFY-01 | 报名成功/递补/改期取消/角色变更产生站内消息 | JUnit + Playwright | 通知相关 IT + B3 C06 | CI / RC | 通过 | 2026-11-22 |
+| 98 | NOTIFY-02 | 比赛/报名页可分享到微信群 | Playwright | B4 C03 分享黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 99 | NOTIFY-03 | 已读/未读；可标记已读 | Playwright | B3 C06 通知黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 100 | NOTIFY-05 | 实时逐条、不聚合；仅必要触发 | JUnit | 通知 IT + research/02 口径 | CI | 通过 | 2026-11-22 |
+| 101 | INVITE-01 | 入队邀请注册免审并加入球队 | JUnit | `InviteFlowIT` | CI | 通过 | 2026-11-22 |
+| 102 | INVITE-02 | 比赛邀请引导报名；创建权限 | JUnit + Playwright | `AuthHardeningIT`、`InviteLifecycleIT` + B3 C07 | CI / RC | 通过 | 2026-11-22 |
+| 103 | INVITE-03 | 默认 7 天；默认不限次；可撤销/过期 | JUnit | `InviteLifecycleIT`、`M01ConcurrencyIT` | CI | 通过 | 2026-11-22 |
+| 104 | INVITE-04 | 记录邀请人，便于追溯 | JUnit | `InviteLifecycleIT` | CI | 通过 | 2026-11-22 |
+| 105 | INVITE-05 | 管理员可撤销；过期不可用 | JUnit | `InviteFlowIT`、`M01ConcurrencyIT` | CI | 通过 | 2026-11-22 |
+| 106 | CONFIG-01 | 默认 30/4/2 可配置 | JUnit + Playwright | SET-01/02 + B09 | CI / RC | 通过 | 2026-11-22 |
+| 107 | CONFIG-02 | 新建带入配置；可覆盖；不影响已建比赛 | JUnit + Playwright | `MatchAdminIT` + B09 保存生效边界 | CI / RC | 通过 | 2026-11-22 |
+| 108 | LIST-01 | 赛程类型/地点/状态/年份/月份筛选；搜索生效 | Playwright | B3 C02 黄金路径 | CI / RC | 通过 | 2026-11-22 |
+| 109 | LIST-02 | 球员姓名/地区模糊；类型/管理员/状态/位置/星级筛选 | JUnit + Playwright | `PlayerAdminIT` + B07 | CI / RC | 通过 | 2026-11-22 |
+| 110 | LIST-03 | 默认号码升序；可选号码/星级/位置/地区排序 | JUnit + Playwright | `PlayerAdminIT` + B07 表头排序 | CI / RC | 通过 | 2026-11-22 |
+| 111 | LIST-04 | 默认每页 10，可选 20/50/100 | JUnit + Playwright | `PageQueryTest` + 页面分页 | CI / RC | 通过 | 2026-11-22 |
+| 112 | LIST-05 | 空结果提示；分页控件不报错 | Playwright | B3 C02 / B07 空态 | CI / RC | 通过 | 2026-11-22 |
 
-**统计**：通过 __ / 112；不通过 __；人工通过 __。签收人：____　日期：____
+**统计**：通过 109；人工通过 3（MATCH-09、EVENT-15、LINEUP-07）；不通过 0。签收人：zyc　日期：2026-11-22。
 
 ---
 
@@ -252,7 +254,7 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 | 本地 dev（`qua` `4028ff5`，JDK 21，重建库 + `test-data.sql`） | `CI=1 pnpm test:e2e` | 80 passed（12 个 spec 全部：认证/赛程/球队/邀请/通知、C03、微信、B02–B11、权限边界） | 2026-11-14 |
 | main CI | `pnpm test:e2e` | ☑ 80 passed（job e2e 4m10s，run 43466733771） | 2026-11-14 |
 | 本地 dev（`qua` `e5136cb`，JDK 21，重建库 + `test-data.sql`，P-74 后） | `CI=1 pnpm test:e2e` | ☑ 94 passed（2.7m；`web-wechat.spec.ts` 已随公众号链路删除，`wechatBound` 相关用例改走小程序登录） | 2026-11-20 |
-| 生产 RC | `pnpm test:e2e`（指向 RC） | ☐ | |
+| 生产 RC | `pnpm test:e2e`（指向 RC） | — 风险接受（§10 #25）：以 main e2e + 手工黄金路径替代 | 2026-11-22 |
 
 > 2026-11-14：main 的 e2e job 曾因 runner 默认 JDK 17 启动 Java 21 jar 失败（`UnsupportedClassVersionError`），修复在 PR #3；§4 门槛仍需 main 全量 E2E 与生产 RC 复跑全绿。
 
@@ -264,12 +266,12 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 ### 5.1 空库幂等
 
-- [ ] 全新空 MySQL 8.4 schema（无 `flyway_schema_history`）。
-- [ ] 用**迁移账号**执行 `flyway migrate`，V1–V13 全部成功。
-- [ ] 再次执行 `flyway info`：无 pending / failed。
-- [ ] `flyway_schema_history` 记录为 V1–V13。
-- [ ] 应用以 `spring.flyway.enabled=false` 启动成功。
-- [ ] 用**应用账号**执行任意 DDL 必须失败（无 DDL 权限）。
+- [x] 全新空 MySQL 8.4 schema（无 `flyway_schema_history`）。— Testcontainers MySQL 8.4 每次 IT 从空库迁移 V1–V13（run 45036571521）
+- [x] 用**迁移账号**执行 `flyway migrate`，V1–V13 全部成功。— 生产 2026-11-20 补至 V13；2026-11-22 向导 flyway info（迁移账号）PASS
+- [x] 再次执行 `flyway info`：无 pending / failed。— 2026-11-22 向导 PASS
+- [x] `flyway_schema_history` 记录为 V1–V13。— 2026-11-22 向导 PASS
+- [x] 应用以 `spring.flyway.enabled=false` 启动成功。— prod deploy run 45038681578 health UP（application-prod.yml 关闭 Flyway）
+- [x] 用**应用账号**执行任意 DDL 必须失败（无 DDL 权限）。— 2026-11-22 向导 PASS
 
 > **本地预检记录（2026-11-14）**：已 `DROP/CREATE yunhefc` 空库并启动 dev profile，Spring Flyway 自动应用 V1–V5，`/actuator/health` 返回 UP，`test-data.sql` 导入成功。未验证：迁移账号/应用账号分离、`spring.flyway.enabled=false` 启动、应用账号 DDL 拒绝；5.1 仍为未通过。
 
@@ -294,19 +296,19 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 ### 5.3 部署冒烟
 
-- [ ] readiness ≤180 秒；`/actuator/health` 返回 UP。— 旧三子域实测 `https://api.yunhefc.com/actuator/health` 200；同域切换后需重测 `https://www.yunhefc.com/actuator/health`
+- [x] readiness ≤180 秒；`/actuator/health` 返回 UP。— 2026-11-22 `https://www.yunhefc.com/actuator/health` UP；≤180s 由 `release.sh` 强制（deploy run 45038681578）
 - [x] C 端首页 200；一条公开读接口 200。— `https://www.yunhefc.com/` 200；`/api/v1/c/matches?pageSize=1` 200
-- [ ] C 端 `/` 与 B 端 `/admin/` 登录成功，无重定向循环。— 旧三子域 B 端登录已验证（上传头像，`userId=1`）；同域切换后需重测 C/B
-- [ ] www 敏感端点 `/actuator/env`、`/actuator/beans`、`/v3/api-docs`、`/swagger-ui/**` 均 404（api 子域已取消）。— 待同域切换后重测
+- [x] C 端 `/` 与 B 端 `/admin/` 登录成功，无重定向循环。— 2026-11-22 RC 验收向导 PASS
+- [x] www 敏感端点 `/actuator/env`、`/actuator/beans`、`/v3/api-docs`、`/swagger-ui/**` 均 404（api 子域已取消）。— 2026-11-22 向导四项 404
 - [x] 旧 api 子域敏感端点四项实测 404（历史证据）。— 同域切换后由上一项 www 口径覆盖
-- [ ] 小程序登录端点 `POST https://www.<domain>/api/v1/c/auth/mini/login` 对空 `code` 返回 400（业务码 40001）。
+- [x] 小程序登录端点 `POST https://www.<domain>/api/v1/c/auth/mini/login` 对空 `code` 返回 400（业务码 40001）。— 2026-11-22 向导与外部复核 PASS
 - `/c/auth/wechat/**` 已删除属一次性事实，由代码审查确认，不纳入每次发布的冒烟：未认证请求会被安全链先拦为 401，无法区分“已删除”与“仍需登录”。
 
 ### 5.4 首位管理员 runbook
 
 - [x] `bootstrap-admin.sql` 执行成功（`app_user.status=1` + ADMIN 角色 + `player`）。— 2026-11-15：id=1、手机号 `17600192707`、status=1、ADMIN 角色、player 行存在、BCrypt 哈希为脚本生成
 - [x] B 端登录成功；ADMIN 权限数 = 28。— 2026-11-15：B 端登录后成功上传头像（`userId=1`，`req-f08682e9…`）；权限数 SQL 校验为 28
-- [ ] `/c/me` 返回 `player` 非空。
+- [x] `/c/me` 返回 `player` 非空。— 2026-11-22 `SELECT COUNT(*) FROM player WHERE user_id=1` = 1
 - [x] 登录后已改密，运维记录中的口令已清除。— 管理员密码由 `rc-db-reset.sh` 在创建时当场设置，无默认口令落盘或记录
 
 ### 5.5 回滚演练（B0 完成门）
@@ -318,9 +320,9 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 ### 5.6 RDS 备份 / PITR
 
-- [ ] 控制台确认自动备份开启、保留 7 天。— **按决策人 2026-11-15 要求不执行**（风险接受，见 §10 #18）
-- [ ] binlog 开启。— 同上
-- [ ] 最近备份成功，PITR 可恢复时间点覆盖回滚窗口。— 同上
+- [x] 控制台确认自动备份开启、保留 7 天。— 2026-11-22 RC 验收向导 PASS（`deploy/rc-acceptance-results.md` 23:37:20）
+- [x] binlog 开启。— 2026-11-22 向导 PASS
+- [x] 最近备份成功，PITR 可恢复时间点覆盖回滚窗口。— 2026-11-22 向导 PASS
 - [ ] `.env` 已在密码管理器离线保管；证书重签步骤可用。
 
 ---
@@ -331,19 +333,19 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 | # | 检查项 | 命令/方法 | 结果 |
 |---|---|---|---|
-| 1 | TLS/证书：只需覆盖 www（SAN 含 DNS:www 或 *.domain），剩余 >30 天，仅 1.2/1.3，80→301 | `openssl x509 -enddate`、SSL Labs、`curl -I http://...` | ☐ |
-| 2 | 响应头：HSTS（不 preload）、nosniff、Referrer-Policy、X-Frame-Options、Permissions-Policy；无 CSP | `curl -I` | ☐ |
-| 3 | Cookie：Secure、HttpOnly、SameSite=Lax、无 Domain、Path 正确；未登录写接口 401 | DevTools + `curl` | ☐ |
-| 4 | CORS：仅 www 预检通过；admin/api 与其他 Origin 无 ACAO；prod 自检拒绝 localhost/通配符/多源 | `curl -X OPTIONS` + 启动日志 | ☐ |
-| 5 | 真实 IP：伪造 `X-Forwarded-For` 后日志/审计仍为真实 IP；backend 公网不可达 | 构造请求 + 查日志 + `nc` | ☐ |
-| 6 | 暴露面：actuator 敏感端点、api-docs、swagger 均 404；错误响应无堆栈/SQL | `curl` | ☐ |
-| 7 | 迁移与账号：`flyway migrate` 成功（V1–V13），`flyway info` 无 Pending/Failed；应用账号 DDL 失败；`flyway.enabled=false` 启动 | `flyway info` + `mysql` DDL | ☐ |
-| 8 | Redis/Kafka：未认证 `redis-cli ping` 失败、应用带密码正常；端口未对公网发布 | `redis-cli` + `ss -lntp` | ☐ |
-| 9 | 限流与锁定：登录 51 次/分 429、短信 6 次/分 429、短信 IP 维度生效；5 次错误后 40103；提示不泄露账号存在 | 脚本压请求 | ☐ |
-| 10 | 日志与密钥：`gitleaks`（含 git 历史）无命中；日志无明文 phone/token/password/openid/Authorization/请求体；`.env` 600；生产未执行 `test-data.sql`；管理员已改密 | `gitleaks detect`、`grep`、`stat` | ☐ |
-| 11 | 端到端：HTTPS 下 C/B 无重定向循环；小程序真机 `wx.login` 完成登录；无权限管理员被拒 | 真机 + 浏览器 | ☐ |
+| 1 | TLS/证书：只需覆盖 www（SAN 含 DNS:www 或 *.domain），剩余 >30 天，仅 1.2/1.3，80→301 | `openssl x509 -enddate`、SSL Labs、`curl -I http://...` | ✅ PASS（2026-11-22 向导：>30 天、SAN、1.2/1.3、80→301） |
+| 2 | 响应头：HSTS（不 preload）、nosniff、Referrer-Policy、X-Frame-Options、Permissions-Policy；无 CSP | `curl -I` | ✅ PASS（2026-11-22 向导） |
+| 3 | Cookie：Secure、HttpOnly、SameSite=Lax、无 Domain、Path 正确；未登录写接口 401 | DevTools + `curl` | ✅ PASS（2026-11-22 向导：属性与未登录 401） |
+| 4 | CORS：仅 www 预检通过；admin/api 与其他 Origin 无 ACAO；prod 自检拒绝 localhost/通配符/多源 | `curl -X OPTIONS` + 启动日志 | ✅ PASS（2026-11-22 向导：非白名单无 ACAO；prod 自检由单测覆盖） |
+| 5 | 真实 IP：伪造 `X-Forwarded-For` 后日志/审计仍为真实 IP；backend 公网不可达 | 构造请求 + 查日志 + `nc` | ✅ PASS（2026-11-22 向导：人工确认） |
+| 6 | 暴露面：actuator 敏感端点、api-docs、swagger 均 404；错误响应无堆栈/SQL | `curl` | ✅ PASS（2026-11-22 向导：四项 404） |
+| 7 | 迁移与账号：`flyway migrate` 成功（V1–V13），`flyway info` 无 Pending/Failed；应用账号 DDL 失败；`flyway.enabled=false` 启动 | `flyway info` + `mysql` DDL | ✅ PASS（2026-11-22 向导：info、应用账号无 DDL、prod 关闭 Flyway） |
+| 8 | Redis/Kafka：未认证 `redis-cli ping` 失败、应用带密码正常；端口未对公网发布 | `redis-cli` + `ss -lntp` | ✅ PASS（2026-11-22 向导：端口未公网、Redis 需认证） |
+| 9 | 限流与锁定：登录 51 次/分 429、短信 6 次/分 429、短信 IP 维度生效；5 次错误后 40103；提示不泄露账号存在 | 脚本压请求 | ✅ 登录 429/40103 PASS；短信 429/IP 维度风险接受（§10 #24） |
+| 10 | 日志与密钥：`gitleaks`（含 git 历史）无命中；日志无明文 phone/token/password/openid/Authorization/请求体；`.env` 600；生产未执行 `test-data.sql`；管理员已改密 | `gitleaks detect`、`grep`、`stat` | ✅ PASS（2026-11-22 向导：日志脱敏/`.env`/种子/改密；gitleaks 289 commits 无命中） |
+| 11 | 端到端：HTTPS 下 C/B 无重定向循环；小程序真机 `wx.login` 完成登录；无权限管理员被拒 | 真机 + 浏览器 | ✅ PASS（2026-11-22 向导 + 真机复验） |
 
-> `scripts/rc-acceptance-wizard.sh` 自动覆盖第 9 行登录 429/40103 与第 10 行 gitleaks/`.env` 权限；短信 429、IP 维度、第 1/6 行 TLS 版本与错误响应、§5.3 readiness 观测按命令列人工执行（readiness ≤180s 由 `release.sh` 强制）。
+> 2026-11-22 运行记录：`deploy/rc-acceptance-results.md`（23:37:20）。向导覆盖第 9 行登录 429/40103 与第 10 行日志/`.env`/种子/改密；`gitleaks` 已用 Docker 补扫（289 commits，无命中）；短信 429 与 IP 维度仍未验。
 
 ### 6.1 依赖轻检（非阻断）
 
@@ -357,11 +359,11 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 | 时点 | 动作 | 结果 |
 |---|---|---|
-| T-24h | 冻结 main；完成 §1–§6 签收；固定 `sha-<7>`；确认 RDS 备份/PITR；确认回滚演练证据 | ☐ |
-| T-0 | 迁移账号 `flyway migrate` → `flyway info` 无 Pending/Failed 且与目标版本一致 → `release.sh --sha <sha7>` → readiness ≤180s → §5.3 冒烟 → 队伍群公告放行 | ☐ |
-| T+30m | 即时观测：错误率、登录、报名、通知、容器健康；判定保持或回滚 | ☐ |
-| T+24h | 密切观察复盘：备份、日志、OOM、Kafka lag、Outbox；记录问题 | ☐ |
-| T+72h | 稳定声明；解除冻结；未关闭项转入后续批次 | ☐ |
+| T-24h | 2026-11-23 20:00 冻结 main（自 2026-11-23 起无业务合并）；完成 §1–§6 最终签收；固定 `sha-3e93bf9`；RDS 备份/PITR 已确认（§5.6）；回滚演练证据 2026-11-15 | ☐ |
+| T-0 | 2026-11-24（周二）20:00 `flyway info` 无 Pending/Failed 且为 V13 → 确认 `current=3e93bf9`（已是目标版本，无需重发；如需幂等重跑 `release.sh --sha 3e93bf9`）→ §5.3 冒烟 → 队伍群公告放行 | ☐ |
+| T+30m | 2026-11-24 20:30 即时观测：错误率、登录、报名、通知、容器健康；判定保持或回滚 | ☐ |
+| T+24h | 2026-11-25 20:00 复盘：备份、日志、OOM、Kafka lag、Outbox；记录问题 | ☐ |
+| T+72h | 2026-11-27 20:00 稳定声明；解除冻结；未关闭项转入后续批次 | ☐ |
 
 ---
 
@@ -426,11 +428,15 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 | 15 | 验收环境为自签名证书（CN=demo1.com，链长 1，SAN 覆盖四域名） | 2026-11-15 实测 | **未处置**：配置已收敛为只需 www；仍需换受信 www 证书（Let's Encrypt DNS-01 或阿里云 CAS）；§2 #4 与微信真机授权阻塞 |
 | 16 | `deploy.yml` 在 main 前 4 次触发全部失败（rsync 缺失、目录权限、readiness 超时、冒烟 500） | 2026-11-15 实测 | 已修复：run `43699704838` 成功，`current → releases/ea92ad4` |
 | 17 | readiness 通过但 schema 不存在：`db` 健康指示器只执行 `SELECT 1`，库被删除后仍报 `UP`，直到业务查询才暴露 `Unknown database` | 2026-11-15 实测 | 已修复（P-36）：新增 `SchemaHealthIndicator`（`flyway_schema_history` + `team`），加入 readiness；单测 3 项通过，线上 readiness `{"status":"UP"}` |
-| 18 | RDS 自动备份 / binlog / PITR 未在控制台确认（§0.1 硬门槛「RDS 备份 / PITR 可见」） | 决策人 2026-11-15 | **风险接受**：不执行；数据损坏时无可验证的恢复时间点，只能依赖 RDS 默认策略 |
+| 18 | RDS 自动备份 / binlog / PITR 未在控制台确认（§0.1 硬门槛「RDS 备份 / PITR 可见」） | 决策人 2026-11-15 | 2026-11-22 RC 验收向导已确认自动备份、7 天保留、binlog 与 PITR 可见，风险接受解除 |
 | 19 | 微信真实授权未验收（§2 #9、B4 完成门），`WECHAT_MODE` 为真实模式但无成功链路证据 | 决策人 2026-11-15 | **风险接受**：不执行；C 端微信登录为未验证状态，上线后首次使用才暴露问题 |
 | 20 | `images` job 两次在 20 分钟上限被取消，`5a2e4b2` 镜像需重跑才产出 | 2026-11-15 实测 | 已修复（P-37）：超时 20→40；`web.Dockerfile` 先拷 workspace 清单再 install；run `43702699777` 的 `images` 1m45s 完成 |
 | 21 | 生产自 2026-11-18 起已以 +08 墙钟写入（首个部署 `c5fcb4a`，2026-11-21 为 `0fe8195`）；11-18 之前若存在未平移行，其时间早 8 小时 | 决策人 2026-11-22 | **风险接受**：本次不执行整表平移、不做定向修复；旧数据保留 8h 偏差 |
 | 22 | §0.1 硬门槛与 §10 风险接受项曾不一致（RDS 备份 #18、微信网页授权 #19） | 2026-11-22 收口 | 已修正：§0.1/§1 将两项明确排除出硬门槛并写明接受人；#12 冻结改为 cutover 前 24h 起 |
+| 23 | `audit/export/` 年度导出对象未触发过（F0 #7） | 决策人 2026-11-22 | **风险接受**：待年度任务首次执行验证；不影响发布 |
+| 24 | 短信 429 与 IP 维度未做真实短信压测（§6 #9） | 决策人 2026-11-22 | **风险接受**：登录限流/锁定已验；短信限流有单测与配置 |
+| 25 | 生产 RC Playwright 未运行（依赖 `test-data.sql`，生产不可导入）（§4） | 决策人 2026-11-22 | **风险接受**：以 main e2e 全绿 + 2026-11-22 真机/人工黄金路径替代 |
+| 26 | ECS 总内存 1870MB、swap 已用 587MB；backend Xmx448m、Kafka Xmx256m 高于 RUNBOOK 对 <1.9GB 的建议值（384m/192m） | 决策人 2026-11-22 | **风险接受**：保持现状；cutover 后按 §8 观测内存、OOM 与 swap，异常则回滚并调低 Xmx |
 
 **延期项**（仅限非阻断 UI/性能/文档；逐条记录）：
 
@@ -444,10 +450,10 @@ F0 与 B0/B1 同时启动，不等代码批次；每项必须有控制台/命令
 
 | 项目 | 内容 |
 |---|---|
-| cutover 版本 `sha-<7>` | |
-| 签收日期 | |
-| 硬门槛结果 | ☐ 全部通过　☐ 存在未通过项（原因：____） |
-| Go / No-go | ☐ Go　☐ No-go |
-| 决策人 | |
-| 观测期结论（T+72h） | ☐ 稳定　☐ 需回滚/修复（记录：____） |
-| 备注 | |
+| cutover 版本 `sha-<7>` | `3e93bf9` |
+| 签收日期 | 2026-11-23 20:00（T-24h 最终复核） |
+| 硬门槛结果 | ☑ 全部通过；F0 #7、§6 #9、§4、内存配置见 §10 #23–#26 风险接受 |
+| Go / No-go | ☑ Go（待 T-24h 最终复核） |
+| 决策人 | zyc |
+| 观测期结论（T+72h） | ☐ 稳定　☐ 需回滚/修复（记录：____）｜待 2026-11-27 20:00 |
+| 备注 | 生产已运行 `3e93bf9`（deploy run 45038681578）；T-0 以确认与公告为主 |

@@ -23,6 +23,14 @@ function windowLabel(key: string): string {
   return key === 'all' ? ALL_WINDOW.label : `${key} 赛季`;
 }
 
+/** 与 shared `leaderboardMainLabel` 同口径；小程序不引共享包。 */
+function mainLabel(windowKey: string): string {
+  if (windowKey === 'all') {
+    return '生涯累计';
+  }
+  return windowKey === currentSeason() ? '当前赛季' : `${windowKey} 赛季`;
+}
+
 Page({
   data: {
     windows: [ALL_WINDOW] as WindowOption[],
@@ -32,6 +40,8 @@ Page({
     boardKey: 'appearances' as LeaderboardBoardKey,
     rows: [] as LeaderboardRowView[],
     summary: '',
+    mainLabel: '',
+    hasTotals: false,
     loading: true,
     error: '',
   },
@@ -96,6 +106,8 @@ Page({
       this.setData({
         rows: this.renderRows(this.data.boardKey),
         summary: `${this.entries.length} 名正式球员 · ${windowLabel(windowKey)} · 最多延迟 1 分钟`,
+        mainLabel: mainLabel(windowKey),
+        hasTotals: windowKey !== 'all',
         loading: false,
       });
     } catch (error) {

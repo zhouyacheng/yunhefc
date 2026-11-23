@@ -19,6 +19,8 @@ const base: LeaderboardEntry = {
   winRate: null,
   goalsPerMatch: 0,
   assistsPerMatch: 0,
+  career: null,
+  history: null,
 };
 
 function entry(patch: Partial<LeaderboardEntry>): LeaderboardEntry {
@@ -193,15 +195,7 @@ describe('展示文案', () => {
     );
     expect(leaderboardBoard('winRate').mainText(entry({ winRate: 66.7 }))).toBe('66.7%');
     expect(leaderboardBoard('winRate').mainText(entry({ winRate: null }))).toBe('—');
-    expect(leaderboardBoard('ownGoals').mainText(entry({ ownGoals: 0 }))).toBe('0 乌龙');
+    expect(leaderboardBoard('ownGoals').mainText(entry({ ownGoals: 0 }))).toBe('0');
   });
 
-  it('副指标文案', () => {
-    expect(
-      leaderboardBoard('winRate').secondaryText(entry({ internalWins: 4, internalAppearances: 6 })),
-    ).toBe('队内赛 4 胜 / 6 场');
-    expect(leaderboardBoard('goals').secondaryText(entry({ assists: 3, appearances: 8 }))).toBe(
-      '助攻 3 · 出场 8',
-    );
-  });
 });

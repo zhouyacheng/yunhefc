@@ -273,6 +273,19 @@ export interface TeamStats {
 /** STA-03 排行榜口径：赛季或生涯累计。 */
 export type LeaderboardScope = 'season' | 'all';
 
+/** 排行榜累计口径：生涯累计含当前赛季，历史累计不含当前赛季。 */
+export interface LeaderboardTotals {
+  appearances: number;
+  goals: number;
+  assists: number;
+  ownGoals: number;
+  internalAppearances: number;
+  internalWins: number;
+  winRate: number | null;
+  goalsPerMatch: number;
+  assistsPerMatch: number;
+}
+
 /** STA-03 LeaderboardEntry（05 §3.14）；排序与名次由前端按 02 §5.11 计算。 */
 export interface LeaderboardEntry {
   playerId: number;
@@ -291,6 +304,10 @@ export interface LeaderboardEntry {
   /** 2 位小数；无出场为 0。 */
   goalsPerMatch: number;
   assistsPerMatch: number;
+  /** 生涯累计（当前赛季 + 历史累计，不晚于当前自然年；未来赛季不计）；scope=all 时为 null。 */
+  career: LeaderboardTotals | null;
+  /** 历史累计（早于当前自然年，不含当前赛季）；scope=all 时为 null。 */
+  history: LeaderboardTotals | null;
 }
 
 /** STA-03 响应；生涯累计时 season 为 null。 */

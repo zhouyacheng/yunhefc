@@ -6,6 +6,7 @@ import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.player.PlayerPublicSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.stats.dto.LeaderboardDtos.LeaderboardEntry;
+import com.yunhefc.stats.dto.LeaderboardDtos.LeaderboardTotals;
 import com.yunhefc.stats.dto.LeaderboardDtos.LeaderboardView;
 import com.yunhefc.stats.infrastructure.StatsCache;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +20,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 /**
@@ -29,6 +31,7 @@ import java.util.regex.Pattern;
 public class StatsQueryService {
 
     private static final Pattern SEASON_PATTERN = Pattern.compile("\\d{4}");
+    private static final Predicate<String> IS_SEASON = SEASON_PATTERN.asMatchPredicate();
     private static final String SCOPE_SEASON = "season";
     private static final String SCOPE_ALL = "all";
 
@@ -51,7 +54,7 @@ public class StatsQueryService {
             return currentSeason();
         }
         String season = requestedSeason.trim();
-        if (!SEASON_PATTERN.matcher(season).matches()) {
+        if (!IS_SEASON.test(season)) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "season 必须为四位年份");
         }
         return season;
@@ -100,12 +103,24 @@ public class StatsQueryService {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "scope 必须为 season 或 all");
         }
         String season = SCOPE_ALL.equals(scope) ? null : resolveSeason(requestedSeason);
+        boolean includeTotals = !SCOPE_ALL.equals(scope);
+        int currentYear = Integer.parseInt(currentSeason());
+        Map<Long, Metrics> careerTotals = metricsUpTo(teamId, currentYear, true);
         Map<Long, Metrics> metrics = SCOPE_ALL.equals(scope)
-                ? careerMetrics(teamId)
+                ? careerTotals
                 : seasonMetrics(teamId, season);
+        Map<Long, Metrics> historical = includeTotals
+                ? metricsUpTo(teamId, currentYear, false)
+                : Map.of();
         List<LeaderboardEntry> items = playerReadPort.findPublicRoster(teamId).stream()
                 .sorted(Comparator.comparing(PlayerPublicSnapshot::id))
-                .map(player -> entry(player, metrics.getOrDefault(player.id(), Metrics.ZERO)))
+                .map(player -> entry(player,
+                        metrics.getOrDefault(player.id(), Metrics.ZERO),
+                        includeTotals
+                                ? new Cumulative(
+                                        historical.getOrDefault(player.id(), Metrics.ZERO),
+                                        careerTotals.getOrDefault(player.id(), Metrics.ZERO))
+                                : null))
                 .toList();
         return new LeaderboardView(season, scope, items);
     }
@@ -118,24 +133,50 @@ public class StatsQueryService {
     }
 
     /**
-     * 生涯累计按球员跨赛季求和；无汇总行的赛季不产生记录。
+     * 汇总到当前自然年：inclusive 时含当前赛季（生涯累计），否则只含更早赛季（历史累计）。
      */
-    private Map<Long, Metrics> careerMetrics(Long teamId) {
+    private Map<Long, Metrics> metricsUpTo(Long teamId, int currentYear, boolean inclusive) {
+        return aggregateSeasons(teamId, season ->
+                IS_SEASON.test(season) && (Integer.parseInt(season) < currentYear
+                        || (inclusive && Integer.parseInt(season) == currentYear)));
+    }
+
+    private Map<Long, Metrics> aggregateSeasons(Long teamId, Predicate<String> include) {
         Map<Long, Metrics> totals = new HashMap<>();
         for (String season : summaryReader.seasons(teamId)) {
+            if (!include.test(season)) {
+                continue;
+            }
             seasonStats(teamId, season).forEach((playerId, row) ->
                     totals.merge(playerId, Metrics.of(row), Metrics::plus));
         }
         return totals;
     }
 
-    private static LeaderboardEntry entry(PlayerPublicSnapshot player, Metrics metrics) {
+    private static LeaderboardEntry entry(PlayerPublicSnapshot player, Metrics metrics,
+                                          Cumulative cumulative) {
+        LeaderboardTotals current = totalsOf(metrics);
         return new LeaderboardEntry(
                 player.id(),
                 player.name(),
                 player.jersey(),
                 player.position(),
                 player.avatarUrl(),
+                current.appearances(),
+                current.goals(),
+                current.assists(),
+                current.ownGoals(),
+                current.internalAppearances(),
+                current.internalWins(),
+                current.winRate(),
+                current.goalsPerMatch(),
+                current.assistsPerMatch(),
+                cumulative == null ? null : totalsOf(cumulative.history()),
+                cumulative == null ? null : totalsOf(cumulative.career()));
+    }
+
+    private static LeaderboardTotals totalsOf(Metrics metrics) {
+        return new LeaderboardTotals(
                 metrics.appearances(),
                 metrics.goals(),
                 metrics.assists(),
@@ -169,6 +210,9 @@ public class StatsQueryService {
         }
         return BigDecimal.valueOf(value)
                 .divide(BigDecimal.valueOf(appearances), 2, RoundingMode.HALF_UP);
+    }
+
+    private record Cumulative(Metrics history, Metrics career) {
     }
 
     private record Metrics(int appearances, int goals, int assists,

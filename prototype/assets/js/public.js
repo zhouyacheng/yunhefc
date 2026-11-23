@@ -1011,7 +1011,11 @@ render();
             ${scope === 'season' ? `<td><b>${board.value(entry.history)}</b></td><td><b>${board.value(entry.career)}</b></td>` : ''}
           </tr>`).join('')}</tbody>
         </table></div>` : '<div class="empty-state"><p>当前窗口暂无符合条件的球员</p></div>'}
-        <p class="muted small">出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有已保存分组归属的场次；并列用标准竞赛排名（1、1、3）。生涯累计=当前赛季+历史累计；历史累计为早于当前年份的所有赛季汇总，不含当前赛季；三组均只显示当前榜单主指标；生涯累计窗口下两组均隐藏。原型数据为演示值。</p>
+        <div class="muted small">
+          <p><b>注意事项</b></p>
+          <p>出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有分组归属的场次；并列采用标准竞赛排名（1、1、3）。</p>
+          <p>生涯累计汇总当前赛季与历史累计（不晚于当前自然年，未来赛季不计），历史累计只汇总早于当前年份的赛季（不含当前赛季）；两者固定不随所选赛季与榜单变化。原型数据为演示值。</p>
+        </div>
       </div>`;
       $$('[data-board]', host).forEach((button) => {
         button.addEventListener('click', () => {

@@ -210,3 +210,15 @@
   font-size: 24rpx;
   line-height: 1.7;
 }
+
+.lb-note-title {
+  display: block;
+  margin-bottom: 8rpx;
+  color: var(--yh-ink);
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.lb-note-body {
+  display: block;
+}

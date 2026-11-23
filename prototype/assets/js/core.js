@@ -912,6 +912,8 @@
           <a class="${active === 'home' ? 'active' : ''}" href="index.html">首页</a>
           <a class="${active === 'matches' ? 'active' : ''}" href="matches.html">比赛</a>
           <a class="${active === 'team' ? 'active' : ''}" href="team.html">球队</a>
+          <a class="${active === 'activity' ? 'active' : ''}" href="activity.html">活动</a>
+          ${loggedIn && role !== 'GUEST' ? `<a class="${active === 'ledger' ? 'active' : ''}" href="ledger.html">账本</a>` : ''}
           ${canAccessAdmin(user) ? `<a class="${active === 'admin' ? 'active' : ''}" href="admin.html">管理后台</a>` : ''}
         </nav>
         <div class="header-actions">

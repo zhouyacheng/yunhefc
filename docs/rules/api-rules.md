@@ -41,7 +41,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 5. 高风险写接口携带 `Idempotency-Key`：报名/取消、事件、比分、比赛状态、阵容、分组、审核/注销、邀请、设置、角色权限等。
 6. 需要乐观锁的接口携带 `version`：阵容、比赛状态、事件修改；版本不匹配返回 `VERSION_CONFLICT`。
 7. 认证写请求携带会话 Cookie，并通过 `X-XSRF-TOKEN` 提交 CSRF token；token 从登录或 `auth/csrf` 响应体获取，不使用 CSRF Cookie。
-8. 文件上传使用 `multipart/form-data`；服务端校验类型与大小（头像上限 2MB），写入阿里云 OSS，业务表只存对象键（不含签名参数）。
+8. 文件上传使用 `multipart/form-data`；服务端校验类型与大小（头像上限 2MB，活动地点图上限 5MB），写入阿里云 OSS，业务表只存对象键（不含签名参数）。
 9. 评分/星级等小数值使用 JSON number 传输并明确精度（如星级 1.00–5.00、两位小数），不做字符串化；按固定档位筛选时使用数字 code（如 `skillLevel=1..9`），不在查询参数中接受任意区间。
 
 ---
@@ -119,7 +119,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 2. 布尔字段使用 `true/false`；数据库 0/1；不生成 Label。
 3. 时间使用 ISO-8601（输出 `+08:00` 偏移）；日期筛选参数使用 `YYYY-MM-DD` 或 `YYYY-MM`，在 05 中明确。
 4. ID 使用 JSON number 还是 string 由 05 统一；不得在不同接口间混用。
-5. 金额/比例使用明确单位与精度；本期无账本接口，二期再定义。
+5. 金额/比例使用明确单位与精度；账本金额为 JSON number、`DECIMAL(10,2)`、正数，方向由枚举表达。
 
 ---
 

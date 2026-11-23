@@ -27,7 +27,7 @@ description: MySQL 表结构、命名、枚举、伪删除、索引、约束与 
    - 枚举：`TINYINT UNSIGNED`，`COMMENT` 写数字映射。
    - 标识/哈希：哈希用 `CHAR` + `ascii_bin`（如 `token_hash`、`request_hash`）；可变长度标识用 `VARCHAR` + `ascii_bin`（如 `mp_openid`）。
    - 结构化数据：`JSON`，例如副位置数组、前后快照、事件载荷。
-   - 金额：`DECIMAL`；本期无账本表，二期再引入。
+   - 金额：`DECIMAL(10,2)`，存正数、方向表达收支（`team_ledger_entry`）。
 6. 不使用逗号、分号拼接多值；多值使用 JSON 或关联表。
 7. 字符集统一 `utf8mb4`，排序规则 `utf8mb4_0900_ai_ci`；大小写敏感字段显式 `ascii_bin`。
 
@@ -54,7 +54,7 @@ description: MySQL 表结构、命名、枚举、伪删除、索引、约束与 
 
 1. 每张业务表必须有表级中文 `COMMENT`；所有字段必须带中文 `COMMENT`；枚举/布尔字段的 COMMENT 同时写明数字与含义。
 2. 枚举编码以 `04.数据库设计.md` §2.4 为唯一事实源；API 返回 code + `*Label`，请求只接受数字 code。
-3. 27 张业务表均包含：
+3. 31 张业务表均包含：
 
 ```sql
 is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
@@ -72,7 +72,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 1. 高频查询、分页排序、逻辑关联字段建立索引；索引以实际查询与执行计划为依据。
 2. 列表分页优先使用 `(过滤列, 排序列)` 组合索引，并带稳定 tie-breaker。
 3. 唯一约束由唯一索引实现；不要为同一列重复建普通索引。
-4. 业务表现有 60 条 KEY/UNIQUE 定义（P-74 V13 新增 `uk_user_mp_openid`；V14 排行榜仅加列不建索引；V15 删除旧 `openid` 后回到 59）；复核未发现完全重复或前缀可覆盖项，不重复建可覆盖索引（P-66 新增 `idx_audit_team_operated`）。
+4. 业务表现有 60 条 KEY/UNIQUE 定义（P-74 V13 新增 `uk_user_mp_openid`；V14 排行榜仅加列不建索引；V16 活动与账本新增 12 条后为 72；V15（待批准）删除旧 `openid` 后为 71）；复核未发现完全重复或前缀可覆盖项，不重复建可覆盖索引（P-66 新增 `idx_audit_team_operated`）。
 5. `is_deleted` 作为通用过滤条件，不单独建低选择性索引；查询在现有索引前缀后附加 `is_deleted=0`。
 6. Quartz 官方索引随框架保留，不做业务索引收敛。
 7. 索引变更通过 Flyway 迁移；不在生产环境手工 `CREATE INDEX`。
@@ -98,7 +98,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 
 1. 所有 DDL 通过 Flyway 迁移，随应用启动执行；禁止手工改表。
 2. 基线顺序：
-   - `V1__baseline_schema.sql`：27 张业务表；
+   - `V1__baseline_schema.sql`：27 张业务表（基线；V16 后共 30 张）；
    - `V2__quartz_schema.sql`：11 张 Quartz 表；
    - `V3__seed_team_roles_permissions_settings.sql`：球队、角色、28 权限、9 项配置（V10 删除其中 6 项分组权重）；
    - `V4__seed_formation_templates.sql`：8 套阵型、64 个槽位；
@@ -155,13 +155,13 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 表名/字段 snake_case、单数、避开保留字
 - [ ] 主键/关联字段类型与命名正确，关联表使用复合主键
 - [ ] 枚举字段为 TINYINT UNSIGNED，COMMENT 含数字映射
-- [ ] 27 张业务表有表级中文 COMMENT；所有字段有中文 COMMENT
-- [ ] 27 张业务表均有 `is_deleted`，查询默认过滤
+- [ ] 31 张业务表有表级中文 COMMENT；所有字段有中文 COMMENT
+- [ ] 31 张业务表均有 `is_deleted`，查询默认过滤
 - [ ] `registration.active` 0/1，`active_unique` 参与唯一键
 - [ ] 业务表 0 物理外键；Quartz 5 框架外键保留
 - [ ] 数据库无 CHECK（永久禁用）；应用层校验清单（04 §8.1）已实现并被测试覆盖
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间存 Asia/Shanghai 墙钟、`DATETIME(3)`；业务边界直接在 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V14 顺序正确、可重复、无环境硬编码
+- [ ] Flyway V1–V17 顺序正确、可重复、无环境硬编码（V15 为空号）
 - [ ] 未执行生产 DDL、未手工改表

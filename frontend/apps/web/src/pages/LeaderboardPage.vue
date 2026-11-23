@@ -138,9 +138,9 @@ onMounted(() => {
         <h1>排行榜</h1>
         <p v-if="summary" class="muted small">{{ summary }}</p>
       </div>
-      <div class="lb-controls">
+      <div class="lb-side">
         <label class="lb-scope">
-          <span>窗口</span>
+          <span>赛季</span>
           <select aria-label="赛季或生涯累计" :value="scopeSelectValue" @change="changeScope">
             <option value="all">生涯累计</option>
             <option v-for="option in seasonOptions" :key="option" :value="option">
@@ -222,11 +222,12 @@ onMounted(() => {
   justify-content: space-between;
 }
 
-.lb-controls {
+.lb-side {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  align-items: flex-start;
+  align-items: flex-end;
+  margin-left: auto;
 }
 
 .lb-scope {
@@ -239,7 +240,6 @@ onMounted(() => {
 }
 
 .lb-scope select {
-  min-width: 132px;
   min-height: 34px;
   padding: 6px 9px;
   color: var(--yh-ink);

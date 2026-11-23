@@ -29,7 +29,7 @@ Page({
     windowIndex: 0,
     windowKey: '',
     boards: LEADERBOARD_BOARD_TABS,
-    boardKey: 'goals' as LeaderboardBoardKey,
+    boardKey: 'appearances' as LeaderboardBoardKey,
     rows: [] as LeaderboardRowView[],
     summary: '',
     loading: true,

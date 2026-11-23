@@ -6,7 +6,7 @@
       <text wx:if="{{summary}}" class="muted">{{summary}}</text>
     </view>
     <view class="lb-window">
-      <text class="lb-window__label">窗口</text>
+      <text class="lb-window__label">赛季</text>
       <picker
         mode="selector"
         range="{{windows}}"

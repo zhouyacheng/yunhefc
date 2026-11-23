@@ -20,9 +20,9 @@ describe('parseLeaderboardBoard', () => {
     expect(parseLeaderboardBoard(['assists', 'goals'])).toBe('assists');
   });
 
-  it('非法或缺失回退进球榜', () => {
-    expect(parseLeaderboardBoard(undefined)).toBe('goals');
-    expect(parseLeaderboardBoard('shirt')).toBe('goals');
+  it('非法或缺失回退出场榜', () => {
+    expect(parseLeaderboardBoard(undefined)).toBe('appearances');
+    expect(parseLeaderboardBoard('shirt')).toBe('appearances');
   });
 });
 
@@ -37,11 +37,11 @@ describe('parseLeaderboardScope', () => {
 });
 
 describe('parseLeaderboardQuery', () => {
-  it('缺失时默认当前赛季、赛季口径与进球榜', () => {
+  it('缺失时默认当前赛季、赛季口径与出场榜', () => {
     expect(parseLeaderboardQuery({}, now)).toEqual({
       season: '2026',
       scope: 'season',
-      board: 'goals',
+      board: 'appearances',
     });
   });
 
@@ -57,7 +57,7 @@ describe('parseLeaderboardQuery', () => {
     expect(parseLeaderboardQuery({ season: '26', scope: 'career', board: 'x' }, now)).toEqual({
       season: '2026',
       scope: 'season',
-      board: 'goals',
+      board: 'appearances',
     });
   });
 
@@ -68,15 +68,15 @@ describe('parseLeaderboardQuery', () => {
     expect(parseLeaderboardQuery({ season: '', scope: '', board: '' }, now)).toEqual({
       season: '2026',
       scope: 'season',
-      board: 'goals',
+      board: 'appearances',
     });
   });
 });
 
 describe('serializeLeaderboardQuery', () => {
-  it('默认赛季、赛季口径与进球榜不写 URL', () => {
+  it('默认赛季、赛季口径与出场榜不写 URL', () => {
     expect(
-      serializeLeaderboardQuery({ season: '2026', scope: 'season', board: 'goals' }, now),
+      serializeLeaderboardQuery({ season: '2026', scope: 'season', board: 'appearances' }, now),
     ).toEqual({});
   });
 
@@ -88,7 +88,7 @@ describe('serializeLeaderboardQuery', () => {
 
   it('生涯累计写 scope=all 并省略 season', () => {
     expect(
-      serializeLeaderboardQuery({ season: '2025', scope: 'all', board: 'goals' }, now),
+      serializeLeaderboardQuery({ season: '2025', scope: 'all', board: 'appearances' }, now),
     ).toEqual({ scope: 'all' });
     expect(
       serializeLeaderboardQuery({ season: '2025', scope: 'all', board: 'winRate' }, now),

@@ -8,8 +8,8 @@
 
 .team-head__side {
   display: flex;
-  flex-wrap: wrap;
-  gap: 16rpx 28rpx;
+  flex-direction: column;
+  gap: 8rpx;
   align-items: flex-end;
 }
 

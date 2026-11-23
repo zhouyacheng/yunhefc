@@ -820,8 +820,8 @@ render();
           <div class="team-season">
             <label class="muted small" for="team-season">赛季</label>
             <select id="team-season" aria-label="赛季">${seasonOptions().map((item) => `<option value="${item}"${item === season ? ' selected' : ''}>${item}</option>`).join('')}</select>
-            <a class="link" href="leaderboard.html?season=${season}">排行榜 →</a>
             <span class="badge badge-open">${season} 赛季数据 · 最多延迟 1 分钟</span>
+            <a class="link team-season__leaderboard" href="leaderboard.html?season=${season}">排行榜 →</a>
           </div>
         </div>
         ${groups.length ? groups.map((group) => `<section class="team-position">
@@ -876,7 +876,7 @@ render();
       { key: 'winRate', label: '胜率', main: (e) => (e.internalAppearances ? e.internalWins / e.internalAppearances : -1), secondary: (e) => e.internalWins, value: (e) => (e.internalAppearances ? `${((e.internalWins / e.internalAppearances) * 100).toFixed(1)}%` : '—'), sub: (e) => `队内赛 ${e.internalWins} 胜 / ${e.internalAppearances} 场`, eligible: (e) => e.internalAppearances > 0 },
       { key: 'ownGoals', label: '乌龙', main: (e) => e.ownGoals, secondary: (e) => e.appearances, value: (e) => `${e.ownGoals} 乌龙`, sub: (e) => `出场 ${e.appearances}`, eligible: () => true }
     ];
-    let boardKey = boards.some((item) => item.key === params.get('board')) ? params.get('board') : 'goals';
+    let boardKey = boards.some((item) => item.key === params.get('board')) ? params.get('board') : 'appearances';
 
     function seasonOptions() {
       const seasons = new Set([currentSeason, season]);
@@ -933,7 +933,7 @@ render();
         if (season === currentSeason) url.searchParams.delete('season');
         else url.searchParams.set('season', season);
       }
-      if (boardKey === 'goals') url.searchParams.delete('board');
+      if (boardKey === 'appearances') url.searchParams.delete('board');
       else url.searchParams.set('board', boardKey);
       history.replaceState(null, '', url);
     }
@@ -945,7 +945,7 @@ render();
         <div class="page-head">
           <div><span class="eyebrow">LEADERBOARD</span><h1>排行榜</h1><p class="muted">${formal.length} 名正式球员 · ${scope === 'all' ? '生涯累计' : season + ' 赛季'} · 最多延迟 1 分钟</p></div>
           <div class="team-season">
-            <label class="muted small" for="leaderboard-scope">窗口</label>
+            <label class="muted small" for="leaderboard-scope">赛季</label>
             <select id="leaderboard-scope" aria-label="赛季或生涯累计">
               ${seasonOptions().map((item) => `<option value="${item}"${scope === 'season' && item === season ? ' selected' : ''}>${item}</option>`).join('')}
               <option value="all"${scope === 'all' ? ' selected' : ''}>生涯累计</option>

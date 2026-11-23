@@ -14,7 +14,7 @@ Blocked by: 01, 02
 3. **页面**：`frontend/apps/web/src/pages/LeaderboardPage.vue`；`src/router/index.ts` 在 `AppShell` 下注册 `leaderboards`（公开，不要求登录）。
 4. **入口**：`pages/TeamPage.vue` 页头加「排行榜」链接并带上当前 `season`；`pages/HomePage.vue` 的 `FEATURES` 把「排行榜与身价」改为「AI 身价」。
 5. **请求**：走现有 `src/api/client.ts` 的 `api.get<Leaderboard>('/team/leaderboards', { query: { season, scope } })`，不新增请求封装。
-6. **E2E**：`frontend/e2e/web-leaderboard.spec.ts`（拦截 STA-03 + MAT-14，覆盖默认进球榜、赛季/生涯切换、胜率文案、无 console error）；`web-team.spec.ts` 补页头入口断言。
+6. **E2E**：`frontend/e2e/web-leaderboard.spec.ts`（拦截 STA-03 + MAT-14，覆盖默认出场榜、赛季/生涯切换、胜率文案、无 console error）；`web-team.spec.ts` 补页头入口断言。
 
 ## 验收
 

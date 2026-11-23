@@ -39,10 +39,10 @@ function ranks(rows: ReturnType<typeof rankEntries>): number[] {
 }
 
 describe('榜单定义', () => {
-  it('顺序与 02 §5.11 一致，默认进球', () => {
+  it('顺序与 02 §5.11 一致，默认出场', () => {
     expect(LEADERBOARD_BOARD_TABS.map((board) => board.key)).toEqual([...LEADERBOARD_BOARD_KEYS]);
-    expect(leaderboardBoard('goals').label).toBe('进球');
-    expect(leaderboardBoard('missing' as never).label).toBe('进球');
+    expect(leaderboardBoard('appearances').label).toBe('出场');
+    expect(leaderboardBoard('missing' as never).label).toBe('出场');
   });
 });
 

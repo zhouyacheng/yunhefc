@@ -92,7 +92,7 @@ function ratioBoard(
 const percent = (entry: LeaderboardEntry): string =>
   entry.winRate === null ? '—' : `${entry.winRate.toFixed(1)}%`;
 
-/** 榜单顺序即 02 §5.11 的 Tab 顺序；默认进球榜。 */
+/** 榜单顺序即 02 §5.11 的 Tab 顺序；默认出场榜。 */
 const LEADERBOARD_BOARDS: readonly BoardDef[] = [
   integerBoard(
     'appearances',
@@ -162,7 +162,7 @@ export const LEADERBOARD_BOARD_TABS: readonly LeaderboardBoardTab[] = LEADERBOAR
 const BOARD_BY_KEY = new Map(LEADERBOARD_BOARDS.map((board) => [board.key, board]));
 
 function boardDef(key: LeaderboardBoardKey): BoardDef {
-  return BOARD_BY_KEY.get(key) ?? BOARD_BY_KEY.get('goals')!;
+  return BOARD_BY_KEY.get(key) ?? BOARD_BY_KEY.get('appearances')!;
 }
 
 export function leaderboardBoard(key: LeaderboardBoardKey): LeaderboardBoard {

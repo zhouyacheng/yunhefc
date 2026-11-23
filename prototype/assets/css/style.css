@@ -472,6 +472,11 @@ h3 {
   gap: 8px;
 }
 
+.team-season__leaderboard {
+  flex-basis: 100%;
+  text-align: right;
+}
+
 .team-season select {
   min-height: 34px;
   padding: 6px 8px;

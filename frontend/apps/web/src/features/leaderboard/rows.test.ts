@@ -51,7 +51,7 @@ describe('buildLeaderboardRows', () => {
     expect(goals?.historyText).toBe('10');
   });
 
-  it('零值与破折号标记为弱化，scope=all 无累计', () => {
+  it('零值与破折号标记为弱化，累计缺失时不输出文本', () => {
     const zero = {
       ...base,
       appearances: 0,

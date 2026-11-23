@@ -1,4 +1,4 @@
-/** STA-03 排行榜口径：赛季或生涯累计。 */
+/** STA-03 排行榜口径：赛季或生涯累计；页面仅使用 season，all 保留接口兼容。 */
 export type LeaderboardScope = 'season' | 'all';
 
 /** 排行榜累计口径：生涯累计含当前赛季，历史累计不含当前赛季。 */
@@ -19,20 +19,8 @@ export function isZeroOrPlaceholder(text: string | null): boolean {
   return text === '0' || text === '—';
 }
 
-/** 是否生涯累计窗口；避免各处散落 `=== 'all'`。 */
-export function isCareerScope(scope: LeaderboardScope): boolean {
-  return scope === 'all';
-}
-
-/** 当前榜单窗口的展示名：生涯累计 / 当前赛季 / YYYY 赛季。 */
-export function leaderboardMainLabel(
-  scope: LeaderboardScope,
-  selectedSeason: string,
-  currentSeason: string,
-): string {
-  if (scope === 'all') {
-    return '生涯累计';
-  }
+/** 当前榜单窗口的展示名：当前赛季 / YYYY 赛季。 */
+export function leaderboardMainLabel(selectedSeason: string, currentSeason: string): string {
   return selectedSeason === currentSeason ? '当前赛季' : `${selectedSeason} 赛季`;
 }
 

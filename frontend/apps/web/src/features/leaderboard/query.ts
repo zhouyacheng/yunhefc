@@ -1,5 +1,3 @@
-import type { LeaderboardScope } from '@yunhefc/shared';
-
 import { parseTeamSeason, serializeTeamSeason } from '../team/query';
 
 export const LEADERBOARD_BOARD_KEYS = [
@@ -16,11 +14,10 @@ export type LeaderboardBoardKey = (typeof LEADERBOARD_BOARD_KEYS)[number];
 
 export interface LeaderboardQuery {
   season: string;
-  scope: LeaderboardScope;
   board: LeaderboardBoardKey;
 }
 
-/** STA-03 请求参数：赛季口径显式带 season，生涯口径忽略 season。 */
+/** STA-03 请求参数：页面恒为赛季窗口，显式带 scope=season。 */
 export type LeaderboardRequest = Record<string, string>;
 
 const BOARD_KEY_SET = new Set<string>(LEADERBOARD_BOARD_KEYS);
@@ -36,29 +33,23 @@ export function parseLeaderboardBoard(raw: unknown): LeaderboardBoardKey {
   return BOARD_KEY_SET.has(value) ? (value as LeaderboardBoardKey) : 'appearances';
 }
 
-/** 仅精确匹配 all 时进入生涯累计。 */
-export function parseLeaderboardScope(raw: unknown): LeaderboardScope {
-  return firstValue(raw) === 'all' ? 'all' : 'season';
-}
-
+/** URL 中的 scope 已不再支持，静默忽略。 */
 export function parseLeaderboardQuery(
   raw: Record<string, unknown>,
   now = new Date(),
 ): LeaderboardQuery {
   return {
     season: parseTeamSeason(raw.season, now),
-    scope: parseLeaderboardScope(raw.scope),
     board: parseLeaderboardBoard(raw.board),
   };
 }
 
-/** URL 只保留非默认值；生涯累计写 scope=all 并省略 season。 */
+/** URL 只保留非默认值。 */
 export function serializeLeaderboardQuery(
   query: LeaderboardQuery,
   now = new Date(),
 ): Record<string, string> {
-  const result: Record<string, string> =
-    query.scope === 'all' ? { scope: 'all' } : serializeTeamSeason(query.season, now);
+  const result: Record<string, string> = serializeTeamSeason(query.season, now);
   if (query.board !== 'appearances') {
     result.board = query.board;
   }
@@ -66,5 +57,5 @@ export function serializeLeaderboardQuery(
 }
 
 export function toLeaderboardRequest(query: LeaderboardQuery): LeaderboardRequest {
-  return query.scope === 'all' ? { scope: 'all' } : { season: query.season, scope: 'season' };
+  return { season: query.season, scope: 'season' };
 }

@@ -1,6 +1,6 @@
 # 云河FC 前端
 
-pnpm workspace：C 端 `apps/web`（Vue 3 + Vant 4）、B 端 `apps/admin`（Vue 3 + Element Plus 2）、微信小程序 `apps/miniprogram`（原生 + Vant Weapp）、共享包 `packages/{api-client,permissions,shared}`。小程序不参与构建 web/admin，单独用微信开发者工具运行，见 `apps/miniprogram/README.md`。
+pnpm workspace：C 端 `apps/web`（Vue 3 + Vant 4）、B 端 `apps/admin`（Vue 3 + Element Plus 2）、微信小程序 `apps/miniprogram`（原生 + Vant Weapp）、共享包 `packages/{api-client,permissions,shared}`。小程序单独用微信开发者工具运行，不产出 web/admin 的构建产物；Web 经 workspace 子路径引用小程序的纯排名引擎（ADR 0004），见 `apps/miniprogram/README.md`。
 
 ## 环境
 

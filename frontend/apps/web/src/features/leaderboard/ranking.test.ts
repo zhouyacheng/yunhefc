@@ -1,8 +1,12 @@
 import type { LeaderboardEntry } from '@yunhefc/shared';
 import { describe, expect, it } from 'vitest';
 
-import { LEADERBOARD_BOARD_KEYS } from './query';
-import { LEADERBOARD_BOARDS, leaderboardBoard, rankEntries } from './ranking';
+import {
+  LEADERBOARD_BOARD_KEYS,
+  LEADERBOARD_BOARDS,
+  leaderboardBoard,
+  rankEntries,
+} from './ranking';
 
 const base: LeaderboardEntry = {
   playerId: 1,
@@ -27,11 +31,11 @@ function entry(patch: Partial<LeaderboardEntry>): LeaderboardEntry {
   return { ...base, ...patch };
 }
 
-function names(rows: ReturnType<typeof rankEntries>): string[] {
+function names(rows: Array<{ entry: LeaderboardEntry }>): string[] {
   return rows.map((row) => row.entry.name);
 }
 
-function ranks(rows: ReturnType<typeof rankEntries>): number[] {
+function ranks(rows: Array<{ rank: number }>): number[] {
   return rows.map((row) => row.rank);
 }
 

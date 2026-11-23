@@ -3,6 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./utils/leaderboard-engine": "./miniprogram/utils/leaderboard-engine.ts"
+  },
   "scripts": {
     "prepare:vant": "node scripts/prepare-vant.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.json",

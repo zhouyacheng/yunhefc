@@ -1,16 +1,9 @@
 import { parseTeamSeason, serializeTeamSeason } from '../team/query';
-
-export const LEADERBOARD_BOARD_KEYS = [
-  'appearances',
-  'goals',
-  'assists',
-  'goalsPerMatch',
-  'assistsPerMatch',
-  'winRate',
-  'ownGoals',
-] as const;
-
-export type LeaderboardBoardKey = (typeof LEADERBOARD_BOARD_KEYS)[number];
+import {
+  DEFAULT_LEADERBOARD_BOARD,
+  LEADERBOARD_BOARD_KEYS,
+  type LeaderboardBoardKey,
+} from './ranking';
 
 export interface LeaderboardQuery {
   season: string;
@@ -30,7 +23,7 @@ function firstValue(raw: unknown): string {
 /** 非法或缺失回退默认出场榜。 */
 export function parseLeaderboardBoard(raw: unknown): LeaderboardBoardKey {
   const value = firstValue(raw);
-  return BOARD_KEY_SET.has(value) ? (value as LeaderboardBoardKey) : 'appearances';
+  return BOARD_KEY_SET.has(value) ? (value as LeaderboardBoardKey) : DEFAULT_LEADERBOARD_BOARD;
 }
 
 /** URL 中的 scope 已不再支持，静默忽略。 */

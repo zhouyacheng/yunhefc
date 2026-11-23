@@ -11,10 +11,9 @@ import {
   parseLeaderboardQuery,
   serializeLeaderboardQuery,
   toLeaderboardRequest,
-  type LeaderboardBoardKey,
   type LeaderboardQuery,
 } from '../features/leaderboard/query';
-import { LEADERBOARD_BOARDS } from '../features/leaderboard/ranking';
+import { LEADERBOARD_BOARDS, type LeaderboardBoardKey } from '../features/leaderboard/ranking';
 import { buildLeaderboardRows, type LeaderboardRow } from '../features/leaderboard/rows';
 import { avatarInitial, avatarSrc } from '../features/team/merge-stats';
 import { currentShanghaiSeason, mergeSeasonOptions } from '../features/team/query';

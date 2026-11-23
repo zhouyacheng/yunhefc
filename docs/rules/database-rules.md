@@ -98,7 +98,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 
 1. 所有 DDL 通过 Flyway 迁移，随应用启动执行；禁止手工改表。
 2. 基线顺序：
-   - `V1__baseline_schema.sql`：27 张业务表（基线；V16 后共 30 张）；
+   - `V1__baseline_schema.sql`：27 张业务表（基线；V16 后共 31 张）；
    - `V2__quartz_schema.sql`：11 张 Quartz 表；
    - `V3__seed_team_roles_permissions_settings.sql`：球队、角色、28 权限、9 项配置（V10 删除其中 6 项分组权重）；
    - `V4__seed_formation_templates.sql`：8 套阵型、64 个槽位；

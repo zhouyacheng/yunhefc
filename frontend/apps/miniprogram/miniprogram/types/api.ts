@@ -292,6 +292,7 @@ export interface LeaderboardEntry {
   name: string;
   jersey: number | null;
   position: number;
+  positionLabel?: string;
   avatarUrl: string | null;
   appearances: number;
   goals: number;

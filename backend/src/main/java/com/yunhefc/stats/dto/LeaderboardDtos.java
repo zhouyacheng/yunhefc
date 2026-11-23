@@ -19,6 +19,7 @@ public final class LeaderboardDtos {
             String name,
             Integer jersey,
             Integer position,
+            String positionLabel,
             String avatarUrl,
             int appearances,
             int goals,

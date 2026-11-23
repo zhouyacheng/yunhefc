@@ -17,23 +17,14 @@ interface WindowOption {
   label: string;
 }
 
-const ALL_WINDOW: WindowOption = { key: 'all', label: '生涯累计' };
-
-function windowLabel(key: string): string {
-  return key === 'all' ? ALL_WINDOW.label : `${key} 赛季`;
-}
-
 /** 与 shared `leaderboardMainLabel` 同口径；小程序不引共享包。 */
 function mainLabel(windowKey: string): string {
-  if (windowKey === 'all') {
-    return '生涯累计';
-  }
   return windowKey === currentSeason() ? '当前赛季' : `${windowKey} 赛季`;
 }
 
 Page({
   data: {
-    windows: [ALL_WINDOW] as WindowOption[],
+    windows: [] as WindowOption[],
     windowIndex: 0,
     windowKey: '',
     boards: LEADERBOARD_BOARD_TABS,
@@ -41,7 +32,6 @@ Page({
     rows: [] as LeaderboardRowView[],
     summary: '',
     mainLabel: '',
-    hasTotals: false,
     loading: true,
     error: '',
   },
@@ -65,7 +55,7 @@ Page({
     await this.loadBoards();
   },
 
-  /** MAT-14 赛季选项 + 生涯累计；失败不阻塞榜单，至少保留当前与已选赛季。 */
+  /** MAT-14 赛季选项；失败不阻塞榜单，至少保留当前与已选赛季。 */
   async loadWindows() {
     const fallback = this.initialSeason || currentSeason();
     const selected = this.data.windowKey || fallback;
@@ -75,11 +65,8 @@ Page({
     } catch {
       // 选项失败只影响下拉范围。
     }
-    const seasons = mergeSeasonOptions(items, selected === 'all' ? fallback : selected);
-    const windows: WindowOption[] = [
-      ALL_WINDOW,
-      ...seasons.map((season) => ({ key: season, label: season })),
-    ];
+    const seasons = mergeSeasonOptions(items, selected);
+    const windows: WindowOption[] = seasons.map((season) => ({ key: season, label: season }));
     const index = Math.max(
       0,
       windows.findIndex((window) => window.key === selected),
@@ -97,7 +84,7 @@ Page({
     try {
       const data = await fetchLeaderboards({
         season: windowKey,
-        scope: windowKey === 'all' ? 'all' : 'season',
+        scope: 'season',
       });
       if (seq !== this.requestSeq) {
         return;
@@ -105,9 +92,8 @@ Page({
       this.entries = Array.isArray(data.items) ? data.items : [];
       this.setData({
         rows: this.renderRows(this.data.boardKey),
-        summary: `${this.entries.length} 名正式球员 · ${windowLabel(windowKey)} · 最多延迟 1 分钟`,
+        summary: `${this.entries.length} 名正式球员 · ${windowKey} 赛季 · 最多延迟 1 分钟`,
         mainLabel: mainLabel(windowKey),
-        hasTotals: windowKey !== 'all',
         loading: false,
       });
     } catch (error) {

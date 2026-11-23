@@ -5,6 +5,7 @@ import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.player.PlayerPublicSnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
+import com.yunhefc.contracts.player.Position;
 import com.yunhefc.stats.dto.LeaderboardDtos.LeaderboardEntry;
 import com.yunhefc.stats.dto.LeaderboardDtos.LeaderboardTotals;
 import com.yunhefc.stats.dto.LeaderboardDtos.LeaderboardView;
@@ -32,8 +33,31 @@ public class StatsQueryService {
 
     private static final Pattern SEASON_PATTERN = Pattern.compile("\\d{4}");
     private static final Predicate<String> IS_SEASON = SEASON_PATTERN.asMatchPredicate();
-    private static final String SCOPE_SEASON = "season";
-    private static final String SCOPE_ALL = "all";
+
+    private enum LeaderboardScope {
+        SEASON("season"),
+        ALL("all");
+
+        private final String code;
+
+        LeaderboardScope(String code) {
+            this.code = code;
+        }
+
+        private String code() {
+            return code;
+        }
+
+        private static LeaderboardScope of(String raw) {
+            String value = raw == null || raw.isBlank() ? SEASON.code : raw.trim();
+            for (LeaderboardScope scope : values()) {
+                if (scope.code.equals(value)) {
+                    return scope;
+                }
+            }
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "scope 必须为 season 或 all");
+        }
+    }
 
     private final StatsSummaryReader summaryReader;
     private final PlayerReadPort playerReadPort;
@@ -97,20 +121,16 @@ public class StatsQueryService {
      * 排行榜：一次返回全员指标，排序与名次由前端计算；scope=all 忽略 season。
      */
     public LeaderboardView leaderboard(Long teamId, String requestedSeason, String requestedScope) {
-        String scope = requestedScope == null || requestedScope.isBlank()
-                ? SCOPE_SEASON : requestedScope.trim();
-        if (!SCOPE_SEASON.equals(scope) && !SCOPE_ALL.equals(scope)) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "scope 必须为 season 或 all");
-        }
-        String season = SCOPE_ALL.equals(scope) ? null : resolveSeason(requestedSeason);
-        boolean includeTotals = !SCOPE_ALL.equals(scope);
+        LeaderboardScope scope = LeaderboardScope.of(requestedScope);
+        String season = scope == LeaderboardScope.ALL ? null : resolveSeason(requestedSeason);
+        boolean includeTotals = scope != LeaderboardScope.ALL;
         int currentYear = Integer.parseInt(currentSeason());
-        Map<Long, Metrics> careerTotals = metricsUpTo(teamId, currentYear, true);
-        Map<Long, Metrics> metrics = SCOPE_ALL.equals(scope)
+        Map<Long, Metrics> careerTotals = careerMetrics(teamId, currentYear);
+        Map<Long, Metrics> metrics = scope == LeaderboardScope.ALL
                 ? careerTotals
                 : seasonMetrics(teamId, season);
         Map<Long, Metrics> historical = includeTotals
-                ? metricsUpTo(teamId, currentYear, false)
+                ? historyBeforeCurrentYear(teamId, currentYear, careerTotals)
                 : Map.of();
         List<LeaderboardEntry> items = playerReadPort.findPublicRoster(teamId).stream()
                 .sorted(Comparator.comparing(PlayerPublicSnapshot::id))
@@ -122,7 +142,7 @@ public class StatsQueryService {
                                         careerTotals.getOrDefault(player.id(), Metrics.ZERO))
                                 : null))
                 .toList();
-        return new LeaderboardView(season, scope, items);
+        return new LeaderboardView(season, scope.code(), items);
     }
 
     private Map<Long, Metrics> seasonMetrics(Long teamId, String season) {
@@ -133,12 +153,23 @@ public class StatsQueryService {
     }
 
     /**
-     * 汇总到当前自然年：inclusive 时含当前赛季（生涯累计），否则只含更早赛季（历史累计）。
+     * 生涯累计：不晚于当前自然年的所有赛季（未来赛季不计）。
      */
-    private Map<Long, Metrics> metricsUpTo(Long teamId, int currentYear, boolean inclusive) {
+    private Map<Long, Metrics> careerMetrics(Long teamId, int currentYear) {
         return aggregateSeasons(teamId, season ->
-                IS_SEASON.test(season) && (Integer.parseInt(season) < currentYear
-                        || (inclusive && Integer.parseInt(season) == currentYear)));
+                IS_SEASON.test(season) && Integer.parseInt(season) <= currentYear);
+    }
+
+    /**
+     * 历史累计 = 生涯累计 − 当前自然年赛季；避免对全部赛季重复聚合。
+     */
+    private Map<Long, Metrics> historyBeforeCurrentYear(Long teamId, int currentYear,
+                                                        Map<Long, Metrics> careerTotals) {
+        Map<Long, Metrics> current = seasonMetrics(teamId, String.valueOf(currentYear));
+        Map<Long, Metrics> history = new HashMap<>();
+        careerTotals.forEach((playerId, total) ->
+                history.put(playerId, total.minus(current.getOrDefault(playerId, Metrics.ZERO))));
+        return history;
     }
 
     private Map<Long, Metrics> aggregateSeasons(Long teamId, Predicate<String> include) {
@@ -161,6 +192,7 @@ public class StatsQueryService {
                 player.name(),
                 player.jersey(),
                 player.position(),
+                player.position() == null ? null : Position.of(player.position()).label(),
                 player.avatarUrl(),
                 current.appearances(),
                 current.goals(),
@@ -230,6 +262,13 @@ public class StatsQueryService {
                     assists + other.assists, ownGoals + other.ownGoals,
                     internalAppearances + other.internalAppearances,
                     internalWins + other.internalWins);
+        }
+
+        private Metrics minus(Metrics other) {
+            return new Metrics(appearances - other.appearances, goals - other.goals,
+                    assists - other.assists, ownGoals - other.ownGoals,
+                    internalAppearances - other.internalAppearances,
+                    internalWins - other.internalWins);
         }
     }
 }

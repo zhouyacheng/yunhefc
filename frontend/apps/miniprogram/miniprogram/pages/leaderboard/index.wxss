@@ -76,10 +76,6 @@
   border-bottom: 1rpx solid var(--yh-line);
 }
 
-.lb-board-head--single {
-  grid-template-columns: 1fr;
-}
-
 .lb-head-stat {
   text-align: center;
   white-space: nowrap;
@@ -121,10 +117,6 @@
   border-top: 1rpx solid var(--yh-line);
 }
 
-.lb-stats--single {
-  grid-template-columns: 1fr;
-}
-
 .lb-stat {
   text-align: center;
   white-space: nowrap;
@@ -160,6 +152,7 @@
   color: var(--yh-muted);
   font-size: 36rpx;
   font-weight: 800;
+  font-variant-numeric: tabular-nums;
   text-align: center;
 }
 

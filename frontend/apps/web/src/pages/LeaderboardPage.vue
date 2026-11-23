@@ -247,10 +247,11 @@ onMounted(() => {
       </div>
     </template>
 
-    <p class="lb-note muted small">
-      出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有分组归属的场次；并列采用标准竞赛排名（1、1、3）。
-      生涯累计汇总当前赛季与历史累计（不晚于当前自然年，未来赛季不计），历史累计只汇总早于当前年份的赛季（不含当前赛季）；两者固定不随所选赛季与榜单变化，生涯累计窗口下隐藏。
-    </p>
+    <div class="lb-note muted small">
+      <b class="lb-note-title">注意事项</b>
+      <p>出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有分组归属的场次；并列采用标准竞赛排名（1、1、3）。</p>
+      <p>生涯累计汇总当前赛季与历史累计（不晚于当前自然年，未来赛季不计），历史累计只汇总早于当前年份的赛季（不含当前赛季）；两者固定不随所选赛季与榜单变化。</p>
+    </div>
   </section>
 </template>
 
@@ -460,6 +461,18 @@ onMounted(() => {
 .lb-note {
   margin-top: 18px;
   line-height: 1.7;
+}
+
+.lb-note-title {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--yh-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lb-note p {
+  margin: 0;
 }
 
 @media (max-width: 900px) {

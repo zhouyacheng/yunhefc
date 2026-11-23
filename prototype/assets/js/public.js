@@ -995,6 +995,7 @@ render();
           <div class="team-season">
             <label class="muted small" for="leaderboard-scope">赛季</label>
             <select id="leaderboard-scope" aria-label="赛季筛选">
+              ${scope === 'all' ? '<option value="" selected disabled>请选择赛季</option>' : ''}
               ${seasonOptions().map((item) => `<option value="${item}"${scope === 'season' && item === season ? ' selected' : ''}>${item}</option>`).join('')}
             </select>
             <a class="link" href="team.html${scope === 'season' ? `?season=${season}` : ''}">← 返回球队</a>
@@ -1026,6 +1027,7 @@ render();
       const select = $('#leaderboard-scope', host);
       if (select) {
         select.addEventListener('change', () => {
+          if (!select.value) return;
           scope = 'season';
           season = select.value;
           syncUrl();

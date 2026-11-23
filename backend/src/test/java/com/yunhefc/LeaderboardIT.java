@@ -20,6 +20,8 @@ import java.time.ZoneId;
  */
 class LeaderboardIT extends IntegrationTestSupport {
 
+    private static final String MALFORMED_SEASON = "202";
+
     @Test
     void returnsSeasonLeaderboardWithRatesAndZeroFillsMissingRows() throws Exception {
         Long withStats = formalPlayer("13900007001", "排行球员甲", 7, 3);
@@ -70,9 +72,9 @@ class LeaderboardIT extends IntegrationTestSupport {
         Long onlyFuture = formalPlayer("13900007033", "排行未来", 13, 2);
         Long onlyCurrent = formalPlayer("13900007034", "排行仅当年", 14, 2);
         Long malformedSeason = formalPlayer("13900007036", "排行非法赛季", 16, 2);
-        insertStats(onlyFuture, future, 9, 9, 9, 9, 9, 9);
+        insertOutOfWindowStats(onlyFuture, future);
         insertStats(onlyCurrent, season(), 4, 3, 2, 1, 4, 3);
-        insertStats(malformedSeason, "202", 9, 9, 9, 9, 9, 9);
+        insertOutOfWindowStats(malformedSeason, MALFORMED_SEASON);
 
         mockMvc.perform(get("/api/v1/c/team/leaderboards"))
                 .andExpect(status().isOk())
@@ -97,11 +99,13 @@ class LeaderboardIT extends IntegrationTestSupport {
     }
 
     @Test
-    void careerScopeReturnsNullHistory() throws Exception {
+    void careerScopeExcludesFutureAndMalformedSeasonsAndReturnsNullHistory() throws Exception {
         int current = Integer.parseInt(season());
         Long player = formalPlayer("13900007035", "排行生涯无历史列", 15, 2);
         insertStats(player, season(), 2, 1, 0, 0, 2, 1);
         insertStats(player, String.valueOf(current - 1), 3, 2, 1, 0, 3, 2);
+        insertOutOfWindowStats(player, String.valueOf(current + 1));
+        insertOutOfWindowStats(player, MALFORMED_SEASON);
 
         mockMvc.perform(get("/api/v1/c/team/leaderboards").param("scope", "all"))
                 .andExpect(status().isOk())
@@ -265,6 +269,11 @@ class LeaderboardIT extends IntegrationTestSupport {
                 VALUES (1, ?, ?, ?, ?, ?, '[]', '上海', 3.00)
                 """, userId, name, jersey, type, position);
         return jdbc.queryForObject("SELECT id FROM player WHERE user_id = ?", Long.class, userId);
+    }
+
+    /** 未来/非法赛季的噪声汇总行：用于断言 career/history 窗口排除。 */
+    private void insertOutOfWindowStats(Long playerId, String season) {
+        insertStats(playerId, season, 9, 9, 9, 9, 9, 9);
     }
 
     private void insertStats(Long playerId, String season, int appearances, int goals, int assists,

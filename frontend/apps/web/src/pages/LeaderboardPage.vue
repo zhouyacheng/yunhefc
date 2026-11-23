@@ -36,6 +36,8 @@ const failedAvatars = ref<number[]>([]);
 let requestSeq = 0;
 
 const seasonOptions = computed(() => mergeSeasonOptions(seasonItems.value, query.value.season));
+// 旧直链进入生涯口径时下拉不显示赛季，避免把生涯数据标成某个赛季。
+const selectedSeason = computed(() => (isCareerScope(query.value.scope) ? '' : query.value.season));
 const mainLabel = computed(() =>
   leaderboardMainLabel(query.value.scope, query.value.season, currentShanghaiSeason()),
 );
@@ -108,6 +110,9 @@ function selectBoard(key: LeaderboardBoardKey): void {
 
 function changeScope(event: Event): void {
   const value = (event.target as HTMLSelectElement).value;
+  if (!value) {
+    return;
+  }
   navigate({ ...query.value, scope: 'season', season: value });
 }
 
@@ -139,7 +144,8 @@ onMounted(() => {
       <div class="lb-side">
         <label class="lb-scope">
           <span>赛季</span>
-          <select aria-label="赛季筛选" :value="query.season" @change="changeScope">
+          <select aria-label="赛季筛选" :value="selectedSeason" @change="changeScope">
+            <option v-if="isCareerScope(query.scope)" value="" disabled>请选择赛季</option>
             <option v-for="option in seasonOptions" :key="option" :value="option">
               {{ option }}
             </option>

@@ -1406,6 +1406,7 @@ render();
     if (!host) return;
     const typeLabels = { DINNER: '聚餐', ANNUAL_MEETING: '年会', OTHER: '其他' };
     const statusLabels = { SIGNUP_OPEN: '报名中', SIGNUP_CLOSED: '报名截止', FINISHED: '已结束', CANCELLED: '已取消' };
+    const scopeLabels = { LATEST: '最近活动', HISTORY: '历史', ALL: '全部' };
     const activities = [
       { id: 1, title: '赛季收官聚餐', type: 'DINNER', startAt: '2026-12-06T18:30:00+08:00', deadline: '2026-12-04T20:00:00+08:00', location: '老地方火锅（体育中心店）', cost: 120, capacity: 20, signed: 12, status: 'SIGNUP_OPEN', mine: false, family: false },
       { id: 2, title: '2026 年度年会', type: 'ANNUAL_MEETING', startAt: '2027-01-17T17:00:00+08:00', deadline: '2027-01-10T20:00:00+08:00', location: '云河酒店 3 楼宴会厅', cost: 260, capacity: null, signed: 8, status: 'SIGNUP_OPEN', mine: true, family: true },
@@ -1413,6 +1414,7 @@ render();
     ];
     let typeFilter = 'ALL';
     let statusFilter = 'ALL';
+    let scopeFilter = 'ALL';
 
     function signupOpen(item) {
       if (item.status !== 'SIGNUP_OPEN') return false;
@@ -1428,13 +1430,24 @@ render();
     }
 
     function render() {
-      const list = activities.filter((item) => (typeFilter === 'ALL' || item.type === typeFilter)
-        && (statusFilter === 'ALL' || item.status === statusFilter));
+      const scoped = activities.filter((item) => (typeFilter === 'ALL' || item.type === typeFilter)
+        && (statusFilter === 'ALL' || item.status === statusFilter))
+        .sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
+      const list = scopeFilter === 'LATEST'
+        ? scoped.slice(0, 1)
+        : scopeFilter === 'HISTORY'
+          ? scoped.filter((item) => new Date(item.startAt).getTime() < Date.now())
+          : scoped;
       host.innerHTML = `<div class="container section">
         <div class="page-head">
           <div><span class="eyebrow">ACTIVITY</span><h1>活动</h1><p class="muted">聚餐、年会与队内其他活动；报名受状态、截止时间与人数上限约束，满员不设候补</p></div>
         </div>
         <div class="card" style="padding:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:end">
+          <label class="muted small" for="activity-scope">范围
+            <select id="activity-scope">
+              ${Object.keys(scopeLabels).map((key) => `<option value="${key}"${key === scopeFilter ? ' selected' : ''}>${scopeLabels[key]}</option>`).join('')}
+            </select>
+          </label>
           <label class="muted small" for="activity-type">类型
             <select id="activity-type">
               <option value="ALL">全部</option>
@@ -1470,7 +1483,7 @@ render();
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；满员直接拒绝、不设候补；详情公开可读但不含报名名单。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动只显示活动时间最大的一条（不论状态）；满员直接拒绝、不设候补；详情公开可读但不含报名名单。</p>
         </div>
       </div>`;
 
@@ -1480,6 +1493,10 @@ render();
       });
       $('#activity-status', host).addEventListener('change', (event) => {
         statusFilter = event.target.value;
+        render();
+      });
+      $('#activity-scope', host).addEventListener('change', (event) => {
+        scopeFilter = event.target.value;
         render();
       });
       $$('[data-signup-activity]', host).forEach((button) => {

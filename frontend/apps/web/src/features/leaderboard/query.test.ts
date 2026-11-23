@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   parseLeaderboardBoard,
   parseLeaderboardQuery,
-  parseLeaderboardScope,
   serializeLeaderboardQuery,
   toLeaderboardRequest,
 } from './query';
@@ -26,29 +25,17 @@ describe('parseLeaderboardBoard', () => {
   });
 });
 
-describe('parseLeaderboardScope', () => {
-  it('仅 all 进入生涯累计', () => {
-    expect(parseLeaderboardScope('all')).toBe('all');
-    expect(parseLeaderboardScope(['all'])).toBe('all');
-    expect(parseLeaderboardScope('season')).toBe('season');
-    expect(parseLeaderboardScope('career')).toBe('season');
-    expect(parseLeaderboardScope(undefined)).toBe('season');
-  });
-});
-
 describe('parseLeaderboardQuery', () => {
-  it('缺失时默认当前赛季、赛季口径与出场榜', () => {
+  it('缺失时默认当前赛季与出场榜', () => {
     expect(parseLeaderboardQuery({}, now)).toEqual({
       season: '2026',
-      scope: 'season',
       board: 'appearances',
     });
   });
 
-  it('解析赛季、生涯与榜单', () => {
+  it('解析赛季与榜单，忽略 scope 参数', () => {
     expect(parseLeaderboardQuery({ season: '2025', scope: 'all', board: 'assists' }, now)).toEqual({
       season: '2025',
-      scope: 'all',
       board: 'assists',
     });
   });
@@ -56,7 +43,6 @@ describe('parseLeaderboardQuery', () => {
   it('非法值静默回退', () => {
     expect(parseLeaderboardQuery({ season: '26', scope: 'career', board: 'x' }, now)).toEqual({
       season: '2026',
-      scope: 'season',
       board: 'appearances',
     });
   });
@@ -64,49 +50,36 @@ describe('parseLeaderboardQuery', () => {
   it('空字符串查询与数组取值', () => {
     expect(
       parseLeaderboardQuery({ season: ['2025', '2024'], scope: [''], board: ['winRate'] }, now),
-    ).toEqual({ season: '2025', scope: 'season', board: 'winRate' });
+    ).toEqual({ season: '2025', board: 'winRate' });
     expect(parseLeaderboardQuery({ season: '', scope: '', board: '' }, now)).toEqual({
       season: '2026',
-      scope: 'season',
       board: 'appearances',
     });
   });
 });
 
 describe('serializeLeaderboardQuery', () => {
-  it('默认赛季、赛季口径与出场榜不写 URL', () => {
-    expect(
-      serializeLeaderboardQuery({ season: '2026', scope: 'season', board: 'appearances' }, now),
-    ).toEqual({});
+  it('默认赛季与出场榜不写 URL', () => {
+    expect(serializeLeaderboardQuery({ season: '2026', board: 'appearances' }, now)).toEqual({});
   });
 
-  it('历史赛季与非默认榜单写入 URL', () => {
-    expect(
-      serializeLeaderboardQuery({ season: '2025', scope: 'season', board: 'assists' }, now),
-    ).toEqual({ season: '2025', board: 'assists' });
-  });
-
-  it('生涯累计写 scope=all 并省略 season', () => {
-    expect(
-      serializeLeaderboardQuery({ season: '2025', scope: 'all', board: 'appearances' }, now),
-    ).toEqual({ scope: 'all' });
-    expect(
-      serializeLeaderboardQuery({ season: '2025', scope: 'all', board: 'winRate' }, now),
-    ).toEqual({ scope: 'all', board: 'winRate' });
+  it('历史赛季与非默认榜单写入 URL，不写 scope', () => {
+    expect(serializeLeaderboardQuery({ season: '2025', board: 'assists' }, now)).toEqual({
+      season: '2025',
+      board: 'assists',
+    });
   });
 });
 
 describe('toLeaderboardRequest', () => {
-  it('赛季口径显式带 season（含默认年份）', () => {
-    expect(toLeaderboardRequest({ season: '2026', scope: 'season', board: 'goals' })).toEqual({
+  it('恒为赛季窗口并显式带 scope', () => {
+    expect(toLeaderboardRequest({ season: '2026', board: 'goals' })).toEqual({
       season: '2026',
       scope: 'season',
     });
-  });
-
-  it('生涯口径忽略 season', () => {
-    expect(toLeaderboardRequest({ season: '2026', scope: 'all', board: 'goals' })).toEqual({
-      scope: 'all',
+    expect(toLeaderboardRequest({ season: '2025', board: 'appearances' })).toEqual({
+      season: '2025',
+      scope: 'season',
     });
   });
 });

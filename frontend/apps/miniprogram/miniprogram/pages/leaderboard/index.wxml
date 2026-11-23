@@ -41,16 +41,22 @@
   <van-empty wx:elif="{{rows.length === 0}}" description="当前窗口暂无符合条件的球员" />
 
   <view wx:else class="lb-board">
-    <view class="lb-board-head">
-      <text class="lb-head-stat">{{mainLabel}}</text>
+    <view class="lb-board-head lb-grid">
+      <text class="lb-head-rank"></text>
+      <text class="lb-head-player">球员</text>
+      <text class="lb-head-stat lb-head-stat--current">{{mainLabel}}</text>
       <text class="lb-head-stat">历史累计</text>
       <text class="lb-head-stat">生涯累计</text>
     </view>
 
     <view class="lb-list">
-      <view class="lb-row" wx:for="{{rows}}" wx:key="playerId">
-        <view class="lb-main-row">
-          <text class="lb-rank {{index === 0 ? 'lb-rank--top' : ''}}">{{item.rank}}</text>
+      <view class="lb-row lb-grid" wx:for="{{rows}}" wx:key="playerId">
+        <text
+          class="lb-rank {{index === 0 ? 'lb-rank--top' : ''}}"
+          aria-label="名次 {{item.rank}}"
+        >{{item.rank}}</text>
+
+        <view class="lb-player">
           <image
             wx:if="{{item.avatarUrl}}"
             class="lb-avatar"
@@ -60,31 +66,27 @@
             binderror="onAvatarError"
           />
           <text wx:else class="lb-avatar lb-avatar--fallback">{{item.initial}}</text>
-          <view class="lb-info">
-            <text class="lb-name">{{item.name}}</text>
-          </view>
+          <text class="lb-name">{{item.name}}</text>
         </view>
 
-        <view class="lb-stats">
-          <text
-            class="lb-stat lb-stat--current {{item.currentZero ? 'lb-stat--zero' : ''}}"
-            aria-label="{{mainLabel}} {{item.currentText}}"
-          >{{item.currentText}}</text>
-          <text
-            class="lb-stat lb-stat--history {{item.historyZero ? 'lb-stat--zero' : ''}}"
-            aria-label="历史累计 {{item.historyText}}"
-          >{{item.historyText}}</text>
-          <text
-            class="lb-stat lb-stat--career {{item.careerZero ? 'lb-stat--zero' : ''}}"
-            aria-label="生涯累计 {{item.careerText}}"
-          >{{item.careerText}}</text>
-        </view>
+        <text
+          class="lb-stat lb-stat--current {{item.currentZero ? 'lb-stat--zero' : ''}}"
+          aria-label="{{mainLabel}} {{item.currentText}}"
+        >{{item.currentText}}</text>
+        <text
+          class="lb-stat lb-stat--history {{item.historyZero ? 'lb-stat--zero' : ''}}"
+          aria-label="历史累计 {{item.historyText}}"
+        >{{item.historyText}}</text>
+        <text
+          class="lb-stat lb-stat--career {{item.careerZero ? 'lb-stat--zero' : ''}}"
+          aria-label="生涯累计 {{item.careerText}}"
+        >{{item.careerText}}</text>
       </view>
     </view>
   </view>
 
   <view class="lb-note">
-    <text class="lb-note-title">注意事项</text>
+    <text class="lb-note-title">注：</text>
     <text class="lb-note-body">出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有分组归属的场次；并列采用标准竞赛排名（1、1、3）。</text>
     <text class="lb-note-body">生涯累计汇总当前赛季与历史累计（不晚于当前自然年，未来赛季不计），历史累计只汇总早于当前年份的赛季（不含当前赛季）；两者固定不随所选赛季与榜单变化。</text>
   </view>

@@ -16,6 +16,7 @@ WORKDIR /src
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml frontend/tsconfig.base.json ./
 COPY frontend/apps/web/package.json ./apps/web/package.json
 COPY frontend/apps/admin/package.json ./apps/admin/package.json
+COPY frontend/apps/miniprogram/package.json ./apps/miniprogram/package.json
 COPY frontend/packages/api-client/package.json ./packages/api-client/package.json
 COPY frontend/packages/permissions/package.json ./packages/permissions/package.json
 COPY frontend/packages/shared/package.json ./packages/shared/package.json

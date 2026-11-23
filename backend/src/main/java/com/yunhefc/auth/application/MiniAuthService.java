@@ -23,6 +23,7 @@ import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.AuthSessionService;
+import com.yunhefc.common.security.Hashing;
 import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.util.MaskUtils;
 import com.yunhefc.contracts.player.PlayerReadPort;
@@ -52,6 +53,7 @@ public class MiniAuthService {
 
     private static final Logger log = LoggerFactory.getLogger(MiniAuthService.class);
     private static final Pattern PHONE = Pattern.compile("^1\\d{10}$");
+    private static final int OPENID_HASH_PREFIX_LENGTH = 12;
 
     private final MiniProgramProperties properties;
     private final MiniProgramClient client;
@@ -72,15 +74,23 @@ public class MiniAuthService {
     public MiniLoginResponse login(MiniLoginRequest request, HttpServletRequest servletRequest,
                                    HttpServletResponse response) {
         requireEnabled();
+        long exchangeStart = System.nanoTime();
         String openid = exchange(request.code());
+        String openidHash = openidHash(openid);
+        log.info("mini login code exchanged, mode={}, openidHash={}, remoteIp={}, durationMs={}",
+                properties.getMode(), openidHash,
+                MaskUtils.maskIp(servletRequest.getRemoteAddr()), elapsedMs(exchangeStart));
 
         AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
                 .eq(AppUser::getMpOpenid, openid));
         if (user == null) {
             // 未绑定：签发 10 分钟一次性票据（Redis 只存哈希），不创建无手机号账号。
             String ticket = bindTicketStore.save(openid);
+            log.info("mini login needs bind phone, openidHash={}", openidHash);
             return new MiniLoginResponse(true, ticket, null, null, null, null);
         }
+        log.info("mini login matched user, userId={}, status={}, openidHash={}",
+                user.getId(), user.getStatus(), openidHash);
         AuthResponse session = login(user, servletRequest, response);
         return new MiniLoginResponse(false, null, session.user(), session.player(),
                 session.permissions(), session.csrfToken());
@@ -93,34 +103,52 @@ public class MiniAuthService {
         // 票据一次性：消费即失效，绑手机失败不恢复，用户需重新登录获取新票据。
         String openid = bindTicketStore.consume(request.bindTicket());
         if (openid == null || openid.isBlank()) {
+            log.warn("mini bind phone rejected, ticket invalid or expired");
             throw new BusinessException(ErrorCode.UNAUTHENTICATED, "小程序登录已过期，请重新登录");
         }
+        log.info("mini bind phone start, openidHash={}", openidHash(openid));
         return bindPhoneInternal(request, openid, servletRequest, response);
     }
 
     private AuthResponse bindPhoneInternal(MiniBindPhoneRequest request, String openid,
                                            HttpServletRequest servletRequest, HttpServletResponse response) {
         if (request.phone() == null || !PHONE.matcher(request.phone()).matches()) {
+            log.warn("mini bind phone rejected, invalid phone format");
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "手机号格式不正确");
         }
-        smsCodeService.verify(request.phone(), "BIND", request.code());
+        try {
+            smsCodeService.verify(request.phone(), "BIND", request.code());
+        } catch (BusinessException ex) {
+            log.warn("mini bind phone rejected, sms verify failed, phone={}, errorCode={}",
+                    MaskUtils.maskPhone(request.phone()), ex.errorCode().code());
+            throw ex;
+        }
+        log.info("mini bind phone sms verified, phone={}", MaskUtils.maskPhone(request.phone()));
 
         AppUser user = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
                 .eq(AppUser::getPhone, request.phone()));
         if (user != null) {
             if (user.getStatus() == UserStatus.DISABLED) {
+                log.warn("mini bind phone rejected, account disabled, userId={}, phone={}",
+                        user.getId(), MaskUtils.maskPhone(request.phone()));
                 throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
             }
+            log.info("mini bind phone attaching to existing user, userId={}", user.getId());
             bindMpOpenid(user, openid);
         } else {
             if (request.name() == null || request.name().isBlank()
                     || request.position() == null || request.position() < 0 || request.position() > 3) {
+                log.warn("mini bind phone rejected, new account missing name or position");
                 throw new BusinessException(ErrorCode.VALIDATION_FAILED, "新账号必须提供姓名和位置");
             }
             user = createUser(request, openid);
+            log.info("mini bind phone created user, userId={}, phone={}",
+                    user.getId(), MaskUtils.maskPhone(request.phone()));
         }
         recordWechatBind(user);
-        return login(user, servletRequest, response);
+        AuthResponse session = login(user, servletRequest, response);
+        log.info("mini bind phone completed, userId={}", user.getId());
+        return session;
     }
 
     private AppUser createUser(MiniBindPhoneRequest request, String openid) {
@@ -158,9 +186,12 @@ public class MiniAuthService {
         AppUser other = userMapper.selectOne(new LambdaQueryWrapper<AppUser>()
                 .eq(AppUser::getMpOpenid, openid));
         if (other != null && !other.getId().equals(user.getId())) {
+            log.warn("mini bind rejected, openid already bound to another user, userId={}, otherUserId={}",
+                    user.getId(), other.getId());
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "该微信已绑定其他账号");
         }
         if (user.getMpOpenid() != null && !user.getMpOpenid().equals(openid)) {
+            log.warn("mini bind rejected, account already bound to another openid, userId={}", user.getId());
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "账号已绑定其他微信");
         }
         try {
@@ -185,6 +216,7 @@ public class MiniAuthService {
 
     private AuthResponse login(AppUser user, HttpServletRequest request, HttpServletResponse response) {
         if (user.getStatus() == UserStatus.DISABLED) {
+            log.warn("mini login rejected, account disabled, userId={}", user.getId());
             throw new BusinessException(ErrorCode.ACCOUNT_DISABLED);
         }
         loginAttemptService.clear(user.getPhone());
@@ -192,6 +224,8 @@ public class MiniAuthService {
         PlayerSnapshot player = playerReadPort.findByUserId(user.getId()).orElse(null);
         Set<String> permissions = new LinkedHashSet<>(userRoleMapper.findPermissionCodes(user.getId()));
         String csrf = sessionService.establish(request, response, SessionKeys.C_USER_ID, user.getId());
+        log.info("mini login session established, userId={}, permissionCount={}, playerBound={}",
+                user.getId(), permissions.size(), player != null);
         return new AuthResponse(userViewAssembler.toView(user), playerView(player), permissions, csrf);
     }
 
@@ -215,18 +249,21 @@ public class MiniAuthService {
 
     private String exchange(String code) {
         if (code == null || code.isBlank()) {
+            log.warn("mini login rejected, wx.login code empty");
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "小程序登录 code 不能为空");
         }
         MiniProgramClient.WechatSession session;
         try {
             session = client.exchange(code);
         } catch (MiniProgramException ex) {
+            log.warn("mini login code exchange failed, reason={}", ex.reason());
             if (ex.reason() == MiniProgramException.Reason.INVALID_CODE) {
                 throw new BusinessException(ErrorCode.VALIDATION_FAILED, "微信登录已失效，请重新登录");
             }
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "微信登录失败，请稍后重试");
         }
         if (session == null || session.openid() == null || session.openid().isBlank()) {
+            log.warn("mini login code exchange returned empty openid");
             throw new BusinessException(ErrorCode.INTERNAL_ERROR, "微信登录失败，请稍后重试");
         }
         return session.openid();
@@ -234,7 +271,17 @@ public class MiniAuthService {
 
     private void requireEnabled() {
         if (!properties.isEnabled()) {
+            log.warn("mini auth rejected, mini program login disabled, mode={}", properties.getMode());
             throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION, "小程序登录未启用");
         }
+    }
+
+    /** 只记录 openid 的哈希指纹用于日志关联，明文 openid 不落日志（logging-rules §2.6）。 */
+    private static String openidHash(String openid) {
+        return Hashing.sha256(openid).substring(0, OPENID_HASH_PREFIX_LENGTH);
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000;
     }
 }

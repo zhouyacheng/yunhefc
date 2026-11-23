@@ -261,6 +261,9 @@ importers:
       '@yunhefc/api-client':
         specifier: workspace:*
         version: link:../../packages/api-client
+      '@yunhefc/miniprogram':
+        specifier: workspace:*
+        version: link:../miniprogram
       '@yunhefc/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions

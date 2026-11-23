@@ -423,7 +423,7 @@ for base in "$WEB"; do
 done
 say "在 ECS 上执行 flyway info（密码用占位符，手工替换；不要写进脚本）："
 note "docker run --rm --network host -v /opt/yunhefc/migrations:/flyway/sql:ro flyway/flyway:11.7.2 -url='jdbc:mysql://$RDS_HOST:$RDS_PORT/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8' -user=$RDS_MIGRATION_USER -password='<迁移账号密码>' info"
-if confirm "flyway info 无 pending/failed，flyway_schema_history 为 V1–V13？"; then
+if confirm "flyway info 无 pending/failed，flyway_schema_history 为 V1–V14？"; then
   record "§5.1/§6.7 flyway info" "PASS"
 else
   record "§5.1/§6.7 flyway info" "FAIL"

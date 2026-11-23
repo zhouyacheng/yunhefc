@@ -165,7 +165,7 @@ function patchEntries(playerId: number, patch: Partial<LeaderboardEntry>): Leade
   );
 }
 
-/** 按 scope/season 返回可区分的榜单数据；captures 记录每次 STA-03 请求参数。 */
+/** 按 season 返回可区分的榜单数据；requests 记录每次 STA-03 请求参数。 */
 async function mockLeaderboard(page: Page): Promise<URLSearchParams[]> {
   const requests: URLSearchParams[] = [];
   await page.route(
@@ -173,25 +173,18 @@ async function mockLeaderboard(page: Page): Promise<URLSearchParams[]> {
     (route) => {
       const params = new URL(route.request().url()).searchParams;
       requests.push(params);
-      const scope = params.get('scope') === 'all' ? 'all' : 'season';
-      const season = scope === 'all' ? null : (params.get('season') ?? CURRENT);
+      const season = params.get('season') ?? CURRENT;
       const items =
-        scope === 'all'
-          ? patchEntries(13, { assists: 6 }).map((entry) => ({
-              ...entry,
-              career: null,
-              history: null,
-            }))
-          : season === '2025'
-            ? patchEntries(11, { goals: 8, goalsPerMatch: 0.8 })
-            : BASE_ENTRIES;
+        season === '2025'
+          ? patchEntries(11, { goals: 8, goalsPerMatch: 0.8 })
+          : BASE_ENTRIES;
       return route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify({
           code: 0,
           message: 'ok',
-          data: { season, scope, items },
+          data: { season, scope: 'season', items },
         }),
       });
     },
@@ -287,26 +280,29 @@ test('C10 排行榜：三组数据只展示当前榜单主指标', async ({ page
   expect(errors).toEqual([]);
 });
 
-test('C10 排行榜：生涯累计窗口隐藏累计固定列', async ({ page }) => {
+test('C10 排行榜：URL 中的 scope=all 被忽略', async ({ page }) => {
   const errors = collectConsoleErrors(page);
-  await mockLeaderboard(page);
+  const requests = await mockLeaderboard(page);
   await mockSeasons(page);
 
   await page.goto('/leaderboards?scope=all');
   await expect(page.locator('.lb-row')).toHaveCount(5);
-  await expect(page.locator('.lb-head-stat')).toHaveText(['生涯累计']);
-  await expect(page.locator('.lb-stat--career')).toHaveCount(0);
-  await expect(page.locator('.lb-stat--history')).toHaveCount(0);
-
-  const select = page.getByLabel('赛季筛选');
-  await expect(select).toHaveValue('');
-  await expect(select.locator('option', { hasText: '生涯累计' })).toHaveCount(0);
-  await expect(select.locator('option', { hasText: '请选择赛季' })).toBeDisabled();
-
-  await select.selectOption(CURRENT);
-  await expect(page).toHaveURL(/\/leaderboards$/);
+  await expect(page.locator('.lb-head-stat')).toHaveText(['当前赛季', '历史累计', '生涯累计']);
   await expect(page.locator('.lb-stat--career')).toHaveCount(5);
   await expect(page.locator('.lb-stat--history')).toHaveCount(5);
+
+  const select = page.getByLabel('赛季筛选');
+  await expect(select).toHaveValue(CURRENT);
+  await expect(select.locator('option', { hasText: '生涯累计' })).toHaveCount(0);
+  await expect(select.locator('option', { hasText: '请选择赛季' })).toHaveCount(0);
+  expect(requests).toHaveLength(1);
+  expect(requests[0]?.get('season')).toBe(CURRENT);
+  expect(requests[0]?.get('scope')).toBe('season');
+
+  // 切换赛季后 URL 回到赛季窗口参数，不再携带 scope。
+  await select.selectOption('2025');
+  await expect(page).toHaveURL(/\/leaderboards\?season=2025$/);
+  await expect(page.locator('.lb-stat--career')).toHaveCount(5);
 
   expect(errors).toEqual([]);
 });
@@ -341,7 +337,7 @@ test('C10 排行榜：胜率榜排除零分母并展示口径说明', async ({ p
   await mockLeaderboard(page);
   await mockSeasons(page);
 
-  await page.goto('/leaderboards?scope=all&board=winRate');
+  await page.goto('/leaderboards?board=winRate');
 
   await expect(activeTab(page)).toHaveText('胜率');
   await expect(names(page)).toHaveText(['排行丙', '排行甲', '排行乙', '排行戊']);

@@ -253,14 +253,14 @@ if ! confirm "已完成写入并核对 .env？"; then
   exit 1
 fi
 
-stage "生产执行 V13 迁移"
+stage "生产执行 V14 迁移"
 warn "顺序不能反：迁移必须先于新镜像启动（应用 spring.flyway.enabled=false）。"
 step "备份生产库：RDS 快照，或确认 PITR 时间点。"
 step "拷贝迁移脚本到 ECS：scp backend/src/main/resources/db/migration/*.sql ${ECS_SSH}:/opt/yunhefc/migrations/"
 step "在 ECS 上用 yunhefc_migrator 执行 flyway migrate（完整命令见 deploy/RUNBOOK.md §1.3）。"
-step "执行 flyway info，确认最新版本为 13。"
-note "V13 只新增 app_user.mp_openid 与 uk_user_mp_openid，不改动旧 openid 与存量数据。"
-if ! confirm "备份已完成，且 info 显示版本 13？"; then
+step "执行 flyway info，确认最新版本为 14。"
+note "V13 新增 app_user.mp_openid 与 uk_user_mp_openid；V14 新增排行榜统计三列，均不改动存量数据。"
+if ! confirm "备份已完成，且 info 显示版本 14？"; then
   warn "迁移未完成，不要发新镜像。"
   exit 1
 fi

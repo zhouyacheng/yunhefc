@@ -865,7 +865,6 @@ render();
     const currentSeason = String(new Date().getFullYear());
     const params = new URLSearchParams(location.search);
     const requested = params.get('season') || '';
-    let scope = params.get('scope') === 'all' ? 'all' : 'season';
     let season = /^\d{4}$/.test(requested) ? requested : currentSeason;
     const boards = [
       { key: 'appearances', label: '出场', main: (e) => e.appearances, secondary: (e) => e.goals, value: (e) => `${e.appearances}`, eligible: () => true },
@@ -919,7 +918,7 @@ render();
       };
       return {
         player,
-        ...(scope === 'all' ? career : selected),
+        ...selected,
         career,
         history
       };
@@ -970,14 +969,9 @@ render();
 
     function syncUrl() {
       const url = new URL(location.href);
-      if (scope === 'all') {
-        url.searchParams.set('scope', 'all');
-        url.searchParams.delete('season');
-      } else {
-        url.searchParams.delete('scope');
-        if (season === currentSeason) url.searchParams.delete('season');
-        else url.searchParams.set('season', season);
-      }
+      url.searchParams.delete('scope');
+      if (season === currentSeason) url.searchParams.delete('season');
+      else url.searchParams.set('season', season);
       if (boardKey === 'appearances') url.searchParams.delete('board');
       else url.searchParams.set('board', boardKey);
       history.replaceState(null, '', url);
@@ -986,33 +980,31 @@ render();
     function render() {
       const board = boards.find((item) => item.key === boardKey);
       const rows = ranked(board);
-      const mainHeader = scope === 'all'
-        ? '生涯累计'
-        : (season === currentSeason ? '当前赛季' : `${season} 赛季`);
+      const mainHeader = season === currentSeason ? '当前赛季' : `${season} 赛季`;
       host.innerHTML = `<div class="container section">
         <div class="page-head">
-          <div><span class="eyebrow">LEADERBOARD</span><h1>排行榜</h1><p class="muted">${formal.length} 名正式球员 · ${scope === 'all' ? '生涯累计' : season + ' 赛季'} · 最多延迟 1 分钟</p></div>
+          <div><span class="eyebrow">LEADERBOARD</span><h1>排行榜</h1><p class="muted">${formal.length} 名正式球员 · ${season} 赛季 · 最多延迟 1 分钟</p></div>
           <div class="team-season">
-            <label class="muted small" for="leaderboard-scope">赛季</label>
-            <select id="leaderboard-scope" aria-label="赛季筛选">
-              ${scope === 'all' ? '<option value="" selected disabled>请选择赛季</option>' : ''}
-              ${seasonOptions().map((item) => `<option value="${item}"${scope === 'season' && item === season ? ' selected' : ''}>${item}</option>`).join('')}
+            <label class="muted small" for="leaderboard-season">赛季</label>
+            <select id="leaderboard-season" aria-label="赛季筛选">
+              ${seasonOptions().map((item) => `<option value="${item}"${item === season ? ' selected' : ''}>${item}</option>`).join('')}
             </select>
-            <a class="link" href="team.html${scope === 'season' ? `?season=${season}` : ''}">← 返回球队</a>
+            <a class="link" href="team.html?season=${season}">← 返回球队</a>
           </div>
         </div>
         <div class="tabs">${boards.map((item) => `<button class="tab${item.key === boardKey ? ' active' : ''}" data-board="${item.key}">${item.label}</button>`).join('')}</div>
         ${rows.length ? `<div class="table-wrap"><table class="data-table">
-          <thead><tr><th aria-hidden="true"></th><th>球员</th><th>${mainHeader}</th>${scope === 'season' ? '<th>历史累计</th><th>生涯累计</th>' : ''}</tr></thead>
+          <thead><tr><th aria-hidden="true"></th><th>球员</th><th>${mainHeader}</th><th>历史累计</th><th>生涯累计</th></tr></thead>
           <tbody>${rows.map(({ entry, rank }) => `<tr>
             <td>${rank}</td>
             <td><b>${esc(entry.player.name)}</b></td>
             <td><b>${board.value(entry)}</b></td>
-            ${scope === 'season' ? `<td><b>${board.value(entry.history)}</b></td><td><b>${board.value(entry.career)}</b></td>` : ''}
+            <td><b>${board.value(entry.history)}</b></td>
+            <td><b>${board.value(entry.career)}</b></td>
           </tr>`).join('')}</tbody>
         </table></div>` : '<div class="empty-state"><p>当前窗口暂无符合条件的球员</p></div>'}
         <div class="muted small">
-          <p><b>注意事项</b></p>
+          <p><b>注：</b></p>
           <p>出场含临时到场、不含缺勤与取消比赛；乌龙单列且不抵进球。胜率只统计队内赛，且仅统计有分组归属的场次；并列采用标准竞赛排名（1、1、3）。</p>
           <p>生涯累计汇总当前赛季与历史累计（不晚于当前自然年，未来赛季不计），历史累计只汇总早于当前年份的赛季（不含当前赛季）；两者固定不随所选赛季与榜单变化。原型数据为演示值。</p>
         </div>
@@ -1024,11 +1016,10 @@ render();
           render();
         });
       });
-      const select = $('#leaderboard-scope', host);
+      const select = $('#leaderboard-season', host);
       if (select) {
         select.addEventListener('change', () => {
           if (!select.value) return;
-          scope = 'season';
           season = select.value;
           syncUrl();
           render();

@@ -382,7 +382,7 @@ CREATE TABLE team_activity (
   start_at           DATETIME(3)     NOT NULL COMMENT '活动开始时间',
   end_at             DATETIME(3)     NULL COMMENT '活动结束时间',
   signup_deadline    DATETIME(3)     NOT NULL COMMENT '报名截止时间',
-  capacity           SMALLINT UNSIGNED NULL COMMENT '总人数上限;NULL为不限',
+  capacity           SMALLINT UNSIGNED NULL COMMENT '总人数上限;只计报名人数,不含家属;NULL为不限',
   cost_per_person    DECIMAL(10,2)   NULL COMMENT '人均消费;单位元;仅展示,不自动摊分',
   location           VARCHAR(128)    NOT NULL COMMENT '活动地址',
   location_image_key VARCHAR(512)    NULL COMMENT '活动地点图片OSS对象键;不含签名参数',
@@ -481,7 +481,7 @@ CREATE TABLE player_stats_summary (
 CREATE TABLE notification (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
   user_id     BIGINT UNSIGNED NOT NULL COMMENT '接收人用户ID',
-  type        TINYINT UNSIGNED NOT NULL COMMENT '0-报名成功;1-候补递补;2-比赛创建;3-报名截止;4-名单锁定;5-比赛开始;6-比赛结束;7-比赛延期;8-比赛取消;9-角色变更;10-审核通过;11-注销',
+  type        TINYINT UNSIGNED NOT NULL COMMENT '0-报名成功;1-候补递补;2-比赛创建;3-报名截止;4-名单锁定;5-比赛开始;6-比赛结束;7-比赛延期;8-比赛取消;9-角色变更;10-审核通过;11-注销;12-活动创建;13-活动取消',
   title       VARCHAR(128)    NOT NULL COMMENT '通知标题',
   body        VARCHAR(512)    NOT NULL COMMENT '通知内容',
   ref_type    VARCHAR(32)     NULL COMMENT '关联类型',

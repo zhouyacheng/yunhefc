@@ -1407,6 +1407,8 @@ render();
     const typeLabels = { DINNER: '聚餐', ANNUAL_MEETING: '年会', OTHER: '其他' };
     const statusLabels = { SIGNUP_OPEN: '报名中', SIGNUP_CLOSED: '报名截止', FINISHED: '已结束', CANCELLED: '已取消' };
     const scopeLabels = { LATEST: '最近活动', HISTORY: '历史', ALL: '全部' };
+    const typeOptions = { ALL: '全部', ...typeLabels };
+    const statusOptions = { ALL: '全部', ...statusLabels };
     const activities = [
       { id: 1, title: '赛季收官聚餐', type: 'DINNER', startAt: '2026-12-06T18:30:00+08:00', deadline: '2026-12-04T20:00:00+08:00', location: '老地方火锅（体育中心店）', cost: 120, capacity: 20, signed: 12, status: 'SIGNUP_OPEN', mine: false, family: false },
       { id: 2, title: '2026 年度年会', type: 'ANNUAL_MEETING', startAt: '2027-01-17T17:00:00+08:00', deadline: '2027-01-10T20:00:00+08:00', location: '云河酒店 3 楼宴会厅', cost: 260, capacity: null, signed: 8, status: 'SIGNUP_OPEN', mine: true, family: true },
@@ -1416,67 +1418,70 @@ render();
     let statusFilter = 'ALL';
     let scopeFilter = 'ALL';
 
-    function signupOpen(item) {
-      if (item.status !== 'SIGNUP_OPEN') return false;
-      return item.capacity === null || item.signed < item.capacity;
+    function pastDeadline(item) {
+      return new Date(item.deadline).getTime() <= Date.now();
     }
 
-    function describeGate(item) {
-      if (item.status === 'CANCELLED') return '活动已取消';
-      if (item.status === 'FINISHED') return '活动已结束';
-      if (item.status === 'SIGNUP_CLOSED') return '报名已截止';
+    function signupOpen(item) {
+      if (item.status !== 'SIGNUP_OPEN') return false;
+      return !pastDeadline(item) && (item.capacity === null || item.signed < item.capacity);
+    }
+
+    function ctaLabel(item) {
+      if (item.status !== 'SIGNUP_OPEN' || pastDeadline(item)) return '已截止';
+      if (item.capacity !== null && item.signed >= item.capacity) return '已满';
+      return '报名';
+    }
+
+    function gateReason(item) {
+      if (item.status === 'SIGNUP_CLOSED' || pastDeadline(item)) return '报名已截止';
       if (item.capacity !== null && item.signed >= item.capacity) return '名额已满';
-      return '';
+      return '当前不可报名';
+    }
+
+    function filterSelect(id, label, options, current) {
+      return `<label class="muted small" for="${id}">${label}
+        <select id="${id}">
+          ${Object.keys(options).map((key) => `<option value="${key}"${key === current ? ' selected' : ''}>${options[key]}</option>`).join('')}
+        </select>
+      </label>`;
     }
 
     function render() {
-      const scoped = activities.filter((item) => (typeFilter === 'ALL' || item.type === typeFilter)
+      const filtered = activities.filter((item) => (typeFilter === 'ALL' || item.type === typeFilter)
         && (statusFilter === 'ALL' || item.status === statusFilter))
-        .sort((a, b) => new Date(b.startAt) - new Date(a.startAt));
+        .sort((a, b) => new Date(b.startAt) - new Date(a.startAt) || b.id - a.id);
       const list = scopeFilter === 'LATEST'
-        ? scoped.slice(0, 1)
+        ? filtered.slice(0, 1)
         : scopeFilter === 'HISTORY'
-          ? scoped.filter((item) => new Date(item.startAt).getTime() < Date.now())
-          : scoped;
+          ? filtered.filter((item) => new Date(item.startAt).getTime() < Date.now())
+          : filtered;
       host.innerHTML = `<div class="container section">
         <div class="page-head">
           <div><span class="eyebrow">ACTIVITY</span><h1>活动</h1><p class="muted">聚餐、年会与队内其他活动；报名受状态、截止时间与人数上限约束，满员不设候补</p></div>
         </div>
         <div class="card" style="padding:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:end">
-          <label class="muted small" for="activity-scope">范围
-            <select id="activity-scope">
-              ${Object.keys(scopeLabels).map((key) => `<option value="${key}"${key === scopeFilter ? ' selected' : ''}>${scopeLabels[key]}</option>`).join('')}
-            </select>
-          </label>
-          <label class="muted small" for="activity-type">类型
-            <select id="activity-type">
-              <option value="ALL">全部</option>
-              ${Object.keys(typeLabels).map((key) => `<option value="${key}"${key === typeFilter ? ' selected' : ''}>${typeLabels[key]}</option>`).join('')}
-            </select>
-          </label>
-          <label class="muted small" for="activity-status">状态
-            <select id="activity-status">
-              <option value="ALL">全部</option>
-              ${Object.keys(statusLabels).map((key) => `<option value="${key}"${key === statusFilter ? ' selected' : ''}>${statusLabels[key]}</option>`).join('')}
-            </select>
-          </label>
+          ${filterSelect('activity-scope', '范围', scopeLabels, scopeFilter)}
+          ${filterSelect('activity-type', '类型', typeOptions, typeFilter)}
+          ${filterSelect('activity-status', '状态', statusOptions, statusFilter)}
         </div>
         ${list.length ? `<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-top:12px">
           ${list.map((item) => {
-            const gate = describeGate(item);
             const open = signupOpen(item);
+            const closed = item.status === 'CANCELLED' || item.status === 'FINISHED';
             return `<article class="card" style="padding:14px">
               <div class="card-head" style="display:flex;justify-content:space-between;align-items:center">
                 <b>${esc(item.title)}</b><span class="badge">${statusLabels[item.status]}</span>
               </div>
               <p class="muted small">${typeLabels[item.type]} · ${new Date(item.startAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${esc(item.location)}</p>
-              <p class="muted small">报名截止 ${new Date(item.deadline).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · 已报 ${item.signed}${item.capacity === null ? '' : ` / ${item.capacity}`} 人${item.cost === null ? '' : ` · 人均 ¥${item.cost}`}</p>
+              <p class="muted small">报名截止 ${new Date(item.deadline).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · 已报 ${item.signed}${item.capacity === null ? '' : ` / ${item.capacity}`} 人（不含家属）${item.cost === null ? '' : ` · 人均 ¥${item.cost}`}</p>
               <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
-                ${item.mine
-                  ? '<button class="btn btn-ghost btn-sm" data-cancel-activity="' + item.id + '">取消报名</button>'
-                  : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>报名</button>`}
+                ${closed
+                  ? ''
+                  : item.mine
+                    ? '<button class="btn btn-ghost btn-sm" data-cancel-activity="' + item.id + '">取消报名</button>'
+                    : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>${ctaLabel(item)}</button>`}
                 <button class="btn btn-ghost btn-sm" data-share-activity="${item.id}">分享</button>
-                ${gate ? `<span class="muted small">${gate}</span>` : ''}
               </div>
               ${item.mine && item.family ? '<p class="muted small">已勾选携带家属（原型演示）</p>' : ''}
             </article>`;
@@ -1503,7 +1508,7 @@ render();
         button.addEventListener('click', () => {
           const item = activities.find((entry) => String(entry.id) === button.dataset.signupActivity);
           if (!item) return;
-          if (!signupOpen(item)) { Y.toast(describeGate(item) || '当前不可报名'); return; }
+          if (!signupOpen(item)) { Y.toast(gateReason(item)); return; }
           item.mine = true;
           item.signed += 1;
           Y.toast('报名成功');

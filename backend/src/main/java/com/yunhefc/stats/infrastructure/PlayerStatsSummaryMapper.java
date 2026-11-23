@@ -34,16 +34,21 @@ public interface PlayerStatsSummaryMapper extends BaseMapper<PlayerStatsSummary>
     @Insert("""
             <script>
             INSERT INTO player_stats_summary
-                (team_id, player_id, season, appearances, goals, assists, created_at, updated_at, is_deleted)
+                (team_id, player_id, season, appearances, goals, assists,
+                 internal_appearances, internal_wins, own_goals, created_at, updated_at, is_deleted)
             VALUES
             <foreach collection="rows" item="row" separator=",">
                 (#{row.teamId}, #{row.playerId}, #{row.season}, #{row.appearances}, #{row.goals},
-                 #{row.assists}, #{now}, #{now}, 0)
+                 #{row.assists}, #{row.internalAppearances}, #{row.internalWins}, #{row.ownGoals},
+                 #{now}, #{now}, 0)
             </foreach>
             ON DUPLICATE KEY UPDATE
                 appearances = VALUES(appearances),
                 goals = VALUES(goals),
                 assists = VALUES(assists),
+                internal_appearances = VALUES(internal_appearances),
+                internal_wins = VALUES(internal_wins),
+                own_goals = VALUES(own_goals),
                 is_deleted = 0,
                 updated_at = VALUES(updated_at)
             </script>

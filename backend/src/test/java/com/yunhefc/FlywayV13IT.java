@@ -42,7 +42,7 @@ class FlywayV13IT {
         migrateTo(null);
 
         try (Connection connection = connect()) {
-            assertThat(schemaVersion(connection)).isEqualTo("13");
+            assertThat(schemaVersion(connection)).isEqualTo("14");
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM app_user WHERE id = 9301 AND openid = 'legacy-openid'
                     """)).isEqualTo(1);

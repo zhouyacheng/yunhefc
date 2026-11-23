@@ -63,6 +63,13 @@ public record MatchSnapshot(
     }
 
     /**
+     * 队内赛：胜率只统计该类型。
+     */
+    public boolean internal() {
+        return type != null && type == INTERNAL;
+    }
+
+    /**
      * 对外比赛我方所属队；非对外比赛我方主客为空时按主队处理。
      */
     public int ourEventTeam() {

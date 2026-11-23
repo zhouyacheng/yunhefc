@@ -27,6 +27,10 @@ test('C04 球队：四组名单、全量展示与公开字段', async ({ page })
 
   await expect(page.getByRole('heading', { name: '球队' })).toBeVisible();
   await expect(page.getByLabel('赛季')).toHaveValue(season);
+  await expect(page.getByRole('link', { name: '排行榜 →' })).toHaveAttribute(
+    'href',
+    `/leaderboards?season=${season}`,
+  );
 
   const titles = page.locator('.team-group__title');
   await expect(titles).toHaveCount(4);
@@ -98,6 +102,10 @@ test('C04 球队：切换赛季更新 URL、请求与统计', async ({ page }) =
   await select.selectOption('2025');
   await expect(page).toHaveURL(/\/team\?season=2025$/);
   await expect(select).toHaveValue('2025');
+  await expect(page.getByRole('link', { name: '排行榜 →' })).toHaveAttribute(
+    'href',
+    '/leaderboards?season=2025',
+  );
   await expect(page.locator('.team-group__title')).toHaveCount(4);
   expect(rosterRequests.some((search) => search.includes('season=2025'))).toBe(true);
   expect(statsRequests.some((search) => search.includes('season=2025'))).toBe(true);

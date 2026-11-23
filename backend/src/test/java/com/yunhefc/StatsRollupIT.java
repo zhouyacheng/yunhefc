@@ -105,6 +105,59 @@ class StatsRollupIT extends IntegrationTestSupport {
     }
 
     @Test
+    void rollsUpOwnGoalsAndInternalLeagueWinRate() throws Exception {
+        String season = currentSeason();
+        Long first = insertPlayer("13900006631", "队内统计甲");
+        Long second = insertPlayer("13900006632", "队内统计乙");
+        Long absent = insertPlayer("13900006633", "队内统计缺勤");
+        LocalDateTime start = ShanghaiTime.now().minus(Duration.ofHours(3));
+
+        Long win = insertMatch("stats队内胜", season, 1, 4, start, 2, 1);
+        attendance(win, first, 0);
+        attendance(win, second, 2);
+        attendance(win, absent, 1);
+        // 生产分组只含确认报名；临时到场球员不在分组内。
+        grouping(win, Map.of(first, 0, absent, 0));
+
+        Long draw = insertMatch("stats队内平", season, 1, 4, start, 1, 1);
+        attendance(draw, first, 0);
+        grouping(draw, Map.of(first, 0));
+
+        Long ungrouped = insertMatch("stats队内未分组", season, 1, 4, start, 3, 0);
+        attendance(ungrouped, first, 0);
+
+        Long unknownScore = insertMatch("stats队内无比分", season, 1, 4, start, null, null);
+        attendance(unknownScore, first, 0);
+        grouping(unknownScore, Map.of(first, 0));
+
+        Long training = insertMatch("stats训练", season, 2, 4, start, 3, 0);
+        attendance(training, first, 0);
+        grouping(training, Map.of(first, 0));
+
+        Long official = insertMatch("stats对外", season, 0, 4, start, 3, 0);
+        attendance(official, first, 0);
+        grouping(official, Map.of(first, 0));
+        event(official, 1, first, null);
+
+        runJob();
+        runJob();
+
+        assertStats(first, season, 6, 0, 0);
+        assertInternalStats(first, season, 1, 2, 1);
+        // 临时到场球员计入分母，但不在分组内，无归属不计胜场。
+        assertStats(second, season, 1, 0, 0);
+        assertInternalStats(second, season, 0, 1, 0);
+        // 缺勤即使已分组也不产生汇总行。
+        assertThat(statsRows(season, absent)).isZero();
+
+        // 改比分后重算覆盖胜场，证明三列按批取数据重算而非累加。
+        jdbc.update("UPDATE team_match SET score_home = 2, score_away = 1 WHERE id = ?", draw);
+        runJob();
+        assertStats(first, season, 6, 0, 0);
+        assertInternalStats(first, season, 1, 2, 2);
+    }
+
+    @Test
     void zerosResidualSummaryForSeasonWithoutMatches() throws Exception {
         String stale = "2001";
         Long player = insertPlayer("13900006605", "汇总残留球员");
@@ -224,6 +277,18 @@ class StatsRollupIT extends IntegrationTestSupport {
         assertThat(((Number) row.get("assists")).intValue()).isEqualTo(assists);
     }
 
+    private void assertInternalStats(Long playerId, String season, int ownGoals,
+                                     int internalAppearances, int internalWins) {
+        Map<String, Object> row = jdbc.queryForMap("""
+                SELECT own_goals, internal_appearances, internal_wins FROM player_stats_summary
+                WHERE team_id = 1 AND player_id = ? AND season = ?
+                """, playerId, season);
+        assertThat(((Number) row.get("own_goals")).intValue()).isEqualTo(ownGoals);
+        assertThat(((Number) row.get("internal_appearances")).intValue())
+                .isEqualTo(internalAppearances);
+        assertThat(((Number) row.get("internal_wins")).intValue()).isEqualTo(internalWins);
+    }
+
     private int statsRows(String season, Long playerId) {
         return jdbc.queryForObject("""
                 SELECT COUNT(*) FROM player_stats_summary
@@ -268,6 +333,11 @@ class StatsRollupIT extends IntegrationTestSupport {
     }
 
     private Long insertMatch(String title, String season, int status, LocalDateTime startAt) {
+        return insertMatch(title, season, 1, status, startAt, null, null);
+    }
+
+    private Long insertMatch(String title, String season, int type, int status,
+                             LocalDateTime startAt, Integer scoreHome, Integer scoreAway) {
         LocalDateTime endAt = startAt.plus(Duration.ofHours(2));
         LocalDateTime signupDeadline = startAt.toLocalDate()
                 .atStartOfDay();
@@ -282,12 +352,27 @@ class StatsRollupIT extends IntegrationTestSupport {
         jdbc.update("""
                 INSERT INTO team_match (team_id, title, type, start_at, end_at, signup_deadline,
                     cancel_lock, venue, season, home_team_name, away_team_name, status,
-                    manual_status, capacity, season_match_no, total_match_no, created_by)
-                VALUES (1, ?, 1, ?, ?, ?, ?, '测试场地', ?, '橙队', '兰队', ?, 1, 30, ?, ?, 1)
-                """, title, startAt, endAt,
-                signupDeadline, cancelLock, season, status,
+                    score_home, score_away, manual_status, capacity, season_match_no,
+                    total_match_no, created_by)
+                VALUES (1, ?, ?, ?, ?, ?, ?, '测试场地', ?, '橙队', '兰队', ?, ?, ?, 1, 30, ?, ?, 1)
+                """, title, type, startAt, endAt,
+                signupDeadline, cancelLock, season, status, scoreHome, scoreAway,
                 seasonNo, totalNo);
         return jdbc.queryForObject("SELECT id FROM team_match WHERE title = ?", Long.class, title);
+    }
+
+    private void grouping(Long matchId, Map<Long, Integer> playerTeams) {
+        jdbc.update("""
+                INSERT INTO match_grouping (match_id, manual_weight, auto_weight,
+                    roster_fingerprint, generated_at, saved_at, created_by)
+                VALUES (?, 100.00, 0.00, ?, NOW(3), NOW(3), 1)
+                """, matchId, "f".repeat(64));
+        Long groupingId = jdbc.queryForObject(
+                "SELECT id FROM match_grouping WHERE match_id = ?", Long.class, matchId);
+        playerTeams.forEach((playerId, team) -> jdbc.update("""
+                INSERT INTO match_grouping_player (grouping_id, player_id, team)
+                VALUES (?, ?, ?)
+                """, groupingId, playerId, team));
     }
 
     private void attendance(Long matchId, Long playerId, int status) {

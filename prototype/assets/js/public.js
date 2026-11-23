@@ -1479,7 +1479,9 @@ render();
                 ${closed
                   ? ''
                   : item.mine
-                    ? '<button class="btn btn-ghost btn-sm" data-cancel-activity="' + item.id + '">取消报名</button>'
+                    ? (item.status === 'SIGNUP_OPEN' && !pastDeadline(item)
+                        ? '<button class="btn btn-ghost btn-sm" data-cancel-activity="' + item.id + '">取消报名</button>'
+                        : '<button class="btn btn-ghost btn-sm" disabled>已截止</button>')
                     : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>${ctaLabel(item)}</button>`}
                 <button class="btn btn-ghost btn-sm" data-share-activity="${item.id}">分享</button>
               </div>
@@ -1488,7 +1490,7 @@ render();
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动只显示活动时间最大的一条（不论状态）；满员直接拒绝、不设候补；详情公开可读但不含报名名单。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。</p>
         </div>
       </div>`;
 

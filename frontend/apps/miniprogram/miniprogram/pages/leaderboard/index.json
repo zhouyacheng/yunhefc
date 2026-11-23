@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "排行榜",
+  "usingComponents": {
+    "van-empty": "@vant/weapp/empty/index",
+    "van-loading": "@vant/weapp/loading/index"
+  }
+}

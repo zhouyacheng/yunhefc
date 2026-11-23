@@ -23,6 +23,7 @@ import {
   checkInMatch,
   createMatchEvent,
   fetchFullRoster,
+  fetchLeaderboards,
   fetchMatchDetail,
   fetchMe,
   fetchTeamStats,
@@ -255,6 +256,18 @@ describe('notifications, me and team queries', () => {
     mocks.request.mockResolvedValue({ season: '2026', items: [] });
     await fetchTeamStats('2026');
     expect(mocks.request).toHaveBeenCalledWith('GET', '/team/stats?season=2026');
+  });
+
+  it('requests leaderboards per season and career scope', async () => {
+    mocks.request.mockResolvedValue({ season: '2026', scope: 'season', items: [] });
+    await fetchLeaderboards({ season: '2026', scope: 'season' });
+    expect(mocks.request).toHaveBeenLastCalledWith(
+      'GET',
+      '/team/leaderboards?season=2026&scope=season',
+    );
+
+    await fetchLeaderboards({ season: '2026', scope: 'all' });
+    expect(mocks.request).toHaveBeenLastCalledWith('GET', '/team/leaderboards?scope=all');
   });
 
   it('hides the upload adapter behind the client', async () => {

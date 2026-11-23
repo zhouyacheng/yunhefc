@@ -6,6 +6,13 @@
   justify-content: space-between;
 }
 
+.team-head__side {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx 28rpx;
+  align-items: flex-end;
+}
+
 .team-season {
   display: flex;
   flex-direction: column;
@@ -14,6 +21,14 @@
   color: var(--yh-muted);
   font-size: 24rpx;
   font-weight: 600;
+}
+
+.team-head__link {
+  padding: 12rpx 4rpx;
+  color: var(--yh-green);
+  font-size: 26rpx;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .team-season__select {

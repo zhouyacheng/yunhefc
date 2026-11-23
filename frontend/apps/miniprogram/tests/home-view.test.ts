@@ -162,7 +162,7 @@ describe('home view', () => {
 
   it('keeps the six phase-2 feature titles in sync with C01', () => {
     expect(HOME_FEATURES.map((feature) => feature.title)).toEqual([
-      '排行榜与身价',
+      'AI 身价',
       '球队账本',
       '动态与相册',
       '投票',

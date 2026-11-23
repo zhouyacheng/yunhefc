@@ -1,5 +1,5 @@
 import { fetchTeamStats, listMatchSeasons, listTeamPlayers } from '../../utils/api-client';
-import { currentShanghaiMonth } from '../../utils/datetime';
+import { currentSeason, mergeSeasonOptions } from '../../utils/season';
 import { buildTeamGroups, type TeamGroupView } from '../../utils/team-view';
 
 interface PickerEvent {
@@ -7,21 +7,6 @@ interface PickerEvent {
 }
 
 let requestSeq = 0;
-
-function currentSeason(): string {
-  return currentShanghaiMonth().slice(0, 4) || String(new Date().getFullYear());
-}
-
-/** 与 Web mergeSeasonOptions 一致：过滤非法值、去重、倒序，并包含当前与已选赛季。 */
-function mergeSeasonOptions(items: readonly string[], selected: string): string[] {
-  const seasons = new Set<string>([currentSeason(), selected]);
-  for (const item of items) {
-    if (/^\d{4}$/.test(item)) {
-      seasons.add(item);
-    }
-  }
-  return [...seasons].sort((a, b) => b.localeCompare(a));
-}
 
 Page({
   data: {
@@ -43,6 +28,13 @@ Page({
     }
     this.setData({ seasonIndex });
     void this.loadPlayers();
+  },
+
+  openLeaderboard() {
+    const season = this.data.seasons[this.data.seasonIndex] || currentSeason();
+    void wx.navigateTo({
+      url: `/pages/leaderboard/index?season=${encodeURIComponent(season)}`,
+    });
   },
 
   async load() {

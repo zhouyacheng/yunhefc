@@ -17,9 +17,6 @@ import java.util.Set;
  */
 public final class StatsAggregator {
 
-    private static final int TEAM_HOME = 0;
-    private static final int TEAM_AWAY = 1;
-
     private StatsAggregator() {
     }
 
@@ -74,7 +71,7 @@ public final class StatsAggregator {
             appeared.forEach(playerId -> tally(tallies, playerId).internalAppearances++);
             // 胜场只能按已保存分组判定一方；不在分组内的球员无归属，不计胜场。
             grouping.playerTeams().forEach((playerId, team) -> {
-                if (appeared.contains(playerId) && won(team, score)) {
+                if (appeared.contains(playerId) && score.teamWon(team)) {
                     tally(tallies, playerId).internalWins++;
                 }
             });
@@ -83,22 +80,6 @@ public final class StatsAggregator {
         Map<Long, PlayerTally> result = new HashMap<>();
         tallies.forEach((playerId, value) -> result.put(playerId, value.toTally()));
         return result;
-    }
-
-    /**
-     * 分组 0=A 队/主队、1=B 队/客队；平局计入分母但不算胜。
-     */
-    private static boolean won(Integer team, InternalMatchScore score) {
-        if (team == null) {
-            return false;
-        }
-        if (team == TEAM_HOME) {
-            return score.scoreHome() > score.scoreAway();
-        }
-        if (team == TEAM_AWAY) {
-            return score.scoreAway() > score.scoreHome();
-        }
-        return false;
     }
 
     private static MutableTally tally(Map<Long, MutableTally> tallies, Long playerId) {

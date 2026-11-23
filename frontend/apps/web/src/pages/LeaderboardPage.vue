@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { isApiError } from '@yunhefc/api-client';
 import type { Leaderboard, LeaderboardEntry } from '@yunhefc/shared';
-import { leaderboardMainLabel } from '@yunhefc/shared';
+import { isCareerScope, leaderboardMainLabel } from '@yunhefc/shared';
 import { Button, Empty, Loading } from 'vant';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -25,7 +25,7 @@ const router = useRouter();
 const query = computed(() => parseLeaderboardQuery(route.query));
 // 只有赛季/口径变化才重新请求；切换榜单仅在前端重排。
 const requestKey = computed(() =>
-  query.value.scope === 'all' ? 'all' : `season:${query.value.season}`,
+  isCareerScope(query.value.scope) ? 'all' : `season:${query.value.season}`,
 );
 
 const data = ref<Leaderboard | null>(null);
@@ -36,7 +36,6 @@ const failedAvatars = ref<number[]>([]);
 let requestSeq = 0;
 
 const seasonOptions = computed(() => mergeSeasonOptions(seasonItems.value, query.value.season));
-const scopeSelectValue = computed(() => (query.value.scope === 'all' ? 'all' : query.value.season));
 const mainLabel = computed(() =>
   leaderboardMainLabel(query.value.scope, query.value.season, currentShanghaiSeason()),
 );
@@ -47,13 +46,13 @@ const summary = computed(() => {
   if (!data.value) {
     return '';
   }
-  const windowLabel = query.value.scope === 'all' ? '生涯累计' : `${query.value.season} 赛季`;
+  const windowLabel = isCareerScope(query.value.scope) ? '生涯累计' : `${query.value.season} 赛季`;
   return `${data.value.items.length} 名正式球员 · ${windowLabel} · 最多延迟 1 分钟`;
 });
 const teamLink = computed(() =>
-  query.value.scope === 'season'
-    ? { name: 'team', query: { season: query.value.season } }
-    : { name: 'team' },
+  isCareerScope(query.value.scope)
+    ? { name: 'team' }
+    : { name: 'team', query: { season: query.value.season } },
 );
 
 async function load(): Promise<void> {
@@ -109,10 +108,6 @@ function selectBoard(key: LeaderboardBoardKey): void {
 
 function changeScope(event: Event): void {
   const value = (event.target as HTMLSelectElement).value;
-  if (value === 'all') {
-    navigate({ ...query.value, scope: 'all' });
-    return;
-  }
   navigate({ ...query.value, scope: 'season', season: value });
 }
 
@@ -144,8 +139,7 @@ onMounted(() => {
       <div class="lb-side">
         <label class="lb-scope">
           <span>赛季</span>
-          <select aria-label="赛季或生涯累计" :value="scopeSelectValue" @change="changeScope">
-            <option value="all">生涯累计</option>
+          <select aria-label="赛季筛选" :value="query.season" @change="changeScope">
             <option v-for="option in seasonOptions" :key="option" :value="option">
               {{ option }}
             </option>
@@ -180,13 +174,13 @@ onMounted(() => {
     </div>
 
     <template v-else>
-      <div class="lb-board" :class="{ 'lb-board--totals': query.scope === 'season' }">
+      <div class="lb-board" :class="{ 'lb-board--totals': !isCareerScope(query.scope) }">
         <div class="lb-board-head">
           <span class="lb-head-rank">名次</span>
           <span class="lb-head-player">球员</span>
           <span class="lb-head-stats">
             <span class="lb-head-stat lb-head-stat--current">{{ mainLabel }}</span>
-            <template v-if="query.scope === 'season'">
+            <template v-if="!isCareerScope(query.scope)">
               <span class="lb-head-stat">历史累计</span>
               <span class="lb-head-stat">生涯累计</span>
             </template>

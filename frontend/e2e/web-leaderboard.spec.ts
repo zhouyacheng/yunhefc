@@ -21,6 +21,7 @@ interface LeaderboardEntry {
   name: string;
   jersey: number | null;
   position: number;
+  positionLabel?: string;
   avatarUrl: string | null;
   appearances: number;
   goals: number;
@@ -224,7 +225,7 @@ test('C10 排行榜：访客默认出场榜、7 榜切换不重新请求', async
 
   await expect(page).toHaveURL(/\/leaderboards$/);
   await expect(page.getByRole('heading', { name: '排行榜' })).toBeVisible();
-  await expect(page.getByLabel('赛季或生涯累计')).toHaveValue(CURRENT);
+  await expect(page.getByLabel('赛季筛选')).toHaveValue(CURRENT);
 
   const tabs = page.locator('.detail-tab');
   await expect(tabs).toHaveText(['出场', '进球', '助攻', '场均进球', '场均助攻', '胜率', '乌龙']);
@@ -234,6 +235,19 @@ test('C10 排行榜：访客默认出场榜、7 榜切换不重新请求', async
   // 出场降序；零出场球员仍保留在计数榜。
   await expect(names(page)).toHaveText(['排行甲', '排行乙', '排行丙', '排行戊', '排行丁']);
   await expect(ranks(page)).toHaveText(['1', '2', '3', '4', '5']);
+
+  // P-86：名次表头标签隐藏但保留占位；表头与行内球员列起点一致。
+  const headRank = page.locator('.lb-head-rank');
+  await expect(headRank).toHaveText('名次');
+  await expect(headRank).toBeHidden();
+  const [headPlayer, rowPlayer] = await Promise.all([
+    page.locator('.lb-head-player').boundingBox(),
+    page.locator('.lb-row .lb-player').first().boundingBox(),
+  ]);
+  expect(headPlayer).not.toBeNull();
+  expect(rowPlayer).not.toBeNull();
+  expect(Math.abs(headPlayer!.x - rowPlayer!.x)).toBeLessThanOrEqual(1);
+
   expect(requests).toHaveLength(1);
 
   for (const label of ['进球', '助攻', '场均进球', '场均助攻', '胜率', '乌龙', '出场']) {
@@ -284,14 +298,14 @@ test('C10 排行榜：生涯累计窗口隐藏累计固定列', async ({ page })
   await expect(page.locator('.lb-stat--career')).toHaveCount(0);
   await expect(page.locator('.lb-stat--history')).toHaveCount(0);
 
-  await page.getByLabel('赛季或生涯累计').selectOption(CURRENT);
+  await page.getByLabel('赛季筛选').selectOption(CURRENT);
   await expect(page.locator('.lb-stat--career')).toHaveCount(5);
   await expect(page.locator('.lb-stat--history')).toHaveCount(5);
 
   expect(errors).toEqual([]);
 });
 
-test('C10 排行榜：赛季与生涯切换写入 URL 并按窗口重新请求', async ({ page }) => {
+test('C10 排行榜：赛季切换写入 URL 并按窗口重新请求', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const requests = await mockLeaderboard(page);
   await mockSeasons(page);
@@ -299,7 +313,7 @@ test('C10 排行榜：赛季与生涯切换写入 URL 并按窗口重新请求',
   await page.goto('/leaderboards');
   await expect(page.locator('.lb-row')).toHaveCount(5);
 
-  const select = page.getByLabel('赛季或生涯累计');
+  const select = page.getByLabel('赛季筛选');
   await select.selectOption('2025');
   await expect(page).toHaveURL(/\/leaderboards\?season=2025$/);
   await expect(names(page).first()).toHaveText('排行甲');
@@ -312,14 +326,6 @@ test('C10 排行榜：赛季与生涯切换写入 URL 并按窗口重新请求',
   await board(page, '助攻').click();
   await expect(page).toHaveURL(/\/leaderboards\?season=2025&board=assists$/);
   expect(requests).toHaveLength(2);
-
-  await select.selectOption('all');
-  await expect(page).toHaveURL(/\/leaderboards\?scope=all&board=assists$/);
-  await expect(activeTab(page)).toHaveText('助攻');
-  await expect(names(page).first()).toHaveText('排行丙');
-  expect(requests).toHaveLength(3);
-  expect(requests[2]?.get('scope')).toBe('all');
-  expect(requests[2]?.has('season')).toBe(false);
 
   expect(errors).toEqual([]);
 });
@@ -349,12 +355,12 @@ test('C10 排行榜：直链恢复与非法参数静默回退', async ({ page })
   await mockSeasons(page);
 
   await page.goto('/leaderboards?season=2025&board=assists');
-  await expect(page.getByLabel('赛季或生涯累计')).toHaveValue('2025');
+  await expect(page.getByLabel('赛季筛选')).toHaveValue('2025');
   await expect(activeTab(page)).toHaveText('助攻');
   await expect(page.locator('.lb-row')).toHaveCount(5);
 
   await page.goto('/leaderboards?season=26&scope=career&board=shirt');
-  await expect(page.getByLabel('赛季或生涯累计')).toHaveValue(CURRENT);
+  await expect(page.getByLabel('赛季筛选')).toHaveValue(CURRENT);
   await expect(activeTab(page)).toHaveText('出场');
   await expect(page.locator('.lb-row')).toHaveCount(5);
   expect(requests.at(-1)?.get('season')).toBe(CURRENT);
@@ -414,9 +420,9 @@ test('C10 排行榜：赛季选项失败不阻塞榜单且保留当前选择', a
   await page.goto('/leaderboards?season=2025');
 
   await expect(page.locator('.lb-row')).toHaveCount(5);
-  const select = page.getByLabel('赛季或生涯累计');
+  const select = page.getByLabel('赛季筛选');
   await expect(select).toHaveValue('2025');
-  await expect(select.locator('option')).toHaveText(['生涯累计', CURRENT, '2025']);
+  await expect(select.locator('option')).toHaveText([CURRENT, '2025']);
 
   expect(errors).toEqual([]);
 });

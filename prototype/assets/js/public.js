@@ -994,9 +994,8 @@ render();
           <div><span class="eyebrow">LEADERBOARD</span><h1>排行榜</h1><p class="muted">${formal.length} 名正式球员 · ${scope === 'all' ? '生涯累计' : season + ' 赛季'} · 最多延迟 1 分钟</p></div>
           <div class="team-season">
             <label class="muted small" for="leaderboard-scope">赛季</label>
-            <select id="leaderboard-scope" aria-label="赛季或生涯累计">
+            <select id="leaderboard-scope" aria-label="赛季筛选">
               ${seasonOptions().map((item) => `<option value="${item}"${scope === 'season' && item === season ? ' selected' : ''}>${item}</option>`).join('')}
-              <option value="all"${scope === 'all' ? ' selected' : ''}>生涯累计</option>
             </select>
             <a class="link" href="team.html${scope === 'season' ? `?season=${season}` : ''}">← 返回球队</a>
           </div>
@@ -1027,12 +1026,8 @@ render();
       const select = $('#leaderboard-scope', host);
       if (select) {
         select.addEventListener('change', () => {
-          if (select.value === 'all') {
-            scope = 'all';
-          } else {
-            scope = 'season';
-            season = select.value;
-          }
+          scope = 'season';
+          season = select.value;
           syncUrl();
           render();
         });

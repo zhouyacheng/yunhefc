@@ -19,6 +19,11 @@ export function isZeroOrPlaceholder(text: string | null): boolean {
   return text === '0' || text === '—';
 }
 
+/** 是否生涯累计窗口；避免各处散落 `=== 'all'`。 */
+export function isCareerScope(scope: LeaderboardScope): boolean {
+  return scope === 'all';
+}
+
 /** 当前榜单窗口的展示名：生涯累计 / 当前赛季 / YYYY 赛季。 */
 export function leaderboardMainLabel(
   scope: LeaderboardScope,
@@ -37,6 +42,7 @@ export interface LeaderboardEntry {
   name: string;
   jersey: number | null;
   position: number;
+  positionLabel?: string;
   avatarUrl: string | null;
   appearances: number;
   goals: number;

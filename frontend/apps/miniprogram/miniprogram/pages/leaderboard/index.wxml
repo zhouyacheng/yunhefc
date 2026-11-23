@@ -41,10 +41,10 @@
   <van-empty wx:elif="{{rows.length === 0}}" description="当前窗口暂无符合条件的球员" />
 
   <view wx:else class="lb-board">
-    <view class="lb-board-head {{hasTotals ? '' : 'lb-board-head--single'}}">
+    <view class="lb-board-head">
       <text class="lb-head-stat">{{mainLabel}}</text>
-      <text wx:if="{{hasTotals}}" class="lb-head-stat">历史累计</text>
-      <text wx:if="{{hasTotals}}" class="lb-head-stat">生涯累计</text>
+      <text class="lb-head-stat">历史累计</text>
+      <text class="lb-head-stat">生涯累计</text>
     </view>
 
     <view class="lb-list">
@@ -65,18 +65,16 @@
           </view>
         </view>
 
-        <view class="lb-stats {{hasTotals ? '' : 'lb-stats--single'}}">
+        <view class="lb-stats">
           <text
             class="lb-stat lb-stat--current {{item.currentZero ? 'lb-stat--zero' : ''}}"
             aria-label="{{mainLabel}} {{item.currentText}}"
           >{{item.currentText}}</text>
           <text
-            wx:if="{{hasTotals}}"
             class="lb-stat lb-stat--history {{item.historyZero ? 'lb-stat--zero' : ''}}"
             aria-label="历史累计 {{item.historyText}}"
           >{{item.historyText}}</text>
           <text
-            wx:if="{{hasTotals}}"
             class="lb-stat lb-stat--career {{item.careerZero ? 'lb-stat--zero' : ''}}"
             aria-label="生涯累计 {{item.careerText}}"
           >{{item.careerText}}</text>

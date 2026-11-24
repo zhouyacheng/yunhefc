@@ -1,6 +1,5 @@
 {
   "navigationBarTitleText": "账本",
-  "enablePullDownRefresh": true,
   "usingComponents": {
     "van-empty": "@vant/weapp/empty/index",
     "van-loading": "@vant/weapp/loading/index"

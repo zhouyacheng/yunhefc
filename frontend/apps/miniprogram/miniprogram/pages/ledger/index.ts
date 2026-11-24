@@ -1,11 +1,10 @@
-import type { LedgerCategory, LedgerEntry, LedgerSummary, LedgerType } from '../../types/api';
+import type { LedgerCategory, LedgerType } from '../../types/api';
 import {
   fetchLedgerSummary,
   listLedgerCategories,
   listLedgerEntries,
 } from '../../utils/api-client';
 import { errorMessage } from '../../utils/api-errors';
-import { formatDateTime } from '../../utils/datetime';
 import {
   ALL_CATEGORIES_OPTION,
   categoryOptionsFor,
@@ -15,6 +14,12 @@ import {
   parseLedgerFilterKey,
   type LedgerFilterState,
 } from '../../utils/ledger-query';
+import {
+  decorateLedgerEntry,
+  ledgerSummaryView,
+  type LedgerEntryView,
+  type LedgerSummaryView,
+} from '../../utils/ledger-view';
 import { LEDGER_VIEW_ANY, hasPermission } from '../../utils/permissions';
 import {
   createPagedFeed,
@@ -31,23 +36,6 @@ interface FilterOption {
   label: string;
 }
 
-interface LedgerEntryView {
-  id: number;
-  categoryName: string;
-  description: string;
-  timeText: string;
-  amountText: string;
-  tone: 'income' | 'expense';
-  metaText: string;
-}
-
-interface SummaryView {
-  incomeText: string;
-  expenseText: string;
-  balanceText: string;
-  tone: 'income' | 'expense';
-}
-
 const TYPE_OPTIONS: FilterOption[] = [
   { value: '', label: '全部方向' },
   { value: 0, label: '收入' },
@@ -62,32 +50,6 @@ let feed: PagedFeed<LedgerEntryView> | null = null;
 let summarySeq = 0;
 let unloading = false;
 let lastFeedError = '';
-
-/** 负数按 `−¥123.00` 展示，与 Web 一致。 */
-function moneyText(value: number): string {
-  return value < 0 ? `−¥${Math.abs(value).toFixed(2)}` : `¥${value.toFixed(2)}`;
-}
-
-function decorateEntry(entry: LedgerEntry): LedgerEntryView {
-  return {
-    id: entry.id,
-    categoryName: entry.categoryName,
-    description: entry.description,
-    timeText: formatDateTime(entry.occurredAt),
-    amountText: `${entry.type === 0 ? '+' : '−'}${moneyText(entry.amount)}`,
-    tone: entry.type === 0 ? 'income' : 'expense',
-    metaText: [entry.playerName, entry.activityTitle].filter(Boolean).join(' · '),
-  };
-}
-
-function summaryView(summary: LedgerSummary): SummaryView {
-  return {
-    incomeText: moneyText(summary.income),
-    expenseText: moneyText(summary.expense),
-    balanceText: moneyText(summary.balance),
-    tone: summary.balance >= 0 ? 'income' : 'expense',
-  };
-}
 
 function filterStateOf(data: {
   typeIndex: number;
@@ -113,7 +75,7 @@ Page({
     feed: emptyPagedFeedState<LedgerEntryView>(
       DEFAULT_LEDGER_KEY,
     ) as PagedFeedState<LedgerEntryView>,
-    summary: null as SummaryView | null,
+    summary: null as LedgerSummaryView | null,
     summaryLoading: false,
     summaryError: '',
     typeOptions: TYPE_OPTIONS,
@@ -133,7 +95,7 @@ Page({
       fetchPage: async ({ key, page, pageSize }) => {
         const filter = ledgerFilterQuery(parseLedgerFilterKey(key));
         const result = await listLedgerEntries({ ...filter, page, pageSize });
-        return { ...result, items: result.items.map(decorateEntry) };
+        return { ...result, items: result.items.map(decorateLedgerEntry) };
       },
       onChange: (state) => {
         if (unloading) {
@@ -150,16 +112,6 @@ Page({
 
   onShow() {
     void this.bootstrap();
-  },
-
-  onPullDownRefresh() {
-    if (!this.data.authorized) {
-      wx.stopPullDownRefresh();
-      return;
-    }
-    const loading = feed?.load() ?? Promise.resolve();
-    this.loadSummary(feed?.state.key ?? DEFAULT_LEDGER_KEY);
-    void loading.then(() => wx.stopPullDownRefresh());
   },
 
   onReachBottom() {
@@ -187,10 +139,9 @@ Page({
     if (!this.data.categoriesLoaded) {
       void this.loadCategories();
     }
-    if (!feed.state.loaded && !feed.state.loading) {
-      void feed.load();
-      this.loadSummary(feed.state.key);
-    }
+    // 只读页没有编辑入口：每次进入刷新第一页与汇总，避免长时间停留后看到旧数据。
+    void feed.load();
+    this.loadSummary(feed.state.key);
   },
 
   async loadCategories() {
@@ -219,7 +170,7 @@ Page({
       if (seq !== summarySeq) {
         return;
       }
-      this.setData({ summaryLoading: false, summary: summaryView(summary) });
+      this.setData({ summaryLoading: false, summary: ledgerSummaryView(summary) });
     } catch (error) {
       if (seq !== summarySeq) {
         return;

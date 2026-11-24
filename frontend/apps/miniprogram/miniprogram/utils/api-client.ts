@@ -380,19 +380,21 @@ export interface ActivityListQuery {
   pageSize?: number;
 }
 
-/** ACT-01 C 端活动列表；登录时含 mySignup。 */
+/** ACT-01 C 端活动列表；登录时含 mySignup。「最近活动」只取一条，不下发分页。 */
 export function listActivities(query: ActivityListQuery = {}): Promise<Page<ActivitySummary>> {
+  const filters = queryString({
+    type: query.type,
+    status: query.status,
+    scope: query.scope,
+  });
+  if (query.scope === 'latest') {
+    return request<Page<ActivitySummary>>('GET', `/activities${filters}`);
+  }
   const page = Math.max(1, Math.floor(query.page ?? 1) || 1);
   const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
   return request<Page<ActivitySummary>>(
     'GET',
-    `/activities${queryString({
-      type: query.type,
-      status: query.status,
-      scope: query.scope,
-      page,
-      pageSize,
-    })}`,
+    `/activities${filters}${filters ? '&' : '?'}page=${page}&pageSize=${pageSize}`,
   );
 }
 

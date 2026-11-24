@@ -4,9 +4,9 @@ export const VERSION_CONFLICT = 40901;
 export const DUPLICATE_REGISTRATION = 40902;
 export const CAPACITY_FULL = 40903;
 export const MATCH_STATE_CONFLICT = 40905;
-export const ACTIVITY_DUPLICATE_SIGNUP = 40916;
+export const ACTIVITY_SIGNUP_CONFLICT = 40916;
 export const ACTIVITY_STATE_CONFLICT = 40917;
-export const ACTIVITY_CAPACITY_FULL = 40918;
+export const ACTIVITY_FULL = 40918;
 export const GROUPING_MISMATCH = 42203;
 
 /** 这些冲突说明服务端数据已变化，写操作后应静默重载。 */
@@ -23,9 +23,7 @@ export function shouldRefreshAfterConflict(error: unknown): boolean {
 export function shouldRefreshAfterActivityConflict(error: unknown): boolean {
   return (
     error instanceof ApiError &&
-    [ACTIVITY_DUPLICATE_SIGNUP, ACTIVITY_STATE_CONFLICT, ACTIVITY_CAPACITY_FULL].includes(
-      error.code,
-    )
+    [ACTIVITY_SIGNUP_CONFLICT, ACTIVITY_STATE_CONFLICT, ACTIVITY_FULL].includes(error.code)
   );
 }
 

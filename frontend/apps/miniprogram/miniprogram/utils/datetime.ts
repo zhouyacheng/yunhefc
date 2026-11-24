@@ -18,16 +18,17 @@ function shanghaiDate(value: string | null | undefined): Date | null {
   return new Date(time + SHANGHAI_OFFSET_MS);
 }
 
+function dayLabel(date: Date): string {
+  return `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${WEEKDAYS[date.getUTCDay()]}`;
+}
+
 /** 展示文案：按 Asia/Shanghai 输出 `M月D日 周X HH:mm`，无效值返回占位符 `—`。 */
 export function formatDayStartTime(value: string | null | undefined): string {
   const date = shanghaiDate(value);
   if (!date) {
     return '—';
   }
-  const month = date.getUTCMonth() + 1;
-  const day = date.getUTCDate();
-  const weekday = WEEKDAYS[date.getUTCDay()];
-  return `${month}月${day}日 ${weekday} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+  return `${dayLabel(date)} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
 /** 展示文案：`M月D日 周X HH:mm–HH:mm`；跨天结束带月/日，无结束只显示开始时刻。 */
@@ -40,7 +41,7 @@ export function formatDayTimeRange(
   if (!date || !start) {
     return '—';
   }
-  const head = `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${WEEKDAYS[date.getUTCDay()]}`;
+  const head = dayLabel(date);
   const end = formatHourMinute(endAt);
   if (!end) {
     return `${head} ${start}`;

@@ -297,13 +297,14 @@ describe('profile save', () => {
 });
 
 describe('activity client', () => {
-  it('lists activities with scope, filters and default pagination', async () => {
+  it('lists activities with filters; latest omits pagination', async () => {
     mocks.request.mockResolvedValue(page([]));
     await listActivities({ scope: 'latest', type: 0, status: 1 });
-    expect(mocks.request).toHaveBeenCalledWith(
-      'GET',
-      '/activities?type=0&status=1&scope=latest&page=1&pageSize=10',
-    );
+    expect(mocks.request).toHaveBeenCalledWith('GET', '/activities?type=0&status=1&scope=latest');
+
+    mocks.request.mockClear();
+    await listActivities({ scope: 'all' });
+    expect(mocks.request).toHaveBeenCalledWith('GET', '/activities?scope=all&page=1&pageSize=10');
   });
 
   it('reads detail and signup roster without idempotency options', async () => {

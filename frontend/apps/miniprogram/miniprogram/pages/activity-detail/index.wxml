@@ -62,7 +62,8 @@
             <text class="muted">{{familyText}}</text>
           </view>
           <text wx:if="{{signedUpText}}" class="muted small">报名时间 {{signedUpText}}</text>
-          <text class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，报名记录仅保留。</text>
+          <text wx:if="{{registered}}" class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，报名记录仅保留。</text>
+          <text wx:else class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，不再接受报名。</text>
         </block>
 
         <block wx:elif="{{!authenticated}}">
@@ -89,11 +90,12 @@
           </view>
           <text wx:if="{{signedUpText}}" class="muted small">报名时间 {{signedUpText}}</text>
           <view
-            class="btn btn--outline {{canCancel && !cancelBusy ? '' : 'btn--disabled'}}"
+            wx:if="{{canCancel}}"
+            class="btn btn--outline {{cancelBusy ? 'btn--disabled' : ''}}"
             bindtap="cancelSignup"
             hover-class="btn--pressed"
           >{{cancelBusy ? '取消中…' : '取消报名'}}</view>
-          <text wx:if="{{!canCancel}}" class="hint">报名已截止，无法取消。</text>
+          <text wx:else class="hint">报名已截止，无法取消。</text>
         </block>
 
         <block wx:else>

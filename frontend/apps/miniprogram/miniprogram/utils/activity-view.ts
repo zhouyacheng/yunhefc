@@ -56,6 +56,13 @@ export function activitySignupOpen(activity: ActivitySummary, now: number): bool
   );
 }
 
+const CLOSED_ACTION: ActivityActionView = {
+  visible: true,
+  disabled: true,
+  label: '已截止',
+  reason: '报名已截止',
+};
+
 /** 首个命中项：已取消 → 已结束 → 已截止 → 已满 → 可报名。 */
 export function activityAction(activity: ActivitySummary, now: number): ActivityActionView {
   if (activity.status === 3) {
@@ -65,13 +72,14 @@ export function activityAction(activity: ActivitySummary, now: number): Activity
     return { visible: false, disabled: true, label: '已结束', reason: '活动已结束' };
   }
   if (activity.status === 1 || now >= Date.parse(activity.signupDeadline)) {
-    return { visible: true, disabled: true, label: '已截止', reason: '报名已截止' };
+    return CLOSED_ACTION;
   }
   if (isActivityFull(activity)) {
     return { visible: true, disabled: true, label: '已满', reason: '报名人数已满' };
   }
+  // 服务端 signupOpen 兜底（时钟偏差/状态刚变化），不覆盖「已满」文案。
   if (!activity.signupOpen) {
-    return { visible: true, disabled: true, label: '已截止', reason: '报名已截止' };
+    return CLOSED_ACTION;
   }
   return { visible: true, disabled: false, label: '报名', reason: '' };
 }

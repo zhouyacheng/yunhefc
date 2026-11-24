@@ -1,5 +1,15 @@
-import type { ActivityStatus, ActivityType } from '../../types/api';
-import { listActivities, type ActivityScope } from '../../utils/api-client';
+import { listActivities } from '../../utils/api-client';
+import {
+  ACTIVITY_SCOPES,
+  ACTIVITY_STATUS_OPTIONS,
+  ACTIVITY_TYPE_OPTIONS,
+  activityFeedKey,
+  activityListQuery,
+  DEFAULT_ACTIVITY_FILTERS,
+  DEFAULT_ACTIVITY_KEY,
+  parseActivityFeedKey,
+  type ActivityFilters,
+} from '../../utils/activity-query';
 import { buildActivityCard, type ActivityCardView } from '../../utils/activity-view';
 import { subscribe } from '../../utils/invalidation';
 import {
@@ -11,51 +21,12 @@ import {
 
 const PAGE_SIZE = 10;
 
-interface ScopeOption {
-  key: ActivityScope;
-  label: string;
-}
-
-interface FilterOption<T> {
-  value: T | '';
-  label: string;
-}
-
-const SCOPES: ScopeOption[] = [
-  { key: 'latest', label: '最近活动' },
-  { key: 'history', label: '历史' },
-  { key: 'all', label: '全部' },
-];
-
-const TYPE_OPTIONS: FilterOption<ActivityType>[] = [
-  { value: '', label: '全部类型' },
-  { value: 0, label: '聚餐' },
-  { value: 1, label: '年会' },
-  { value: 2, label: '其他' },
-];
-
-const STATUS_OPTIONS: FilterOption<ActivityStatus>[] = [
-  { value: '', label: '全部状态' },
-  { value: 0, label: '报名中' },
-  { value: 1, label: '报名截止' },
-  { value: 2, label: '已结束' },
-  { value: 3, label: '已取消' },
-];
-
 let feed: PagedFeed<ActivityCardView> | null = null;
 let unloading = false;
 let lastError = '';
 const activities = subscribe('activities');
 
-function feedKey(
-  scope: ActivityScope,
-  type: FilterOption<ActivityType>['value'],
-  status: FilterOption<ActivityStatus>['value'],
-): string {
-  return `${scope}|${type}|${status}`;
-}
-
-function emptyTextOf(scope: ActivityScope): string {
+function emptyTextOf(scope: ActivityFilters['scope']): string {
   if (scope === 'latest') {
     return '暂无最近活动';
   }
@@ -64,27 +35,26 @@ function emptyTextOf(scope: ActivityScope): string {
 
 Page({
   data: {
-    feed: emptyPagedFeedState<ActivityCardView>('all||') as PagedFeedState<ActivityCardView>,
-    scopeOptions: SCOPES,
-    scope: 'all' as ActivityScope,
-    typeOptions: TYPE_OPTIONS,
+    feed: emptyPagedFeedState<ActivityCardView>(
+      DEFAULT_ACTIVITY_KEY,
+    ) as PagedFeedState<ActivityCardView>,
+    scopeOptions: ACTIVITY_SCOPES,
+    scope: DEFAULT_ACTIVITY_FILTERS.scope,
+    typeOptions: ACTIVITY_TYPE_OPTIONS,
     typeIndex: 0,
-    statusOptions: STATUS_OPTIONS,
+    statusOptions: ACTIVITY_STATUS_OPTIONS,
     statusIndex: 0,
-    emptyText: emptyTextOf('all'),
+    emptyText: emptyTextOf(DEFAULT_ACTIVITY_FILTERS.scope),
   },
 
   onLoad() {
     unloading = false;
     feed = createPagedFeed<ActivityCardView>({
       pageSize: PAGE_SIZE,
-      initialKey: feedKey('all', '', ''),
+      initialKey: DEFAULT_ACTIVITY_KEY,
       fetchPage: async ({ key, page, pageSize }) => {
-        const [scope, type, status] = key.split('|');
         const result = await listActivities({
-          scope: scope as ActivityScope,
-          type: type === '' ? undefined : (Number(type) as ActivityType),
-          status: status === '' ? undefined : (Number(status) as ActivityStatus),
+          ...activityListQuery(parseActivityFeedKey(key)),
           page,
           pageSize,
         });
@@ -129,7 +99,7 @@ Page({
   },
 
   selectScope(event: WechatMiniprogram.BaseEvent) {
-    const scope = String(event.currentTarget.dataset.scope ?? 'all') as ActivityScope;
+    const scope = String(event.currentTarget.dataset.scope ?? 'all') as ActivityFilters['scope'];
     if (scope === this.data.scope) {
       return;
     }
@@ -149,10 +119,10 @@ Page({
     this.applyFilters(this.data.scope, this.data.typeIndex, statusIndex);
   },
 
-  applyFilters(scope: ActivityScope, typeIndex: number, statusIndex: number) {
-    const type = TYPE_OPTIONS[typeIndex]?.value ?? '';
-    const status = STATUS_OPTIONS[statusIndex]?.value ?? '';
-    const key = feedKey(scope, type, status);
+  applyFilters(scope: ActivityFilters['scope'], typeIndex: number, statusIndex: number) {
+    const type = ACTIVITY_TYPE_OPTIONS[typeIndex]?.value ?? '';
+    const status = ACTIVITY_STATUS_OPTIONS[statusIndex]?.value ?? '';
+    const key = activityFeedKey({ scope, type, status });
     if (key === feed?.state.key) {
       return;
     }

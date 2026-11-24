@@ -20,6 +20,8 @@ import { getPermissions, getUser, sessionReady } from '../../utils/session';
 let requestSeq = 0;
 let hasLoaded = false;
 
+const RESTRICTED_SIGNUP_HINT = '仅正式球员可报名';
+
 function confirmDialog(title: string, content: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     wx.showModal({
@@ -133,7 +135,7 @@ Page({
     const action = activityAction(activity, now);
     const canSignupPerm = authenticated && hasPermission(getPermissions(), ACTIVITY_SIGNUP_OWN);
     const hint =
-      action.reason || (authenticated && !pending && !canSignupPerm ? '仅正式球员可报名' : '');
+      action.reason || (authenticated && !pending && !canSignupPerm ? RESTRICTED_SIGNUP_HINT : '');
     this.setData({
       activity,
       statusTone: activityStatusTone(activity.status),
@@ -170,7 +172,7 @@ Page({
       return;
     }
     if (!this.data.canSignupPerm) {
-      wx.showToast({ title: '仅正式球员可报名', icon: 'none' });
+      wx.showToast({ title: RESTRICTED_SIGNUP_HINT, icon: 'none' });
       return;
     }
     this.setData({

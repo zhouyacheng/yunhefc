@@ -346,7 +346,6 @@ onBeforeUnmount(() => {
               />
             </SwipeItem>
           </Swipe>
-          <div v-else class="activity-description__placeholder">暂无活动图片</div>
           <p v-if="activity.description" class="activity-description__text">
             {{ activity.description }}
           </p>
@@ -490,21 +489,12 @@ onBeforeUnmount(() => {
   transition: width 0.2s ease;
 }
 
-.activity-description__image,
-.activity-description__placeholder {
+.activity-description__image {
   width: 100%;
   height: 220px;
   margin: 10px 0;
   object-fit: cover;
   border-radius: 12px;
-}
-
-.activity-description__placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--yh-muted);
-  background: var(--yh-slate-soft);
 }
 
 .activity-description__text {

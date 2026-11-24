@@ -14,6 +14,7 @@ import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.contracts.activity.ActivitySignupLifecyclePort;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
@@ -51,6 +52,7 @@ public class AccountLifecycleApplicationService {
     private final PlayerAdminApplicationService playerAdminService;
     private final PlayerProfileApplicationService playerProfileService;
     private final RegistrationLifecyclePort registrationLifecyclePort;
+    private final ActivitySignupLifecyclePort activitySignupLifecyclePort;
     private final AuditRecorder auditRecorder;
     private final OutboxService outboxService;
 
@@ -132,6 +134,8 @@ public class AccountLifecycleApplicationService {
 
         userMapper.updateStatus(user.getId(), UserStatus.DISABLED.code());
         registrationLifecyclePort.cancelActiveForDisabledPlayer(
+                actor.teamId(), playerId, actor.userId());
+        activitySignupLifecyclePort.cancelActiveForDisabledPlayer(
                 actor.teamId(), playerId, actor.userId());
 
         Map<String, Object> after = new LinkedHashMap<>();

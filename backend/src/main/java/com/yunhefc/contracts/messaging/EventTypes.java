@@ -12,6 +12,8 @@ public final class EventTypes {
     public static final String WAITLIST_PROMOTED = "WAITLIST_PROMOTED";
     public static final String MATCH_POSTPONED = "MATCH_POSTPONED";
     public static final String MATCH_CANCELLED = "MATCH_CANCELLED";
+    public static final String ACTIVITY_CREATED = "ACTIVITY_CREATED";
+    public static final String ACTIVITY_CANCELLED = "ACTIVITY_CANCELLED";
 
     /**
      * 投递到通知 topic 并被站内信消费者处理的领域事件；新增类型时只维护此处。
@@ -19,7 +21,8 @@ public final class EventTypes {
     public static final Set<String> NOTIFICATION_EVENTS = Set.of(
             ROLE_CHANGED, ACCOUNT_APPROVED, ACCOUNT_DISABLED,
             REGISTRATION_CONFIRMED, WAITLIST_PROMOTED,
-            MATCH_POSTPONED, MATCH_CANCELLED);
+            MATCH_POSTPONED, MATCH_CANCELLED,
+            ACTIVITY_CREATED, ACTIVITY_CANCELLED);
 
     private EventTypes() {
     }

@@ -70,7 +70,9 @@ public class SecurityConfig {
                                 "/api/v1/c/team/leaderboards",
                                 "/api/v1/c/matches",
                                 "/api/v1/c/matches/*",
-                                "/api/v1/c/matches/*/events").permitAll()
+                                "/api/v1/c/matches/*/events",
+                                "/api/v1/c/activities",
+                                "/api/v1/c/activities/*").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, exception) ->

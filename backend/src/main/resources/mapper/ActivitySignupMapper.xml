@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunhefc.activity.infrastructure.ActivitySignupMapper">
+
+    <select id="selectActiveCounts"
+            resultType="com.yunhefc.activity.infrastructure.ActivitySignupCountRow">
+        SELECT activity_id AS activityId, COUNT(*) AS signupCount
+        FROM activity_signup
+        WHERE status = 0 AND is_deleted = 0
+          AND activity_id IN
+          <foreach collection="activityIds" item="activityId" open="(" separator="," close=")">
+              #{activityId}
+          </foreach>
+        GROUP BY activity_id
+    </select>
+
+</mapper>

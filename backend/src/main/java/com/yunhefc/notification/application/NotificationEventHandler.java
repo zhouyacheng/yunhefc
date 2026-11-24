@@ -3,8 +3,10 @@ package com.yunhefc.notification.application;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.common.time.ShanghaiTime;
+import com.yunhefc.contracts.activity.ActivitySignupReadPort;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
+import com.yunhefc.contracts.security.UserAccountReadPort;
 import com.yunhefc.infra.outbox.ConsumedEventMapper;
 import com.yunhefc.infra.outbox.OutboxMessage;
 import com.yunhefc.notification.domain.Notification;
@@ -28,10 +30,13 @@ public class NotificationEventHandler {
 
     private static final Logger log = LoggerFactory.getLogger(NotificationEventHandler.class);
     private static final DateTimeFormatter START_AT_FORMAT = DateTimeFormatter.ofPattern("M月d日 HH:mm");
+    private static final int ACTIVE_USER = 1;
 
     private final NotificationMapper notificationMapper;
     private final ConsumedEventMapper consumedEventMapper;
     private final RegistrationReadPort registrationReadPort;
+    private final ActivitySignupReadPort activitySignupReadPort;
+    private final UserAccountReadPort userAccountReadPort;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -50,6 +55,10 @@ public class NotificationEventHandler {
             if (EventTypes.MATCH_POSTPONED.equals(event.eventType())
                     || EventTypes.MATCH_CANCELLED.equals(event.eventType())) {
                 insertForActiveRegistrants(event, payload);
+            } else if (EventTypes.ACTIVITY_CANCELLED.equals(event.eventType())) {
+                insertForActivitySignups(event, payload);
+            } else if (EventTypes.ACTIVITY_CREATED.equals(event.eventType())) {
+                insertForActiveAccounts(payload);
             } else {
                 notificationMapper.insert(build(event.eventType(), payload));
             }
@@ -92,6 +101,57 @@ public class NotificationEventHandler {
         notification.setTitle(rescheduled ? "比赛恢复报名" : "比赛延期");
         notification.setBody("「" + matchTitle + "」已" + (rescheduled ? "重新排期" : "延期")
                 + "至 " + formatStartAt(payload.get("startAt")) + "，请留意最新安排。");
+        return notification;
+    }
+
+    /**
+     * 活动创建广播全部正常账号；ref_type=ACTIVITY，点击进入活动详情。
+     */
+    private void insertForActiveAccounts(Map<String, Object> payload) {
+        List<Notification> notifications = userAccountReadPort.findUserIds(ACTIVE_USER, null).stream()
+                .map(userId -> buildActivityCreated(payload, userId))
+                .toList();
+        if (!notifications.isEmpty()) {
+            notificationMapper.insertBatch(notifications);
+        }
+    }
+
+    /**
+     * 活动取消只通知仍有效的报名者；报名域经 contracts 只读端口访问。
+     */
+    private void insertForActivitySignups(OutboxMessage event, Map<String, Object> payload) {
+        Long activityId = longValue(payload.get("activityId"));
+        List<Notification> notifications = activitySignupReadPort
+                .findActiveUserIds(event.teamId(), activityId).stream()
+                .map(userId -> buildActivityCancelled(payload, userId))
+                .toList();
+        if (!notifications.isEmpty()) {
+            notificationMapper.insertBatch(notifications);
+        }
+    }
+
+    private Notification buildActivityCreated(Map<String, Object> payload, Long userId) {
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setType(NotificationType.ACTIVITY_CREATED);
+        notification.setTitle("新活动");
+        notification.setBody("「" + payload.get("activityTitle") + "」将于 "
+                + formatStartAt(payload.get("startAt")) + " 举行，地点："
+                + payload.get("location") + "，欢迎报名。");
+        notification.setRefType("ACTIVITY");
+        notification.setRefId(longValue(payload.get("activityId")));
+        return notification;
+    }
+
+    private Notification buildActivityCancelled(Map<String, Object> payload, Long userId) {
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setType(NotificationType.ACTIVITY_CANCELLED);
+        notification.setTitle("活动取消");
+        notification.setBody("「" + payload.get("activityTitle") + "」已取消："
+                + payload.getOrDefault("reason", ""));
+        notification.setRefType("ACTIVITY");
+        notification.setRefId(longValue(payload.get("activityId")));
         return notification;
     }
 

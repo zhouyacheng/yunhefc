@@ -72,7 +72,7 @@ class FlywayBackfillIT {
             assertThat(lockOf(connection, 6)).isEqualTo("2099-07-07 02:00:00");
             assertThat(lockOf(connection, 7)).isEqualTo("2099-07-08 02:00:00");
             assertThat(lockOf(connection, 8)).isEqualTo("2099-07-08 17:00:00");
-            assertThat(schemaVersion(connection)).isEqualTo("17");
+            assertThat(schemaVersion(connection)).isEqualTo("18");
         }
     }
 

@@ -20,6 +20,7 @@ TRUNCATE TABLE lineup_slot;
 TRUNCATE TABLE match_grouping;
 TRUNCATE TABLE match_grouping_player;
 TRUNCATE TABLE activity_signup;
+TRUNCATE TABLE activity_image;
 TRUNCATE TABLE team_activity;
 TRUNCATE TABLE team_ledger_entry;
 TRUNCATE TABLE ledger_category;

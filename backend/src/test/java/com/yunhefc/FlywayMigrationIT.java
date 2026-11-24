@@ -46,7 +46,7 @@ class FlywayMigrationIT {
 
     @Test
     void migratesEmptyDatabaseAndSeedsReferenceData() {
-        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(16);
+        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(17);
         assertThat(count("""
                 SELECT COUNT(*) FROM team
                 WHERE id = 1 AND ABS(TIMESTAMPDIFF(MINUTE, created_at, NOW())) <= 5
@@ -56,7 +56,7 @@ class FlywayMigrationIT {
                 WHERE table_schema = DATABASE()
                   AND table_name <> 'flyway_schema_history'
                   AND table_name NOT LIKE 'QRTZ\\_%'
-                """)).isEqualTo(31);
+                """)).isEqualTo(32);
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = DATABASE() AND table_name LIKE 'QRTZ_%'
@@ -92,7 +92,7 @@ class FlywayMigrationIT {
                   AND index_name <> 'PRIMARY'
                   AND table_name <> 'flyway_schema_history'
                   AND table_name NOT LIKE 'QRTZ\\_%'
-                """)).isEqualTo(72);
+                """)).isEqualTo(73);
 
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables

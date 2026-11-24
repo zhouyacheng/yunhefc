@@ -51,6 +51,12 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 
 import { api } from '../api/client';
+import {
+  SHANGHAI_OFFSET_MS,
+  fromPickerDate,
+  shanghaiDayAt,
+  toPickerDate,
+} from '../features/time/picker';
 import { useSessionStore } from '../stores/session';
 
 type MatchDialogMode = 'create' | 'edit';
@@ -84,7 +90,6 @@ interface ScheduleFormState {
   endAt: Date | null;
 }
 
-const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
 
 const session = useSessionStore();
@@ -178,20 +183,6 @@ function statusTag(statusCode: number): 'primary' | 'success' | 'warning' | 'dan
   return tone === 'neutral' ? 'info' : tone;
 }
 
-function shanghaiDayAt(daysAhead: number, hour: number): Date {
-  const shanghaiNow = new Date(Date.now() + SHANGHAI_OFFSET_MS);
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() + daysAhead,
-      hour - 8,
-      0,
-      0,
-    ),
-  );
-}
-
 function currentShanghaiSeason(): string {
   return String(new Date(Date.now() + SHANGHAI_OFFSET_MS).getUTCFullYear());
 }
@@ -220,33 +211,6 @@ function defaultMatchForm(): MatchFormState {
 
 function resetMatchForm(source?: MatchFormState): void {
   Object.assign(matchForm, source ?? defaultMatchForm());
-}
-
-function toDate(value: string | null | undefined): Date | null {
-  if (!value) {
-    return null;
-  }
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-/**
- * el-date-picker 按浏览器本地时区解释 Date，而页面统一按 Asia/Shanghai 展示。
- * 这两个函数把真实时刻与「上海墙钟」互相映射，保证非 UTC+8 浏览器也显示同一时间。
- */
-function toPickerDate(value: string | null | undefined): Date | null {
-  const instant = toDate(value);
-  if (!instant) {
-    return null;
-  }
-  return new Date(instant.getTime() + SHANGHAI_OFFSET_MS + instant.getTimezoneOffset() * 60_000);
-}
-
-function fromPickerDate(value: Date | null): Date | null {
-  if (!value) {
-    return null;
-  }
-  return new Date(value.getTime() - SHANGHAI_OFFSET_MS - value.getTimezoneOffset() * 60_000);
 }
 
 async function load(): Promise<void> {

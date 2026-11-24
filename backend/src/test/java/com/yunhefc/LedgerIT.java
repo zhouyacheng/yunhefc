@@ -182,6 +182,16 @@ class LedgerIT extends AccountITSupport {
                 .andExpect(jsonPath("$.data.items[*].name").value(
                         org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("球衣"))));
 
+        // LED-12：B 端只读别名与 LED-08 同口径，只返回启用分类。
+        Cookie playerBackend = bLoginExisting("13900004032");
+        mockMvc.perform(get("/api/v1/b/ledger/categories/active")
+                        .param("type", "1").cookie(playerBackend))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[*].name").value(
+                        org.hamcrest.Matchers.hasItems("场地", "其他")))
+                .andExpect(jsonPath("$.data.items[*].name").value(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("球衣"))));
+
         // LED-09 缺省含停用分类；显式 includeInactive=false 才排除。
         mockMvc.perform(get("/api/v1/b/ledger/categories").cookie(admin))
                 .andExpect(status().isOk())
@@ -578,6 +588,8 @@ class LedgerIT extends AccountITSupport {
                 OCCURRED_AT, null, null), idemKey())
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.code").value(40301));
+        mockMvc.perform(get("/api/v1/b/ledger/categories/active").cookie(playerBackend))
+                .andExpect(status().isOk());
         mockMvc.perform(get("/api/v1/b/ledger/categories").cookie(playerBackend))
                 .andExpect(status().isForbidden());
     }

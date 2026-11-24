@@ -17,15 +17,3 @@ export const publicApi = createApiClient({
   basePath,
   loginPath: `${basePath}login`,
 });
-
-/**
- * 需要当前后台会话的 C 端只读接口（如 LED-08）：共享同一 Session Cookie，
- * 未登录时不跳 C 端登录页，由调用方按普通错误处理。
- */
-export const sessionReadApi = createApiClient({
-  namespace: 'c',
-  baseUrl: '/api/v1/c',
-  basePath,
-  loginPath: `${basePath}login`,
-  onUnauthorized: () => undefined,
-});

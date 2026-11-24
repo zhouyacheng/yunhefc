@@ -15,7 +15,8 @@ import { formatDateTime } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 
-import { api, publicApi, sessionReadApi } from '../api/client';
+import { api, publicApi } from '../api/client';
+import { fromPickerDate, toPickerDate } from '../features/time/picker';
 import {
   LEDGER_DIRECTION_OPTIONS,
   LEDGER_TYPE_OPTIONS,
@@ -67,8 +68,6 @@ interface ActivityOption {
   id: number;
   title: string;
 }
-
-const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 const session = useSessionStore();
 const canManage = computed(() => hasPermission(session.permissions, LEDGER_MANAGE_ANY));
@@ -123,16 +122,21 @@ const categoryForm = reactive<CategoryFormState>({ name: '', direction: '', sort
 
 const hasActiveFilters = computed(
   () =>
-    typeFilter.value !== '' ||
-    categoryFilter.value !== '' ||
-    playerFilter.value !== '' ||
-    activityFilter.value !== '' ||
+    !isBlank(typeFilter.value) ||
+    !isBlank(categoryFilter.value) ||
+    !isBlank(playerFilter.value) ||
+    !isBlank(activityFilter.value) ||
     dateRange.value !== null ||
     keyword.value.trim() !== '',
 );
 
+/** el-select 清空后可能回写 undefined/null，统一视为未选择。 */
+function isBlank(value: unknown): boolean {
+  return value === '' || value === null || value === undefined;
+}
+
 const filterCategoryOptions = computed(() =>
-  typeFilter.value === ''
+  isBlank(typeFilter.value)
     ? activeCategories.value
     : categoriesForType(activeCategories.value, Number(typeFilter.value) as LedgerType),
 );
@@ -155,21 +159,6 @@ function nowPickerDate(): Date {
   return toPickerDate(new Date().toISOString())!;
 }
 
-function toPickerDate(value: string): Date | null {
-  const instant = new Date(value);
-  if (Number.isNaN(instant.getTime())) {
-    return null;
-  }
-  return new Date(instant.getTime() + SHANGHAI_OFFSET_MS + instant.getTimezoneOffset() * 60_000);
-}
-
-function fromPickerDate(value: Date | null): Date | null {
-  if (!value) {
-    return null;
-  }
-  return new Date(value.getTime() - SHANGHAI_OFFSET_MS - value.getTimezoneOffset() * 60_000);
-}
-
 function defaultEntryForm(): LedgerFormState {
   return {
     type: 1,
@@ -184,21 +173,22 @@ function defaultEntryForm(): LedgerFormState {
 
 function buildFilterQuery(): QueryParams {
   const query: QueryParams = {};
-  if (typeFilter.value !== '') {
+  if (!isBlank(typeFilter.value)) {
     query.type = Number(typeFilter.value);
   }
-  if (categoryFilter.value !== '') {
+  if (!isBlank(categoryFilter.value)) {
     query.categoryId = Number(categoryFilter.value);
   }
-  if (playerFilter.value !== '') {
+  if (!isBlank(playerFilter.value)) {
     query.playerId = Number(playerFilter.value);
   }
-  if (activityFilter.value !== '') {
+  if (!isBlank(activityFilter.value)) {
     query.activityId = Number(activityFilter.value);
   }
   if (dateRange.value) {
-    query.from = `${dateRange.value[0]}T00:00:00`;
-    query.to = `${dateRange.value[1]}T23:59:59`;
+    // 05 LED-01：时间用 ISO-8601 +08:00；to 为闭区间，取当日最后一毫秒。
+    query.from = `${dateRange.value[0]}T00:00:00+08:00`;
+    query.to = `${dateRange.value[1]}T23:59:59.999+08:00`;
   }
   return query;
 }
@@ -276,7 +266,7 @@ async function loadCategories(): Promise<void> {
       clearInactiveCategoryFilter();
       return;
     }
-    const result = await sessionReadApi.get<ItemsResponse<LedgerCategory>>('/ledger/categories');
+    const result = await api.get<ItemsResponse<LedgerCategory>>('/ledger/categories/active');
     activeCategories.value = result.items;
     allCategories.value = result.items;
     clearInactiveCategoryFilter();
@@ -288,7 +278,7 @@ async function loadCategories(): Promise<void> {
 /** 分类停用后不再出现在筛选；已选中的停用分类自动清空。 */
 function clearInactiveCategoryFilter(): void {
   if (
-    categoryFilter.value !== '' &&
+    !isBlank(categoryFilter.value) &&
     !activeCategories.value.some((category) => category.id === Number(categoryFilter.value))
   ) {
     categoryFilter.value = '';
@@ -303,7 +293,7 @@ async function loadPlayers(): Promise<void> {
       });
       playerOptions.value = result.items.map((player) => ({
         id: player.id,
-        name: player.jersey === null ? player.name : `${player.jersey} ${player.name}`,
+        name: player.jersey == null ? player.name : `${player.jersey} ${player.name}`,
       }));
       return;
     }
@@ -312,7 +302,7 @@ async function loadPlayers(): Promise<void> {
     >('/team/players', { query: { all: true } });
     playerOptions.value = result.items.map((player) => ({
       id: player.id,
-      name: player.jersey === null ? player.name : `${player.jersey} ${player.name}`,
+      name: player.jersey == null ? player.name : `${player.jersey} ${player.name}`,
     }));
   } catch {
     playerOptions.value = [];
@@ -339,7 +329,8 @@ function onFilterChange(): void {
 }
 
 function onTypeFilterChange(): void {
-  if (categoryFilter.value !== '') {
+  // 方向清空时分类不再受限；有方向时只保留该方向或通用分类。
+  if (!isBlank(typeFilter.value) && !isBlank(categoryFilter.value)) {
     const selected = activeCategories.value.find(
       (category) => category.id === Number(categoryFilter.value),
     );
@@ -431,6 +422,7 @@ function entryFormError(): string | null {
   return null;
 }
 
+/** el-select 清空后可能回写 undefined/''，更新请求需显式传 null 才能清空关联。 */
 function optionalId(value: unknown): number | null {
   return typeof value === 'number' ? value : null;
 }

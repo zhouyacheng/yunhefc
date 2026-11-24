@@ -8,12 +8,19 @@ import {
   newIdempotencyKey,
 } from '@yunhefc/api-client';
 import { ACTIVITY_MANAGE_ANY, hasPermission } from '@yunhefc/permissions';
-import type { ActivityAdmin, ActivitySignupRow, ActivityType, Page } from '@yunhefc/shared';
+import type {
+  ActivityAdmin,
+  ActivitySignupRow,
+  ActivityStatus,
+  ActivityType,
+  Page,
+} from '@yunhefc/shared';
 import { formatDateTime } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
 import { api } from '../api/client';
+import { fromPickerDate, shanghaiDayAt, toPickerDate } from '../features/time/picker';
 import {
   ACTIVITY_IMAGE_UPLOAD_ERROR,
   ACTIVITY_STATUS_OPTIONS,
@@ -61,8 +68,10 @@ interface ActivityImageUploadView {
   signedUrl: string;
 }
 
-const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const STATUS_CLOSED: ActivityStatus = 1;
+const STATUS_FINISHED: ActivityStatus = 2;
+const STATUS_CANCELLED: ActivityStatus = 3;
 
 const session = useSessionStore();
 const canManage = computed(() => hasPermission(session.permissions, ACTIVITY_MANAGE_ANY));
@@ -79,8 +88,13 @@ const error = ref('');
 let requestSeq = 0;
 
 const hasActiveFilters = computed(
-  () => typeFilter.value !== '' || statusFilter.value !== '' || dateRange.value !== null,
+  () => !isBlank(typeFilter.value) || !isBlank(statusFilter.value) || dateRange.value !== null,
 );
+
+/** el-select 清空后可能回写 undefined/null，统一视为未选择。 */
+function isBlank(value: unknown): boolean {
+  return value === '' || value === null || value === undefined;
+}
 
 const activityDialog = reactive({
   visible: false,
@@ -141,53 +155,14 @@ function defaultActivityForm(): ActivityFormState {
   };
 }
 
-function shanghaiDayAt(daysAhead: number, hour: number): Date {
-  const shanghaiNow = new Date(Date.now() + SHANGHAI_OFFSET_MS);
-  return new Date(
-    Date.UTC(
-      shanghaiNow.getUTCFullYear(),
-      shanghaiNow.getUTCMonth(),
-      shanghaiNow.getUTCDate() + daysAhead,
-      hour - 8,
-      0,
-      0,
-    ),
-  );
-}
-
-/**
- * el-date-picker 按浏览器本地时区解释 Date，而页面统一按 Asia/Shanghai 展示。
- * 这两个函数把真实时刻与「上海墙钟」互相映射，保证非 UTC+8 浏览器也显示同一时间。
- */
-function toPickerDate(value: string | null | undefined): Date | null {
-  if (!value) {
-    return null;
-  }
-  const instant = new Date(value);
-  if (Number.isNaN(instant.getTime())) {
-    return null;
-  }
-  return new Date(instant.getTime() + SHANGHAI_OFFSET_MS + instant.getTimezoneOffset() * 60_000);
-}
-
-function fromPickerDate(value: Date | null): Date | null {
-  if (!value) {
-    return null;
-  }
-  return new Date(value.getTime() - SHANGHAI_OFFSET_MS - value.getTimezoneOffset() * 60_000);
-}
-
-function statusTag(status: number): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
-  return activityStatusTone(status);
+/** 仅接受后端/图片代理现签的 http(s) URL；mock 对象键回落空态。 */
+function displayableImageUrl(url: string | null | undefined): string {
+  return typeof url === 'string' && /^https?:\/\//i.test(url) ? url : '';
 }
 
 function signupText(row: ActivityAdmin): string {
   const capacity = row.capacity === null ? '不限' : String(row.capacity);
   return `${row.signupCount} / ${capacity}`;
-}
-
-function costText(value: number | null): string {
-  return value === null ? '—' : `¥${value.toFixed(2)}`;
 }
 
 function revokeLocalPreview(): void {
@@ -217,7 +192,7 @@ function fillForm(activity: ActivityAdmin): void {
   activityForm.location = activity.location;
   activityForm.description = activity.description ?? '';
   activityForm.locationImageKey = activity.locationImageKey;
-  imagePreview.value = activity.locationImageUrl ?? '';
+  imagePreview.value = displayableImageUrl(activity.locationImageUrl);
 }
 
 async function load(): Promise<void> {
@@ -229,10 +204,10 @@ async function load(): Promise<void> {
       page: page.value,
       pageSize: pageSize.value,
     };
-    if (typeFilter.value !== '') {
+    if (!isBlank(typeFilter.value)) {
       query.type = Number(typeFilter.value);
     }
-    if (statusFilter.value !== '') {
+    if (!isBlank(statusFilter.value)) {
       query.status = Number(statusFilter.value);
     }
     if (dateRange.value) {
@@ -320,7 +295,7 @@ async function onImageChange(event: Event): Promise<void> {
       return;
     }
     activityForm.locationImageKey = uploaded.objectKey;
-    if (uploaded.signedUrl) {
+    if (displayableImageUrl(uploaded.signedUrl)) {
       revokeLocalPreview();
       imagePreview.value = uploaded.signedUrl;
     }
@@ -368,7 +343,7 @@ async function openEdit(row: ActivityAdmin): Promise<void> {
     }
     fillForm(detail);
     resetImageState();
-    imagePreview.value = detail.locationImageUrl ?? '';
+    imagePreview.value = displayableImageUrl(detail.locationImageUrl);
     activityDialog.mode = 'edit';
     activityDialog.activity = detail;
     activityDialog.error = '';
@@ -389,7 +364,7 @@ async function openCopy(row: ActivityAdmin): Promise<void> {
     const detail = await fetchAuthoritative(row.id);
     fillForm(detail);
     resetImageState();
-    imagePreview.value = detail.locationImageUrl ?? '';
+    imagePreview.value = displayableImageUrl(detail.locationImageUrl);
     activityDialog.mode = 'create';
     activityDialog.activity = null;
     activityDialog.error = '';
@@ -446,7 +421,7 @@ function buildPayload(version?: number): ActivityPayload {
     startAt: startAt.toISOString(),
     endAt: endAt ? endAt.toISOString() : null,
     signupDeadline: signupDeadline.toISOString(),
-    capacity: activityForm.capacity,
+    capacity: typeof activityForm.capacity === 'number' ? activityForm.capacity : null,
     costPerPerson: cost ? Number(cost) : null,
     location: activityForm.location.trim(),
     locationImageKey: activityForm.locationImageKey,
@@ -532,14 +507,14 @@ function canCloseSignup(row: ActivityAdmin): boolean {
 }
 
 function canFinish(row: ActivityAdmin): boolean {
-  return row.status === 0 || row.status === 1;
+  return row.status === 0 || row.status === STATUS_CLOSED;
 }
 
 function canCancel(row: ActivityAdmin): boolean {
-  return row.status === 0 || row.status === 1;
+  return row.status === 0 || row.status === STATUS_CLOSED;
 }
 
-async function changeStatus(row: ActivityAdmin, target: number): Promise<void> {
+async function changeStatus(row: ActivityAdmin, target: ActivityStatus): Promise<void> {
   if (!canManage.value || actionBusy.value !== null) {
     return;
   }
@@ -575,11 +550,12 @@ function onRowCommand(row: ActivityAdmin, command: number | string): void {
     void openEdit(row);
     return;
   }
-  if (Number(command) === 3) {
+  const target = Number(command) as ActivityStatus;
+  if (target === STATUS_CANCELLED) {
     openCancel(row);
     return;
   }
-  void changeStatus(row, Number(command));
+  void changeStatus(row, target);
 }
 
 async function submitCancel(): Promise<void> {
@@ -605,7 +581,7 @@ async function submitCancel(): Promise<void> {
     const detail = await fetchAuthoritative(target.id);
     await api.post<ActivityAdmin>(
       `/activities/${detail.id}/status`,
-      { status: 3, version: detail.version, reason },
+      { status: STATUS_CANCELLED, version: detail.version, reason },
       { idempotencyKey: newIdempotencyKey() },
     );
     cancelDialog.visible = false;
@@ -697,6 +673,11 @@ async function removeSignup(row: ActivitySignupRow): Promise<void> {
     }
     await loadRoster();
     await load();
+    try {
+      rosterDrawer.activity = await fetchAuthoritative(activity.id);
+    } catch {
+      // 移除已成功；头部计数刷新失败不影响名单结果。
+    }
   } catch (caught) {
     await reportWriteError(caught);
   } finally {
@@ -788,12 +769,9 @@ onBeforeUnmount(() => {
       <el-table-column label="人数" width="110">
         <template #default="{ row }">{{ signupText(row) }}</template>
       </el-table-column>
-      <el-table-column label="人均消费" width="110">
-        <template #default="{ row }">{{ costText(row.costPerPerson) }}</template>
-      </el-table-column>
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
-          <el-tag :type="statusTag(row.status)" effect="light">
+          <el-tag :type="activityStatusTone(row.status)" effect="light">
             {{ activityStatusText(row.status) }}
           </el-tag>
         </template>
@@ -825,19 +803,19 @@ onBeforeUnmount(() => {
                       编辑
                     </el-dropdown-item>
                     <el-dropdown-item
-                      :command="1"
+                      :command="STATUS_CLOSED"
                       :disabled="actionBusy !== null || !canCloseSignup(row)"
                     >
                       报名截止
                     </el-dropdown-item>
                     <el-dropdown-item
-                      :command="2"
+                      :command="STATUS_FINISHED"
                       :disabled="actionBusy !== null || !canFinish(row)"
                     >
                       已结束
                     </el-dropdown-item>
                     <el-dropdown-item
-                      :command="3"
+                      :command="STATUS_CANCELLED"
                       :disabled="actionBusy !== null || !canCancel(row)"
                     >
                       取消

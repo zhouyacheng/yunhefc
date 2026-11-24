@@ -5,6 +5,7 @@ import com.yunhefc.common.api.ItemsResponse;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import com.yunhefc.ledger.application.LedgerAdminApplicationService;
+import com.yunhefc.ledger.application.LedgerApplicationService;
 import com.yunhefc.ledger.application.LedgerCategoryAdminApplicationService;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryCreateRequest;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryUpdateRequest;
@@ -38,6 +39,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class LedgerAdminController {
 
     private final LedgerAdminApplicationService ledgerAdminService;
+    private final LedgerApplicationService ledgerService;
     private final LedgerCategoryAdminApplicationService ledgerCategoryService;
 
     @GetMapping("/entries")
@@ -78,6 +80,16 @@ public class LedgerAdminController {
     public ApiResponse<LedgerDeletedResult> delete(@PathVariable Long id,
                                                    @Valid @RequestBody LedgerDeleteRequest request) {
         return ApiResponse.ok(ledgerAdminService.delete(id, request));
+    }
+
+    /**
+     * LED-12：B 端只读分类别名，与 LED-08 同响应；供只读球员在 B 端筛选使用。
+     */
+    @GetMapping("/categories/active")
+    @PreAuthorize("hasAuthority('ledger:view:any')")
+    public ApiResponse<ItemsResponse<LedgerCategoryView>> activeCategories(
+            @RequestParam(required = false) Integer type) {
+        return ApiResponse.ok(ledgerService.categories(type));
     }
 
     @GetMapping("/categories")

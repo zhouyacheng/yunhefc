@@ -93,10 +93,8 @@ export function activityFormError(form: ActivityFormValues): string | null {
   if (form.endAt && form.endAt.getTime() <= form.startAt.getTime()) {
     return '结束时间必须晚于活动时间';
   }
-  if (
-    form.capacity !== null &&
-    (!Number.isInteger(form.capacity) || form.capacity < 1 || form.capacity > 65535)
-  ) {
+  const capacity = form.capacity ?? null;
+  if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > 65535)) {
     return '总人数上限必须为 1–65535 的整数';
   }
   const cost = form.costPerPerson.trim();

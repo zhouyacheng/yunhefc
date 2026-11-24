@@ -811,6 +811,14 @@ test('B 端：侧栏按 sections 过滤，直访无权限分区显示 403', asyn
   await expect(page.getByRole('button', { name: '新增流水' })).toHaveCount(0);
   await expect(page.getByRole('button', { name: '分类管理' })).toHaveCount(0);
   await expect(page.getByRole('columnheader', { name: '操作' })).toHaveCount(0);
+
+  // LED-12：只读球员的分类筛选走 B 端只读别名，不依赖 C 端 Cookie。
+  await page.locator('.category-filter').click();
+  await expect(
+    page
+      .locator('.el-select__popper:visible .el-select-dropdown__item')
+      .filter({ hasText: '场地' }),
+  ).toBeVisible();
 });
 
 test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) => {
@@ -830,6 +838,36 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   await expect(dialog.getByRole('button', { name: '上传图片' })).toBeVisible();
   await dialog.getByRole('button', { name: '取消' }).click();
   await expect(dialog).toBeHidden();
+
+  // 仅断言表头无法证明列表渲染；用真实接口写入一条活动后断言行出现。
+  const csrfResponse = await page.request.get('/api/v1/b/auth/csrf');
+  expect(csrfResponse.ok()).toBe(true);
+  const csrf = (await csrfResponse.json()) as {
+    data: { token: string; headerName?: string };
+  };
+  const title = `E2E活动${Date.now()}`;
+  const startAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  const created = await page.request.post('/api/v1/b/activities', {
+    headers: {
+      [csrf.data.headerName ?? 'X-XSRF-TOKEN']: csrf.data.token,
+      'Idempotency-Key': `e2e-activity-${Date.now()}`,
+    },
+    data: {
+      title,
+      type: 0,
+      startAt: startAt.toISOString(),
+      endAt: new Date(startAt.getTime() + 2 * 60 * 60 * 1000).toISOString(),
+      signupDeadline: new Date(startAt.getTime() - 2 * 60 * 60 * 1000).toISOString(),
+      capacity: 10,
+      costPerPerson: 100,
+      location: 'E2E 测试场地',
+      description: 'B12 smoke',
+    },
+  });
+  expect(created.ok()).toBe(true);
+
+  await page.reload();
+  await expect(page.locator('.el-table__row').filter({ hasText: title })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

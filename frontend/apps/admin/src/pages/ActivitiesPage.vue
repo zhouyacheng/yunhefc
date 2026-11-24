@@ -507,11 +507,11 @@ function canCloseSignup(row: ActivityAdmin): boolean {
 }
 
 function canFinish(row: ActivityAdmin): boolean {
-  return row.status === 0 || row.status === STATUS_CLOSED;
+  return activityEditable(row.status);
 }
 
 function canCancel(row: ActivityAdmin): boolean {
-  return row.status === 0 || row.status === STATUS_CLOSED;
+  return activityEditable(row.status);
 }
 
 async function changeStatus(row: ActivityAdmin, target: ActivityStatus): Promise<void> {
@@ -545,17 +545,23 @@ function openCancel(row: ActivityAdmin): void {
   cancelDialog.visible = true;
 }
 
-function onRowCommand(row: ActivityAdmin, command: number | string): void {
-  if (command === 'edit') {
-    void openEdit(row);
-    return;
+type RowAction = 'edit' | 'close' | 'finish' | 'cancel';
+
+function onRowCommand(row: ActivityAdmin, command: RowAction): void {
+  switch (command) {
+    case 'edit':
+      void openEdit(row);
+      return;
+    case 'close':
+      void changeStatus(row, STATUS_CLOSED);
+      return;
+    case 'finish':
+      void changeStatus(row, STATUS_FINISHED);
+      return;
+    case 'cancel':
+      openCancel(row);
+      return;
   }
-  const target = Number(command) as ActivityStatus;
-  if (target === STATUS_CANCELLED) {
-    openCancel(row);
-    return;
-  }
-  void changeStatus(row, target);
 }
 
 async function submitCancel(): Promise<void> {
@@ -803,19 +809,19 @@ onBeforeUnmount(() => {
                       编辑
                     </el-dropdown-item>
                     <el-dropdown-item
-                      :command="STATUS_CLOSED"
+                      command="close"
                       :disabled="actionBusy !== null || !canCloseSignup(row)"
                     >
                       报名截止
                     </el-dropdown-item>
                     <el-dropdown-item
-                      :command="STATUS_FINISHED"
+                      command="finish"
                       :disabled="actionBusy !== null || !canFinish(row)"
                     >
                       已结束
                     </el-dropdown-item>
                     <el-dropdown-item
-                      :command="STATUS_CANCELLED"
+                      command="cancel"
                       :disabled="actionBusy !== null || !canCancel(row)"
                     >
                       取消

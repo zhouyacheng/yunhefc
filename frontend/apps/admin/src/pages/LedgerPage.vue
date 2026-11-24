@@ -831,7 +831,7 @@ onMounted(() => {
       <el-table-column label="金额" width="130" align="right">
         <template #default="{ row }">
           <span :class="row.type === 0 ? 'amount-income' : 'amount-expense'">
-            {{ row.type === 0 ? '+' : '-' }}¥{{ ledgerAmountText(row.amount) }}
+            {{ row.type === 0 ? '+' : '−' }}¥{{ ledgerAmountText(row.amount) }}
           </span>
         </template>
       </el-table-column>

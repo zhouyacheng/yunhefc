@@ -1,4 +1,19 @@
-import type { ActivityStatus, ActivityType } from '@yunhefc/shared';
+import type { ActivityType } from '@yunhefc/shared';
+import {
+  ACTIVITY_STATUS_TEXT,
+  ACTIVITY_TYPE_TEXT,
+  activityEditable,
+  activityStatusText,
+  activityTypeText,
+} from '@yunhefc/shared';
+
+export {
+  ACTIVITY_STATUS_TEXT,
+  ACTIVITY_TYPE_TEXT,
+  activityEditable,
+  activityStatusText,
+  activityTypeText,
+};
 
 /** FIL-03：JPG/PNG/WebP，≤5 MiB（02 §6.14）。 */
 export const ACTIVITY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
@@ -7,19 +22,6 @@ export const ACTIVITY_IMAGE_SIZE_ERROR = '图片不能超过 5MB，请重新选�
 export const ACTIVITY_IMAGE_UPLOAD_ERROR = '上传失败，请稍后重试';
 
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-
-export const ACTIVITY_TYPE_TEXT: Record<ActivityType, string> = {
-  0: '聚餐',
-  1: '年会',
-  2: '其他',
-};
-
-export const ACTIVITY_STATUS_TEXT: Record<ActivityStatus, string> = {
-  0: '报名中',
-  1: '报名截止',
-  2: '已结束',
-  3: '已取消',
-};
 
 export const ACTIVITY_TYPE_OPTIONS = Object.entries(ACTIVITY_TYPE_TEXT).map(([value, text]) => ({
   value: Number(value) as ActivityType,
@@ -44,14 +46,6 @@ export interface ActivityFormValues {
   description: string;
 }
 
-export function activityTypeText(type: number): string {
-  return ACTIVITY_TYPE_TEXT[type as ActivityType] ?? '—';
-}
-
-export function activityStatusText(status: number): string {
-  return ACTIVITY_STATUS_TEXT[status as ActivityStatus] ?? '—';
-}
-
 export function activityStatusTone(
   status: number,
 ): 'primary' | 'success' | 'warning' | 'danger' | 'info' {
@@ -65,11 +59,6 @@ export function activityStatusTone(
     return 'success';
   }
   return status === 3 ? 'danger' : 'info';
-}
-
-/** 仅报名中（0）与报名截止（1）可编辑；终态不可恢复。 */
-export function activityEditable(status: number): boolean {
-  return status === 0 || status === 1;
 }
 
 /** 返回表单校验错误文案；通过返回 null。 */

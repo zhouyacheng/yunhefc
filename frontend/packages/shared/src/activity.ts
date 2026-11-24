@@ -58,3 +58,30 @@ export interface ActivitySignup {
 }
 
 export type ActivitySignupRow = ActivitySignup;
+
+/** 三端共用的展示文案；服务端 fieldLabel 是英文枚举名，不可直接展示。 */
+export const ACTIVITY_TYPE_TEXT: Readonly<Record<number, string>> = {
+  0: '聚餐',
+  1: '年会',
+  2: '其他',
+};
+
+export const ACTIVITY_STATUS_TEXT: Readonly<Record<number, string>> = {
+  0: '报名中',
+  1: '报名截止',
+  2: '已结束',
+  3: '已取消',
+};
+
+export function activityTypeText(type: ActivityType): string {
+  return ACTIVITY_TYPE_TEXT[type] ?? '—';
+}
+
+export function activityStatusText(status: ActivityStatus): string {
+  return ACTIVITY_STATUS_TEXT[status] ?? '—';
+}
+
+/** 仅报名中（0）与报名截止（1）可编辑或流转；已结束/已取消为终态。 */
+export function activityEditable(status: ActivityStatus): boolean {
+  return status === 0 || status === 1;
+}

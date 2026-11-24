@@ -1,4 +1,12 @@
-import type { ActivitySignupStatus, ActivityStatus, ActivityType } from '@yunhefc/shared';
+import type { ActivitySignupStatus, ActivityStatus } from '@yunhefc/shared';
+import {
+  ACTIVITY_STATUS_TEXT,
+  ACTIVITY_TYPE_TEXT,
+  activityStatusText,
+  activityTypeText,
+} from '@yunhefc/shared';
+
+export { ACTIVITY_STATUS_TEXT, ACTIVITY_TYPE_TEXT, activityStatusText, activityTypeText };
 
 export const ACTIVITY_SIGNUP_OPEN: ActivityStatus = 0;
 export const ACTIVITY_SIGNUP_CLOSED: ActivityStatus = 1;
@@ -6,19 +14,6 @@ export const ACTIVITY_FINISHED: ActivityStatus = 2;
 export const ACTIVITY_CANCELLED: ActivityStatus = 3;
 
 export const ACTIVITY_SIGNUP_ACTIVE: ActivitySignupStatus = 0;
-
-export const ACTIVITY_TYPE_TEXT: Readonly<Record<number, string>> = {
-  0: '聚餐',
-  1: '年会',
-  2: '其他',
-};
-
-export const ACTIVITY_STATUS_TEXT: Readonly<Record<number, string>> = {
-  0: '报名中',
-  1: '报名截止',
-  2: '已结束',
-  3: '已取消',
-};
 
 export type ActivityStatusTone = 'open' | 'closed' | 'finished' | 'cancelled';
 
@@ -52,14 +47,6 @@ export interface ActivityCancelState {
   label: string;
   disabled: boolean;
   reason: string;
-}
-
-export function activityTypeText(type: ActivityType): string {
-  return ACTIVITY_TYPE_TEXT[type] ?? '其他';
-}
-
-export function activityStatusText(status: ActivityStatus): string {
-  return ACTIVITY_STATUS_TEXT[status] ?? '—';
 }
 
 export function activityStatusTone(status: ActivityStatus): ActivityStatusTone {

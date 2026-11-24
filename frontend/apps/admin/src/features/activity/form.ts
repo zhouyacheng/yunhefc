@@ -15,10 +15,12 @@ export {
   activityTypeText,
 };
 
-/** FIL-03：JPG/PNG/WebP，≤5 MiB（02 §6.14）。 */
+/** FIL-03：JPG/PNG/WebP，单张 ≤5 MiB，每活动最多 10 张（02 §6.14）。 */
 export const ACTIVITY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
+export const ACTIVITY_IMAGE_MAX_COUNT = 10;
 export const ACTIVITY_IMAGE_TYPE_ERROR = '仅支持 JPG/PNG/WebP';
-export const ACTIVITY_IMAGE_SIZE_ERROR = '图片不能超过 5MB，请重新选择';
+export const ACTIVITY_IMAGE_SIZE_ERROR = '图片不能超过 5MB';
+export const ACTIVITY_IMAGE_COUNT_ERROR = '地点图片最多 10 张';
 export const ACTIVITY_IMAGE_UPLOAD_ERROR = '上传失败，请稍后重试';
 
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -41,8 +43,10 @@ export interface ActivityFormValues {
   endAt: Date | null;
   signupDeadline: Date | null;
   capacity: number | null;
+  familyAllowed: boolean;
   costPerPerson: string;
   location: string;
+  locationImageKeys: string[];
   description: string;
 }
 
@@ -92,6 +96,9 @@ export function activityFormError(form: ActivityFormValues): string | null {
   }
   if (cost && Number(cost) > 99_999_999.99) {
     return '人均消费不能超过 99,999,999.99';
+  }
+  if (form.locationImageKeys.length > ACTIVITY_IMAGE_MAX_COUNT) {
+    return ACTIVITY_IMAGE_COUNT_ERROR;
   }
   const location = form.location.trim();
   if (!location) {

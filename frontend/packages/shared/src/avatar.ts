@@ -1,9 +1,9 @@
-/** FIL-01/FIL-02 头像上限：JPG/PNG/WebP，≤2MiB（02 §5.6）。 */
-export const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+/** FIL-01/FIL-02 头像上限：JPG/PNG/WebP，≤5MiB（02 §5.6）。 */
+export const AVATAR_MAX_BYTES = 5 * 1024 * 1024;
 export const AVATAR_MAX_EDGE = 1080;
 export const AVATAR_JPEG_QUALITY = 0.85;
 export const AVATAR_TYPE_ERROR = '仅支持 JPG/PNG/WebP';
-export const AVATAR_SIZE_ERROR = '图片不能超过 2MB，请重新选择';
+export const AVATAR_SIZE_ERROR = '图片不能超过 5MB';
 export const AVATAR_UPLOAD_ERROR = '上传失败，请稍后重试';
 
 const ACCEPTED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);

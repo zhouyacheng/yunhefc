@@ -1,14 +1,22 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ActivitySignup, ActivitySummary } from '../miniprogram/types/api';
+import type {
+  ActivitySignup,
+  ActivityStatus,
+  ActivitySummary,
+  ActivityType,
+} from '../miniprogram/types/api';
 import {
   activityAction,
   activityCanCancel,
+  activityCapacityPercent,
   activityCostText,
   activityCountText,
   activitySignupOpen,
+  activityStatusText,
   activityStatusTone,
   activityTimeText,
+  activityTypeText,
   buildActivityCard,
   familySummary,
 } from '../miniprogram/utils/activity-view';
@@ -20,17 +28,19 @@ function activity(patch: Partial<ActivitySummary> = {}): ActivitySummary {
     id: 1,
     title: '年终聚餐',
     type: 0,
-    typeLabel: '聚餐',
+    // 服务端 label 为英文枚举名，展示文案由本地映射决定。
+    typeLabel: 'DINNER',
     startAt: '2026-12-05T18:00:00+08:00',
     endAt: '2026-12-05T21:00:00+08:00',
     signupDeadline: '2026-12-03T23:59:00+08:00',
     capacity: 20,
+    familyAllowed: true,
     costPerPerson: 120,
     location: '聚龙酒家',
-    locationImageUrl: null,
+    locationImageUrls: [],
     description: null,
     status: 0,
-    statusLabel: '报名中',
+    statusLabel: 'SIGNUP_OPEN',
     signupCount: 3,
     signupOpen: true,
     mySignup: null,
@@ -131,9 +141,23 @@ describe('activitySignupOpen', () => {
 });
 
 describe('活动展示字段', () => {
+  it('类型与状态按本地映射输出中文，忽略服务端英文 label', () => {
+    expect(activityTypeText(0)).toBe('聚餐');
+    expect(activityTypeText(1)).toBe('年会');
+    expect(activityTypeText(2)).toBe('其他');
+    expect(activityStatusText(0)).toBe('报名中');
+    expect(activityStatusText(1)).toBe('报名截止');
+    expect(activityStatusText(2)).toBe('已结束');
+    expect(activityStatusText(3)).toBe('已取消');
+    expect(activityTypeText(9 as ActivityType)).toBe('—');
+    expect(activityStatusText(9 as ActivityStatus)).toBe('—');
+  });
+
   it('人数按上限展示，无上限只显示已报人数', () => {
     expect(activityCountText(activity())).toBe('3 / 20 人');
     expect(activityCountText(activity({ capacity: null }))).toBe('3 人报名');
+    expect(activityCapacityPercent(activity())).toBe(15);
+    expect(activityCapacityPercent(activity({ capacity: null }))).toBe(0);
   });
 
   it('时间拼接日期与时段', () => {
@@ -151,7 +175,10 @@ describe('活动展示字段', () => {
   });
 
   it('卡片视图带出首个命中按钮与管理标记', () => {
-    const card = buildActivityCard(activity({ locationImageUrl: 'https://cdn/a.png' }), NOW);
+    const card = buildActivityCard(
+      activity({ locationImageUrls: ['https://cdn/a.png', 'https://cdn/b.png'] }),
+      NOW,
+    );
     expect(card).toMatchObject({
       id: 1,
       title: '年终聚餐',

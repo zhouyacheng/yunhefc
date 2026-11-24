@@ -13,10 +13,10 @@ import {
 
 describe('活动筛选编码', () => {
   it('默认 key 可往返', () => {
-    expect(DEFAULT_ACTIVITY_KEY).toBe('all||');
+    expect(DEFAULT_ACTIVITY_KEY).toBe('latest||');
     expect(parseActivityFeedKey(DEFAULT_ACTIVITY_KEY)).toEqual(DEFAULT_ACTIVITY_FILTERS);
     expect(activityListQuery(DEFAULT_ACTIVITY_FILTERS)).toEqual({
-      scope: 'all',
+      scope: 'latest',
       type: undefined,
       status: undefined,
     });

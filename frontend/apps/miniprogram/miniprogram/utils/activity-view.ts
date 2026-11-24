@@ -1,9 +1,31 @@
 // MP10/MP11 活动派生态：列表卡片、报名按钮与家属摘要。
 // 服务端 signupOpen 仍是权威门禁，本地只负责即时展示与文案矩阵。
-import type { ActivitySignup, ActivityStatus, ActivitySummary } from '../types/api';
+import type { ActivitySignup, ActivityStatus, ActivitySummary, ActivityType } from '../types/api';
 import { formatDayTimeRange } from './datetime';
 
 export type ActivityStatusTone = 'open' | 'closed' | 'finished' | 'cancelled';
+
+/** 与 frontend/packages/shared/src/activity.ts 保持一致；服务端 label 是英文枚举名，不可直接展示。 */
+export const ACTIVITY_TYPE_TEXT: Readonly<Record<number, string>> = {
+  0: '聚餐',
+  1: '年会',
+  2: '其他',
+};
+
+export const ACTIVITY_STATUS_TEXT: Readonly<Record<number, string>> = {
+  0: '报名中',
+  1: '报名截止',
+  2: '已结束',
+  3: '已取消',
+};
+
+export function activityTypeText(type: ActivityType): string {
+  return ACTIVITY_TYPE_TEXT[type] ?? '—';
+}
+
+export function activityStatusText(status: ActivityStatus): string {
+  return ACTIVITY_STATUS_TEXT[status] ?? '—';
+}
 
 export interface ActivityActionView {
   /** 已取消/已结束只显示状态徽标，不渲染按钮。 */
@@ -93,6 +115,19 @@ export function activityCountText(
     : `${activity.signupCount} / ${activity.capacity} 人`;
 }
 
+/** 报名人数进度百分比；上限未知或非法时返回 0。 */
+export function activityCapacityPercent(
+  activity: Pick<ActivitySummary, 'capacity' | 'signupCount'>,
+): number {
+  if (activity.capacity === null || activity.capacity <= 0) {
+    return 0;
+  }
+  return Math.max(
+    0,
+    Math.min(100, Math.round((activity.signupCount / activity.capacity) * 100)),
+  );
+}
+
 export function activityTimeText(activity: Pick<ActivitySummary, 'startAt' | 'endAt'>): string {
   return formatDayTimeRange(activity.startAt, activity.endAt);
 }
@@ -126,13 +161,13 @@ export function buildActivityCard(activity: ActivitySummary, now: number): Activ
   return {
     id: activity.id,
     title: activity.title,
-    typeText: activity.typeLabel,
-    statusText: activity.statusLabel,
+    typeText: activityTypeText(activity.type),
+    statusText: activityStatusText(activity.status),
     statusTone: activityStatusTone(activity.status),
     timeText: activityTimeText(activity),
     locationText: activity.location,
     countText: activityCountText(activity),
-    imageUrl: activity.locationImageUrl || '',
+    imageUrl: activity.locationImageUrls[0] || '',
     actionLabel: action.label,
     actionVisible: action.visible,
     actionDisabled: action.disabled,

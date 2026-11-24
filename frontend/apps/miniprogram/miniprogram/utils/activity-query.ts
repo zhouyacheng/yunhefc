@@ -40,7 +40,7 @@ export const ACTIVITY_STATUS_OPTIONS: ActivityFilterOption<ActivityStatus>[] = [
 ];
 
 export const DEFAULT_ACTIVITY_FILTERS: ActivityFilters = {
-  scope: 'all',
+  scope: 'latest',
   type: '',
   status: '',
 };
@@ -53,7 +53,9 @@ export function activityFeedKey(filters: ActivityFilters): string {
 export const DEFAULT_ACTIVITY_KEY = activityFeedKey(DEFAULT_ACTIVITY_FILTERS);
 
 function parseScope(value: string): ActivityScope {
-  return ACTIVITY_SCOPES.some((option) => option.key === value) ? (value as ActivityScope) : 'all';
+  return ACTIVITY_SCOPES.some((option) => option.key === value)
+    ? (value as ActivityScope)
+    : DEFAULT_ACTIVITY_FILTERS.scope;
 }
 
 function parseCode<T extends number>(value: string, options: { value: T | '' }[]): T | '' {

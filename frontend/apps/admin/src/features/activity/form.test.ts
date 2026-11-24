@@ -15,8 +15,10 @@ const base = {
   endAt: new Date('2030-12-20T20:00:00+08:00'),
   signupDeadline: new Date('2030-12-20T17:00:00+08:00'),
   capacity: 20,
+  familyAllowed: false,
   costPerPerson: '88.50',
   location: '队内餐厅',
+  locationImageKeys: [],
   description: '',
 };
 
@@ -59,6 +61,13 @@ describe('activityFormError', () => {
     );
     expect(activityFormError({ ...base, costPerPerson: '0' })).toBeNull();
   });
+
+  it('地点图片最多 10 张', () => {
+    expect(activityFormError({ ...base, locationImageKeys: Array(10).fill('key') })).toBeNull();
+    expect(activityFormError({ ...base, locationImageKeys: Array(11).fill('key') })).toBe(
+      '地点图片最多 10 张',
+    );
+  });
 });
 
 describe('validateActivityImage', () => {
@@ -66,7 +75,7 @@ describe('validateActivityImage', () => {
     expect(validateActivityImage({ type: 'image/png', size: ACTIVITY_IMAGE_MAX_BYTES })).toBeNull();
     expect(validateActivityImage({ type: 'image/gif', size: 10 })).toBe('仅支持 JPG/PNG/WebP');
     expect(validateActivityImage({ type: 'image/jpeg', size: ACTIVITY_IMAGE_MAX_BYTES + 1 })).toBe(
-      '图片不能超过 5MB，请重新选择',
+      '图片不能超过 5MB',
     );
   });
 });

@@ -4,10 +4,13 @@ import { errorMessage, shouldRefreshAfterActivityConflict } from '../../utils/ap
 import {
   activityAction,
   activityCanCancel,
+  activityCapacityPercent,
   activityCostText,
   activityCountText,
+  activityStatusText,
   activityStatusTone,
   activityTimeText,
+  activityTypeText,
   familySummary,
   type ActivityActionView,
   type ActivityStatusTone,
@@ -39,12 +42,15 @@ Page({
     loading: true,
     error: '',
     activity: null as ActivityDetail | null,
+    typeText: '',
+    statusText: '',
     statusTone: 'closed' as ActivityStatusTone,
     action: null as ActivityActionView | null,
     timeText: '',
     deadlineText: '',
     costText: '',
     countText: '',
+    capacityPercent: 0,
     mySignup: null as ActivitySignup | null,
     familyText: '',
     signedUpText: '',
@@ -138,12 +144,15 @@ Page({
       action.reason || (authenticated && !pending && !canSignupPerm ? RESTRICTED_SIGNUP_HINT : '');
     this.setData({
       activity,
+      typeText: activityTypeText(activity.type),
+      statusText: activityStatusText(activity.status),
       statusTone: activityStatusTone(activity.status),
       action,
       timeText: activityTimeText(activity),
       deadlineText: formatDayStartTime(activity.signupDeadline),
       costText: activityCostText(activity),
       countText: activityCountText(activity),
+      capacityPercent: activityCapacityPercent(activity),
       mySignup,
       familyText: familySummary(activity.mySignup),
       signedUpText: mySignup ? formatDateTime(mySignup.signedUpAt) : '',
@@ -204,9 +213,11 @@ Page({
     }
     this.setData({ signupBusy: true, actionError: '' });
     try {
-      const familyNote = this.data.withFamily ? this.data.familyNote.trim() : '';
+      const familyAllowed = this.data.activity?.familyAllowed === true;
+      const withFamily = familyAllowed && this.data.withFamily;
+      const familyNote = withFamily ? this.data.familyNote.trim() : '';
       await signupActivity(this.data.id, {
-        withFamily: this.data.withFamily,
+        withFamily,
         familyNote: familyNote || undefined,
       });
       invalidate('activities');
@@ -261,6 +272,6 @@ Page({
   },
 
   onImageError() {
-    this.setData({ 'activity.locationImageUrl': '' });
+    this.setData({ 'activity.locationImageUrls': [] });
   },
 });

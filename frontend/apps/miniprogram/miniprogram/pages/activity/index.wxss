@@ -1,3 +1,7 @@
+.activities {
+  padding-bottom: calc(var(--yh-page-pad-y) + env(safe-area-inset-bottom));
+}
+
 .filters {
   margin-bottom: 24rpx;
 }
@@ -48,29 +52,22 @@
   gap: 20rpx;
 }
 
+/* 与 templates/match-card.wxss 的 .match-card 同一卡片语言。 */
 .activity-card {
   display: flex;
-  gap: 24rpx;
-  padding: 24rpx;
+  flex-direction: column;
+  gap: 16rpx;
+  padding: 36rpx;
   background: var(--yh-surface);
   border: 2rpx solid var(--yh-line);
   border-radius: var(--yh-radius);
   box-shadow: var(--yh-shadow-sm);
 }
 
-.activity-card__thumb {
-  flex: 0 0 180rpx;
-  width: 180rpx;
-  height: 180rpx;
+.activity-card__image {
+  width: 100%;
+  height: 280rpx;
   border-radius: var(--yh-radius-sm);
-}
-
-.activity-card__body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 8rpx;
-  min-width: 0;
 }
 
 .activity-card__head {
@@ -111,15 +108,23 @@
   align-items: center;
   justify-content: space-between;
   gap: 16rpx;
-  margin-top: 8rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx dashed var(--yh-line);
 }
 
+/* 与 C 端 .activity-cta 同一口径：绿底白字胶囊。 */
 .activity-card__action {
-  padding: 8rpx 20rpx;
-  color: var(--yh-green-ink);
-  font-size: 24rpx;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 128rpx;
+  height: 60rpx;
+  padding: 0 24rpx;
+  color: #ffffff;
+  font-size: 26rpx;
   font-weight: 700;
-  background: var(--yh-green-soft);
+  background: var(--yh-green);
   border-radius: 999rpx;
 }
 

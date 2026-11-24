@@ -55,7 +55,7 @@ spring:
       save-mode: always
   servlet:
     multipart:
-      # 全局按活动地点图 5MiB 放行；头像 2MiB 由应用层兜住，请求上限为 multipart 开销留余量。
+      # 全局 multipart 上限 5MiB；头像与活动地点图均为 5MiB，由应用层按端点兜住。
       max-file-size: 5242880B
       max-request-size: 6MB
 

@@ -14,8 +14,8 @@ public final class ActivityFixtures {
                               Integer capacity, String deadline, long teamId) {
         jdbc.update("""
                 INSERT INTO team_activity (team_id, title, type, start_at, end_at, signup_deadline,
-                                           capacity, location, status, version, created_by)
-                VALUES (?, ?, 0, ?, ?, ?, ?, '测试地点', ?, 0, 1)
+                                           capacity, family_allowed, location, status, version, created_by)
+                VALUES (?, ?, 0, ?, ?, ?, ?, 1, '测试地点', ?, 0, 1)
                 """, teamId, title, startAt.replace('T', ' '), startAt.replace('T', ' '),
                 deadline.replace('T', ' '), capacity, status);
         return jdbc.queryForObject(

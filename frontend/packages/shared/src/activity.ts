@@ -20,9 +20,12 @@ export interface ActivitySummary {
   signupDeadline: string;
   /** 只计报名人数，不含家属；null 为不限。 */
   capacity: number | null;
+  /** 活动级开关；关闭时报名不展示家属选项。 */
+  familyAllowed: boolean;
   costPerPerson: number | null;
   location: string;
-  locationImageUrl: string | null;
+  /** 按展示顺序现签，0–10 项。 */
+  locationImageUrls: string[];
   description: string | null;
   status: ActivityStatus;
   statusLabel: string;
@@ -36,8 +39,8 @@ export type ActivityDetail = ActivitySummary;
 
 /** ACT-06/07/08/09/10：管理端额外返回 version、创建人与原始图片对象键。 */
 export interface ActivityAdmin extends ActivitySummary {
-  /** 写请求回传的原始对象键；编辑与复制用它回填图片，展示仍用 locationImageUrl。 */
-  locationImageKey: string | null;
+  /** 写请求回传的原始对象键；编辑与复制用它回填图片，展示仍用 locationImageUrls。 */
+  locationImageKeys: string[];
   version: number;
   createdBy: number;
 }

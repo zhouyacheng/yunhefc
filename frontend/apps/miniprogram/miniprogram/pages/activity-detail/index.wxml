@@ -9,127 +9,143 @@
   </view>
 
   <block wx:else>
-    <view class="detail-head">
-      <text class="page-head__eyebrow">{{activity.typeLabel}}</text>
-      <view class="detail-head__row">
-        <view class="page-head__title detail-head__title">{{activity.title}}</view>
-        <text class="status-pill status-pill--{{statusTone}}">{{activity.statusLabel}}</text>
+    <view class="detail-hero">
+      <view class="detail-hero__top">
+        <text class="detail-hero__type">{{typeText}}</text>
+        <view class="detail-hero__tools">
+          <text class="status-pill status-pill--{{statusTone}}">{{statusText}}</text>
+          <button
+            class="detail-share"
+            size="mini"
+            open-type="share"
+            hover-class="detail-share--pressed"
+          >分享活动</button>
+        </view>
       </view>
-      <text class="muted">{{timeText}}</text>
-    </view>
 
-    <image
-      wx:if="{{activity.locationImageUrl}}"
-      class="detail-image"
-      src="{{activity.locationImageUrl}}"
-      mode="aspectFill"
-      binderror="onImageError"
-    />
+      <view class="detail-hero__title">{{activity.title}}</view>
 
-    <view class="card detail-info">
-      <view class="info-row">
-        <text class="info-row__label">活动时间</text>
-        <text class="info-row__value">{{timeText}}</text>
-      </view>
-      <view class="info-row">
-        <text class="info-row__label">报名截止</text>
-        <text class="info-row__value">{{deadlineText}}</text>
-      </view>
-      <view class="info-row">
-        <text class="info-row__label">地点</text>
-        <text class="info-row__value">{{activity.location}}</text>
-      </view>
-      <view class="info-row">
-        <text class="info-row__label">人均消费</text>
-        <text class="info-row__value">{{costText}}</text>
-      </view>
-      <view wx:if="{{activity.description}}" class="info-row info-row--column">
-        <text class="info-row__label">活动说明</text>
-        <text class="info-row__text">{{activity.description}}</text>
+      <view class="detail-hero__meta">
+        <text>{{timeText}}</text>
+        <text>📍 {{activity.location}}</text>
+        <text>⏰ 报名截止 {{deadlineText}}</text>
+        <text>{{countText}}</text>
+        <text wx:if="{{activity.costPerPerson !== null}}">{{costText}}</text>
       </view>
     </view>
 
-    <view class="card signup-card">
-      <view class="signup-card__head">
-        <text class="card-title">报名</text>
-        <text class="muted">{{countText}}（不含家属）</text>
+    <view class="overview-grid">
+      <view class="card activity-description">
+        <view class="card-head">
+          <text class="card-title">活动说明</text>
+        </view>
+        <swiper
+          wx:if="{{activity.locationImageUrls.length}}"
+          class="description-image"
+          indicator-dots
+          circular="{{activity.locationImageUrls.length > 1}}"
+        >
+          <swiper-item wx:for="{{activity.locationImageUrls}}" wx:key="*this">
+            <image
+              class="description-image"
+              src="{{item}}"
+              mode="aspectFill"
+              binderror="onImageError"
+            />
+          </swiper-item>
+        </swiper>
+        <view wx:else class="description-placeholder">暂无活动图片</view>
+        <text wx:if="{{activity.description}}" class="description-text">{{activity.description}}</text>
+        <text wx:else class="muted">暂无补充说明</text>
       </view>
 
-      <block wx:if="{{action}}">
-        <block wx:if="{{!action.visible}}">
-          <view wx:if="{{registered}}" class="signup-card__mine">
-            <text>你已报名</text>
-            <text class="muted">{{familyText}}</text>
-          </view>
-          <text wx:if="{{signedUpText}}" class="muted small">报名时间 {{signedUpText}}</text>
-          <text wx:if="{{registered}}" class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，报名记录仅保留。</text>
-          <text wx:else class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，不再接受报名。</text>
-        </block>
+      <view class="card signup-card">
+        <view class="card-head">
+          <text class="card-title">报名</text>
+        </view>
 
-        <block wx:elif="{{!authenticated}}">
-          <view
-            wx:if="{{!action.disabled}}"
-            class="btn btn--primary"
-            bindtap="goLogin"
-            hover-class="btn--pressed"
-          >登录后报名</view>
+        <view wx:if="{{activity.capacity !== null}}" class="signup-track">
+          <view class="signup-fill" style="width: {{capacityPercent}}%"></view>
+        </view>
+
+        <block wx:if="{{action}}">
+          <block wx:if="{{!action.visible}}">
+            <view wx:if="{{registered}}" class="signup-card__mine">
+              <text>你已报名</text>
+              <text class="muted">{{familyText}}</text>
+            </view>
+            <text wx:if="{{signedUpText}}" class="muted small">报名时间 {{signedUpText}}</text>
+            <text wx:if="{{registered}}" class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，报名记录仅保留。</text>
+            <text wx:else class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，不再接受报名。</text>
+          </block>
+
+          <block wx:elif="{{!authenticated}}">
+            <view
+              wx:if="{{!action.disabled}}"
+              class="btn btn--primary"
+              bindtap="goLogin"
+              hover-class="btn--pressed"
+            >登录后报名</view>
+            <block wx:else>
+              <view class="btn btn--primary btn--disabled">{{action.label}}</view>
+              <text wx:if="{{hint}}" class="hint">{{hint}}</text>
+            </block>
+          </block>
+
+          <block wx:elif="{{pending}}">
+            <text class="notice">账号待审核：可以浏览活动，暂不能报名。</text>
+          </block>
+
+          <block wx:elif="{{registered}}">
+            <view class="signup-card__mine">
+              <text>你已报名</text>
+              <text class="muted">{{familyText}}</text>
+            </view>
+            <text wx:if="{{signedUpText}}" class="muted small">报名时间 {{signedUpText}}</text>
+            <view
+              wx:if="{{canCancel}}"
+              class="btn btn--outline {{cancelBusy ? 'btn--disabled' : ''}}"
+              bindtap="cancelSignup"
+              hover-class="btn--pressed"
+            >{{cancelBusy ? '取消中…' : '取消报名'}}</view>
+            <text wx:else class="hint">报名已截止，无法取消。</text>
+          </block>
+
           <block wx:else>
-            <view class="btn btn--primary btn--disabled">{{action.label}}</view>
+            <view
+              class="btn btn--primary {{action.disabled || !canSignupPerm ? 'btn--disabled' : ''}}"
+              bindtap="openSignup"
+              hover-class="btn--pressed"
+            >{{action.label}}</view>
             <text wx:if="{{hint}}" class="hint">{{hint}}</text>
           </block>
         </block>
 
-        <block wx:elif="{{pending}}">
-          <text class="notice">账号待审核：可以浏览活动，暂不能报名。</text>
-        </block>
-
-        <block wx:elif="{{registered}}">
-          <view class="signup-card__mine">
-            <text>你已报名</text>
-            <text class="muted">{{familyText}}</text>
-          </view>
-          <text wx:if="{{signedUpText}}" class="muted small">报名时间 {{signedUpText}}</text>
-          <view
-            wx:if="{{canCancel}}"
-            class="btn btn--outline {{cancelBusy ? 'btn--disabled' : ''}}"
-            bindtap="cancelSignup"
-            hover-class="btn--pressed"
-          >{{cancelBusy ? '取消中…' : '取消报名'}}</view>
-          <text wx:else class="hint">报名已截止，无法取消。</text>
-        </block>
-
-        <block wx:else>
-          <view
-            class="btn btn--primary {{action.disabled || !canSignupPerm ? 'btn--disabled' : ''}}"
-            bindtap="openSignup"
-            hover-class="btn--pressed"
-          >{{action.label}}</view>
-          <text wx:if="{{hint}}" class="hint">{{hint}}</text>
-        </block>
-      </block>
-
-      <text wx:if="{{actionError}}" class="action-error">{{actionError}}</text>
+        <text wx:if="{{actionError}}" class="action-error">{{actionError}}</text>
+      </view>
     </view>
   </block>
 
   <van-popup show="{{sheetOpen}}" position="bottom" round bind:close="closeSheet">
     <view class="signup-sheet">
       <text class="signup-sheet__title">报名 · {{activity.title}}</text>
-      <view class="signup-sheet__row">
-        <view class="signup-sheet__label">
-          <text>携带家属</text>
-          <text class="muted small">人数只统计本人</text>
+      <block wx:if="{{activity.familyAllowed}}">
+        <view class="signup-sheet__row">
+          <view class="signup-sheet__label">
+            <text>携带家属</text>
+            <text class="muted small">人数只统计本人</text>
+          </view>
+          <van-switch checked="{{withFamily}}" size="24px" bind:change="onFamilyToggle" />
         </view>
-        <van-switch checked="{{withFamily}}" size="24px" bind:change="onFamilyToggle" />
-      </view>
-      <van-field
-        wx:if="{{withFamily}}"
-        value="{{familyNote}}"
-        label="家属备注"
-        placeholder="如：带 1 位家属（选填）"
-        maxlength="255"
-        bind:change="onFamilyNoteChange"
-      />
+        <van-field
+          wx:if="{{withFamily}}"
+          value="{{familyNote}}"
+          label="家属备注"
+          placeholder="如：带 1 位家属（选填）"
+          maxlength="255"
+          bind:change="onFamilyNoteChange"
+        />
+      </block>
       <view class="signup-sheet__actions">
         <view class="btn btn--outline" bindtap="closeSheet" hover-class="btn--pressed">取消</view>
         <view

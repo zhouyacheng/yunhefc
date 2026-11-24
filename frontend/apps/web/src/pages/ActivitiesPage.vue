@@ -107,9 +107,8 @@ function ctaOf(activity: ActivitySummary) {
 }
 
 function imageSrc(activity: ActivitySummary): string | null {
-  return activity.locationImageUrl && !failedImages.value.includes(activity.id)
-    ? activity.locationImageUrl
-    : null;
+  const first = activity.locationImageUrls[0];
+  return first && !failedImages.value.includes(activity.id) ? first : null;
 }
 
 function onImageError(activityId: number): void {
@@ -128,11 +127,10 @@ onMounted(() => {
     <header class="page-head">
       <p class="eyebrow">ACTIVITY</p>
       <h1>活动</h1>
-      <p class="muted">聚餐、年会与队内其他活动；报名受状态、截止时间与人数上限约束</p>
     </header>
 
-    <section class="activity-filters card">
-      <label class="activity-filter">
+    <section class="schedule-filters">
+      <label class="schedule-filter">
         <span>范围</span>
         <select v-model="scope" aria-label="活动范围" @change="reload">
           <option
@@ -144,7 +142,7 @@ onMounted(() => {
           </option>
         </select>
       </label>
-      <label class="activity-filter">
+      <label class="schedule-filter">
         <span>类型</span>
         <select v-model="typeFilter" aria-label="活动类型" @change="reload">
           <option value="">全部</option>
@@ -153,7 +151,7 @@ onMounted(() => {
           </option>
         </select>
       </label>
-      <label class="activity-filter">
+      <label class="schedule-filter">
         <span>状态</span>
         <select v-model="statusFilter" aria-label="活动状态" @change="reload">
           <option value="">全部</option>
@@ -180,7 +178,7 @@ onMounted(() => {
     </div>
 
     <template v-else>
-      <div class="activity-list">
+      <div class="match-list">
         <RouterLink
           v-for="activity in activities"
           :key="activity.id"
@@ -255,57 +253,25 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.activity-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: flex-end;
-  padding: 14px 16px;
-  margin-bottom: 18px;
-}
-
-.activity-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: var(--yh-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.activity-filter select {
-  min-width: 120px;
-  min-height: 36px;
-  padding: 6px 9px;
-  color: var(--yh-ink);
-  font-size: 13px;
-  background: var(--yh-surface);
-  border: 1px solid var(--yh-line);
-  border-radius: 9px;
-}
-
-.activity-list {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-}
-
 .activity-card {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 16px;
+  height: 100%;
+  padding: 18px;
   color: inherit;
   text-decoration: none;
   cursor: pointer;
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
-.activity-card:hover {
-  border-color: var(--yh-green);
-  box-shadow: var(--yh-shadow-sm);
+@media (hover: hover) {
+  .activity-card:hover {
+    box-shadow: var(--yh-shadow);
+    transform: translateY(-3px);
+  }
 }
 
 .activity-card__image {

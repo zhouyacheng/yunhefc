@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   activityCancelState,
+  activityCapacityPercent,
   activityCta,
   activityFamilyText,
   activitySignupState,
@@ -223,6 +224,13 @@ describe('展示格式化', () => {
   it('人数文案标注不含家属', () => {
     expect(activitySignupText(12, 20)).toBe('已报 12 / 20 人（不含家属）');
     expect(activitySignupText(12, null)).toBe('已报 12 人（不含家属）');
+  });
+
+  it('人数进度按上限计算并夹在 0–100', () => {
+    expect(activityCapacityPercent(12, 20)).toBe(60);
+    expect(activityCapacityPercent(30, 20)).toBe(100);
+    expect(activityCapacityPercent(2, null)).toBe(0);
+    expect(activityCapacityPercent(2, 0)).toBe(0);
   });
 
   it('人均消费与家属摘要', () => {

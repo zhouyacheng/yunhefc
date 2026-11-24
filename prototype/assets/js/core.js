@@ -786,7 +786,7 @@
         return;
       }
       if (file.size > 2 * 1024 * 1024) {
-        reject(new Error('图片不能超过 2MB'));
+        reject(new Error('图片不能超过 5MB'));
         return;
       }
       const limit = maxSize || 256;

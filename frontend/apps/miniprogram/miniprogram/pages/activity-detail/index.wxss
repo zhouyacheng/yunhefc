@@ -1,90 +1,161 @@
-.detail-head {
-  margin-bottom: 24rpx;
+.activity-detail {
+  padding-bottom: calc(var(--yh-page-pad-y) + env(safe-area-inset-bottom));
 }
 
-.detail-head__row {
+/* 与 C03 比赛 Hero 同一视觉语言：深色渐变、白字。 */
+.detail-hero {
+  position: relative;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 28rpx;
+  padding: 52rpx;
+  margin-bottom: 36rpx;
+  overflow: hidden;
+  color: #ffffff;
+  background:
+    radial-gradient(circle at 50% -20%, rgba(22, 163, 74, 0.35), transparent 42%),
+    linear-gradient(135deg, var(--yh-navy), var(--yh-navy-2) 60%, #0f2a24);
+  border-radius: 40rpx;
+  box-shadow: var(--yh-shadow);
+}
+
+.detail-hero__top {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16rpx;
-  margin: 8rpx 0 6rpx;
 }
 
-.detail-head__title {
-  flex: 1;
+.detail-hero__type {
+  color: #cbd5e1;
+  font-size: 24rpx;
+}
+
+.detail-hero__tools {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.detail-hero__title {
+  font-size: 44rpx;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.detail-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20rpx 44rpx;
+  color: #cbd5e1;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.detail-hero__meta text {
+  white-space: nowrap;
+}
+
+/* 分享按钮：深色 Hero 内的浅色描边胶囊，尺寸贴合文本。 */
+.detail-share {
+  box-sizing: border-box;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: auto;
   min-width: 0;
+  height: auto;
+  padding: 6rpx 16rpx;
   margin: 0;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.22);
+  border-radius: 999rpx;
 }
 
-.detail-image {
-  width: 100%;
-  height: 360rpx;
-  margin-bottom: 20rpx;
-  border-radius: var(--yh-radius);
+.detail-share::after {
+  border: none;
+}
+
+.detail-share--pressed {
+  opacity: 0.86;
+}
+
+.overview-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 32rpx;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32rpx;
 }
 
 .card-title {
   color: var(--yh-ink);
-  font-size: 30rpx;
+  font-size: 34rpx;
   font-weight: 700;
 }
 
-.detail-info {
+.description-image {
+  width: 100%;
+  height: 360rpx;
+  object-fit: cover;
+  border-radius: var(--yh-radius-sm);
+}
+
+/* 无图时用较矮占位块，不压过正文。 */
+.description-placeholder {
   display: flex;
-  flex-direction: column;
-}
-
-.info-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 24rpx;
-  padding: 18rpx 0;
-  border-bottom: 1rpx solid var(--yh-line);
-}
-
-.info-row:last-child {
-  border-bottom: none;
-}
-
-.info-row--column {
-  flex-direction: column;
-  gap: 10rpx;
-}
-
-.info-row__label {
-  flex: 0 0 150rpx;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 240rpx;
   color: var(--yh-muted);
   font-size: 26rpx;
+  background: var(--yh-slate-soft);
+  border-radius: var(--yh-radius-sm);
 }
 
-.info-row__value {
-  flex: 1;
-  min-width: 0;
+.description-text {
   color: var(--yh-ink);
   font-size: 28rpx;
-  text-align: right;
-  word-break: break-all;
-}
-
-.info-row__text {
-  color: var(--yh-ink);
-  font-size: 28rpx;
-  line-height: 1.6;
+  line-height: 1.7;
   white-space: pre-wrap;
 }
 
-.signup-card {
-  display: flex;
-  flex-direction: column;
-  gap: 20rpx;
+.signup-track {
+  height: 12rpx;
+  overflow: hidden;
+  background: var(--yh-line);
+  border-radius: 999rpx;
 }
 
-.signup-card__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16rpx;
+.signup-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--yh-green), var(--yh-green-bright));
+  border-radius: inherit;
+  transition: width 0.2s ease;
+}
+
+/* 与 C 端 Vant Button 口径一致：主按钮渐变绿，次按钮绿字浅灰描边。 */
+.signup-card .btn--outline {
+  color: var(--yh-green);
+  border-color: var(--yh-line);
 }
 
 .signup-card__mine {

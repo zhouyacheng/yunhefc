@@ -17,6 +17,7 @@ import lombok.Setter;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -51,9 +52,10 @@ public final class ActivityDtos {
             LocalDateTime endAt,
             @NotNull LocalDateTime signupDeadline,
             @Min(1) @Max(65535) Integer capacity,
+            @NotNull Boolean familyAllowed,
             @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal costPerPerson,
             @NotBlank @Size(max = 128) String location,
-            @Size(max = 512) String locationImageKey,
+            @Size(max = 10) List<@Size(max = 512) String> locationImageKeys,
             @Size(max = 1000) String description) {
     }
 
@@ -81,6 +83,8 @@ public final class ActivityDtos {
         @Max(65535)
         private Integer capacity;
 
+        private Boolean familyAllowed;
+
         @DecimalMin("0")
         @Digits(integer = 8, fraction = 2)
         private BigDecimal costPerPerson;
@@ -88,8 +92,8 @@ public final class ActivityDtos {
         @Size(max = 128)
         private String location;
 
-        @Size(max = 512)
-        private String locationImageKey;
+        @Size(max = 10)
+        private List<@Size(max = 512) String> locationImageKeys;
 
         @Size(max = 1000)
         private String description;
@@ -130,10 +134,16 @@ public final class ActivityDtos {
             this.costPerPerson = costPerPerson;
         }
 
-        @JsonProperty("locationImageKey")
-        public void setLocationImageKey(String locationImageKey) {
-            presentFields.add("locationImageKey");
-            this.locationImageKey = locationImageKey;
+        @JsonProperty("familyAllowed")
+        public void setFamilyAllowed(Boolean familyAllowed) {
+            presentFields.add("familyAllowed");
+            this.familyAllowed = familyAllowed;
+        }
+
+        @JsonProperty("locationImageKeys")
+        public void setLocationImageKeys(List<String> locationImageKeys) {
+            presentFields.add("locationImageKeys");
+            this.locationImageKeys = locationImageKeys;
         }
 
         @JsonProperty("description")
@@ -158,8 +168,13 @@ public final class ActivityDtos {
         }
 
         @JsonIgnore
-        public boolean hasLocationImageKey() {
-            return presentFields.contains("locationImageKey");
+        public boolean hasFamilyAllowed() {
+            return presentFields.contains("familyAllowed");
+        }
+
+        @JsonIgnore
+        public boolean hasLocationImageKeys() {
+            return presentFields.contains("locationImageKeys");
         }
 
         @JsonIgnore
@@ -193,9 +208,10 @@ public final class ActivityDtos {
             LocalDateTime endAt,
             LocalDateTime signupDeadline,
             Integer capacity,
+            boolean familyAllowed,
             BigDecimal costPerPerson,
             String location,
-            String locationImageUrl,
+            List<String> locationImageUrls,
             String description,
             Integer status,
             String statusLabel,
@@ -213,10 +229,11 @@ public final class ActivityDtos {
             LocalDateTime endAt,
             LocalDateTime signupDeadline,
             Integer capacity,
+            boolean familyAllowed,
             BigDecimal costPerPerson,
             String location,
-            String locationImageKey,
-            String locationImageUrl,
+            List<String> locationImageKeys,
+            List<String> locationImageUrls,
             String description,
             Integer status,
             String statusLabel,

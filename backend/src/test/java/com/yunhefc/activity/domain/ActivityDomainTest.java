@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -62,10 +63,19 @@ class ActivityDomainTest {
         assertViolation("capacity", () -> ActivityRules.validateCapacity(0));
         assertViolation("costPerPerson", () -> ActivityRules.validateCost(new BigDecimal("1.234")));
         assertViolation("costPerPerson", () -> ActivityRules.validateCost(new BigDecimal("-0.01")));
-        assertViolation("locationImageKey", () -> ActivityRules.validateImageKey("avatar/1/x.jpg"));
-        assertViolation("locationImageKey", () -> ActivityRules.validateImageKey("activity/1/abc.jpg"));
-        assertThatCode(() -> ActivityRules.validateImageKey(
-                "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ0.png")).doesNotThrowAnyException();
+        assertViolation("locationImageKeys", () -> ActivityRules.validateImageKeys(List.of("avatar/1/x.jpg")));
+        assertViolation("locationImageKeys", () -> ActivityRules.validateImageKeys(List.of("activity/1/abc.jpg")));
+        String validKey = "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ0.png";
+        assertThatCode(() -> ActivityRules.validateImageKeys(List.of(validKey)))
+                .doesNotThrowAnyException();
+        assertViolation("locationImageKeys", () -> ActivityRules.validateImageKeys(
+                List.of(validKey, validKey)));
+        assertViolation("locationImageKeys", () -> ActivityRules.validateImageKeys(
+                List.of(validKey, validKey, validKey, validKey, validKey, validKey,
+                        validKey, validKey, validKey, validKey, validKey)));
+        assertViolation("locationImageKeys", () -> ActivityRules.validateImageKeysPresent(null));
+        assertThatCode(() -> ActivityRules.validateImageKeysPresent(List.of()))
+                .doesNotThrowAnyException();
     }
 
     @Test

@@ -79,6 +79,27 @@ export function formatDayStartTime(value: string | null | undefined): string {
   return `${monthDayLongFormatter.format(date)} ${weekdayFormatter.format(date)} ${timeFormatter.format(date)}`;
 }
 
+/** 月日、星期与时段：12月3日 周四 20:00–22:00；跨天 22:00–12/02 02:00。 */
+export function formatDayTimeRange(
+  startAt: string | null | undefined,
+  endAt: string | null | undefined,
+): string {
+  const head = formatDayStartTime(startAt);
+  if (head === '—' || !endAt) {
+    return head;
+  }
+  const start = new Date(startAt as string);
+  const end = new Date(endAt);
+  if (Number.isNaN(end.getTime()) || end.getTime() < start.getTime()) {
+    return head;
+  }
+  const endText =
+    dayKeyFormatter.format(start) === dayKeyFormatter.format(end)
+      ? timeFormatter.format(end)
+      : `${monthDayFormatter.format(end)} ${timeFormatter.format(end)}`;
+  return `${head}–${endText}`;
+}
+
 /** 带年份与星期：2026/12/02 周三。 */
 export function formatDateWithYear(value: string | null | undefined): string {
   if (!value) {

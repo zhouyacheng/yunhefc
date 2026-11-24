@@ -441,9 +441,12 @@ export interface ActivitySummary {
   signupDeadline: string;
   /** 只计报名人数，不含家属；null 为不限。 */
   capacity: number | null;
+  /** 活动级开关；关闭时报名不展示家属选项。 */
+  familyAllowed: boolean;
   costPerPerson: number | null;
   location: string;
-  locationImageUrl: string | null;
+  /** 按展示顺序现签，0–10 项。 */
+  locationImageUrls: string[];
   description: string | null;
   status: ActivityStatus;
   statusLabel: string;

@@ -32,7 +32,6 @@ import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.infra.outbox.OutboxService;
-import com.yunhefc.infra.storage.AvatarUrlSigner;
 import com.yunhefc.infra.storage.ImageSniffer;
 import com.yunhefc.infra.storage.OssGateway;
 import com.yunhefc.infra.storage.UploadLimits;
@@ -63,10 +62,10 @@ public class ActivityAdminApplicationService {
     private final TeamActivityMapper teamActivityMapper;
     private final ActivitySignupMapper activitySignupMapper;
     private final ActivityRosterAssembler rosterAssembler;
+    private final ActivityImageStore imageStore;
     private final ActivitySignupLock signupLock;
     private final AuditRecorder auditRecorder;
     private final OutboxService outboxService;
-    private final AvatarUrlSigner avatarUrlSigner;
     private final OssGateway ossGateway;
 
     @Transactional(readOnly = true)
@@ -93,9 +92,12 @@ public class ActivityAdminApplicationService {
 
         Page<TeamActivity> result = teamActivityMapper.selectPage(
                 new Page<>(query.page(), query.pageSize()), wrapper);
-        Map<Long, Integer> counts = counts(result.getRecords().stream().map(TeamActivity::getId).toList());
+        List<Long> activityIds = result.getRecords().stream().map(TeamActivity::getId).toList();
+        Map<Long, Integer> counts = counts(activityIds);
+        Map<Long, List<String>> images = imageStore.keysByActivity(activityIds);
         List<ActivityAdmin> items = result.getRecords().stream()
-                .map(activity -> toAdmin(activity, counts.getOrDefault(activity.getId(), 0)))
+                .map(activity -> toAdmin(activity, counts.getOrDefault(activity.getId(), 0),
+                        images.getOrDefault(activity.getId(), List.of())))
                 .toList();
         return PageResponse.of(items, result.getTotal(), query.page(), query.pageSize());
     }
@@ -103,7 +105,8 @@ public class ActivityAdminApplicationService {
     @Transactional(readOnly = true)
     public ActivityAdmin detail(Long activityId) {
         TeamActivity activity = requireActivity(CurrentUser.principal().teamId(), activityId);
-        return toAdmin(activity, activitySignupMapper.countActive(activityId));
+        return toAdmin(activity, activitySignupMapper.countActive(activityId),
+                imageStore.keys(activityId));
     }
 
     @Transactional
@@ -117,20 +120,22 @@ public class ActivityAdminApplicationService {
         activity.setEndAt(request.endAt());
         activity.setSignupDeadline(request.signupDeadline());
         activity.setCapacity(request.capacity());
+        activity.setFamilyAllowed(Boolean.TRUE.equals(request.familyAllowed()));
         activity.setCostPerPerson(request.costPerPerson());
         activity.setLocation(requiredText(request.location(), "location", "活动地址"));
-        activity.setLocationImageKey(optionalImageKey(request.locationImageKey()));
         activity.setDescription(optionalText(request.description()));
         ActivityRules.validateSchedule(activity.getStartAt(), activity.getEndAt(), activity.getSignupDeadline());
         ActivityRules.validateCapacity(activity.getCapacity());
         ActivityRules.validateCost(activity.getCostPerPerson());
+        ActivityRules.validateImageKeys(request.locationImageKeys());
         activity.setStatus(ActivityStatus.SIGNUP_OPEN);
         activity.setVersion(0);
         activity.setCreatedBy(principal.userId());
 
         teamActivityMapper.insert(activity);
+        imageStore.replace(activity.getId(), request.locationImageKeys());
         auditRecorder.recordCurrent("ACTIVITY_CREATE", "ACTIVITY", activity.getId(),
-                null, ActivityAuditSnapshot.of(activity));
+                null, ActivityAuditSnapshot.of(activity, imageStore.keys(activity.getId())));
         outboxService.append(activity.getTeamId(), "ACTIVITY", activity.getId(),
                 EventTypes.ACTIVITY_CREATED, Map.of(
                         "activityId", activity.getId(),
@@ -138,7 +143,7 @@ public class ActivityAdminApplicationService {
                         "startAt", activity.getStartAt(),
                         "location", activity.getLocation()));
         log.info("activity created, activityId={}, teamId={}", activity.getId(), activity.getTeamId());
-        return toAdmin(activity, 0);
+        return toAdmin(activity, 0, imageStore.keys(activity.getId()));
     }
 
     @Transactional
@@ -162,7 +167,7 @@ public class ActivityAdminApplicationService {
                         "人数上限不得低于当前有效报名数");
             }
         }
-        Map<String, Object> before = ActivityAuditSnapshot.of(activity);
+        Map<String, Object> before = ActivityAuditSnapshot.of(activity, imageStore.keys(activityId));
         applyChanges(activity, request);
 
         int updated = teamActivityMapper.update(null, new LambdaUpdateWrapper<TeamActivity>()
@@ -176,16 +181,20 @@ public class ActivityAdminApplicationService {
                 .set(TeamActivity::getEndAt, activity.getEndAt())
                 .set(TeamActivity::getSignupDeadline, activity.getSignupDeadline())
                 .set(TeamActivity::getCapacity, activity.getCapacity())
+                .set(TeamActivity::isFamilyAllowed, activity.isFamilyAllowed())
                 .set(TeamActivity::getCostPerPerson, activity.getCostPerPerson())
                 .set(TeamActivity::getLocation, activity.getLocation())
-                .set(TeamActivity::getLocationImageKey, activity.getLocationImageKey())
                 .set(TeamActivity::getDescription, activity.getDescription())
                 .set(TeamActivity::getVersion, activity.getVersion() + 1));
         TeamActivity saved = reloadAfterWrite(updated, teamId, activityId, null);
+        if (request.hasLocationImageKeys()) {
+            imageStore.replace(activityId, request.getLocationImageKeys());
+        }
+        List<String> afterImages = imageStore.keys(activityId);
         auditRecorder.recordCurrent("ACTIVITY_UPDATE", "ACTIVITY", activityId,
-                before, ActivityAuditSnapshot.of(saved));
+                before, ActivityAuditSnapshot.of(saved, afterImages));
         log.info("activity updated, activityId={}", activityId);
-        return toAdmin(saved, activitySignupMapper.countActive(activityId));
+        return toAdmin(saved, activitySignupMapper.countActive(activityId), afterImages);
     }
 
     @Transactional
@@ -204,7 +213,8 @@ public class ActivityAdminApplicationService {
         if (target == ActivityStatus.CANCELLED) {
             signupLock.acquire(activityId);
         }
-        Map<String, Object> before = ActivityAuditSnapshot.of(activity);
+        List<String> imageKeys = imageStore.keys(activityId);
+        Map<String, Object> before = ActivityAuditSnapshot.of(activity, imageKeys);
 
         LambdaUpdateWrapper<TeamActivity> update = new LambdaUpdateWrapper<TeamActivity>()
                 .eq(TeamActivity::getId, activityId)
@@ -219,7 +229,7 @@ public class ActivityAdminApplicationService {
         int updated = teamActivityMapper.update(null, update);
         TeamActivity saved = reloadAfterWrite(updated, principal.teamId(), activityId, target);
         auditRecorder.recordCurrent("ACTIVITY_STATUS_CHANGE", "ACTIVITY", activityId,
-                before, ActivityAuditSnapshot.of(saved));
+                before, ActivityAuditSnapshot.of(saved, imageKeys));
         if (target == ActivityStatus.CANCELLED) {
             outboxService.append(saved.getTeamId(), "ACTIVITY", activityId,
                     EventTypes.ACTIVITY_CANCELLED, Map.of(
@@ -229,7 +239,7 @@ public class ActivityAdminApplicationService {
         }
         log.info("activity status changed, activityId={}, from={}, to={}",
                 activityId, before.get("status"), target.code());
-        return toAdmin(saved, activitySignupMapper.countActive(activityId));
+        return toAdmin(saved, activitySignupMapper.countActive(activityId), imageKeys);
     }
 
     @Transactional(readOnly = true)
@@ -319,14 +329,17 @@ public class ActivityAdminApplicationService {
         if (request.hasCapacity()) {
             activity.setCapacity(request.getCapacity());
         }
+        if (request.hasFamilyAllowed()) {
+            activity.setFamilyAllowed(Boolean.TRUE.equals(request.getFamilyAllowed()));
+        }
         if (request.hasCostPerPerson()) {
             activity.setCostPerPerson(request.getCostPerPerson());
         }
         if (request.getLocation() != null) {
             activity.setLocation(requiredText(request.getLocation(), "location", "活动地址"));
         }
-        if (request.hasLocationImageKey()) {
-            activity.setLocationImageKey(optionalImageKey(request.getLocationImageKey()));
+        if (request.hasLocationImageKeys()) {
+            ActivityRules.validateImageKeysPresent(request.getLocationImageKeys());
         }
         if (request.hasDescription()) {
             activity.setDescription(optionalText(request.getDescription()));
@@ -391,7 +404,7 @@ public class ActivityAdminApplicationService {
                         ActivitySignupCountRow::getSignupCount));
     }
 
-    private ActivityAdmin toAdmin(TeamActivity activity, int signupCount) {
+    private ActivityAdmin toAdmin(TeamActivity activity, int signupCount, List<String> imageKeys) {
         return new ActivityAdmin(
                 activity.getId(),
                 activity.getTitle(),
@@ -401,10 +414,11 @@ public class ActivityAdminApplicationService {
                 activity.getEndAt(),
                 activity.getSignupDeadline(),
                 activity.getCapacity(),
+                activity.isFamilyAllowed(),
                 activity.getCostPerPerson(),
                 activity.getLocation(),
-                activity.getLocationImageKey(),
-                avatarUrlSigner.sign(activity.getLocationImageKey()),
+                imageKeys,
+                imageKeys.stream().map(ossGateway::signedUrl).toList(),
                 activity.getDescription(),
                 activity.getStatus().code(),
                 activity.getStatus().label(),
@@ -445,12 +459,6 @@ public class ActivityAdminApplicationService {
 
     private String optionalText(String value) {
         return ActivityQueryParsing.normalize(value);
-    }
-
-    private String optionalImageKey(String objectKey) {
-        String normalized = ActivityQueryParsing.normalize(objectKey);
-        ActivityRules.validateImageKey(normalized);
-        return normalized;
     }
 
     private BusinessException versionConflict(int currentVersion) {

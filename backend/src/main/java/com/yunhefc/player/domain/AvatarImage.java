@@ -10,9 +10,9 @@ import java.util.Map;
  */
 public final class AvatarImage {
 
-    public static final long MAX_BYTES = 2_097_152L;
+    public static final long MAX_BYTES = 5_242_880L;
     public static final String EMPTY_MESSAGE = "文件不能为空";
-    public static final String TOO_LARGE_MESSAGE = "图片不能超过 2MB";
+    public static final String TOO_LARGE_MESSAGE = "图片不能超过 5MB";
 
     private AvatarImage() {
     }

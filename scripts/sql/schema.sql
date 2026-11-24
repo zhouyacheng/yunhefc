@@ -383,9 +383,9 @@ CREATE TABLE team_activity (
   end_at             DATETIME(3)     NULL COMMENT '活动结束时间',
   signup_deadline    DATETIME(3)     NOT NULL COMMENT '报名截止时间',
   capacity           SMALLINT UNSIGNED NULL COMMENT '总人数上限;只计报名人数,不含家属;NULL为不限',
+  family_allowed     TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-不允许携带家属;1-允许携带家属',
   cost_per_person    DECIMAL(10,2)   NULL COMMENT '人均消费;单位元;仅展示,不自动摊分',
   location           VARCHAR(128)    NOT NULL COMMENT '活动地址',
-  location_image_key VARCHAR(512)    NULL COMMENT '活动地点图片OSS对象键;不含签名参数',
   description        VARCHAR(1000)   NULL COMMENT '活动说明',
   status             TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-报名中;1-报名截止;2-已结束;3-已取消',
   cancel_reason      VARCHAR(255)    NULL COMMENT '取消原因',
@@ -416,6 +416,18 @@ CREATE TABLE activity_signup (
   KEY idx_activity_signup_activity (activity_id, status, signed_up_at),
   KEY idx_activity_signup_player (player_id, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='活动报名';
+
+CREATE TABLE activity_image (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  activity_id BIGINT UNSIGNED NOT NULL COMMENT '活动ID',
+  image_key   VARCHAR(512)    NOT NULL COMMENT '活动地点图片OSS对象键;不含签名参数',
+  sort_no     TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '排序号;从0开始;升序展示',
+  created_at  DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) COMMENT '创建时间',
+  updated_at  DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+  is_deleted  TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除',
+  PRIMARY KEY (id),
+  KEY idx_activity_image_activity (activity_id, sort_no)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='活动图片';
 
 CREATE TABLE ledger_category (
   id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '主键ID',

@@ -47,7 +47,8 @@ class ActivityAdminIT extends ActivityITSupport {
                 .andExpect(jsonPath("$.data.signupOpen").value(true))
                 .andExpect(jsonPath("$.data.version").value(0))
                 .andExpect(jsonPath("$.data.createdBy").isNumber())
-                .andExpect(jsonPath("$.data.locationImageUrl").value((Object) null))
+                .andExpect(jsonPath("$.data.familyAllowed").value(true))
+                .andExpect(jsonPath("$.data.locationImageUrls").isEmpty())
                 .andExpect(jsonPath("$.data.costPerPerson").value(88.50))
                 .andReturn();
         Long activityId = activityId(result);
@@ -69,22 +70,50 @@ class ActivityAdminIT extends ActivityITSupport {
     }
 
     @Test
-    void adminViewReturnsLocationImageKeyForCopyAndEdit() throws Exception {
+    void adminViewReturnsLocationImageKeysForCopyAndEdit() throws Exception {
         Cookie admin = bAdminLogin("13900002005");
-        String imageKey = "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ0.png";
+        String firstKey = "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ0.png";
+        String secondKey = "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ1.jpg";
 
         MvcResult created = createActivity(admin, """
                 {"title":"带图活动","type":2,"startAt":"%s","signupDeadline":"%s",
-                 "location":"体育馆","locationImageKey":"%s"}
-                """.formatted(futureAt(30, 18), futureAt(30, 17), imageKey))
-                .andExpect(jsonPath("$.data.locationImageKey").value(imageKey))
+                 "familyAllowed":true,"location":"体育馆",
+                 "locationImageKeys":["%s","%s"]}
+                """.formatted(futureAt(30, 18), futureAt(30, 17), firstKey, secondKey))
+                .andExpect(jsonPath("$.data.locationImageKeys[0]").value(firstKey))
+                .andExpect(jsonPath("$.data.locationImageKeys[1]").value(secondKey))
+                .andExpect(jsonPath("$.data.locationImageUrls[0]")
+                        .value("mock://oss/" + firstKey))
                 .andReturn();
         Long activityId = activityId(created);
 
         mockMvc.perform(get("/api/v1/b/activities/" + activityId).cookie(admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.locationImageKey").value(imageKey))
+                .andExpect(jsonPath("$.data.locationImageKeys[1]").value(secondKey))
                 .andExpect(jsonPath("$.data.version").value(0));
+
+        mockMvc.perform(patch("/api/v1/b/activities/" + activityId).cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"locationImageKeys":[],"version":0}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.locationImageKeys").isEmpty())
+                .andExpect(jsonPath("$.data.locationImageUrls").isEmpty());
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM activity_image WHERE activity_id = ? AND is_deleted = 1
+                """, Integer.class, activityId)).isEqualTo(2);
+
+        mockMvc.perform(patch("/api/v1/b/activities/" + activityId).cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"locationImageKeys":null,"version":1}
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.locationImageKeys").exists());
     }
 
     @Test
@@ -202,8 +231,8 @@ class ActivityAdminIT extends ActivityITSupport {
         Cookie admin = bAdminLogin("13900002011");
         String template = """
                 {"title":"非法活动","type":0,"startAt":"2030-12-20T18:00:00","endAt":"%s",
-                 "signupDeadline":"%s","capacity":%d,"costPerPerson":%s,"location":"餐厅",
-                 "locationImageKey":%s}
+                 "signupDeadline":"%s","capacity":%d,"familyAllowed":true,"costPerPerson":%s,
+                 "location":"餐厅","locationImageKeys":%s}
                 """;
 
         mockMvc.perform(post("/api/v1/b/activities").cookie(admin).with(csrf())
@@ -243,17 +272,39 @@ class ActivityAdminIT extends ActivityITSupport {
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(template.formatted("2030-12-20T20:00:00", "2030-12-20T17:00:00",
-                                4, "88.50", "\"avatar/1/not-activity.jpg\"")))
+                                4, "88.50", "[\"avatar/1/not-activity.jpg\"]")))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.details.locationImageKey").exists());
+                .andExpect(jsonPath("$.data.details.locationImageKeys").exists());
 
         mockMvc.perform(post("/api/v1/b/activities").cookie(admin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(template.formatted("2030-12-20T20:00:00", "2030-12-20T17:00:00",
-                                4, "88.50", "\"activity/1/short.jpg\"")))
+                                4, "88.50", "[\"activity/1/short.jpg\"]")))
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.data.details.locationImageKey").exists());
+                .andExpect(jsonPath("$.data.details.locationImageKeys").exists());
+
+        String sameKey = "activity/1/01JABCDEFGHJKMNPQRSTVWXYZ0.png";
+        mockMvc.perform(post("/api/v1/b/activities").cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(template.formatted("2030-12-20T20:00:00", "2030-12-20T17:00:00",
+                                4, "88.50", "[\"%s\",\"%s\"]".formatted(sameKey, sameKey))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.details.locationImageKeys")
+                        .value("地点图片不能重复"));
+
+        String eleven = java.util.stream.IntStream.range(0, 11)
+                .mapToObj(i -> "\"activity/1/01JABCDEFGHJKMNPQRSTVWXYZ" + "0123456789A".charAt(i)
+                        + ".png\"")
+                .collect(java.util.stream.Collectors.joining(","));
+        mockMvc.perform(post("/api/v1/b/activities").cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(template.formatted("2030-12-20T20:00:00", "2030-12-20T17:00:00",
+                                4, "88.50", "[" + eleven + "]")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.data.details.locationImageKeys").exists());
     }
 
     @Test
@@ -400,7 +451,8 @@ class ActivityAdminIT extends ActivityITSupport {
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"越权\",\"type\":0,\"startAt\":\"2030-12-20T18:00:00\","
-                                + "\"signupDeadline\":\"2030-12-20T17:00:00\",\"location\":\"餐厅\"}"))
+                                + "\"signupDeadline\":\"2030-12-20T17:00:00\",\"familyAllowed\":false,"
+                                + "\"location\":\"餐厅\"}"))
                 .andExpect(status().isForbidden());
 
         jdbc.update("""
@@ -426,7 +478,7 @@ class ActivityAdminIT extends ActivityITSupport {
         Cookie admin = bAdminLogin("13900002061");
         String body = """
                 {"title":"幂等活动","type":1,"startAt":"2030-12-20T18:00:00",
-                 "signupDeadline":"2030-12-20T17:00:00","location":"年会厅"}
+                 "signupDeadline":"2030-12-20T17:00:00","familyAllowed":true,"location":"年会厅"}
                 """;
         String key = idemKey();
         MvcResult first = mockMvc.perform(post("/api/v1/b/activities").cookie(admin).with(csrf())

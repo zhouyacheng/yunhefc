@@ -24,9 +24,9 @@ public class TeamActivity {
     private LocalDateTime endAt;
     private LocalDateTime signupDeadline;
     private Integer capacity;
+    private boolean familyAllowed;
     private BigDecimal costPerPerson;
     private String location;
-    private String locationImageKey;
     private String description;
     private ActivityStatus status;
     private String cancelReason;

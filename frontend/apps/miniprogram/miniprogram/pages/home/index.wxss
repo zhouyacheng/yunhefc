@@ -306,6 +306,7 @@
   display: flex;
   align-items: center;
   gap: 20rpx;
+  margin-top: 64rpx;
   padding: 24rpx 28rpx;
   background: var(--yh-surface);
   border: 2rpx solid var(--yh-line);
@@ -334,11 +335,6 @@
   color: var(--yh-ink);
   font-size: 30rpx;
   font-weight: 700;
-}
-
-.quick-entry__text {
-  color: var(--yh-muted);
-  font-size: 24rpx;
 }
 
 .quick-entry__arrow {

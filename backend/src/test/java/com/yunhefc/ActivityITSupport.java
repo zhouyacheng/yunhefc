@@ -22,7 +22,7 @@ abstract class ActivityITSupport extends AccountITSupport {
         String endAt = java.time.LocalDateTime.parse(startAt).plusHours(2).toString();
         String body = """
                 {"title":"%s","type":0,"startAt":"%s","endAt":"%s",
-                 "signupDeadline":"%s","capacity":%s,"costPerPerson":88.50,
+                 "signupDeadline":"%s","capacity":%s,"familyAllowed":true,"costPerPerson":88.50,
                  "location":"队内餐厅","description":"季度聚餐"}
                 """.formatted(title, startAt, endAt, startAt, capacity);
         return createActivity(admin, body);

@@ -157,9 +157,12 @@ class ActivityPublicIT extends ActivityITSupport {
                 futureAt(30, 17), 1);
         String imageKey = "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ0.png";
         jdbc.update("""
-                UPDATE team_activity SET type = 2, status = 1, location_image_key = ?
-                WHERE id = ?
-                """, imageKey, activityId);
+                UPDATE team_activity SET type = 2, status = 1 WHERE id = ?
+                """, activityId);
+        jdbc.update("""
+                INSERT INTO activity_image (activity_id, image_key, sort_no)
+                VALUES (?, ?, 0)
+                """, activityId, imageKey);
         createPlayerUser("13900002161", "标签报名者", 816, 1);
         Long playerId = playerId("13900002161");
         jdbc.update("""
@@ -180,7 +183,8 @@ class ActivityPublicIT extends ActivityITSupport {
                 .andExpect(jsonPath("$.data.items[0].statusLabel").value("SIGNUP_CLOSED"))
                 .andExpect(jsonPath("$.data.items[0].signupCount").value(1))
                 .andExpect(jsonPath("$.data.items[0].signupOpen").value(false))
-                .andExpect(jsonPath("$.data.items[0].locationImageUrl")
+                .andExpect(jsonPath("$.data.items[0].familyAllowed").value(true))
+                .andExpect(jsonPath("$.data.items[0].locationImageUrls[0]")
                         .value("mock://oss/" + imageKey))
                 .andExpect(jsonPath("$.data.items[0].mySignup").value((Object) null));
 
@@ -191,7 +195,7 @@ class ActivityPublicIT extends ActivityITSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.typeLabel").value("OTHER"))
                 .andExpect(jsonPath("$.data.statusLabel").value("SIGNUP_CLOSED"))
-                .andExpect(jsonPath("$.data.locationImageUrl").value("mock://oss/" + imageKey));
+                .andExpect(jsonPath("$.data.locationImageUrls[0]").value("mock://oss/" + imageKey));
     }
 
     @Test
@@ -252,6 +256,41 @@ class ActivityPublicIT extends ActivityITSupport {
                         .header("Idempotency-Key", idemKey()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.cancelled").value(false));
+    }
+
+    @Test
+    void signupRejectsFamilyWhenActivityDisallowsIt() throws Exception {
+        Long activityId = insertActivity("不带家属活动", futureAt(30, 18), 0, 2,
+                futureAt(30, 17), 1);
+        jdbc.update("UPDATE team_activity SET family_allowed = 0 WHERE id = ?", activityId);
+        createPlayerUser("13900002119", "家属测试", 819, 1);
+        Cookie player = cLogin("13900002119", "Passw0rd!");
+
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/signups")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"withFamily\":true,\"familyNote\":\"带家属\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.withFamily").exists());
+
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/signups")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"withFamily\":false}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.signup.withFamily").value(false));
+
+        // 已报名优先于家属门禁：重复提交仍返回 40916，而不是 40001。
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/signups")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"withFamily\":true}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40916));
     }
 
     @Test

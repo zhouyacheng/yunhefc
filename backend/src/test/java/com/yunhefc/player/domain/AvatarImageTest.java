@@ -19,13 +19,13 @@ class AvatarImageTest {
     }
 
     @Test
-    void rejectsFileOverTwoMebibytes() {
+    void rejectsFileOverFiveMebibytes() {
         byte[] content = new byte[(int) AvatarImage.MAX_BYTES + 1];
-        assertValidation(() -> AvatarImage.validateSize(content), "图片不能超过 2MB");
+        assertValidation(() -> AvatarImage.validateSize(content), "图片不能超过 5MB");
     }
 
     @Test
-    void acceptsExactlyTwoMebibytes() {
+    void acceptsExactlyFiveMebibytes() {
         byte[] content = new byte[(int) AvatarImage.MAX_BYTES];
         assertThatCode(() -> AvatarImage.validateSize(content)).doesNotThrowAnyException();
     }

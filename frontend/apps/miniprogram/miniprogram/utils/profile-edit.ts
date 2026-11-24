@@ -1,7 +1,7 @@
 import { POSITION_TEXT } from './presentation';
 
 export const MAX_SECONDARY = 3;
-export const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+export const MAX_AVATAR_BYTES = 5 * 1024 * 1024;
 
 export const POSITION_CODES = Object.keys(POSITION_TEXT).map(Number);
 export const POSITION_LABELS = POSITION_CODES.map((code) => POSITION_TEXT[code]);
@@ -31,7 +31,7 @@ export function buildOptions(primary: number, selected: number[]): SecondaryOpti
 /** 头像格式与大小校验；无法识别扩展名时交给服务端最终校验。 */
 export function validateAvatar(size: number, filePath: string): string {
   if (size > MAX_AVATAR_BYTES) {
-    return '头像不能超过 2MB';
+    return '图片不能超过 5MB';
   }
   const matched = /\.([a-z0-9]+)(?:\?|$)/i.exec(filePath);
   if (matched && !AVATAR_EXTENSIONS.has(matched[1].toLowerCase())) {

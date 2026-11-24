@@ -11,9 +11,10 @@ const OPEN_ACTIVITY = {
   endAt: '2099-12-06T21:00:00+08:00',
   signupDeadline: '2099-12-04T20:00:00+08:00',
   capacity: 20,
+  familyAllowed: true,
   costPerPerson: 120,
   location: '老地方火锅（体育中心店）',
-  locationImageUrl: null,
+  locationImageUrls: [],
   description: '赛季结束一起聚个餐。',
   status: 0,
   statusLabel: 'SIGNUP_OPEN',
@@ -250,6 +251,23 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
   await page.getByRole('button', { name: '复制链接' }).click();
   await expect(page.getByText('链接已复制')).toBeVisible();
 
+  expect(errors).toEqual([]);
+});
+
+test('C12 活动详情：不允许携带家属时隐藏家属选项', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const noFamily = { ...OPEN_ACTIVITY, id: 9005, familyAllowed: false, mySignup: null };
+
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/activities/9005',
+    (route) => fulfill(route, noFamily),
+  );
+
+  await page.goto('/activities/9005');
+  await page.getByTestId('activity-signup').click();
+  await expect(page.getByRole('heading', { name: '报名活动' })).toBeVisible();
+  await expect(page.getByText('携带家属', { exact: true })).toHaveCount(0);
+  await expect(page.getByPlaceholder('如：带 1 位家属，儿童餐')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 

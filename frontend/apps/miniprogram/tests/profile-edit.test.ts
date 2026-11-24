@@ -23,7 +23,7 @@ describe('profile edit helpers', () => {
 
   it('validates avatar size and extension', () => {
     expect(validateAvatar(1024, '/tmp/a.jpg')).toBe('');
-    expect(validateAvatar(3 * 1024 * 1024, '/tmp/a.jpg')).toBe('头像不能超过 2MB');
+    expect(validateAvatar(5 * 1024 * 1024 + 1, '/tmp/a.jpg')).toBe('图片不能超过 5MB');
     expect(validateAvatar(1024, '/tmp/a.gif')).toBe('头像仅支持 JPG/PNG/WebP');
     expect(validateAvatar(1024, '/tmp/avatar')).toBe('');
   });

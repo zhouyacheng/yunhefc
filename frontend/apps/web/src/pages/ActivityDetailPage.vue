@@ -1,8 +1,18 @@
 <script setup lang="ts">
 import { ERROR_CODES, describeError, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import type { ActivityDetail, ActivitySignup } from '@yunhefc/shared';
-import { formatDateTime, formatDateTimeRange } from '@yunhefc/shared';
-import { Button, Checkbox, Field, Loading, Popup, Tag, showToast } from 'vant';
+import { formatDateTime, formatDayTimeRange } from '@yunhefc/shared';
+import {
+  Button,
+  Checkbox,
+  Field,
+  Loading,
+  Popup,
+  Swipe,
+  SwipeItem,
+  Tag,
+  showToast,
+} from 'vant';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -13,6 +23,7 @@ import {
   ACTIVITY_FINISHED,
   ACTIVITY_SIGNUP_ACTIVE,
   activityCancelState,
+  activityCapacityPercent,
   activityCta,
   activityFamilyText,
   activitySignupState,
@@ -83,11 +94,19 @@ const cta = computed(() => (activity.value ? activityCta(activity.value, now.val
 const signupText = computed(() =>
   activity.value ? activitySignupText(activity.value.signupCount, activity.value.capacity) : '',
 );
+/** 时间用完整文本承载：日期 + 星期 + 时段。 */
+const dayTimeText = computed(() =>
+  activity.value ? formatDayTimeRange(activity.value.startAt, activity.value.endAt) : '—',
+);
+const capacityPercent = computed(() => {
+  const current = activity.value;
+  return current ? activityCapacityPercent(current.signupCount, current.capacity) : 0;
+});
 const loginTarget = computed(() => ({
   name: 'login',
   query: { redirect: toBrowserPath(route.fullPath) },
 }));
-const showImage = computed(() => Boolean(activity.value?.locationImageUrl) && !imageFailed.value);
+const imageUrls = computed<string[]>(() => activity.value?.locationImageUrls ?? []);
 
 const REFRESH_CONFLICT_CODES: readonly number[] = [
   ERROR_CODES.ACTIVITY_SIGNUP_CONFLICT,
@@ -166,12 +185,14 @@ async function submitSignup(): Promise<void> {
   }
   submitting.value = true;
   actionError.value = '';
+  const familyAllowed = activity.value?.familyAllowed === true;
   try {
     await api.post<{ signup: ActivitySignup }>(
       `/activities/${activityId}/signups`,
       {
-        withFamily: withFamily.value,
-        familyNote: withFamily.value ? familyNote.value.trim() || null : null,
+        withFamily: familyAllowed && withFamily.value,
+        familyNote:
+          familyAllowed && withFamily.value ? familyNote.value.trim() || null : null,
       },
       { idempotencyKey: newIdempotencyKey() },
     );
@@ -276,46 +297,55 @@ onBeforeUnmount(() => {
     </div>
 
     <template v-else-if="activity">
-      <header class="card activity-hero">
-        <div class="activity-hero__head">
-          <div>
-            <p class="small muted">{{ activityTypeText(activity.type) }}</p>
-            <h1>{{ activity.title }}</h1>
-          </div>
+      <header class="card match-hero">
+        <div class="match-hero__top">
+          <span class="small muted">{{ activityTypeText(activity.type) }}</span>
           <Tag class="status-tag" :class="`status-tag--${activityStatusTone(activity.status)}`">
             {{ activityStatusText(activity.status) }}
           </Tag>
         </div>
 
-        <div class="activity-hero__meta muted small">
-          <span>📅 {{ formatDateTimeRange(activity.startAt, activity.endAt) }}</span>
-          <span>⏰ 报名截止 {{ formatDateTime(activity.signupDeadline) }}</span>
+        <h1 class="activity-hero__title">{{ activity.title }}</h1>
+
+        <div class="match-hero__actions">
+          <Button size="small" plain type="primary" @click="copyLink">复制链接</Button>
+        </div>
+
+        <div class="match-hero__meta muted small">
+          <span>{{ dayTimeText }}</span>
           <span>📍 {{ activity.location }}</span>
-          <span>👥 {{ signupText }}</span>
+          <span>⏰ 报名截止 {{ formatDateTime(activity.signupDeadline) }}</span>
+          <span>{{ signupText }}</span>
           <span v-if="activity.costPerPerson !== null">
-            💰 人均 {{ formatActivityCost(activity.costPerPerson) }}
+            人均 {{ formatActivityCost(activity.costPerPerson) }}
           </span>
         </div>
 
         <p v-if="!cta?.visible" class="notice" data-testid="activity-closed-banner">
           活动{{ activityStatusText(activity.status) }}，不再接受报名。
         </p>
-
-        <Button size="small" plain type="primary" @click="copyLink">复制链接</Button>
       </header>
 
-      <div class="activity-detail-grid">
+      <div class="overview-grid">
         <section class="card activity-description">
           <div class="card-head">
             <h2>活动说明</h2>
           </div>
-          <img
-            v-if="showImage"
+          <Swipe
+            v-if="imageUrls.length && !imageFailed"
             class="activity-description__image"
-            :src="activity.locationImageUrl ?? undefined"
-            alt="活动地点"
-            @error="imageFailed = true"
-          />
+            :autoplay="0"
+            indicator-dots
+          >
+            <SwipeItem v-for="(url, index) in imageUrls" :key="`${index}-${url}`">
+              <img
+                class="activity-description__image"
+                :src="url"
+                alt="活动地点"
+                @error="imageFailed = true"
+              />
+            </SwipeItem>
+          </Swipe>
           <div v-else class="activity-description__placeholder">暂无活动图片</div>
           <p v-if="activity.description" class="activity-description__text">
             {{ activity.description }}
@@ -333,6 +363,12 @@ onBeforeUnmount(() => {
             >
               {{ isSignedUp ? '已报名' : '已取消' }}
             </Tag>
+          </div>
+
+          <div v-if="activity.capacity !== null" class="signup-capacity">
+            <div class="signup-capacity__track">
+              <div class="signup-capacity__fill" :style="{ width: `${capacityPercent}%` }"></div>
+            </div>
           </div>
 
           <template v-if="isSignedUp">
@@ -376,9 +412,6 @@ onBeforeUnmount(() => {
 
           <p v-else class="muted small">{{ signupState?.label || '当前不可报名' }}</p>
 
-          <p v-if="activity.capacity === null" class="muted small">人数无上限。</p>
-          <p v-else class="muted small">人数只计报名人数，不含家属。</p>
-
           <p v-if="actionMessage" class="hint" data-testid="activity-message">
             {{ actionMessage }}
           </p>
@@ -395,18 +428,20 @@ onBeforeUnmount(() => {
           <h2>报名活动</h2>
         </div>
 
-        <Checkbox v-model="withFamily" shape="square">携带家属</Checkbox>
+        <template v-if="activity?.familyAllowed">
+          <Checkbox v-model="withFamily" shape="square">携带家属</Checkbox>
 
-        <Field
-          v-model="familyNote"
-          label="家属备注"
-          type="textarea"
-          rows="2"
-          maxlength="255"
-          show-word-limit
-          placeholder="如：带 1 位家属，儿童餐"
-          :disabled="!withFamily"
-        />
+          <Field
+            v-model="familyNote"
+            label="家属备注"
+            type="textarea"
+            rows="2"
+            maxlength="255"
+            show-word-limit
+            placeholder="如：带 1 位家属，儿童餐"
+            :disabled="!withFamily"
+          />
+        </template>
 
         <p v-if="actionError" class="action-error">{{ actionError }}</p>
 
@@ -425,39 +460,34 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
-.activity-hero {
-  padding: 20px;
+/* Hero 复用 C03 的 .match-hero；此处仅补活动标题排版。 */
+.activity-hero__title {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(24px, 4vw, 40px);
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
 }
 
-.activity-hero__head {
+.signup-capacity {
   display: flex;
-  gap: 14px;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.activity-hero__head h1 {
-  margin: 4px 0 12px;
-  font-size: 26px;
+.signup-capacity__track {
+  height: 6px;
+  overflow: hidden;
+  background: var(--yh-line);
+  border-radius: 999px;
 }
 
-.activity-hero__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  margin-bottom: 14px;
-}
-
-.activity-detail-grid {
-  display: grid;
-  gap: 16px;
-  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
-  margin-top: 16px;
-}
-
-.activity-description,
-.activity-signup {
-  padding: 18px;
+.signup-capacity__fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--yh-green), var(--yh-green-bright));
+  border-radius: inherit;
+  transition: width 0.2s ease;
 }
 
 .activity-description__image,
@@ -484,7 +514,7 @@ onBeforeUnmount(() => {
 .activity-signup {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 .activity-signup-popup {
@@ -492,11 +522,5 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 14px;
   padding: 20px 18px 28px;
-}
-
-@media (max-width: 860px) {
-  .activity-detail-grid {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

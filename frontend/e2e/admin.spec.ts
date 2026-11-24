@@ -859,8 +859,10 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
       endAt: new Date(startAt.getTime() + 2 * 60 * 60 * 1000).toISOString(),
       signupDeadline: new Date(startAt.getTime() - 2 * 60 * 60 * 1000).toISOString(),
       capacity: 10,
+      familyAllowed: false,
       costPerPerson: 100,
       location: 'E2E 测试场地',
+      locationImageKeys: [],
       description: 'B12 smoke',
     },
   });

@@ -22,6 +22,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { api } from '../api/client';
 import { fromPickerDate, shanghaiDayAt, toPickerDate } from '../features/time/picker';
 import {
+  ACTIVITY_IMAGE_COUNT_ERROR,
+  ACTIVITY_IMAGE_MAX_COUNT,
   ACTIVITY_IMAGE_UPLOAD_ERROR,
   ACTIVITY_STATUS_OPTIONS,
   ACTIVITY_TYPE_OPTIONS,
@@ -43,10 +45,11 @@ interface ActivityFormState {
   endAt: Date | null;
   signupDeadline: Date | null;
   capacity: number | null;
+  familyAllowed: boolean;
   costPerPerson: string;
   location: string;
   description: string;
-  locationImageKey: string | null;
+  locationImageKeys: string[];
 }
 
 interface ActivityPayload {
@@ -56,9 +59,10 @@ interface ActivityPayload {
   endAt: string | null;
   signupDeadline: string;
   capacity: number | null;
+  familyAllowed: boolean;
   costPerPerson: number | null;
   location: string;
-  locationImageKey: string | null;
+  locationImageKeys: string[];
   description: string | null;
   version?: number;
 }
@@ -105,10 +109,10 @@ const activityDialog = reactive({
 });
 const activityForm = reactive<ActivityFormState>(defaultActivityForm());
 const imageInput = ref<HTMLInputElement | null>(null);
-const imagePreview = ref('');
+const imagePreviews = ref<string[]>([]);
 const imageUploading = ref(false);
 const imageError = ref('');
-let localPreviewUrl: string | null = null;
+const localPreviewUrls = new Set<string>();
 let imageUploadSeq = 0;
 let activitySubmitKey: string | null = null;
 
@@ -148,10 +152,11 @@ function defaultActivityForm(): ActivityFormState {
     endAt: new Date(startAt.getTime() + TWO_HOURS_MS),
     signupDeadline: new Date(startAt.getTime() - TWO_HOURS_MS),
     capacity: null,
+    familyAllowed: false,
     costPerPerson: '',
     location: '',
     description: '',
-    locationImageKey: null,
+    locationImageKeys: [],
   };
 }
 
@@ -165,17 +170,17 @@ function signupText(row: ActivityAdmin): string {
   return `${row.signupCount} / ${capacity}`;
 }
 
-function revokeLocalPreview(): void {
-  if (localPreviewUrl) {
-    URL.revokeObjectURL(localPreviewUrl);
-    localPreviewUrl = null;
+function revokeLocalPreviews(): void {
+  for (const url of localPreviewUrls) {
+    URL.revokeObjectURL(url);
   }
+  localPreviewUrls.clear();
 }
 
 function resetImageState(): void {
   imageUploadSeq += 1;
-  revokeLocalPreview();
-  imagePreview.value = '';
+  revokeLocalPreviews();
+  imagePreviews.value = [];
   imageUploading.value = false;
   imageError.value = '';
 }
@@ -187,12 +192,13 @@ function fillForm(activity: ActivityAdmin): void {
   activityForm.endAt = toPickerDate(activity.endAt);
   activityForm.signupDeadline = toPickerDate(activity.signupDeadline);
   activityForm.capacity = activity.capacity;
+  activityForm.familyAllowed = activity.familyAllowed;
   activityForm.costPerPerson =
     activity.costPerPerson === null ? '' : activity.costPerPerson.toFixed(2);
   activityForm.location = activity.location;
   activityForm.description = activity.description ?? '';
-  activityForm.locationImageKey = activity.locationImageKey;
-  imagePreview.value = displayableImageUrl(activity.locationImageUrl);
+  activityForm.locationImageKeys = [...activity.locationImageKeys];
+  imagePreviews.value = activity.locationImageUrls.map(displayableImageUrl);
 }
 
 async function load(): Promise<void> {
@@ -266,6 +272,16 @@ function pickImage(): void {
   }
 }
 
+function removeImage(index: number): void {
+  const localUrl = imagePreviews.value[index];
+  if (localUrl?.startsWith('blob:')) {
+    URL.revokeObjectURL(localUrl);
+    localPreviewUrls.delete(localUrl);
+  }
+  imagePreviews.value.splice(index, 1);
+  activityForm.locationImageKeys.splice(index, 1);
+}
+
 async function onImageChange(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
   const file = input.files?.[0];
@@ -274,18 +290,21 @@ async function onImageChange(event: Event): Promise<void> {
     return;
   }
   imageError.value = '';
+  if (activityForm.locationImageKeys.length >= ACTIVITY_IMAGE_MAX_COUNT) {
+    imageError.value = ACTIVITY_IMAGE_COUNT_ERROR;
+    return;
+  }
   const invalid = validateActivityImage(file);
   if (invalid) {
     imageError.value = invalid;
     return;
   }
 
-  const previousKey = activityForm.locationImageKey;
-  const previousPreview = imagePreview.value;
   const seq = ++imageUploadSeq;
-  revokeLocalPreview();
-  localPreviewUrl = URL.createObjectURL(file);
-  imagePreview.value = localPreviewUrl;
+  const localUrl = URL.createObjectURL(file);
+  localPreviewUrls.add(localUrl);
+  const pendingIndex = imagePreviews.value.length;
+  imagePreviews.value.push(localUrl);
   imageUploading.value = true;
   try {
     const body = new FormData();
@@ -294,18 +313,19 @@ async function onImageChange(event: Event): Promise<void> {
     if (seq !== imageUploadSeq) {
       return;
     }
-    activityForm.locationImageKey = uploaded.objectKey;
+    activityForm.locationImageKeys.push(uploaded.objectKey);
     if (displayableImageUrl(uploaded.signedUrl)) {
-      revokeLocalPreview();
-      imagePreview.value = uploaded.signedUrl;
+      URL.revokeObjectURL(localUrl);
+      localPreviewUrls.delete(localUrl);
+      imagePreviews.value[pendingIndex] = uploaded.signedUrl;
     }
   } catch (caught) {
     if (seq !== imageUploadSeq) {
       return;
     }
-    activityForm.locationImageKey = previousKey;
-    imagePreview.value = previousPreview;
-    revokeLocalPreview();
+    imagePreviews.value.splice(pendingIndex, 1);
+    URL.revokeObjectURL(localUrl);
+    localPreviewUrls.delete(localUrl);
     imageError.value = describeError(caught, ACTIVITY_IMAGE_UPLOAD_ERROR);
   } finally {
     if (seq === imageUploadSeq) {
@@ -341,9 +361,8 @@ async function openEdit(row: ActivityAdmin): Promise<void> {
       await load();
       return;
     }
-    fillForm(detail);
     resetImageState();
-    imagePreview.value = displayableImageUrl(detail.locationImageUrl);
+    fillForm(detail);
     activityDialog.mode = 'edit';
     activityDialog.activity = detail;
     activityDialog.error = '';
@@ -362,9 +381,8 @@ async function openCopy(row: ActivityAdmin): Promise<void> {
   actionBusy.value = `copy:${row.id}`;
   try {
     const detail = await fetchAuthoritative(row.id);
-    fillForm(detail);
     resetImageState();
-    imagePreview.value = displayableImageUrl(detail.locationImageUrl);
+    fillForm(detail);
     activityDialog.mode = 'create';
     activityDialog.activity = null;
     activityDialog.error = '';
@@ -379,7 +397,7 @@ async function openCopy(row: ActivityAdmin): Promise<void> {
 
 function closeActivityDialog(): void {
   activityDialog.visible = false;
-  revokeLocalPreview();
+  revokeLocalPreviews();
 }
 
 async function reportWriteError(
@@ -422,9 +440,10 @@ function buildPayload(version?: number): ActivityPayload {
     endAt: endAt ? endAt.toISOString() : null,
     signupDeadline: signupDeadline.toISOString(),
     capacity: typeof activityForm.capacity === 'number' ? activityForm.capacity : null,
+    familyAllowed: activityForm.familyAllowed,
     costPerPerson: cost ? Number(cost) : null,
     location: activityForm.location.trim(),
-    locationImageKey: activityForm.locationImageKey,
+    locationImageKeys: [...activityForm.locationImageKeys],
     description: activityForm.description.trim() || null,
   };
   if (version !== undefined) {
@@ -453,7 +472,7 @@ async function submitActivity(): Promise<void> {
       await api.post<ActivityAdmin>('/activities', buildPayload(), { idempotencyKey });
       activitySubmitKey = null;
       activityDialog.visible = false;
-      revokeLocalPreview();
+      revokeLocalPreviews();
       page.value = 1;
       ElMessage.success('活动已创建');
       await load();
@@ -474,7 +493,7 @@ async function submitActivity(): Promise<void> {
       idempotencyKey: newIdempotencyKey(),
     });
     activityDialog.visible = false;
-    revokeLocalPreview();
+    revokeLocalPreviews();
     ElMessage.success('活动已更新');
     await load();
   } catch (caught) {
@@ -693,7 +712,7 @@ async function removeSignup(row: ActivitySignupRow): Promise<void> {
 
 onMounted(load);
 onBeforeUnmount(() => {
-  revokeLocalPreview();
+  revokeLocalPreviews();
 });
 </script>
 
@@ -912,6 +931,10 @@ onBeforeUnmount(() => {
           />
           <span class="muted small">留空表示不限；只计报名人数，不含家属。</span>
         </el-form-item>
+        <el-form-item label="允许携带家属">
+          <el-switch v-model="activityForm.familyAllowed" />
+          <span class="muted small">开启后报名人才可选择携带家属；默认关闭。</span>
+        </el-form-item>
         <el-form-item label="人均消费">
           <el-input
             v-model="activityForm.costPerPerson"
@@ -927,8 +950,26 @@ onBeforeUnmount(() => {
         </el-form-item>
         <el-form-item label="地点图片">
           <div class="image-field">
-            <el-image v-if="imagePreview" :src="imagePreview" fit="cover" class="image-preview" />
-            <div v-else class="image-placeholder">未上传地点图片</div>
+            <div v-if="imagePreviews.length === 0" class="image-placeholder">
+              未上传地点图片
+            </div>
+            <div
+              v-for="(url, index) in imagePreviews"
+              :key="`${index}-${url}`"
+              class="image-item"
+            >
+              <el-image v-if="url" :src="url" fit="cover" class="image-preview" />
+              <div v-else class="image-placeholder">图片加载中</div>
+              <el-button
+                link
+                type="danger"
+                size="small"
+                :disabled="imageUploading"
+                @click="removeImage(index)"
+              >
+                移除
+              </el-button>
+            </div>
             <div class="image-actions">
               <input
                 ref="imageInput"
@@ -937,10 +978,15 @@ onBeforeUnmount(() => {
                 hidden
                 @change="onImageChange"
               />
-              <el-button size="small" :loading="imageUploading" @click="pickImage">
-                {{ imagePreview ? '重新上传' : '上传图片' }}
+              <el-button
+                size="small"
+                :loading="imageUploading"
+                :disabled="activityForm.locationImageKeys.length >= ACTIVITY_IMAGE_MAX_COUNT"
+                @click="pickImage"
+              >
+                上传图片
               </el-button>
-              <span class="muted small">JPG/PNG/WebP，不超过 5MB</span>
+              <span class="muted small">JPG/PNG/WebP，单张不超过 5MB，最多 10 张</span>
             </div>
           </div>
           <p v-if="imageError" class="dialog-error">{{ imageError }}</p>
@@ -1102,6 +1148,12 @@ onBeforeUnmount(() => {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+}
+
+.image-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .image-preview {

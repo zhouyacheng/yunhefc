@@ -4,6 +4,7 @@ import {
   formatAmount,
   formatDate,
   formatDayStartTime,
+  formatDayTimeRange,
   formatDateTimeRange,
   formatDateWithYear,
   formatMoney,
@@ -21,6 +22,28 @@ describe('formatDayStartTime', () => {
 
   it.each([null, '', 'bad'])('无效值显示占位符：%s', (value) => {
     expect(formatDayStartTime(value)).toBe('—');
+  });
+});
+
+describe('formatDayTimeRange', () => {
+  it('同日拼接日期、星期与起止时刻', () => {
+    expect(formatDayTimeRange('2078-12-01T11:30:00Z', '2078-12-01T13:30:00Z')).toBe(
+      '12月1日 周四 19:30–21:30',
+    );
+  });
+
+  it('跨天补结束日期', () => {
+    expect(formatDayTimeRange('2078-12-01T14:00:00Z', '2078-12-01T18:00:00Z')).toBe(
+      '12月1日 周四 22:00–12/02 02:00',
+    );
+  });
+
+  it.each([null, undefined, ''])('无结束时间只显示开始：%s', (endAt) => {
+    expect(formatDayTimeRange('2078-12-01T11:30:00Z', endAt)).toBe('12月1日 周四 19:30');
+  });
+
+  it.each([null, '', 'bad'])('无效开始时间显示占位符：%s', (value) => {
+    expect(formatDayTimeRange(value, '2078-12-01T13:30:00Z')).toBe('—');
   });
 });
 

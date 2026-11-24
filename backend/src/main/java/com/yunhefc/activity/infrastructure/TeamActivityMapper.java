@@ -15,7 +15,7 @@ public interface TeamActivityMapper extends BaseMapper<TeamActivity> {
      */
     @Select("""
             SELECT id, team_id, title, type, start_at, end_at, signup_deadline, capacity,
-                   cost_per_person, location, location_image_key, description, status,
+                   family_allowed, cost_per_person, location, description, status,
                    cancel_reason, version, created_by, created_at, updated_at, is_deleted
             FROM team_activity
             WHERE id = #{id} AND team_id = #{teamId} AND is_deleted = 0
@@ -29,7 +29,7 @@ public interface TeamActivityMapper extends BaseMapper<TeamActivity> {
      */
     @Select("""
             SELECT id, team_id, title, type, start_at, end_at, signup_deadline, capacity,
-                   cost_per_person, location, location_image_key, description, status,
+                   family_allowed, cost_per_person, location, description, status,
                    cancel_reason, version, created_by, created_at, updated_at, is_deleted
             FROM team_activity
             WHERE id = #{id} AND team_id = #{teamId} AND is_deleted = 0

@@ -5,7 +5,10 @@ import com.yunhefc.common.error.ErrorCode;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
@@ -51,9 +54,37 @@ public final class ActivityRules {
         }
     }
 
-    public static void validateImageKey(String objectKey) {
-        if (objectKey != null && !IMAGE_KEY.matcher(objectKey).matches()) {
-            throw invalid("locationImageKey", "图片对象键不合法");
+    /** 编辑时显式出现的图片数组不得为 null；缺省保留、空数组清空。 */
+    public static void validateImageKeysPresent(List<String> imageKeys) {
+        if (imageKeys == null) {
+            throw invalid("locationImageKeys", "地点图片不能为 null");
+        }
+        validateImageKeys(imageKeys);
+    }
+
+    /** 0–10 张、顺序即展示顺序、不可重复；逐项只校验对象键格式。 */
+    public static void validateImageKeys(List<String> imageKeys) {
+        if (imageKeys == null) {
+            return;
+        }
+        if (imageKeys.size() > 10) {
+            throw invalid("locationImageKeys", "地点图片最多 10 张");
+        }
+        Set<String> seen = new HashSet<>();
+        for (String objectKey : imageKeys) {
+            if (objectKey == null || !IMAGE_KEY.matcher(objectKey).matches()) {
+                throw invalid("locationImageKeys", "图片对象键不合法");
+            }
+            if (!seen.add(objectKey)) {
+                throw invalid("locationImageKeys", "地点图片不能重复");
+            }
+        }
+    }
+
+    /** 活动级家属开关只约束新报名；关闭时拒绝携带家属，不回溯已有报名。 */
+    public static void validateFamilyAllowed(TeamActivity activity, boolean withFamily) {
+        if (withFamily && !activity.isFamilyAllowed()) {
+            throw invalid("withFamily", "该活动不允许携带家属");
         }
     }
 

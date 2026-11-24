@@ -17,7 +17,8 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 
 /**
- * 必须使用全新空库：模拟生产从 V14 升到 V17，先造存量数据，验证 V16/V17 纯增量迁移不动旧数据。
+ * 必须使用全新空库：模拟生产从 V14 升到 V18，先造存量数据，验证 V16–V18 纯增量迁移不动旧数据，
+ * 并验证 V18 把单图回填到 activity_image 后删除 team_activity.location_image_key。
  */
 @Testcontainers
 class FlywayV17UpgradeIT {
@@ -38,14 +39,20 @@ class FlywayV17UpgradeIT {
             insertUser(connection, 9402, "13900009402", null);
         }
 
+        migrateTo("17");
+
+        try (Connection connection = connect()) {
+            insertLegacyActivity(connection);
+        }
+
         migrateTo(null);
 
         try (Connection connection = connect()) {
-            assertThat(schemaVersion(connection)).isEqualTo("17");
+            assertThat(schemaVersion(connection)).isEqualTo("18");
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM flyway_schema_history
-                    WHERE success = 1 AND version IN ('16', '17')
-                    """)).isEqualTo(2);
+                    WHERE success = 1 AND version IN ('16', '17', '18')
+                    """)).isEqualTo(3);
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM flyway_schema_history WHERE version = '15'
                     """)).isZero();
@@ -60,7 +67,8 @@ class FlywayV17UpgradeIT {
                     """)).isEqualTo(1);
 
             for (String table : new String[]{
-                    "team_activity", "activity_signup", "ledger_category", "team_ledger_entry"}) {
+                    "team_activity", "activity_signup", "activity_image",
+                    "ledger_category", "team_ledger_entry"}) {
                 assertThat(countOf(connection, """
                         SELECT COUNT(*) FROM information_schema.tables
                         WHERE table_schema = DATABASE() AND table_name = '%s'
@@ -95,6 +103,38 @@ class FlywayV17UpgradeIT {
                       AND column_name = 'type'
                       AND column_comment LIKE '%12-活动创建%' AND column_comment LIKE '%13-活动取消%'
                     """)).isEqualTo(1);
+
+            // V18：存量单图回填为 sort_no=0，单图列删除，family_allowed 默认关闭。
+            assertThat(countOf(connection, """
+                    SELECT COUNT(*) FROM activity_image ai
+                    JOIN team_activity ta ON ta.id = ai.activity_id
+                    WHERE ta.title = '迁移带图活动'
+                      AND ai.image_key = 'activity/1/01JABCDEFGHJKMNPQRSTVWXYZ0.png'
+                      AND ai.sort_no = 0 AND ai.is_deleted = 0
+                    """)).isEqualTo(1);
+            assertThat(countOf(connection, """
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'team_activity'
+                      AND column_name = 'location_image_key'
+                    """)).isZero();
+            assertThat(countOf(connection, """
+                    SELECT COUNT(*) FROM team_activity
+                    WHERE title = '迁移带图活动' AND family_allowed = 0
+                    """)).isEqualTo(1);
+        }
+    }
+
+    private void insertLegacyActivity(Connection connection) throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("""
+                    INSERT INTO team_activity
+                        (team_id, title, type, start_at, signup_deadline,
+                         location, location_image_key, status, version, created_by)
+                    VALUES
+                        (1, '迁移带图活动', 0, '2030-12-20 18:00:00.000',
+                         '2030-12-20 17:00:00.000', '体育馆',
+                         'activity/1/01JABCDEFGHJKMNPQRSTVWXYZ0.png', 0, 0, 1)
+                    """);
         }
     }
 

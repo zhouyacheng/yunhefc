@@ -146,6 +146,14 @@ export function activityCancelState(
   return { visible: true, label, disabled: false, reason: '' };
 }
 
+/** 报名人数进度百分比；上限未知或非法时返回 0。 */
+export function activityCapacityPercent(signupCount: number, capacity: number | null): number {
+  if (capacity === null || capacity <= 0) {
+    return 0;
+  }
+  return Math.max(0, Math.min(100, Math.round((signupCount / capacity) * 100)));
+}
+
 /** 只计报名人数，不含家属；无上限只显示已报人数。 */
 export function activitySignupText(signupCount: number, capacity: number | null): string {
   return capacity === null

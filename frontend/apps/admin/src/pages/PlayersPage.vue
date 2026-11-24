@@ -919,7 +919,7 @@ onUnmounted(() => {
           >
             选择头像
           </el-button>
-          <p class="muted small">JPG/PNG/WebP，不超过 2MB，自动压缩</p>
+          <p class="muted small">JPG/PNG/WebP，不超过 5MB，自动压缩</p>
           <p v-if="avatarUploading" class="muted small">头像上传中…</p>
           <p v-if="avatarFileError" class="dialog-error">{{ avatarFileError }}</p>
           <p v-if="avatarUploadError" class="dialog-error">{{ avatarUploadError }}</p>

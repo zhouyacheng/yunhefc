@@ -27,7 +27,7 @@ import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.contracts.security.UserAccountReadPort;
 import com.yunhefc.contracts.team.TeamReadPort;
-import com.yunhefc.infra.storage.AvatarUrlSigner;
+import com.yunhefc.infra.storage.OssGateway;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -57,7 +57,8 @@ public class ActivityApplicationService {
     private final PlayerReadPort playerReadPort;
     private final UserAccountReadPort userAccountReadPort;
     private final ActivityRosterAssembler rosterAssembler;
-    private final AvatarUrlSigner avatarUrlSigner;
+    private final ActivityImageStore imageStore;
+    private final OssGateway ossGateway;
     private final ActivitySignupLock signupLock;
 
     @Transactional(readOnly = true)
@@ -106,7 +107,7 @@ public class ActivityApplicationService {
         ActivitySignupView mine = CurrentUser.optionalPrincipal()
                 .flatMap(principal -> mySignup(activityId, principal))
                 .orElse(null);
-        return toSummary(activity, signupCount, mine, now);
+        return toSummary(activity, signupCount, mine, imageStore.keys(activityId), now);
     }
 
     @Transactional(readOnly = true)
@@ -137,7 +138,7 @@ public class ActivityApplicationService {
         if (!ActivityRules.withinSignupWindow(activity, now)) {
             throw new BusinessException(ErrorCode.ACTIVITY_STATE_CONFLICT, "活动当前不可报名");
         }
-        // 已报名优先于满员：重复提交应得到 40916，而不是因满员返回 40918。
+        // 已报名优先于满员与家属门禁：重复提交应得到 40916。
         ActivitySignup existing = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getActivityId, activityId)
                 .eq(ActivitySignup::getPlayerId, player.id())
@@ -145,6 +146,7 @@ public class ActivityApplicationService {
         if (existing != null && existing.getStatus() == SignupStatus.CONFIRMED) {
             throw new BusinessException(ErrorCode.ACTIVITY_SIGNUP_CONFLICT);
         }
+        ActivityRules.validateFamilyAllowed(activity, Boolean.TRUE.equals(request.withFamily()));
         int signupCount = activitySignupMapper.countActive(activityId);
         if (activity.getCapacity() != null && signupCount >= activity.getCapacity()) {
             throw new BusinessException(ErrorCode.ACTIVITY_FULL);
@@ -282,10 +284,12 @@ public class ActivityApplicationService {
                 .collect(Collectors.toMap(ActivitySignupCountRow::getActivityId,
                         ActivitySignupCountRow::getSignupCount));
         Map<Long, ActivitySignupView> mine = mySignups(activityIds);
+        Map<Long, List<String>> images = imageStore.keysByActivity(activityIds);
         return activities.stream()
                 .map(activity -> toSummary(activity,
                         counts.getOrDefault(activity.getId(), 0),
-                        mine.get(activity.getId()), now))
+                        mine.get(activity.getId()),
+                        images.getOrDefault(activity.getId(), List.of()), now))
                 .toList();
     }
 
@@ -308,7 +312,8 @@ public class ActivityApplicationService {
     }
 
     private ActivitySummary toSummary(TeamActivity activity, int signupCount,
-                                      ActivitySignupView mine, LocalDateTime now) {
+                                      ActivitySignupView mine, List<String> imageKeys,
+                                      LocalDateTime now) {
         return new ActivitySummary(
                 activity.getId(),
                 activity.getTitle(),
@@ -318,9 +323,10 @@ public class ActivityApplicationService {
                 activity.getEndAt(),
                 activity.getSignupDeadline(),
                 activity.getCapacity(),
+                activity.isFamilyAllowed(),
                 activity.getCostPerPerson(),
                 activity.getLocation(),
-                avatarUrlSigner.sign(activity.getLocationImageKey()),
+                imageKeys.stream().map(ossGateway::signedUrl).toList(),
                 activity.getDescription(),
                 activity.getStatus().code(),
                 activity.getStatus().label(),

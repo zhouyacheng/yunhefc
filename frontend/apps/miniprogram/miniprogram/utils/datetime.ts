@@ -18,16 +18,40 @@ function shanghaiDate(value: string | null | undefined): Date | null {
   return new Date(time + SHANGHAI_OFFSET_MS);
 }
 
+function dayLabel(date: Date): string {
+  return `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${WEEKDAYS[date.getUTCDay()]}`;
+}
+
 /** 展示文案：按 Asia/Shanghai 输出 `M月D日 周X HH:mm`，无效值返回占位符 `—`。 */
 export function formatDayStartTime(value: string | null | undefined): string {
   const date = shanghaiDate(value);
   if (!date) {
     return '—';
   }
-  const month = date.getUTCMonth() + 1;
-  const day = date.getUTCDate();
-  const weekday = WEEKDAYS[date.getUTCDay()];
-  return `${month}月${day}日 ${weekday} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+  return `${dayLabel(date)} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
+}
+
+/** 展示文案：`M月D日 周X HH:mm–HH:mm`；与 packages/shared 的 formatDayTimeRange 保持一致。 */
+export function formatDayTimeRange(
+  startAt: string | null | undefined,
+  endAt: string | null | undefined,
+): string {
+  const date = shanghaiDate(startAt);
+  const start = formatHourMinute(startAt);
+  if (!date || !start) {
+    return '—';
+  }
+  const head = dayLabel(date);
+  const end = formatHourMinute(endAt);
+  if (!end) {
+    return `${head} ${start}`;
+  }
+  const startDate = formatDateYmd(startAt);
+  const endDate = formatDateYmd(endAt);
+  if (!endDate || startDate === endDate) {
+    return `${head} ${start}–${end}`;
+  }
+  return `${head} ${start}–${formatMonthDay(endAt)} ${end}`;
 }
 
 /** 当前年月（Asia/Shanghai），输出 `YYYY-MM`。 */

@@ -23,6 +23,11 @@
   font-weight: 600;
 }
 
+.team-head__links {
+  display: flex;
+  gap: 24rpx;
+}
+
 .team-head__link {
   padding: 12rpx 4rpx;
   color: var(--yh-green);

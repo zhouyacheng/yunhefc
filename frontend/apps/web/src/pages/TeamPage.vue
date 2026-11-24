@@ -144,6 +144,7 @@ onMounted(() => {
         <RouterLink class="ghost-link" :to="{ name: 'leaderboards', query: { season } }">
           排行榜 →
         </RouterLink>
+        <RouterLink class="ghost-link" to="/activities">活动 →</RouterLink>
       </div>
     </header>
 

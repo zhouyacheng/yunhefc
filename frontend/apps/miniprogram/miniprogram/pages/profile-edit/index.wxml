@@ -16,7 +16,7 @@
       </view>
       <view class="avatar-meta">
         <text class="muted small">点击更换头像</text>
-        <text class="muted small">JPG/PNG/WebP，不超过 2MB</text>
+        <text class="muted small">JPG/PNG/WebP，不超过 5MB</text>
         <text wx:if="{{uploading}}" class="hint">头像上传中…</text>
       </view>
     </view>

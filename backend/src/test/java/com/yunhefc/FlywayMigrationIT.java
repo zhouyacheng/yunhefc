@@ -46,7 +46,7 @@ class FlywayMigrationIT {
 
     @Test
     void migratesEmptyDatabaseAndSeedsReferenceData() {
-        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(14);
+        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(17);
         assertThat(count("""
                 SELECT COUNT(*) FROM team
                 WHERE id = 1 AND ABS(TIMESTAMPDIFF(MINUTE, created_at, NOW())) <= 5
@@ -56,7 +56,7 @@ class FlywayMigrationIT {
                 WHERE table_schema = DATABASE()
                   AND table_name <> 'flyway_schema_history'
                   AND table_name NOT LIKE 'QRTZ\\_%'
-                """)).isEqualTo(27);
+                """)).isEqualTo(32);
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = DATABASE() AND table_name LIKE 'QRTZ_%'
@@ -86,6 +86,13 @@ class FlywayMigrationIT {
                 SELECT COUNT(*) FROM information_schema.table_constraints
                 WHERE constraint_schema = DATABASE() AND constraint_type = 'CHECK'
                 """)).isZero();
+        assertThat(count("""
+                SELECT COUNT(DISTINCT table_name, index_name) FROM information_schema.statistics
+                WHERE table_schema = DATABASE()
+                  AND index_name <> 'PRIMARY'
+                  AND table_name <> 'flyway_schema_history'
+                  AND table_name NOT LIKE 'QRTZ\\_%'
+                """)).isEqualTo(73);
 
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables
@@ -125,8 +132,19 @@ class FlywayMigrationIT {
 
         assertThat(count("SELECT COUNT(*) FROM team")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM app_role")).isEqualTo(3);
-        assertThat(count("SELECT COUNT(*) FROM permission")).isEqualTo(28);
-        assertThat(count("SELECT COUNT(*) FROM role_permission")).isEqualTo(40);
+        assertThat(count("SELECT COUNT(*) FROM permission")).isEqualTo(33);
+        assertThat(count("SELECT COUNT(*) FROM role_permission")).isEqualTo(48);
+        assertThat(count("SELECT COUNT(*) FROM ledger_category WHERE is_deleted = 0")).isEqualTo(7);
+        assertThat(count("""
+                SELECT COUNT(*) FROM ledger_category
+                WHERE name = '其他' AND direction IS NULL
+                """)).isEqualTo(1);
+        assertThat(count("""
+                SELECT COUNT(*) FROM information_schema.columns
+                WHERE table_schema = DATABASE() AND table_name = 'notification'
+                  AND column_name = 'type'
+                  AND column_comment LIKE '%12-活动创建%' AND column_comment LIKE '%13-活动取消%'
+                """)).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM system_setting WHERE is_deleted = 0")).isEqualTo(3);
         assertThat(count("SELECT COUNT(*) FROM formation_template WHERE is_preset = 1")).isEqualTo(8);
         assertThat(count("SELECT COUNT(*) FROM formation_slot")).isEqualTo(64);

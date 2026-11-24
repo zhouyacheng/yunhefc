@@ -8,7 +8,10 @@
     "pages/login/index",
     "pages/phone-bind/index",
     "pages/profile-edit/index",
-    "pages/leaderboard/index"
+    "pages/leaderboard/index",
+    "pages/activity/index",
+    "pages/activity-detail/index",
+    "pages/ledger/index"
   ],
   "window": {
     "navigationBarTitleText": "云河FC",

@@ -17,12 +17,12 @@ class GlobalExceptionHandlerTest {
     @Test
     void mapsMultipartSizeExceededToValidationFailure() {
         ResponseEntity<ApiResponse<Object>> response =
-                handler.handleUploadTooLarge(new MaxUploadSizeExceededException(2_097_152L));
+                handler.handleUploadTooLarge(new MaxUploadSizeExceededException(5_242_880L));
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
         assertThat(response.getBody()).isNotNull();
         assertThat(response.getBody().code()).isEqualTo(ErrorCode.VALIDATION_FAILED.code());
         assertThat(response.getBody().data())
-                .isEqualTo(Map.of("details", Map.of("file", "图片不能超过 2MB")));
+                .isEqualTo(Map.of("details", Map.of("file", "文件超过上传上限")));
     }
 }

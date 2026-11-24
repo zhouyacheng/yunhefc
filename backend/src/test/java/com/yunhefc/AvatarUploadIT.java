@@ -213,7 +213,7 @@ class AvatarUploadIT extends IntegrationTestSupport {
                         .with(csrf()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001))
-                .andExpect(jsonPath("$.data.details.file").value("图片不能超过 2MB"));
+                .andExpect(jsonPath("$.data.details.file").value("图片不能超过 5MB"));
     }
 
     @Test

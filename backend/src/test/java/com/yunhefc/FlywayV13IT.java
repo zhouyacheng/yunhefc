@@ -42,7 +42,7 @@ class FlywayV13IT {
         migrateTo(null);
 
         try (Connection connection = connect()) {
-            assertThat(schemaVersion(connection)).isEqualTo("14");
+            assertThat(schemaVersion(connection)).isEqualTo("18");
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM app_user WHERE id = 9301 AND openid = 'legacy-openid'
                     """)).isEqualTo(1);
@@ -59,7 +59,7 @@ class FlywayV13IT {
                     WHERE table_schema = DATABASE()
                       AND table_name <> 'flyway_schema_history'
                       AND table_name NOT LIKE 'QRTZ\\_%'
-                    """)).isEqualTo(27);
+                    """)).isEqualTo(32);
 
             // 唯一键对 NULL 宽容，对非空值严格。
             updateMpOpenid(connection, 9301, "mp-1");

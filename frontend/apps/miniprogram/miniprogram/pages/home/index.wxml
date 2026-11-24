@@ -97,6 +97,14 @@
         </view>
       </view>
 
+      <view class="quick-entry" bindtap="goActivities" hover-class="card--pressed">
+        <text class="quick-entry__icon">🎉</text>
+        <view class="quick-entry__body">
+          <text class="quick-entry__title">队内活动</text>
+        </view>
+        <text class="quick-entry__arrow">→</text>
+      </view>
+
       <view class="section">
         <view class="section-head section-head--column">
           <text class="section-head__title">二期能力</text>

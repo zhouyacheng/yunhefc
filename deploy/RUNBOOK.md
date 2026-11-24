@@ -123,9 +123,9 @@ docker run --rm --network host \
 - 迁移成功后确认 `flyway_schema_history` 与目标版本一致。
 - 应用以 `spring.flyway.enabled=false` 启动；发布前若迁移未执行，应用不会补跑。
 
-#### 迁移后校验（P-66：V8 操作时间；P-68：V9 星级精度；P-72：V10 分组分数；V11/V12：手机号约束；V14：排行榜统计列）
+#### 迁移后校验（P-66：V8 操作时间；P-68：V9 星级精度；P-72：V10 分组分数；V11/V12：手机号约束；V14：排行榜统计列；V16/V17：活动与账本表与权限）
 
-`flyway migrate` 成功后执行，确认最新版本与目标一致（当前 V14）：
+`flyway migrate` 成功后执行，确认最新版本与目标一致（当前 V17；V15 为空号）：
 
 ```bash
 docker run --rm --network host \
@@ -151,13 +151,33 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
   SHOW INDEX FROM app_user WHERE Key_name = 'uk_user_mp_openid';
   SHOW COLUMNS FROM player_stats_summary LIKE 'internal_appearances';
   SHOW COLUMNS FROM player_stats_summary LIKE 'internal_wins';
-  SHOW COLUMNS FROM player_stats_summary LIKE 'own_goals';"
+  SHOW COLUMNS FROM player_stats_summary LIKE 'own_goals';
+  SELECT COUNT(*) AS activity_tables FROM information_schema.tables
+    WHERE table_schema = DATABASE()
+      AND table_name IN ('team_activity', 'activity_signup', 'ledger_category', 'team_ledger_entry');
+  SELECT COUNT(*) AS permissions FROM permission;
+  SELECT code FROM permission
+    WHERE code IN ('activity:signup:own', 'activity:view:any', 'activity:manage:any',
+                   'ledger:view:any', 'ledger:manage:any') ORDER BY code;
+  SELECT COUNT(*) AS admin_new_grants FROM role_permission rp
+    JOIN permission p ON p.id = rp.permission_id
+    JOIN app_role r ON r.id = rp.role_id
+    WHERE r.code = 'ADMIN' AND p.code IN ('activity:signup:own', 'activity:view:any',
+      'activity:manage:any', 'ledger:view:any', 'ledger:manage:any');
+  SELECT COUNT(*) AS player_new_grants FROM role_permission rp
+    JOIN permission p ON p.id = rp.permission_id
+    JOIN app_role r ON r.id = rp.role_id
+    WHERE r.code = 'PLAYER' AND p.code IN ('activity:signup:own', 'activity:view:any',
+      'ledger:view:any');
+  SHOW COLUMNS FROM notification LIKE 'type';
+  SELECT COUNT(*) AS ledger_categories FROM ledger_category WHERE is_deleted = 0;"
 ```
 
-- 期望：最新版本 14 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）；`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`，`manual_score` 为 `decimal(3,2) NULL`；两个非法值计数均为 0；`grouping.*` 配置为 0 行；`app_user.phone` 为 `varchar(20) NOT NULL`；`app_user.mp_openid` 为 `varchar(64) NULL` 且位于 `openid` 之后，存在唯一索引 `uk_user_mp_openid`；`player_stats_summary` 的 `internal_appearances`、`internal_wins`、`own_goals` 均为 `int unsigned NOT NULL DEFAULT 0`。
+- 期望：最新版本 17 且 `success=1`；`operated_at` 为 `datetime(3) NULL`；索引存在；历史行已回填（发布滚动窗口内由旧消息产生的行可能为 NULL）；`player.skill` 为 `decimal(3,2) NOT NULL DEFAULT 3.00`，`manual_score` 为 `decimal(3,2) NULL`；两个非法值计数均为 0；`grouping.*` 配置为 0 行；`app_user.phone` 为 `varchar(20) NOT NULL`；`app_user.mp_openid` 为 `varchar(64) NULL` 且位于 `openid` 之后，存在唯一索引 `uk_user_mp_openid`；`player_stats_summary` 的 `internal_appearances`、`internal_wins`、`own_goals` 均为 `int unsigned NOT NULL DEFAULT 0`；`activity_tables` 为 4；`permissions` 为 33 且包含 5 个新权限码；`admin_new_grants` 为 5、`player_new_grants` 为 3；`notification.type` 注释包含 12-活动创建/13-活动取消；`ledger_categories` 为 7。
 - 顺序：先 `migrate` 再部署新镜像。V8 只新增可空列与索引，V9 为无损值域扩展（TINYINT→DECIMAL、DECIMAL(3,1)→DECIMAL(3,2)），旧镜像可继续运行；但旧镜像以整数读取会截断小数，V9 执行后至新镜像完全切换前，避免在 B07 修改球员星级。V10 伪删除分组权重配置并更新列注释；旧镜像仍可运行，但分组分数以新镜像的球员星级为准。注意：旧镜像保存系统设置时会 upsert 全部 9 个键，可能把已伪删除的 `grouping.*` 重新写回 `is_deleted=0`，因此上述「`grouping.*` 为 0 行」校验必须在新镜像完全切换后执行；若被复活，执行 `UPDATE system_setting SET is_deleted = 1 WHERE setting_key LIKE 'grouping.%';` 后重新校验。回滚只回代码，不做逆向迁移。V14 只为 `player_stats_summary` 新增三列（`NOT NULL DEFAULT 0`），不触碰存量数据，旧镜像可继续运行。
 - V13 只新增 `app_user.mp_openid` 与唯一索引，不改动旧 `openid` 与存量数据；旧镜像可继续运行。旧 `openid` 列仍保留（只读），删除需另立版本并显式批准。
 - V14 为排行榜统计新增 `player_stats_summary.internal_appearances`（胜率分母）、`internal_wins`、`own_goals`，均为 `int unsigned NOT NULL DEFAULT 0`；不重算历史数据，统计由新镜像按赛季写入。
+- V16 新增 `team_activity`、`activity_signup`、`ledger_category`、`team_ledger_entry` 四张新表，并把 `notification.type` 列注释扩展到 12-活动创建/13-活动取消（不改存量表结构与数据），旧镜像可继续运行，不做数据回填；V17 新增 5 个权限码（`activity:signup:own`、`activity:view:any`、`activity:manage:any`、`ledger:view:any`、`ledger:manage:any`）与角色授权，并写入 7 个内置账本分类。迁移后校验：四张新表存在、`permission` 表 33 行、`ledger_category` 7 行、`role_permission` 包含新权限码、`flyway_schema_history` 最新为 V17。
 - V11 曾把 `app_user.phone` 改为可空；V12 会**删除**所有 `phone IS NULL` 的账号，并级联清理其球员档案、报名、考勤、事件（含事件历史）、阵容槽位、分组成员、统计、通知、角色、邀请使用与幂等键，然后恢复 `NOT NULL`。仍由其他球员参与的事件只置空被删的助攻。执行 V12 前必须先备份，并运行 `SELECT COUNT(*) FROM app_user WHERE phone IS NULL;` 核对范围；若存在真实账号，先人工补绑或另案处理，不要直接迁移。
 
 #### 启动自检兜底（P-83）
@@ -239,7 +259,7 @@ mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/bootstrap-admin
 ```
 
 4. 校验：
-   - 末尾 `admin_permissions` = **28**；
+   - 末尾 `admin_permissions` = **33**；
    - `https://www.<domain>/admin/` 用该手机号/密码登录成功；
    - C 端 `/c/me` 返回的 `player` 非空；
    - 登录后立即走 C 端「忘记密码」短信重置（AUTH-06）把初始口令换成个人口令，确认新口令可登录，并从运维记录中删除初始口令。
@@ -450,7 +470,7 @@ COMMIT;
 scripts/miniprogram-launch-wizard.sh
 ```
 
-逐段引导：request 合法域名、服务类目与隐私指引、采集 AppID/AppSecret、生成 ECS `.env` 片段、V14 迁移、发布镜像、生产 HTTPS 真机复验、上传与提审。AppSecret 走隐藏输入，只写入本地 `deploy/.env.mini` 与 ECS `/opt/yunhefc/.env`；迁移与发布前各有一道确认门，顺序反了不会继续。
+逐段引导：request 合法域名、服务类目与隐私指引、采集 AppID/AppSecret、生成 ECS `.env` 片段、V17 迁移（含 V16 活动与账本表）、发布镜像、生产 HTTPS 真机复验、上传与提审。AppSecret 走隐藏输入，只写入本地 `deploy/.env.mini` 与 ECS `/opt/yunhefc/.env`；迁移与发布前各有一道确认门，顺序反了不会继续。
 
 ---
 

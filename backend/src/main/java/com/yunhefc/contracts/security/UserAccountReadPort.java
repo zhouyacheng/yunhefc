@@ -13,9 +13,9 @@ public interface UserAccountReadPort {
     Optional<UserAccountSnapshot> find(Long userId);
 
     /**
-     * 以共享锁读取账号是否 ACTIVE，锁持有至当前事务结束。报名/取消先取该锁再锁比赛，
-     * 与注销编排的排他锁保持 账号→比赛 的锁序，注销提交后报名必然看到 DISABLED。
-     * 账号不存在返回空；不加载角色，避免在锁定比赛前建立事务一致性快照。
+     * 以共享锁读取账号是否 ACTIVE，锁持有至当前事务结束。报名类写操作（比赛报名/取消、
+     * 活动报名）先取该锁，与注销编排的排他锁保持 账号→业务行 的锁序，注销提交后报名
+     * 必然看到 DISABLED。账号不存在返回空；不加载角色，避免在锁定业务行前建立事务一致性快照。
      */
     Optional<Boolean> lockActiveForRegistration(Long userId);
 

@@ -292,7 +292,7 @@ onUnmounted(() => {
             @change="onFileChange"
           />
           <div class="avatar-field__meta">
-            <p class="muted small">JPG/PNG/WebP，不超过 2MB</p>
+            <p class="muted small">JPG/PNG/WebP，不超过 5MB</p>
             <p v-if="uploading" class="hint">头像上传中…</p>
             <p v-if="fileError" class="action-error">{{ fileError }}</p>
             <p v-if="uploadError" class="action-error">{{ uploadError }}</p>

@@ -132,10 +132,48 @@ describe('profile view', () => {
       unread: true,
       refType: 'MATCH',
       refId: 11,
+      linkLabel: '查看比赛',
+      linkUrl: '/pages/match-detail/index?id=11',
+      invalidate: 'my-registrations',
     });
     expect(decorateNotification({ ...item, readAt: '2026-12-04T10:00:00+08:00' }).unread).toBe(
       false,
     );
+  });
+
+  it('maps activity notifications to the activity detail page', () => {
+    const item: Notification = {
+      id: 4,
+      type: 12,
+      typeLabel: '活动',
+      title: '新活动',
+      body: '年终聚餐',
+      refType: 'ACTIVITY',
+      refId: 21,
+      readAt: null,
+      createdAt: '2026-12-03T20:00:00+08:00',
+    };
+    expect(decorateNotification(item)).toMatchObject({
+      linkLabel: '查看活动',
+      linkUrl: '/pages/activity-detail/index?id=21',
+      invalidate: null,
+    });
+  });
+
+  it('leaves notifications without a known target unlinked', () => {
+    expect(
+      decorateNotification({
+        id: 5,
+        type: 9,
+        typeLabel: '角色',
+        title: '角色变更',
+        body: '',
+        refType: 'USER',
+        refId: 2,
+        readAt: null,
+        createdAt: '2026-12-03T20:00:00+08:00',
+      }),
+    ).toMatchObject({ linkLabel: '', linkUrl: '', invalidate: null });
   });
 
   it('decorates registrations and voids cancelled matches', () => {

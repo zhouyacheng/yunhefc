@@ -47,7 +47,7 @@ server {
     include /etc/nginx/snippets/security-headers.conf;
 
     server_tokens off;
-    client_max_body_size 3m;
+    client_max_body_size 6m;
     root /usr/share/nginx/html;
     index index.html;
 

@@ -55,7 +55,7 @@ class FlywayV12IT {
         migrateTo(null);
 
         try (Connection connection = connect()) {
-            assertThat(schemaVersion(connection)).isEqualTo("14");
+            assertThat(schemaVersion(connection)).isEqualTo("18");
             assertThat(countOf(connection, "SELECT COUNT(*) FROM app_user WHERE id = 9101")).isZero();
             assertThat(countOf(connection,
                     "SELECT COUNT(*) FROM app_user WHERE id IN (9102, 9103)")).isEqualTo(2);

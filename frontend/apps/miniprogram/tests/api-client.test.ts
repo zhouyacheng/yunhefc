@@ -18,16 +18,23 @@ vi.mock('../miniprogram/utils/request', () => ({
 
 import {
   bindPhoneWithTicket,
+  cancelActivitySignup,
   cancelMyRegistration,
   changeMatchStatus,
   checkInMatch,
   createMatchEvent,
+  fetchActivity,
   fetchFullRoster,
   fetchLeaderboards,
+  fetchLedgerSummary,
   fetchMatchDetail,
   fetchMe,
   fetchTeamStats,
   fetchUnreadNotificationCount,
+  listActivities,
+  listActivitySignups,
+  listLedgerCategories,
+  listLedgerEntries,
   listMatchSeasons,
   listMatches,
   listMyRegistrations,
@@ -39,6 +46,7 @@ import {
   miniLogin,
   saveMyPlayer,
   sendBindSmsCode,
+  signupActivity,
   signupMatch,
   updateMatchEvent,
   uploadAvatar,
@@ -285,5 +293,75 @@ describe('profile save', () => {
     expect(mocks.ensureCsrf).toHaveBeenCalled();
     expect(mocks.request.mock.calls[0]?.slice(0, 2)).toEqual(['PATCH', '/me/player']);
     expect(mocks.request.mock.calls[0]?.[3]).toBeUndefined();
+  });
+});
+
+describe('activity client', () => {
+  it('lists activities with filters; latest omits pagination', async () => {
+    mocks.request.mockResolvedValue(page([]));
+    await listActivities({ scope: 'latest', type: 0, status: 1 });
+    expect(mocks.request).toHaveBeenCalledWith('GET', '/activities?type=0&status=1&scope=latest');
+
+    mocks.request.mockClear();
+    await listActivities({ scope: 'all' });
+    expect(mocks.request).toHaveBeenCalledWith('GET', '/activities?scope=all&page=1&pageSize=10');
+  });
+
+  it('reads detail and signup roster without idempotency options', async () => {
+    mocks.request.mockResolvedValue({ id: 5 });
+    await fetchActivity(5);
+    expect(mocks.request).toHaveBeenLastCalledWith('GET', '/activities/5');
+
+    mocks.request.mockResolvedValue(page([]));
+    await listActivitySignups(5, { page: 2, pageSize: 20 });
+    expect(mocks.request).toHaveBeenLastCalledWith(
+      'GET',
+      '/activities/5/signups?page=2&pageSize=20',
+    );
+  });
+
+  it('signs up and cancels with fresh idempotency keys', async () => {
+    mocks.request.mockResolvedValue({ signup: { id: 11 } });
+    await expect(signupActivity(5, { withFamily: true, familyNote: '两位' })).resolves.toEqual({
+      id: 11,
+    });
+    const [method, path, body, options] = mocks.request.mock.calls[0] ?? [];
+    expect(`${method} ${path}`).toBe('POST /activities/5/signups');
+    expect(body).toEqual({ withFamily: true, familyNote: '两位' });
+    expect(options?.idempotencyKey).toMatch(/^mp-/);
+
+    mocks.request.mockResolvedValue({ cancelled: true });
+    await expect(cancelActivitySignup(5)).resolves.toEqual({ cancelled: true });
+    const cancel = mocks.request.mock.calls[1] ?? [];
+    expect(`${cancel[0]} ${cancel[1]}`).toBe('DELETE /activities/5/signups/me');
+    expect(cancel[3]?.idempotencyKey).toMatch(/^mp-/);
+  });
+});
+
+describe('ledger client', () => {
+  it('lists entries with direction, category and ISO range', async () => {
+    mocks.request.mockResolvedValue(page([]));
+    await listLedgerEntries({
+      type: 1,
+      categoryId: 3,
+      from: '2026-11-01T00:00:00+08:00',
+      to: '2026-11-30T23:59:59+08:00',
+      page: 2,
+      pageSize: 20,
+    });
+    expect(mocks.request).toHaveBeenCalledWith(
+      'GET',
+      '/ledger/entries?type=1&categoryId=3&from=2026-11-01T00%3A00%3A00%2B08%3A00&to=2026-11-30T23%3A59%3A59%2B08%3A00&page=2&pageSize=20',
+    );
+  });
+
+  it('reads summary with the same filter and unwraps enabled categories', async () => {
+    mocks.request.mockResolvedValue({ income: 0, expense: 0, balance: 0 });
+    await fetchLedgerSummary({ type: 0 });
+    expect(mocks.request).toHaveBeenLastCalledWith('GET', '/ledger/summary?type=0');
+
+    mocks.request.mockResolvedValue({ items: [{ id: 1 }] });
+    await expect(listLedgerCategories()).resolves.toEqual([{ id: 1 }]);
+    expect(mocks.request).toHaveBeenLastCalledWith('GET', '/ledger/categories');
   });
 });

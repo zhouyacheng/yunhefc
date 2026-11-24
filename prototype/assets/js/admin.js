@@ -1555,7 +1555,7 @@
           <span data-avatar-preview>${Y.avatar(player, 'xl')}</span>
           <label class="btn btn-ghost btn-sm">上传头像<input type="file" accept="image/*" data-avatar-file hidden></label>
           <button type="button" class="btn btn-ghost btn-sm" data-avatar-remove>移除头像</button>
-          <span class="muted small">支持 JPG/PNG/WebP，最大 2MB，自动压缩</span>
+          <span class="muted small">支持 JPG/PNG/WebP，最大 5MB，自动压缩</span>
         </div>
         <label>姓名<input class="input" name="name" value="${esc(player.name)}" required></label>
         <label>号码<input class="input" type="number" name="jersey" min="0" value="${player.jersey}" required></label>

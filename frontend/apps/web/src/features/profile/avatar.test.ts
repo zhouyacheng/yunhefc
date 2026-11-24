@@ -13,7 +13,7 @@ import {
 } from './avatar';
 
 describe('validateAvatarFile', () => {
-  it('accepts JPEG, PNG and WebP up to 2MiB', () => {
+  it('accepts JPEG, PNG and WebP up to 5MiB', () => {
     for (const type of ['image/jpeg', 'image/png', 'image/webp']) {
       expect(validateAvatarFile({ type, size: AVATAR_MAX_BYTES })).toBeNull();
     }
@@ -25,11 +25,11 @@ describe('validateAvatarFile', () => {
     expect(AVATAR_TYPE_ERROR).toBe('仅支持 JPG/PNG/WebP');
   });
 
-  it('rejects files above 2MiB with the agreed message', () => {
+  it('rejects files above 5MiB with the agreed message', () => {
     expect(validateAvatarFile({ type: 'image/png', size: AVATAR_MAX_BYTES + 1 })).toBe(
       AVATAR_SIZE_ERROR,
     );
-    expect(AVATAR_SIZE_ERROR).toBe('图片不能超过 2MB，请重新选择');
+    expect(AVATAR_SIZE_ERROR).toBe('图片不能超过 5MB');
   });
 });
 

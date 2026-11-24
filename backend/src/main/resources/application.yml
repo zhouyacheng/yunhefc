@@ -55,9 +55,9 @@ spring:
       save-mode: always
   servlet:
     multipart:
-      # 后端以 2MiB 为准；请求上限为 multipart 开销留余量。
-      max-file-size: 2097152B
-      max-request-size: 3MB
+      # 全局 multipart 上限 5MiB；头像与场地环境图均为 5MiB，由应用层按端点兜住。
+      max-file-size: 5242880B
+      max-request-size: 6MB
 
 yunhefc:
   public-base-url: ${PUBLIC_BASE_URL:http://localhost:5273}

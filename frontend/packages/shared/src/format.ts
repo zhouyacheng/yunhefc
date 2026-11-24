@@ -79,6 +79,27 @@ export function formatDayStartTime(value: string | null | undefined): string {
   return `${monthDayLongFormatter.format(date)} ${weekdayFormatter.format(date)} ${timeFormatter.format(date)}`;
 }
 
+/** 月日、星期与时段：12月3日 周四 20:00–22:00；跨天 22:00–12/02 02:00。 */
+export function formatDayTimeRange(
+  startAt: string | null | undefined,
+  endAt: string | null | undefined,
+): string {
+  const head = formatDayStartTime(startAt);
+  if (head === '—' || !endAt) {
+    return head;
+  }
+  const start = new Date(startAt as string);
+  const end = new Date(endAt);
+  if (Number.isNaN(end.getTime()) || end.getTime() < start.getTime()) {
+    return head;
+  }
+  const endText =
+    dayKeyFormatter.format(start) === dayKeyFormatter.format(end)
+      ? timeFormatter.format(end)
+      : `${monthDayFormatter.format(end)} ${timeFormatter.format(end)}`;
+  return `${head}–${endText}`;
+}
+
 /** 带年份与星期：2026/12/02 周三。 */
 export function formatDateWithYear(value: string | null | undefined): string {
   if (!value) {
@@ -142,4 +163,26 @@ export function formatDateTimeRange(
     return `${startText} ~ ${timeFormatter.format(end)}`;
   }
   return `${startText} ~ ${monthDayFormatter.format(end)} ${timeFormatter.format(end)}`;
+}
+
+function groupDigits(value: string): string {
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/** 金额展示：固定两位小数并千分位，不带货币符号。 */
+export function formatAmount(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+  const [integer = '0', fraction = '00'] = Math.abs(value).toFixed(2).split('.');
+  return `${groupDigits(integer)}.${fraction}`;
+}
+
+/** 金额展示：负数用 U+2212，统一为 −¥1,234.50。 */
+export function formatMoney(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+  const sign = value < 0 ? '−' : '';
+  return `${sign}¥${formatAmount(value)}`;
 }

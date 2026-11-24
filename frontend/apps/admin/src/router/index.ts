@@ -41,6 +41,12 @@ function sectionComponent(section: AdminSection) {
   if (section === 'invites') {
     return () => import('../pages/InvitesPage.vue');
   }
+  if (section === 'activities') {
+    return () => import('../pages/ActivitiesPage.vue');
+  }
+  if (section === 'ledger') {
+    return () => import('../pages/LedgerPage.vue');
+  }
   return () => import('../pages/SectionPage.vue');
 }
 

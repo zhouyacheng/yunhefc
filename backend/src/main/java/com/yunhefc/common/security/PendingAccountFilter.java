@@ -38,6 +38,8 @@ public class PendingAccountFilter extends OncePerRequestFilter {
             new AllowedRoute("GET", "/api/v1/c/matches"),
             new AllowedRoute("GET", "/api/v1/c/matches/*"),
             new AllowedRoute("GET", "/api/v1/c/matches/*/events"),
+            new AllowedRoute("GET", "/api/v1/c/activities"),
+            new AllowedRoute("GET", "/api/v1/c/activities/*"),
             new AllowedRoute("GET", "/api/v1/c/me"),
             new AllowedRoute("GET", "/api/v1/c/notifications"),
             new AllowedRoute("GET", "/api/v1/c/notifications/unread-count"));

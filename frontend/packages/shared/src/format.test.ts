@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  formatAmount,
   formatDate,
   formatDayStartTime,
+  formatDayTimeRange,
   formatDateTimeRange,
   formatDateWithYear,
+  formatMoney,
   formatTimeRange,
 } from './format';
 
@@ -19,6 +22,28 @@ describe('formatDayStartTime', () => {
 
   it.each([null, '', 'bad'])('无效值显示占位符：%s', (value) => {
     expect(formatDayStartTime(value)).toBe('—');
+  });
+});
+
+describe('formatDayTimeRange', () => {
+  it('同日拼接日期、星期与起止时刻', () => {
+    expect(formatDayTimeRange('2078-12-01T11:30:00Z', '2078-12-01T13:30:00Z')).toBe(
+      '12月1日 周四 19:30–21:30',
+    );
+  });
+
+  it('跨天补结束日期', () => {
+    expect(formatDayTimeRange('2078-12-01T14:00:00Z', '2078-12-01T18:00:00Z')).toBe(
+      '12月1日 周四 22:00–12/02 02:00',
+    );
+  });
+
+  it.each([null, undefined, ''])('无结束时间只显示开始：%s', (endAt) => {
+    expect(formatDayTimeRange('2078-12-01T11:30:00Z', endAt)).toBe('12月1日 周四 19:30');
+  });
+
+  it.each([null, '', 'bad'])('无效开始时间显示占位符：%s', (value) => {
+    expect(formatDayTimeRange(value, '2078-12-01T13:30:00Z')).toBe('—');
   });
 });
 
@@ -113,5 +138,22 @@ describe('formatDateTimeRange', () => {
 
   it.each([null, 'bad'])('开始时间无效时显示占位符：%s', (startAt) => {
     expect(formatDateTimeRange(startAt, '2078-12-01T14:00:00Z')).toBe('—');
+  });
+});
+
+describe('金额格式化', () => {
+  it('固定两位小数并千分位', () => {
+    expect(formatAmount(0)).toBe('0.00');
+    expect(formatAmount(88.5)).toBe('88.50');
+    expect(formatAmount(1234.5)).toBe('1,234.50');
+    expect(formatAmount(-1234.5)).toBe('1,234.50');
+    expect(formatAmount(Number.NaN)).toBe('—');
+  });
+
+  it('负数统一使用 U+2212 与货币符号', () => {
+    expect(formatMoney(0)).toBe('¥0.00');
+    expect(formatMoney(1234.5)).toBe('¥1,234.50');
+    expect(formatMoney(-500)).toBe('−¥500.00');
+    expect(formatMoney(Number.POSITIVE_INFINITY)).toBe('—');
   });
 });

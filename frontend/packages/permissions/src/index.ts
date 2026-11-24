@@ -2,6 +2,9 @@
  * 05 §5.1 权限码目录。后端 `AUTH-10` / `AUTH-17` 返回的 permissions 与 sections 是唯一权威，
  * 前端只用于导航与渲染判断。
  */
+export const ACTIVITY_MANAGE_ANY = 'activity:manage:any' as const;
+export const ACTIVITY_SIGNUP_OWN = 'activity:signup:own' as const;
+export const ACTIVITY_VIEW_ANY = 'activity:view:any' as const;
 export const ATTENDANCE_CHECKIN_OWN = 'attendance:checkin:own' as const;
 export const ATTENDANCE_MARK_ANY = 'attendance:mark:any' as const;
 export const ATTENDANCE_VIEW_ANY = 'attendance:view:any' as const;
@@ -14,6 +17,8 @@ export const GROUPING_GENERATE_ANY = 'grouping:generate:any' as const;
 export const GROUPING_VIEW_ANY = 'grouping:view:any' as const;
 export const INVITE_CREATE_MATCH = 'invite:create:match' as const;
 export const INVITE_MANAGE_ANY = 'invite:manage:any' as const;
+export const LEDGER_MANAGE_ANY = 'ledger:manage:any' as const;
+export const LEDGER_VIEW_ANY = 'ledger:view:any' as const;
 export const LINEUP_EDIT_ANY = 'lineup:edit:any' as const;
 export const LINEUP_VIEW_ANY = 'lineup:view:any' as const;
 export const MATCH_CREATE_ANY = 'match:create:any' as const;
@@ -32,6 +37,9 @@ export const SETTINGS_VIEW_ANY = 'settings:view:any' as const;
 export const USER_APPROVE_ANY = 'user:approve:any' as const;
 
 export const PERMISSIONS = {
+  ACTIVITY_MANAGE_ANY,
+  ACTIVITY_SIGNUP_OWN,
+  ACTIVITY_VIEW_ANY,
   ATTENDANCE_CHECKIN_OWN,
   ATTENDANCE_MARK_ANY,
   ATTENDANCE_VIEW_ANY,
@@ -44,6 +52,8 @@ export const PERMISSIONS = {
   GROUPING_VIEW_ANY,
   INVITE_CREATE_MATCH,
   INVITE_MANAGE_ANY,
+  LEDGER_MANAGE_ANY,
+  LEDGER_VIEW_ANY,
   LINEUP_EDIT_ANY,
   LINEUP_VIEW_ANY,
   MATCH_CREATE_ANY,
@@ -69,6 +79,7 @@ export const ALL_PERMISSIONS = Object.values(PERMISSIONS) as readonly Permission
 
 /** 仅 C 端使用、不构成后台准入的权限（与后端 BackendPermissions 保持一致）。 */
 const C_ONLY_PERMISSIONS: ReadonlySet<string> = new Set([
+  ACTIVITY_SIGNUP_OWN,
   ATTENDANCE_CHECKIN_OWN,
   EVENT_CREATE_OWN,
   EVENT_EDIT_OWN,
@@ -88,6 +99,8 @@ export const ADMIN_SECTIONS = [
   'settings',
   'audit',
   'invites',
+  'activities',
+  'ledger',
 ] as const;
 
 export type AdminSection = (typeof ADMIN_SECTIONS)[number];
@@ -108,6 +121,8 @@ export const ADMIN_SECTION_PERMISSIONS: Record<AdminSection, readonly Permission
   settings: [SETTINGS_VIEW_ANY],
   audit: [AUDIT_VIEW_ANY],
   invites: [INVITE_MANAGE_ANY],
+  activities: [ACTIVITY_MANAGE_ANY],
+  ledger: [LEDGER_VIEW_ANY],
 };
 
 export function hasPermission(

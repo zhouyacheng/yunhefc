@@ -12,6 +12,7 @@ import { promotionText, registrationDecision } from '../../utils/registration';
 import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
 import { createPagedFeed, emptyPagedFeedState, type PagedFeed } from '../../utils/paged-feed';
 import { invalidate, subscribe } from '../../utils/invalidation';
+import { LEDGER_VIEW_ANY, hasPermission } from '../../utils/permissions';
 import {
   decorateNotification,
   decorateRegistration,
@@ -42,6 +43,7 @@ function loggedOutState() {
     player: null,
     identity: null,
     pending: false,
+    canViewLedger: false,
     unreadCount: null,
     actionError: '',
     actionMessage: '',
@@ -55,6 +57,7 @@ Page({
     player: null as PlayerView | null,
     identity: null as IdentityView | null,
     pending: false,
+    canViewLedger: false,
     notifications: emptyPagedFeedState<NotificationRow>('all'),
     registrations: emptyPagedFeedState<RegistrationRowView>('active'),
     markingAll: false,
@@ -145,6 +148,7 @@ Page({
       player,
       identity: identityOf(user, player),
       pending,
+      canViewLedger: !pending && hasPermission(getPermissions(), LEDGER_VIEW_ANY),
       actionError: '',
     });
     void refreshUnreadBadge().then((unreadCount) => {
@@ -197,9 +201,11 @@ Page({
         }
         await notificationFeed?.load();
       }
-      if (item.refType === 'MATCH' && typeof item.refId === 'number' && item.refId > 0) {
-        invalidate('my-registrations');
-        await wx.navigateTo({ url: `/pages/match-detail/index?id=${item.refId}` });
+      if (item.invalidate) {
+        invalidate(item.invalidate);
+      }
+      if (item.linkUrl) {
+        await wx.navigateTo({ url: item.linkUrl });
       }
     } finally {
       this.setData({ busyId: 0 });
@@ -318,6 +324,10 @@ Page({
       return;
     }
     void wx.navigateTo({ url: '/pages/profile-edit/index' });
+  },
+
+  goLedger() {
+    void wx.navigateTo({ url: '/pages/ledger/index' });
   },
 
   confirmLogout() {

@@ -27,6 +27,14 @@ Component({
     error: { type: String, value: '' },
     initialStartAt: { type: String, value: '' },
     initialEndAt: { type: String, value: '' },
+    /** 实体名，用于标题：比赛 / 活动。 */
+    entityLabel: { type: String, value: '比赛' },
+    /** 视为「取消」的状态码；活动为 3。 */
+    cancelStatus: { type: Number, value: 6 },
+    /** 取消原因上限；活动为 255。 */
+    cancelMaxLength: { type: Number, value: 200 },
+    /** 列表态提示；空则使用比赛默认文案。 */
+    listHint: { type: String, value: '' },
   },
 
   data: {
@@ -84,6 +92,7 @@ Component({
         this.data.options as StatusOption[],
         this.data.currentStatus,
         Number(event.currentTarget.dataset.index),
+        this.data.cancelStatus,
       );
       switch (choice.kind) {
         case 'ignore':
@@ -133,7 +142,7 @@ Component({
     },
 
     submitCancel(): void {
-      const submission = buildCancelSubmission(this.data.reason);
+      const submission = buildCancelSubmission(this.data.reason, this.data.cancelMaxLength);
       if (!submission.ok) {
         this.setData({ formError: submission.error });
         return;

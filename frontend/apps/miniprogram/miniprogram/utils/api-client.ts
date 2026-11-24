@@ -2,6 +2,11 @@
 // 页面只表达意图；路径、分页、幂等键与 CSRF 留在实现内。错误按 ApiError 原样抛出，
 // 页面各自保留提示文案与冲突刷新语义。
 import type {
+  ActivityDetail,
+  ActivitySignup,
+  ActivityStatus,
+  ActivitySummary,
+  ActivityType,
   Attendance,
   AttendanceRow,
   AuthUser,
@@ -14,6 +19,10 @@ import type {
   GroupingView,
   Leaderboard,
   LeaderboardScope,
+  LedgerCategory,
+  LedgerEntry,
+  LedgerSummary,
+  LedgerType,
   LineupView,
   MatchDetail,
   MatchEvent,
@@ -356,4 +365,132 @@ export function fetchLeaderboards(query: LeaderboardsQuery = {}): Promise<Leader
     'GET',
     `/team/leaderboards${queryString({ season, scope: query.scope })}`,
   );
+}
+
+// ---- 队内活动 ----
+
+/** 最近活动（start_at 最大一条）/历史/全部；缺省由服务端按 all 处理。 */
+export type ActivityScope = 'latest' | 'history' | 'all';
+
+export interface ActivityListQuery {
+  type?: ActivityType;
+  status?: ActivityStatus;
+  scope?: ActivityScope;
+  page?: number;
+  pageSize?: number;
+}
+
+/** ACT-01 C 端活动列表；登录时含 mySignup。「最近活动」只取一条，不下发分页。 */
+export function listActivities(query: ActivityListQuery = {}): Promise<Page<ActivitySummary>> {
+  const filters = queryString({
+    type: query.type,
+    status: query.status,
+    scope: query.scope,
+  });
+  if (query.scope === 'latest') {
+    return request<Page<ActivitySummary>>('GET', `/activities${filters}`);
+  }
+  const page = Math.max(1, Math.floor(query.page ?? 1) || 1);
+  const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+  return request<Page<ActivitySummary>>(
+    'GET',
+    `/activities${filters}${filters ? '&' : '?'}page=${page}&pageSize=${pageSize}`,
+  );
+}
+
+/** ACT-02 活动详情；不含报名名单。 */
+export function fetchActivity(id: number): Promise<ActivityDetail> {
+  return request<ActivityDetail>('GET', `/activities/${id}`);
+}
+
+export interface ActivitySignupPayload {
+  withFamily: boolean;
+  familyNote?: string;
+}
+
+/** ACT-03 报名；满员与状态冲突由服务端返回 40918/40917。 */
+export async function signupActivity(
+  id: number,
+  payload: ActivitySignupPayload,
+): Promise<ActivitySignup> {
+  const result = await highRiskWrite<{ signup: ActivitySignup }>(
+    'POST',
+    `/activities/${id}/signups`,
+    payload,
+  );
+  return result.signup;
+}
+
+/** ACT-04 取消本人报名；重复取消返回 cancelled=false。 */
+export function cancelActivitySignup(id: number): Promise<{ cancelled: boolean }> {
+  return highRiskWrite<{ cancelled: boolean }>('DELETE', `/activities/${id}/signups/me`);
+}
+
+export interface ActivityStatusUpdate {
+  status: ActivityStatus;
+  version: number;
+  reason?: string;
+}
+
+/** ACT-13 C 端详情流转状态；仅 activity:manage:any 可用。 */
+export function changeActivityStatus(id: number, body: ActivityStatusUpdate): Promise<void> {
+  return highRiskWrite<void>('POST', `/activities/${id}/status`, body);
+}
+
+/** ACT-05 名单分页；详情页不展示名单，预留给后续只读入口。 */
+export function listActivitySignups(
+  id: number,
+  query: { page: number; pageSize: number },
+): Promise<Page<ActivitySignup>> {
+  return request<Page<ActivitySignup>>('GET', `/activities/${id}/signups${queryString(query)}`);
+}
+
+// ---- 账本（C 端只读） ----
+
+export interface LedgerFilter {
+  type?: LedgerType;
+  categoryId?: number;
+  from?: string;
+  to?: string;
+}
+
+export interface LedgerEntryQuery extends LedgerFilter {
+  page?: number;
+  pageSize?: number;
+}
+
+/** LED-01 流水列表；from/to 为 ISO-8601 时间。 */
+export function listLedgerEntries(query: LedgerEntryQuery = {}): Promise<Page<LedgerEntry>> {
+  const page = Math.max(1, Math.floor(query.page ?? 1) || 1);
+  const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+  return request<Page<LedgerEntry>>(
+    'GET',
+    `/ledger/entries${queryString({
+      type: query.type,
+      categoryId: query.categoryId,
+      from: query.from,
+      to: query.to,
+      page,
+      pageSize,
+    })}`,
+  );
+}
+
+/** LED-02 汇总；余额 = 收入 − 支出。 */
+export function fetchLedgerSummary(filter: LedgerFilter = {}): Promise<LedgerSummary> {
+  return request<LedgerSummary>(
+    'GET',
+    `/ledger/summary${queryString({
+      type: filter.type,
+      categoryId: filter.categoryId,
+      from: filter.from,
+      to: filter.to,
+    })}`,
+  );
+}
+
+/** LED-08 启用中的分类；direction=null 的通用分类也会返回。 */
+export async function listLedgerCategories(): Promise<LedgerCategory[]> {
+  const { items } = await request<{ items: LedgerCategory[] }>('GET', '/ledger/categories');
+  return items || [];
 }

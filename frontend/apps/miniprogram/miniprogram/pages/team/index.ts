@@ -37,6 +37,10 @@ Page({
     });
   },
 
+  goActivities() {
+    void wx.navigateTo({ url: '/pages/activity/index' });
+  },
+
   async load() {
     await this.loadSeasonOptions();
     await this.loadPlayers();

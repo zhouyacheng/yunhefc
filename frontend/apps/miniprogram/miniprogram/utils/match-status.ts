@@ -6,7 +6,7 @@ export interface StatusOption {
   status: number;
   label: string;
   disabled: boolean;
-  reason: string;
+  reason?: string;
 }
 
 const ALL_STATUSES = [0, 1, 2, 3, 4, 5, 6];
@@ -60,6 +60,7 @@ export function statusChoice(
   options: readonly StatusOption[],
   currentStatus: number,
   index: number,
+  cancelStatus = 6,
 ): StatusChoice {
   const option = options[index];
   if (!option || option.disabled || option.status === currentStatus) {
@@ -68,7 +69,7 @@ export function statusChoice(
   if (option.status === 5) {
     return { kind: 'postpone' };
   }
-  if (option.status === 6) {
+  if (option.status === cancelStatus) {
     return { kind: 'cancel' };
   }
   return { kind: 'change', status: option.status };
@@ -227,14 +228,14 @@ export function buildPostponeSubmission(fields: PostponeFields): PostponeSubmiss
   );
 }
 
-/** 取消原因校验：非空、≤200 字。 */
-export function cancelReasonError(reason: string): string | null {
+/** 取消原因校验：非空、不超过 maxLength 字（比赛 200，活动 255）。 */
+export function cancelReasonError(reason: string, maxLength = 200): string | null {
   const trimmed = reason.trim();
   if (!trimmed) {
     return '请输入取消原因';
   }
-  if (trimmed.length > 200) {
-    return '取消原因不能超过 200 字';
+  if (trimmed.length > maxLength) {
+    return `取消原因不能超过 ${maxLength} 字`;
   }
   return null;
 }
@@ -242,8 +243,8 @@ export function cancelReasonError(reason: string): string | null {
 export type CancelSubmission = { ok: true; reason: string } | { ok: false; error: string };
 
 /** 取消表单 → 提交原因；校验失败返回文案。 */
-export function buildCancelSubmission(reason: string): CancelSubmission {
-  const message = cancelReasonError(reason);
+export function buildCancelSubmission(reason: string, maxLength = 200): CancelSubmission {
+  const message = cancelReasonError(reason, maxLength);
   if (message) {
     return { ok: false, error: message };
   }

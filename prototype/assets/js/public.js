@@ -11,6 +11,8 @@
     if (page === 'match') initMatch();
     if (page === 'team') initTeam();
     if (page === 'leaderboard') initLeaderboard();
+    if (page === 'activity') initActivity();
+    if (page === 'ledger') initLedger();
     if (page === 'login') initLogin();
     if (page === 'profile') initProfile();
     if (page === 'invite') initInvite();
@@ -1249,7 +1251,7 @@ render();
         <span data-avatar-preview>${Y.avatar(user, 'xl')}</span>
         <label class="btn btn-ghost btn-sm">上传头像<input type="file" accept="image/*" data-avatar-file hidden></label>
         <button type="button" class="btn btn-ghost btn-sm" data-avatar-remove>移除头像</button>
-        <span class="muted small">支持 JPG/PNG/WebP，最大 2MB，自动压缩</span>
+        <span class="muted small">支持 JPG/PNG/WebP，最大 5MB，自动压缩</span>
       </div>
       <label>姓名<input class="input" name="name" value="${esc(user.name)}" required></label>
       <label>地区<input class="input" name="region" value="${esc(user.region || '')}"></label>
@@ -1397,5 +1399,257 @@ render();
         initProfile();
       });
     }
+  }
+
+  function initActivity() {
+    const host = $('#activity-content');
+    if (!host) return;
+    const typeLabels = { DINNER: '聚餐', ANNUAL_MEETING: '年会', OTHER: '其他' };
+    const statusLabels = { SIGNUP_OPEN: '报名中', SIGNUP_CLOSED: '报名截止', FINISHED: '已结束', CANCELLED: '已取消' };
+    const scopeLabels = { LATEST: '最近活动', HISTORY: '历史', ALL: '全部' };
+    const typeOptions = { ALL: '全部', ...typeLabels };
+    const statusOptions = { ALL: '全部', ...statusLabels };
+    const activities = [
+      { id: 1, title: '赛季收官聚餐', type: 'DINNER', startAt: '2026-12-06T18:30:00+08:00', deadline: '2026-12-04T20:00:00+08:00', location: '老地方火锅（体育中心店）', cost: 120, capacity: 20, signed: 12, status: 'SIGNUP_OPEN', mine: false, familyAllowed: true, family: false, imageCount: 2 },
+      { id: 2, title: '2026 年度年会', type: 'ANNUAL_MEETING', startAt: '2027-01-17T17:00:00+08:00', deadline: '2027-01-10T20:00:00+08:00', location: '云河酒店 3 楼宴会厅', cost: 260, capacity: null, signed: 8, status: 'SIGNUP_OPEN', mine: true, familyAllowed: true, family: true, imageCount: 0 },
+      { id: 3, title: '客场远征拼车协调', type: 'OTHER', startAt: '2026-11-29T07:30:00+08:00', deadline: '2026-11-27T18:00:00+08:00', location: '球队停车场集合', cost: null, capacity: 12, signed: 12, status: 'SIGNUP_CLOSED', mine: false, familyAllowed: false, family: false, imageCount: 1 }
+    ];
+    let typeFilter = 'ALL';
+    let statusFilter = 'ALL';
+    let scopeFilter = 'ALL';
+
+    function pastDeadline(item) {
+      return new Date(item.deadline).getTime() <= Date.now();
+    }
+
+    function signupOpen(item) {
+      if (item.status !== 'SIGNUP_OPEN') return false;
+      return !pastDeadline(item) && (item.capacity === null || item.signed < item.capacity);
+    }
+
+    function ctaLabel(item) {
+      if (item.status !== 'SIGNUP_OPEN' || pastDeadline(item)) return '已截止';
+      if (item.capacity !== null && item.signed >= item.capacity) return '已满';
+      return '报名';
+    }
+
+    function gateReason(item) {
+      if (item.status === 'SIGNUP_CLOSED' || pastDeadline(item)) return '报名已截止';
+      if (item.capacity !== null && item.signed >= item.capacity) return '名额已满';
+      return '当前不可报名';
+    }
+
+    const activityStatusFlow = ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'FINISHED', 'CANCELLED'];
+
+    function activityStatusEditable(item) {
+      return item.status === 'SIGNUP_OPEN' || item.status === 'SIGNUP_CLOSED';
+    }
+
+    function activityStatusDisabled(item, next) {
+      if (!activityStatusEditable(item)) return true;
+      return next === 'SIGNUP_OPEN' && item.status === 'SIGNUP_CLOSED';
+    }
+
+    function openActivityCancelModal(item) {
+      const body = `<form id="activity-cancel-form" class="form-grid">
+        <label class="full">取消原因<textarea class="input" name="reason" rows="3" required maxlength="255" placeholder="例如：场地临时关闭"></textarea></label>
+        <p class="muted small full">取消后已报名记录保留但不再有效，且不可恢复。</p>
+      </form>`;
+      const modal = Y.openModal('取消活动', body, '<button class="btn btn-danger" id="activity-cancel-submit">确认取消</button><button class="btn btn-ghost" data-close-modal>取消</button>');
+      modal.querySelector('#activity-cancel-submit').addEventListener('click', () => {
+        const form = modal.querySelector('#activity-cancel-form');
+        if (!form.reportValidity()) return;
+        const reason = String(new FormData(form).get('reason') || '').trim();
+        if (!reason) { Y.toast('请填写取消原因'); return; }
+        item.status = 'CANCELLED';
+        Y.closeModal();
+        Y.toast('活动已取消');
+        render();
+      });
+    }
+
+    function filterSelect(id, label, options, current) {
+      return `<label class="muted small" for="${id}">${label}
+        <select id="${id}">
+          ${Object.keys(options).map((key) => `<option value="${key}"${key === current ? ' selected' : ''}>${options[key]}</option>`).join('')}
+        </select>
+      </label>`;
+    }
+
+    function render() {
+      const filtered = activities.filter((item) => (typeFilter === 'ALL' || item.type === typeFilter)
+        && (statusFilter === 'ALL' || item.status === statusFilter))
+        .sort((a, b) => new Date(b.startAt) - new Date(a.startAt) || b.id - a.id);
+      const list = scopeFilter === 'LATEST'
+        ? filtered.slice(0, 1)
+        : scopeFilter === 'HISTORY'
+          ? filtered.filter((item) => new Date(item.startAt).getTime() < Date.now())
+          : filtered;
+      host.innerHTML = `<div class="container section">
+        <div class="page-head">
+          <div><span class="eyebrow">ACTIVITY</span><h1>活动</h1><p class="muted">聚餐、年会与队内其他活动；报名受状态、截止时间与人数上限约束，满员不设候补</p></div>
+        </div>
+        <div class="card" style="padding:12px;display:flex;gap:12px;flex-wrap:wrap;align-items:end">
+          ${filterSelect('activity-scope', '范围', scopeLabels, scopeFilter)}
+          ${filterSelect('activity-type', '类型', typeOptions, typeFilter)}
+          ${filterSelect('activity-status', '状态', statusOptions, statusFilter)}
+        </div>
+        ${list.length ? `<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-top:12px">
+          ${list.map((item) => {
+            const open = signupOpen(item);
+            const closed = item.status === 'CANCELLED' || item.status === 'FINISHED';
+            return `<article class="card" style="padding:14px">
+              <div class="card-head" style="display:flex;justify-content:space-between;align-items:center">
+                <b>${esc(item.title)}</b><span class="badge">${statusLabels[item.status]}</span>
+              </div>
+              <p class="muted small">${typeLabels[item.type]} · ${new Date(item.startAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${esc(item.location)}</p>
+              <p class="muted small">报名截止 ${new Date(item.deadline).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · 已报 ${item.signed}${item.capacity === null ? '' : ` / ${item.capacity}`} 人（不含家属）${item.cost === null ? '' : ` · 人均 ¥${item.cost}`}${item.familyAllowed ? ' · 可携带家属' : ''} · 场地环境图 ${item.imageCount} 张</p>
+              <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+                ${closed
+                  ? ''
+                  : item.mine
+                    ? (item.status === 'SIGNUP_OPEN' && !pastDeadline(item)
+                        ? '<button class="btn btn-ghost btn-sm" data-cancel-activity="' + item.id + '">取消报名</button>'
+                        : '<button class="btn btn-ghost btn-sm" disabled>已截止</button>')
+                    : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>${ctaLabel(item)}</button>`}
+                <button class="btn btn-ghost btn-sm" data-share-activity="${item.id}">分享</button>
+                ${Y.hasPermission('activity:manage:any') && activityStatusEditable(item) ? `<select class="input input-sm" data-activity-status="${item.id}" aria-label="修改活动状态">${activityStatusFlow.map((next) => `<option value="${next}"${next === item.status ? ' selected' : ''}${activityStatusDisabled(item, next) ? ' disabled' : ''}>${statusLabels[next]}</option>`).join('')}</select>` : ''}
+                ${item.familyAllowed && !closed ? `<label class="muted small" style="display:flex;align-items:center;gap:4px"><input type="checkbox" data-family-toggle="${item.id}"${item.family ? ' checked' : ''}> 携带家属</label>` : ''}
+              </div>
+              ${item.mine && item.family ? '<p class="muted small">已勾选携带家属（原型演示）</p>' : ''}
+            </article>`;
+          }).join('')}
+        </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
+        <div class="muted small" style="margin-top:12px">
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已结束/已取消为终态。</p>
+        </div>
+      </div>`;
+
+      $('#activity-type', host).addEventListener('change', (event) => {
+        typeFilter = event.target.value;
+        render();
+      });
+      $('#activity-status', host).addEventListener('change', (event) => {
+        statusFilter = event.target.value;
+        render();
+      });
+      $('#activity-scope', host).addEventListener('change', (event) => {
+        scopeFilter = event.target.value;
+        render();
+      });
+      $$('[data-family-toggle]', host).forEach((input) => {
+        input.addEventListener('change', () => {
+          const item = activities.find((entry) => String(entry.id) === input.dataset.familyToggle);
+          if (item) item.family = input.checked;
+        });
+      });
+      $$('[data-signup-activity]', host).forEach((button) => {
+        button.addEventListener('click', () => {
+          const item = activities.find((entry) => String(entry.id) === button.dataset.signupActivity);
+          if (!item) return;
+          if (!signupOpen(item)) { Y.toast(gateReason(item)); return; }
+          item.mine = true;
+          item.signed += 1;
+          Y.toast('报名成功');
+          render();
+        });
+      });
+      $$('[data-cancel-activity]', host).forEach((button) => {
+        button.addEventListener('click', () => {
+          const item = activities.find((entry) => String(entry.id) === button.dataset.cancelActivity);
+          if (!item) return;
+          item.mine = false;
+          item.family = false;
+          item.signed = Math.max(0, item.signed - 1);
+          Y.toast('已取消报名');
+          render();
+        });
+      });
+      $$('[data-share-activity]', host).forEach((button) => {
+        button.addEventListener('click', () => {
+          const url = `${location.origin}${location.pathname}?id=${button.dataset.shareActivity}`;
+          if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => Y.toast('活动链接已复制'), () => Y.toast(url));
+          else Y.toast(url);
+        });
+      });
+      $$('[data-activity-status]', host).forEach((select) => {
+        select.addEventListener('change', () => {
+          const item = activities.find((entry) => String(entry.id) === select.dataset.activityStatus);
+          if (!item) return;
+          const next = select.value;
+          select.value = item.status;
+          if (activityStatusDisabled(item, next) || next === item.status) return;
+          if (next === 'CANCELLED') { openActivityCancelModal(item); return; }
+          item.status = next;
+          Y.toast('活动状态已更新');
+          render();
+        });
+      });
+    }
+
+    render();
+  }
+
+  function initLedger() {
+    const host = $('#ledger-content');
+    if (!host) return;
+    const categoryLabels = { MEMBERSHIP_FEE: '队费', VENUE: '场地', EQUIPMENT: '装备', ACTIVITY: '活动', CATERING: '餐饮', SPONSORSHIP: '赞助', OTHER: '其他' };
+    const entries = [
+      { at: '2026-11-20T20:10:00+08:00', type: 'EXPENSE', category: 'VENUE', amount: 800, note: '11 月场地费（4 场）', player: null },
+      { at: '2026-11-18T21:00:00+08:00', type: 'INCOME', category: 'MEMBERSHIP_FEE', amount: 300, note: '11 月队费', player: '张伟' },
+      { at: '2026-11-12T19:40:00+08:00', type: 'INCOME', category: 'MEMBERSHIP_FEE', amount: 300, note: '11 月队费', player: '李强' },
+      { at: '2026-11-08T15:20:00+08:00', type: 'EXPENSE', category: 'EQUIPMENT', amount: 240, note: '比赛用球 2 个', player: null },
+      { at: '2026-11-02T12:00:00+08:00', type: 'INCOME', category: 'SPONSORSHIP', amount: 2000, note: '本地商家赞助', player: null }
+    ];
+    let typeFilter = 'ALL';
+
+    function fmt(at) {
+      return new Date(at).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+    }
+
+    function render() {
+      const list = entries.filter((item) => typeFilter === 'ALL' || item.type === typeFilter);
+      const income = list.filter((item) => item.type === 'INCOME').reduce((sum, item) => sum + item.amount, 0);
+      const expense = list.filter((item) => item.type === 'EXPENSE').reduce((sum, item) => sum + item.amount, 0);
+      host.innerHTML = `<div class="container section">
+        <div class="page-head">
+          <div><span class="eyebrow">LEDGER</span><h1>账本</h1><p class="muted">球队收支流水；正式球员只读，管理员维护</p></div>
+        </div>
+        <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
+          <div class="card" style="padding:14px"><p class="muted small">收入</p><p style="font-size:22px"><b>¥${income.toFixed(2)}</b></p></div>
+          <div class="card" style="padding:14px"><p class="muted small">支出</p><p style="font-size:22px"><b>¥${expense.toFixed(2)}</b></p></div>
+          <div class="card" style="padding:14px"><p class="muted small">余额</p><p style="font-size:22px"><b>¥${(income - expense).toFixed(2)}</b></p></div>
+        </div>
+        <div class="card" style="padding:12px;margin-top:12px">
+          <label class="muted small" for="ledger-type">方向
+            <select id="ledger-type">
+              <option value="ALL">全部</option>
+              <option value="INCOME"${typeFilter === 'INCOME' ? ' selected' : ''}>收入</option>
+              <option value="EXPENSE"${typeFilter === 'EXPENSE' ? ' selected' : ''}>支出</option>
+            </select>
+          </label>
+        </div>
+        ${list.length ? `<div class="table-wrap" style="margin-top:12px"><table class="data-table">
+          <thead><tr><th>日期</th><th>方向</th><th>分类</th><th>金额</th><th>摘要</th><th>归属球员</th></tr></thead>
+          <tbody>${list.map((item) => `<tr>
+            <td>${fmt(item.at)}</td>
+            <td>${item.type === 'INCOME' ? '收入' : '支出'}</td>
+            <td>${categoryLabels[item.category]}</td>
+            <td><b>${item.type === 'INCOME' ? '+' : '−'}¥${item.amount.toFixed(2)}</b></td>
+            <td>${esc(item.note)}</td>
+            <td>${item.player ? esc(item.player) : '—'}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>` : '<div class="empty-state card" style="margin-top:12px"><p>该筛选下暂无流水</p></div>'}
+        <div class="muted small" style="margin-top:12px">
+          <p><b>注：</b>金额存正数、方向表达收支；分类为独立实体，管理员可自定义与停用（原型未演示管理入口）；余额 = 收入 − 支出，不设期初余额；不做退款、凭证与自动摊分。原型数据为演示值。</p>
+        </div>
+      </div>`;
+      $('#ledger-type', host).addEventListener('change', (event) => {
+        typeFilter = event.target.value;
+        render();
+      });
+    }
+
+    render();
   }
 })();

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunhefc.ledger.infrastructure.LedgerCategoryMapper">
+
+    <select id="selectWithUsage"
+            resultType="com.yunhefc.ledger.infrastructure.LedgerCategoryRow">
+        SELECT c.id AS id,
+               c.name AS name,
+               c.direction AS direction,
+               c.sort_no AS sortNo,
+               c.is_active AS isActive,
+               COUNT(e.id) AS entryCount
+        FROM ledger_category c
+        LEFT JOIN team_ledger_entry e
+               ON e.category_id = c.id AND e.team_id = c.team_id AND e.is_deleted = 0
+        WHERE c.team_id = #{teamId} AND c.is_deleted = 0
+        <if test="!includeInactive">
+            AND c.is_active = 1
+        </if>
+        <if test="direction != null">
+            AND (c.direction = #{direction} OR c.direction IS NULL)
+        </if>
+        GROUP BY c.id, c.name, c.direction, c.sort_no, c.is_active
+        ORDER BY c.sort_no ASC, c.id ASC
+    </select>
+
+</mapper>

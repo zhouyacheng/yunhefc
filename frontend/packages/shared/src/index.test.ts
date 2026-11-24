@@ -356,6 +356,9 @@ describe('check-in window', () => {
 
 describe('role permissions', () => {
   const CODES = [
+    'activity:manage:any',
+    'activity:signup:own',
+    'activity:view:any',
     'attendance:checkin:own',
     'attendance:mark:any',
     'attendance:view:any',
@@ -368,6 +371,8 @@ describe('role permissions', () => {
     'grouping:view:any',
     'invite:create:match',
     'invite:manage:any',
+    'ledger:manage:any',
+    'ledger:view:any',
     'lineup:edit:any',
     'lineup:view:any',
     'match:create:any',
@@ -390,15 +395,17 @@ describe('role permissions', () => {
     return { id: CODES.indexOf(code) + 1, code, name: code, resource, action: '', scope: '' };
   }
 
-  it('maps the 28 permission codes into the 7 B08 groups', () => {
-    expect(CODES).toHaveLength(28);
+  it('maps the 33 permission codes into the 9 B08 groups', () => {
+    expect(CODES).toHaveLength(33);
 
     const groups = groupPermissions(CODES.map((code) => permission(code)));
 
     expect(groups.map((group) => group.label)).toEqual([...PERMISSION_GROUP_LABELS]);
-    expect(groups.reduce((count, group) => count + group.items.length, 0)).toBe(28);
+    expect(groups.reduce((count, group) => count + group.items.length, 0)).toBe(33);
     expect(groups.find((group) => group.label === '比赛')?.items).toHaveLength(4);
     expect(groups.find((group) => group.label === '球员/权限')?.items).toHaveLength(9);
+    expect(groups.find((group) => group.label === '活动')?.items).toHaveLength(3);
+    expect(groups.find((group) => group.label === '账本')?.items).toHaveLength(2);
   });
 
   it('falls back to the resource for unknown permission codes and keeps it last', () => {

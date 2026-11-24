@@ -1,4 +1,4 @@
-package com.yunhefc.common.util;
+package com.yunhefc.infra.storage;
 
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;

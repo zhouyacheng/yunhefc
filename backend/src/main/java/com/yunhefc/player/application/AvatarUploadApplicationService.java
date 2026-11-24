@@ -6,7 +6,7 @@ import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.security.AuthPrincipal;
-import com.yunhefc.common.util.ImageSniffer;
+import com.yunhefc.infra.storage.ImageSniffer;
 import com.yunhefc.infra.storage.OssGateway;
 import com.yunhefc.player.domain.AvatarImage;
 import com.yunhefc.player.domain.Player;
@@ -50,7 +50,8 @@ public class AvatarUploadApplicationService {
 
     private AvatarUploadView store(Long userId, MultipartFile file) {
         byte[] content = read(file);
-        ImageSniffer.Format format = AvatarImage.validate(content);
+        AvatarImage.validateSize(content);
+        ImageSniffer.Format format = ImageSniffer.sniff(content);
         String objectKey = "avatar/" + userId + "/" + Ulid.generate() + "." + format.extension();
         try {
             ossGateway.putObject(objectKey, content, format.contentType());
@@ -65,13 +66,10 @@ public class AvatarUploadApplicationService {
         if (file == null || file.isEmpty()) {
             throw AvatarImage.invalidFile(AvatarImage.EMPTY_MESSAGE);
         }
-        if (file.getSize() > AvatarImage.MAX_BYTES) {
-            throw AvatarImage.invalidFile(AvatarImage.TOO_LARGE_MESSAGE);
-        }
         try {
             return file.getBytes();
         } catch (IOException ex) {
-            throw AvatarImage.invalidFile(AvatarImage.CORRUPT_MESSAGE);
+            throw ImageSniffer.invalidFile(ImageSniffer.CORRUPT_MESSAGE);
         }
     }
 }

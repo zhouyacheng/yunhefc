@@ -1,32 +1,33 @@
 package com.yunhefc.player.domain;
 
 import com.yunhefc.common.error.BusinessException;
-import com.yunhefc.common.util.ImageSniffer;
+import com.yunhefc.common.error.ErrorCode;
+
+import java.util.Map;
 
 /**
- * 头像文件的业务校验：魔数识别复用 {@link ImageSniffer}，头像额外限制 2 MiB。
+ * 头像上传的体积校验；格式魔数识别由 application 层调用 {@code infra.storage.ImageSniffer}。
  */
 public final class AvatarImage {
 
     public static final long MAX_BYTES = 2_097_152L;
-    public static final String EMPTY_MESSAGE = ImageSniffer.EMPTY_MESSAGE;
+    public static final String EMPTY_MESSAGE = "文件不能为空";
     public static final String TOO_LARGE_MESSAGE = "图片不能超过 2MB";
-    public static final String CORRUPT_MESSAGE = ImageSniffer.CORRUPT_MESSAGE;
 
     private AvatarImage() {
     }
 
-    public static ImageSniffer.Format validate(byte[] content) {
+    public static void validateSize(byte[] content) {
         if (content == null || content.length == 0) {
             throw invalidFile(EMPTY_MESSAGE);
         }
         if (content.length > MAX_BYTES) {
             throw invalidFile(TOO_LARGE_MESSAGE);
         }
-        return ImageSniffer.sniff(content);
     }
 
     public static BusinessException invalidFile(String reason) {
-        return ImageSniffer.invalidFile(reason);
+        return new BusinessException(ErrorCode.VALIDATION_FAILED, ErrorCode.VALIDATION_FAILED.message(),
+                Map.of("details", Map.of("file", reason)));
     }
 }

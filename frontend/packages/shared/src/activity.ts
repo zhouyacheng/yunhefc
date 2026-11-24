@@ -28,7 +28,8 @@ export interface ActivitySummary {
   statusLabel: string;
   signupCount: number;
   signupOpen: boolean;
-  mySignup: ActivitySignup | null;
+  /** 仅登录时返回；对齐 05 §4 与 MatchDetail.myRegistration 的可选口径。 */
+  mySignup?: ActivitySignup | null;
 }
 
 export type ActivityDetail = ActivitySummary;

@@ -79,12 +79,14 @@ public class LedgerApplicationService {
         Long teamId = CurrentUser.principal().teamId();
         LedgerType type = LedgerRules.type(query.type());
         Long categoryId = LedgerQueryParsing.positiveId(query.categoryId(), "categoryId");
+        Long playerId = LedgerQueryParsing.positiveId(query.playerId(), "playerId");
+        Long activityId = LedgerQueryParsing.positiveId(query.activityId(), "activityId");
         LocalDateTime from = LedgerQueryParsing.time(query.from(), "from");
         LocalDateTime to = LedgerQueryParsing.time(query.to(), "to");
         LedgerQueryParsing.validateRange(from, to);
 
         LedgerSummaryRow row = entryMapper.selectSummary(teamId, from, to,
-                type == null ? null : type.code(), categoryId);
+                type == null ? null : type.code(), categoryId, playerId, activityId);
         BigDecimal income = money(row == null ? null : row.getIncome());
         BigDecimal expense = money(row == null ? null : row.getExpense());
         return new LedgerSummaryView(income, expense, income.subtract(expense));

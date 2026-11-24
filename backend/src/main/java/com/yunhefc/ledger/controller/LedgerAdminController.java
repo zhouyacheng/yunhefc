@@ -55,10 +55,14 @@ public class LedgerAdminController {
     @GetMapping("/summary")
     @PreAuthorize("hasAuthority('ledger:view:any')")
     public ApiResponse<LedgerSummaryView> summary(
+            @RequestParam(required = false) Integer type,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long playerId,
+            @RequestParam(required = false) Long activityId,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to) {
         return ApiResponse.ok(ledgerAdminService.summary(
-                new LedgerSummaryQuery(from, to, null, null)));
+                new LedgerSummaryQuery(from, to, type, categoryId, playerId, activityId)));
     }
 
     @PostMapping("/entries")

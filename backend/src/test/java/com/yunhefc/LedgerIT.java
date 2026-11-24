@@ -338,14 +338,30 @@ class LedgerIT extends ActivityITSupport {
                 .andExpect(jsonPath("$.data.income").value(300.00))
                 .andExpect(jsonPath("$.data.expense").value(0.00));
 
+        mockMvc.perform(get("/api/v1/c/ledger/summary")
+                        .param("playerId", playerId.toString()).cookie(player))
+                .andExpect(jsonPath("$.data.income").value(300.00))
+                .andExpect(jsonPath("$.data.expense").value(100.00))
+                .andExpect(jsonPath("$.data.balance").value(200.00));
+
+        mockMvc.perform(get("/api/v1/c/ledger/summary")
+                        .param("activityId", activityId.toString()).cookie(player))
+                .andExpect(jsonPath("$.data.income").value(300.00))
+                .andExpect(jsonPath("$.data.expense").value(800.00))
+                .andExpect(jsonPath("$.data.balance").value(-500.00));
+
         MvcResult bSummary = mockMvc.perform(get("/api/v1/b/ledger/summary")
                         .param("from", "2026-11-15T00:00:00+08:00")
-                        .param("to", "2026-11-30T23:59:59+08:00").cookie(admin))
+                        .param("to", "2026-11-30T23:59:59+08:00")
+                        .param("type", "1")
+                        .param("activityId", activityId.toString()).cookie(admin))
                 .andExpect(status().isOk())
                 .andReturn();
         MvcResult cSummary = mockMvc.perform(get("/api/v1/c/ledger/summary")
                         .param("from", "2026-11-15T00:00:00+08:00")
-                        .param("to", "2026-11-30T23:59:59+08:00").cookie(player))
+                        .param("to", "2026-11-30T23:59:59+08:00")
+                        .param("type", "1")
+                        .param("activityId", activityId.toString()).cookie(player))
                 .andExpect(status().isOk())
                 .andReturn();
         assertThat((Object) JsonPath.read(bSummary.getResponse().getContentAsString(), "$.data"))

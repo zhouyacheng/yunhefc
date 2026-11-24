@@ -16,7 +16,9 @@ public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntry> {
                                    @Param("from") LocalDateTime from,
                                    @Param("to") LocalDateTime to,
                                    @Param("type") Integer type,
-                                   @Param("categoryId") Long categoryId);
+                                   @Param("categoryId") Long categoryId,
+                                   @Param("playerId") Long playerId,
+                                   @Param("activityId") Long activityId);
 
     /**
      * 当前读并锁定流水行：版本冲突时读取最新版本返回给调用方。

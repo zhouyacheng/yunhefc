@@ -41,7 +41,9 @@ public final class LedgerDtos {
             String from,
             String to,
             Integer type,
-            Long categoryId) {
+            Long categoryId,
+            Long playerId,
+            Long activityId) {
     }
 
     public record LedgerEntryView(

@@ -44,10 +44,12 @@ public class LedgerController {
     public ApiResponse<LedgerSummaryView> summary(
             @RequestParam(required = false) Integer type,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long playerId,
+            @RequestParam(required = false) Long activityId,
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to) {
         return ApiResponse.ok(ledgerService.summary(
-                new LedgerSummaryQuery(from, to, type, categoryId)));
+                new LedgerSummaryQuery(from, to, type, categoryId, playerId, activityId)));
     }
 
     @GetMapping("/categories")

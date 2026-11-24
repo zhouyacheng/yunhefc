@@ -21,7 +21,7 @@ import java.sql.Statement;
  * 并验证 V18 把单图回填到 activity_image 后删除 team_activity.location_image_key。
  */
 @Testcontainers
-class FlywayV17UpgradeIT {
+class FlywayUpgradeIT {
 
     @Container
     static final MySQLContainer<?> MYSQL = new MySQLContainer<>(DockerImageName.parse("mysql:8.4"))

@@ -16,6 +16,8 @@ import java.util.regex.Pattern;
  */
 public final class ActivityRules {
 
+    public static final int MAX_IMAGES = 10;
+
     /** FIL-03 生成的对象键：activity/{uploaderUserId}/{ULID}.{ext}，只校验格式与前缀。 */
     private static final Pattern IMAGE_KEY =
             Pattern.compile("^activity/\\d+/[0-9A-HJKMNP-TV-Z]{26}\\.(jpg|png|webp)$");
@@ -57,7 +59,7 @@ public final class ActivityRules {
     /** 编辑时显式出现的图片数组不得为 null；缺省保留、空数组清空。 */
     public static void validateImageKeysPresent(List<String> imageKeys) {
         if (imageKeys == null) {
-            throw invalid("locationImageKeys", "地点图片不能为 null");
+            throw invalid("locationImageKeys", "场地环境图片不能为 null");
         }
         validateImageKeys(imageKeys);
     }
@@ -67,8 +69,8 @@ public final class ActivityRules {
         if (imageKeys == null) {
             return;
         }
-        if (imageKeys.size() > 10) {
-            throw invalid("locationImageKeys", "地点图片最多 10 张");
+        if (imageKeys.size() > MAX_IMAGES) {
+            throw invalid("locationImageKeys", "场地环境图片最多 " + MAX_IMAGES + " 张");
         }
         Set<String> seen = new HashSet<>();
         for (String objectKey : imageKeys) {
@@ -76,7 +78,7 @@ public final class ActivityRules {
                 throw invalid("locationImageKeys", "图片对象键不合法");
             }
             if (!seen.add(objectKey)) {
-                throw invalid("locationImageKeys", "地点图片不能重复");
+                throw invalid("locationImageKeys", "场地环境图片不能重复");
             }
         }
     }

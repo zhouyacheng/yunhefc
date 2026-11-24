@@ -45,11 +45,16 @@
           indicator-dots
           circular="{{activity.locationImageUrls.length > 1}}"
         >
-          <swiper-item wx:for="{{activity.locationImageUrls}}" wx:key="*this">
+          <swiper-item
+            wx:for="{{activity.locationImageUrls}}"
+            wx:for-index="index"
+            wx:key="*this"
+          >
             <image
               class="description-image"
               src="{{item}}"
               mode="aspectFill"
+              data-index="{{index}}"
               binderror="onImageError"
             />
           </swiper-item>

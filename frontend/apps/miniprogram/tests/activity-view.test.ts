@@ -19,6 +19,7 @@ import {
   activityTypeText,
   buildActivityCard,
   familySummary,
+  withoutFailedImage,
 } from '../miniprogram/utils/activity-view';
 
 const NOW = Date.parse('2026-12-01T12:00:00+08:00');
@@ -158,6 +159,13 @@ describe('活动展示字段', () => {
     expect(activityCountText(activity({ capacity: null }))).toBe('3 人报名');
     expect(activityCapacityPercent(activity())).toBe(15);
     expect(activityCapacityPercent(activity({ capacity: null }))).toBe(0);
+  });
+
+  it('单张图片失败只移除该张', () => {
+    const urls = ['a.png', 'b.png', 'c.png'];
+    expect(withoutFailedImage(urls, 1)).toEqual(['a.png', 'c.png']);
+    expect(withoutFailedImage(urls, 9)).toEqual(urls);
+    expect(withoutFailedImage(urls, -1)).toEqual(urls);
   });
 
   it('时间拼接日期与时段', () => {

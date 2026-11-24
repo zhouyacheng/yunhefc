@@ -785,7 +785,7 @@
         reject(new Error('请选择图片文件'));
         return;
       }
-      if (file.size > 2 * 1024 * 1024) {
+      if (file.size > 5 * 1024 * 1024) {
         reject(new Error('图片不能超过 5MB'));
         return;
       }

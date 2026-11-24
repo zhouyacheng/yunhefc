@@ -18,6 +18,7 @@ import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupRemoveResult;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupView;
 import com.yunhefc.activity.dto.ActivityDtos.ActivityStatusRequest;
 import com.yunhefc.activity.dto.ActivityDtos.ActivityUpdateRequest;
+import com.yunhefc.activity.infrastructure.ActivityImageRepository;
 import com.yunhefc.activity.infrastructure.ActivitySignupCountRow;
 import com.yunhefc.activity.infrastructure.ActivitySignupMapper;
 import com.yunhefc.activity.infrastructure.TeamActivityMapper;
@@ -50,7 +51,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
- * B 端活动：创建、编辑、状态流转、名单与移除报名，以及 FIL-03 地点图片上传。
+ * B 端活动：创建、编辑、状态流转、名单与移除报名，以及 FIL-03 场地环境图片上传。
  */
 @Service
 @RequiredArgsConstructor
@@ -62,7 +63,7 @@ public class ActivityAdminApplicationService {
     private final TeamActivityMapper teamActivityMapper;
     private final ActivitySignupMapper activitySignupMapper;
     private final ActivityRosterAssembler rosterAssembler;
-    private final ActivityImageStore imageStore;
+    private final ActivityImageRepository imageRepository;
     private final ActivitySignupLock signupLock;
     private final AuditRecorder auditRecorder;
     private final OutboxService outboxService;
@@ -94,7 +95,7 @@ public class ActivityAdminApplicationService {
                 new Page<>(query.page(), query.pageSize()), wrapper);
         List<Long> activityIds = result.getRecords().stream().map(TeamActivity::getId).toList();
         Map<Long, Integer> counts = counts(activityIds);
-        Map<Long, List<String>> images = imageStore.keysByActivity(activityIds);
+        Map<Long, List<String>> images = imageRepository.keysByActivity(activityIds);
         List<ActivityAdmin> items = result.getRecords().stream()
                 .map(activity -> toAdmin(activity, counts.getOrDefault(activity.getId(), 0),
                         images.getOrDefault(activity.getId(), List.of())))
@@ -106,7 +107,7 @@ public class ActivityAdminApplicationService {
     public ActivityAdmin detail(Long activityId) {
         TeamActivity activity = requireActivity(CurrentUser.principal().teamId(), activityId);
         return toAdmin(activity, activitySignupMapper.countActive(activityId),
-                imageStore.keys(activityId));
+                imageRepository.keys(activityId));
     }
 
     @Transactional
@@ -133,9 +134,9 @@ public class ActivityAdminApplicationService {
         activity.setCreatedBy(principal.userId());
 
         teamActivityMapper.insert(activity);
-        imageStore.replace(activity.getId(), request.locationImageKeys());
+        imageRepository.replace(activity.getId(), request.locationImageKeys());
         auditRecorder.recordCurrent("ACTIVITY_CREATE", "ACTIVITY", activity.getId(),
-                null, ActivityAuditSnapshot.of(activity, imageStore.keys(activity.getId())));
+                null, ActivityAuditSnapshot.of(activity, imageRepository.keys(activity.getId())));
         outboxService.append(activity.getTeamId(), "ACTIVITY", activity.getId(),
                 EventTypes.ACTIVITY_CREATED, Map.of(
                         "activityId", activity.getId(),
@@ -143,7 +144,7 @@ public class ActivityAdminApplicationService {
                         "startAt", activity.getStartAt(),
                         "location", activity.getLocation()));
         log.info("activity created, activityId={}, teamId={}", activity.getId(), activity.getTeamId());
-        return toAdmin(activity, 0, imageStore.keys(activity.getId()));
+        return toAdmin(activity, 0, imageRepository.keys(activity.getId()));
     }
 
     @Transactional
@@ -167,7 +168,7 @@ public class ActivityAdminApplicationService {
                         "人数上限不得低于当前有效报名数");
             }
         }
-        Map<String, Object> before = ActivityAuditSnapshot.of(activity, imageStore.keys(activityId));
+        Map<String, Object> before = ActivityAuditSnapshot.of(activity, imageRepository.keys(activityId));
         applyChanges(activity, request);
 
         int updated = teamActivityMapper.update(null, new LambdaUpdateWrapper<TeamActivity>()
@@ -188,9 +189,9 @@ public class ActivityAdminApplicationService {
                 .set(TeamActivity::getVersion, activity.getVersion() + 1));
         TeamActivity saved = reloadAfterWrite(updated, teamId, activityId, null);
         if (request.hasLocationImageKeys()) {
-            imageStore.replace(activityId, request.getLocationImageKeys());
+            imageRepository.replace(activityId, request.getLocationImageKeys());
         }
-        List<String> afterImages = imageStore.keys(activityId);
+        List<String> afterImages = imageRepository.keys(activityId);
         auditRecorder.recordCurrent("ACTIVITY_UPDATE", "ACTIVITY", activityId,
                 before, ActivityAuditSnapshot.of(saved, afterImages));
         log.info("activity updated, activityId={}", activityId);
@@ -213,7 +214,7 @@ public class ActivityAdminApplicationService {
         if (target == ActivityStatus.CANCELLED) {
             signupLock.acquire(activityId);
         }
-        List<String> imageKeys = imageStore.keys(activityId);
+        List<String> imageKeys = imageRepository.keys(activityId);
         Map<String, Object> before = ActivityAuditSnapshot.of(activity, imageKeys);
 
         LambdaUpdateWrapper<TeamActivity> update = new LambdaUpdateWrapper<TeamActivity>()

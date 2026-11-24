@@ -115,7 +115,7 @@ export function activityCountText(
     : `${activity.signupCount} / ${activity.capacity} 人`;
 }
 
-/** 报名人数进度百分比；上限未知或非法时返回 0。 */
+/** 报名人数进度百分比；与 packages/shared 的同名派生保持一致，上限未知或非法时返回 0。 */
 export function activityCapacityPercent(
   activity: Pick<ActivitySummary, 'capacity' | 'signupCount'>,
 ): number {
@@ -126,6 +126,14 @@ export function activityCapacityPercent(
     0,
     Math.min(100, Math.round((activity.signupCount / activity.capacity) * 100)),
   );
+}
+
+/** 单张图片加载失败时只移除该张，其余有效图片继续展示。 */
+export function withoutFailedImage(urls: string[], index: number): string[] {
+  if (!Number.isInteger(index) || index < 0 || index >= urls.length) {
+    return urls;
+  }
+  return urls.filter((_, current) => current !== index);
 }
 
 export function activityTimeText(activity: Pick<ActivitySummary, 'startAt' | 'endAt'>): string {

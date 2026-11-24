@@ -1,10 +1,9 @@
-package com.yunhefc.activity.application;
+package com.yunhefc.activity.infrastructure;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.activity.domain.ActivityImage;
-import com.yunhefc.activity.infrastructure.ActivityImageMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Repository;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -16,12 +15,13 @@ import java.util.stream.Collectors;
 /**
  * 活动图片读写：读取按 sort_no 升序；编辑采用覆盖式，旧行伪删除后按顺序批量插入新行。
  */
-@Service
+@Repository
 @RequiredArgsConstructor
-public class ActivityImageStore {
+public class ActivityImageRepository {
 
     private final ActivityImageMapper activityImageMapper;
 
+    /** 调用方必须先校验活动属于当前球队。 */
     public List<String> keys(Long activityId) {
         return activityImageMapper.selectList(orderedQuery()
                 .eq(ActivityImage::getActivityId, activityId))

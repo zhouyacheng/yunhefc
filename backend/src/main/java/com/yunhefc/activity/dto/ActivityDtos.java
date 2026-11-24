@@ -1,6 +1,7 @@
 package com.yunhefc.activity.dto;
 
 import com.fasterxml.jackson.annotation.JsonAnySetter;
+import com.yunhefc.activity.domain.ActivityRules;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -55,7 +56,7 @@ public final class ActivityDtos {
             @NotNull Boolean familyAllowed,
             @DecimalMin("0") @Digits(integer = 8, fraction = 2) BigDecimal costPerPerson,
             @NotBlank @Size(max = 128) String location,
-            @Size(max = 10) List<@Size(max = 512) String> locationImageKeys,
+            @Size(max = ActivityRules.MAX_IMAGES) List<@Size(max = 512) String> locationImageKeys,
             @Size(max = 1000) String description) {
     }
 
@@ -92,7 +93,7 @@ public final class ActivityDtos {
         @Size(max = 128)
         private String location;
 
-        @Size(max = 10)
+        @Size(max = ActivityRules.MAX_IMAGES)
         private List<@Size(max = 512) String> locationImageKeys;
 
         @Size(max = 1000)

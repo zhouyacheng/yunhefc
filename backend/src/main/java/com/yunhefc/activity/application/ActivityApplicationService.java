@@ -13,6 +13,7 @@ import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupRequest;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupResponse;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupView;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySummary;
+import com.yunhefc.activity.infrastructure.ActivityImageRepository;
 import com.yunhefc.activity.infrastructure.ActivitySignupCountRow;
 import com.yunhefc.activity.infrastructure.ActivitySignupMapper;
 import com.yunhefc.activity.infrastructure.TeamActivityMapper;
@@ -57,7 +58,7 @@ public class ActivityApplicationService {
     private final PlayerReadPort playerReadPort;
     private final UserAccountReadPort userAccountReadPort;
     private final ActivityRosterAssembler rosterAssembler;
-    private final ActivityImageStore imageStore;
+    private final ActivityImageRepository imageRepository;
     private final OssGateway ossGateway;
     private final ActivitySignupLock signupLock;
 
@@ -107,7 +108,7 @@ public class ActivityApplicationService {
         ActivitySignupView mine = CurrentUser.optionalPrincipal()
                 .flatMap(principal -> mySignup(activityId, principal))
                 .orElse(null);
-        return toSummary(activity, signupCount, mine, imageStore.keys(activityId), now);
+        return toSummary(activity, signupCount, mine, imageRepository.keys(activityId), now);
     }
 
     @Transactional(readOnly = true)
@@ -284,7 +285,7 @@ public class ActivityApplicationService {
                 .collect(Collectors.toMap(ActivitySignupCountRow::getActivityId,
                         ActivitySignupCountRow::getSignupCount));
         Map<Long, ActivitySignupView> mine = mySignups(activityIds);
-        Map<Long, List<String>> images = imageStore.keysByActivity(activityIds);
+        Map<Long, List<String>> images = imageRepository.keysByActivity(activityIds);
         return activities.stream()
                 .map(activity -> toSummary(activity,
                         counts.getOrDefault(activity.getId(), 0),

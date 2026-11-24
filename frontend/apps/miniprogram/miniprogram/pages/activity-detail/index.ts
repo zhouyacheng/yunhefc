@@ -12,6 +12,7 @@ import {
   activityTimeText,
   activityTypeText,
   familySummary,
+  withoutFailedImage,
   type ActivityActionView,
   type ActivityStatusTone,
 } from '../../utils/activity-view';
@@ -271,7 +272,11 @@ Page({
     void this.load(false);
   },
 
-  onImageError() {
-    this.setData({ 'activity.locationImageUrls': [] });
+  onImageError(event: WechatMiniprogram.CustomEvent) {
+    const index = Number(event.currentTarget.dataset.index);
+    const urls = this.data.activity?.locationImageUrls ?? [];
+    this.setData({
+      'activity.locationImageUrls': withoutFailedImage(urls, index),
+    });
   },
 });

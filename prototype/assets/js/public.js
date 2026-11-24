@@ -1410,9 +1410,9 @@ render();
     const typeOptions = { ALL: '全部', ...typeLabels };
     const statusOptions = { ALL: '全部', ...statusLabels };
     const activities = [
-      { id: 1, title: '赛季收官聚餐', type: 'DINNER', startAt: '2026-12-06T18:30:00+08:00', deadline: '2026-12-04T20:00:00+08:00', location: '老地方火锅（体育中心店）', cost: 120, capacity: 20, signed: 12, status: 'SIGNUP_OPEN', mine: false, familyAllowed: true, family: false },
-      { id: 2, title: '2026 年度年会', type: 'ANNUAL_MEETING', startAt: '2027-01-17T17:00:00+08:00', deadline: '2027-01-10T20:00:00+08:00', location: '云河酒店 3 楼宴会厅', cost: 260, capacity: null, signed: 8, status: 'SIGNUP_OPEN', mine: true, familyAllowed: true, family: true },
-      { id: 3, title: '客场远征拼车协调', type: 'OTHER', startAt: '2026-11-29T07:30:00+08:00', deadline: '2026-11-27T18:00:00+08:00', location: '球队停车场集合', cost: null, capacity: 12, signed: 12, status: 'SIGNUP_CLOSED', mine: false, familyAllowed: false, family: false }
+      { id: 1, title: '赛季收官聚餐', type: 'DINNER', startAt: '2026-12-06T18:30:00+08:00', deadline: '2026-12-04T20:00:00+08:00', location: '老地方火锅（体育中心店）', cost: 120, capacity: 20, signed: 12, status: 'SIGNUP_OPEN', mine: false, familyAllowed: true, family: false, imageCount: 2 },
+      { id: 2, title: '2026 年度年会', type: 'ANNUAL_MEETING', startAt: '2027-01-17T17:00:00+08:00', deadline: '2027-01-10T20:00:00+08:00', location: '云河酒店 3 楼宴会厅', cost: 260, capacity: null, signed: 8, status: 'SIGNUP_OPEN', mine: true, familyAllowed: true, family: true, imageCount: 0 },
+      { id: 3, title: '客场远征拼车协调', type: 'OTHER', startAt: '2026-11-29T07:30:00+08:00', deadline: '2026-11-27T18:00:00+08:00', location: '球队停车场集合', cost: null, capacity: 12, signed: 12, status: 'SIGNUP_CLOSED', mine: false, familyAllowed: false, family: false, imageCount: 1 }
     ];
     let typeFilter = 'ALL';
     let statusFilter = 'ALL';
@@ -1474,7 +1474,7 @@ render();
                 <b>${esc(item.title)}</b><span class="badge">${statusLabels[item.status]}</span>
               </div>
               <p class="muted small">${typeLabels[item.type]} · ${new Date(item.startAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${esc(item.location)}</p>
-              <p class="muted small">报名截止 ${new Date(item.deadline).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · 已报 ${item.signed}${item.capacity === null ? '' : ` / ${item.capacity}`} 人（不含家属）${item.cost === null ? '' : ` · 人均 ¥${item.cost}`}${item.familyAllowed ? ' · 可携带家属' : ''}</p>
+              <p class="muted small">报名截止 ${new Date(item.deadline).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · 已报 ${item.signed}${item.capacity === null ? '' : ` / ${item.capacity}`} 人（不含家属）${item.cost === null ? '' : ` · 人均 ¥${item.cost}`}${item.familyAllowed ? ' · 可携带家属' : ''} · 场地环境图 ${item.imageCount} 张</p>
               <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
                 ${closed
                   ? ''
@@ -1484,13 +1484,14 @@ render();
                         : '<button class="btn btn-ghost btn-sm" disabled>已截止</button>')
                     : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>${ctaLabel(item)}</button>`}
                 <button class="btn btn-ghost btn-sm" data-share-activity="${item.id}">分享</button>
+                ${item.familyAllowed && !closed ? `<label class="muted small" style="display:flex;align-items:center;gap:4px"><input type="checkbox" data-family-toggle="${item.id}"${item.family ? ' checked' : ''}> 携带家属</label>` : ''}
               </div>
               ${item.mine && item.family ? '<p class="muted small">已勾选携带家属（原型演示）</p>' : ''}
             </article>`;
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；地点图片最多 10 张、每张不超过 5MB，详情按顺序轮播。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。</p>
         </div>
       </div>`;
 
@@ -1505,6 +1506,12 @@ render();
       $('#activity-scope', host).addEventListener('change', (event) => {
         scopeFilter = event.target.value;
         render();
+      });
+      $$('[data-family-toggle]', host).forEach((input) => {
+        input.addEventListener('change', () => {
+          const item = activities.find((entry) => String(entry.id) === input.dataset.familyToggle);
+          if (item) item.family = input.checked;
+        });
       });
       $$('[data-signup-activity]', host).forEach((button) => {
         button.addEventListener('click', () => {

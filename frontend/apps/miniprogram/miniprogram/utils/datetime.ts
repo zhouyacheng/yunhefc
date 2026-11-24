@@ -31,7 +31,7 @@ export function formatDayStartTime(value: string | null | undefined): string {
   return `${dayLabel(date)} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
-/** 展示文案：`M月D日 周X HH:mm–HH:mm`；跨天结束带月/日，无结束只显示开始时刻。 */
+/** 展示文案：`M月D日 周X HH:mm–HH:mm`；与 packages/shared 的 formatDayTimeRange 保持一致。 */
 export function formatDayTimeRange(
   startAt: string | null | undefined,
   endAt: string | null | undefined,

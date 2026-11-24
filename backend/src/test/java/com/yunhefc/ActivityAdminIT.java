@@ -292,7 +292,7 @@ class ActivityAdminIT extends ActivityITSupport {
                                 4, "88.50", "[\"%s\",\"%s\"]".formatted(sameKey, sameKey))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.data.details.locationImageKeys")
-                        .value("地点图片不能重复"));
+                        .value("场地环境图片不能重复"));
 
         String eleven = java.util.stream.IntStream.range(0, 11)
                 .mapToObj(i -> "\"activity/1/01JABCDEFGHJKMNPQRSTVWXYZ" + "0123456789A".charAt(i)

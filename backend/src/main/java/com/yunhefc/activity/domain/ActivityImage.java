@@ -10,7 +10,7 @@ import lombok.Setter;
 import java.time.LocalDateTime;
 
 /**
- * 活动地点图片：每活动最多 10 张，按 sortNo 升序展示；编辑时覆盖式写入。
+ * 场地环境图片：每活动最多 10 张，按 sortNo 升序展示；编辑时覆盖式写入。
  */
 @Getter
 @Setter

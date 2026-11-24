@@ -256,6 +256,7 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
 
 test('C12 活动详情：不允许携带家属时隐藏家属选项', async ({ page }) => {
   const errors = collectConsoleErrors(page);
+  await mockSession(page);
   const noFamily = { ...OPEN_ACTIVITY, id: 9005, familyAllowed: false, mySignup: null };
 
   await page.route(

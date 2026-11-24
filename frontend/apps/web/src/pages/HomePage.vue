@@ -209,6 +209,9 @@ onUnmounted(() => {
               <RouterLink to="/team">
                 <Button plain>球队名单</Button>
               </RouterLink>
+              <RouterLink to="/activities">
+                <Button plain>活动</Button>
+              </RouterLink>
               <a
                 v-if="canEnterAdmin"
                 data-testid="hero-admin-entry"
@@ -306,6 +309,9 @@ onUnmounted(() => {
         <p class="muted small">还没有比赛记录，等管理员排期后这里会显示最近一场。</p>
         <RouterLink to="/matches">
           <Button size="small" type="primary">去比赛</Button>
+        </RouterLink>
+        <RouterLink to="/activities">
+          <Button size="small" plain>看活动</Button>
         </RouterLink>
       </div>
 

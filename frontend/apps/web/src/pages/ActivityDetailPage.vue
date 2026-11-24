@@ -1,0 +1,502 @@
+<script setup lang="ts">
+import { ERROR_CODES, describeError, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
+import type { ActivityDetail, ActivitySignup } from '@yunhefc/shared';
+import { formatDateTime, formatDateTimeRange } from '@yunhefc/shared';
+import { Button, Checkbox, Field, Loading, Popup, Tag, showToast } from 'vant';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+
+import { api } from '../api/client';
+import { isPending } from '../features/auth/user-status';
+import {
+  ACTIVITY_CANCELLED,
+  ACTIVITY_FINISHED,
+  ACTIVITY_SIGNUP_ACTIVE,
+  activityCancelState,
+  activityCta,
+  activityFamilyText,
+  activitySignupState,
+  activitySignupText,
+  activityStatusText,
+  activityStatusTone,
+  activityTypeText,
+  formatActivityCost,
+} from '../features/activity/presentation';
+import { toBrowserPath } from '../router';
+import { useSessionStore } from '../stores/session';
+import { hasSessionHint } from '../stores/session-hint';
+
+const route = useRoute();
+const router = useRouter();
+const session = useSessionStore();
+const activityId = Number(route.params.id);
+
+const activity = ref<ActivityDetail | null>(null);
+const loading = ref(true);
+const error = ref('');
+const actionError = ref('');
+const actionMessage = ref('');
+const imageFailed = ref(false);
+const now = ref(Date.now());
+let requestSeq = 0;
+let nowTimer: ReturnType<typeof setInterval> | null = null;
+
+const popupOpen = ref(false);
+const withFamily = ref(false);
+const familyNote = ref('');
+const submitting = ref(false);
+const cancelling = ref(false);
+
+const pending = computed(() => isPending(session.user?.status ?? -1));
+const mySignup = computed<ActivitySignup | null>(() => activity.value?.mySignup ?? null);
+const isSignedUp = computed(() => mySignup.value?.status === ACTIVITY_SIGNUP_ACTIVE);
+const activityClosed = computed(
+  () =>
+    activity.value !== null &&
+    (activity.value.status === ACTIVITY_FINISHED || activity.value.status === ACTIVITY_CANCELLED),
+);
+const signupState = computed(() => {
+  const current = activity.value;
+  if (!current) {
+    return null;
+  }
+  return activitySignupState({
+    ...current,
+    authenticated: session.isAuthenticated,
+    pending: pending.value,
+    mySignupStatus: mySignup.value?.status ?? null,
+    now: now.value,
+  });
+});
+const cancelState = computed(() => {
+  const current = activity.value;
+  if (!current) {
+    return null;
+  }
+  return activityCancelState({
+    ...current,
+    mySignupStatus: mySignup.value?.status ?? null,
+    now: now.value,
+  });
+});
+const cta = computed(() => (activity.value ? activityCta(activity.value, now.value) : null));
+const signupText = computed(() =>
+  activity.value ? activitySignupText(activity.value.signupCount, activity.value.capacity) : '',
+);
+const loginTarget = computed(() => ({
+  name: 'login',
+  query: { redirect: toBrowserPath(route.fullPath) },
+}));
+const showImage = computed(() => Boolean(activity.value?.locationImageUrl) && !imageFailed.value);
+
+const REFRESH_CONFLICT_CODES: readonly number[] = [
+  ERROR_CODES.ACTIVITY_SIGNUP_CONFLICT,
+  ERROR_CODES.ACTIVITY_STATE_CONFLICT,
+  ERROR_CODES.ACTIVITY_FULL,
+];
+
+function onConflict(caught: unknown): boolean {
+  return isApiError(caught) && REFRESH_CONFLICT_CODES.includes(caught.code);
+}
+
+async function load(silent = false): Promise<void> {
+  const seq = ++requestSeq;
+  if (!silent) {
+    loading.value = true;
+    error.value = '';
+  }
+  now.value = Date.now();
+  try {
+    if (!Number.isFinite(activityId) || activityId <= 0) {
+      await router.replace('/404');
+      return;
+    }
+    if (!session.loaded && hasSessionHint()) {
+      await session.ensureLoaded().catch(() => undefined);
+    }
+    const detail = await api.get<ActivityDetail>(`/activities/${activityId}`, {
+      redirectOnUnauthorized: false,
+    });
+    if (seq !== requestSeq) {
+      return;
+    }
+    activity.value = detail;
+    imageFailed.value = false;
+  } catch (caught) {
+    if (seq !== requestSeq) {
+      return;
+    }
+    if (isApiError(caught) && caught.code === ERROR_CODES.NOT_FOUND) {
+      await router.replace('/404');
+      return;
+    }
+    error.value = describeError(caught, '加载失败，请稍后重试');
+    if (!silent) {
+      activity.value = null;
+    }
+  } finally {
+    if (seq === requestSeq) {
+      loading.value = false;
+    }
+  }
+}
+
+function onSignupClick(): void {
+  const state = signupState.value;
+  if (!state || state.disabled) {
+    return;
+  }
+  if (state.action === 'login') {
+    void router.push(loginTarget.value);
+    return;
+  }
+  if (state.action !== 'signup') {
+    return;
+  }
+  actionError.value = '';
+  actionMessage.value = '';
+  withFamily.value = false;
+  familyNote.value = '';
+  popupOpen.value = true;
+}
+
+async function submitSignup(): Promise<void> {
+  if (submitting.value) {
+    return;
+  }
+  submitting.value = true;
+  actionError.value = '';
+  try {
+    await api.post<{ signup: ActivitySignup }>(
+      `/activities/${activityId}/signups`,
+      {
+        withFamily: withFamily.value,
+        familyNote: withFamily.value ? familyNote.value.trim() || null : null,
+      },
+      { idempotencyKey: newIdempotencyKey() },
+    );
+    popupOpen.value = false;
+    actionMessage.value = '报名成功';
+    await load(true);
+  } catch (caught) {
+    if (onConflict(caught)) {
+      popupOpen.value = false;
+      actionMessage.value = describeError(caught, '报名失败，请稍后重试');
+      await load(true);
+    } else {
+      actionError.value = describeError(caught, '报名失败，请稍后重试');
+    }
+  } finally {
+    submitting.value = false;
+  }
+}
+
+async function cancelSignup(): Promise<void> {
+  const state = cancelState.value;
+  if (!state || !state.visible || state.disabled || cancelling.value) {
+    return;
+  }
+  cancelling.value = true;
+  actionError.value = '';
+  actionMessage.value = '';
+  try {
+    const result = await api.delete<{ cancelled: boolean }>(
+      `/activities/${activityId}/signups/me`,
+      undefined,
+      { idempotencyKey: newIdempotencyKey() },
+    );
+    actionMessage.value = result.cancelled ? '已取消报名' : '报名已取消';
+    await load(true);
+  } catch (caught) {
+    actionError.value = describeError(caught, '取消报名失败，请稍后重试');
+    if (onConflict(caught)) {
+      await load(true);
+    }
+  } finally {
+    cancelling.value = false;
+  }
+}
+
+async function copyText(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // 回退到 execCommand。
+  }
+  try {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+async function copyLink(): Promise<void> {
+  const url = new URL(`/activities/${activityId}`, window.location.origin).toString();
+  const copied = await copyText(url);
+  if (copied) {
+    showToast('链接已复制');
+  } else {
+    actionError.value = '复制失败，请手动复制链接';
+  }
+}
+
+onMounted(() => {
+  void load();
+  nowTimer = setInterval(() => {
+    now.value = Date.now();
+  }, 30_000);
+});
+
+onBeforeUnmount(() => {
+  if (nowTimer !== null) {
+    clearInterval(nowTimer);
+    nowTimer = null;
+  }
+});
+</script>
+
+<template>
+  <section class="page">
+    <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>
+
+    <div v-else-if="error" class="state">
+      <p class="muted">{{ error }}</p>
+      <Button size="small" type="primary" @click="load()">重试</Button>
+    </div>
+
+    <template v-else-if="activity">
+      <header class="card activity-hero">
+        <div class="activity-hero__head">
+          <div>
+            <p class="small muted">{{ activityTypeText(activity.type) }}</p>
+            <h1>{{ activity.title }}</h1>
+          </div>
+          <Tag class="status-tag" :class="`status-tag--${activityStatusTone(activity.status)}`">
+            {{ activityStatusText(activity.status) }}
+          </Tag>
+        </div>
+
+        <div class="activity-hero__meta muted small">
+          <span>📅 {{ formatDateTimeRange(activity.startAt, activity.endAt) }}</span>
+          <span>⏰ 报名截止 {{ formatDateTime(activity.signupDeadline) }}</span>
+          <span>📍 {{ activity.location }}</span>
+          <span>👥 {{ signupText }}</span>
+          <span v-if="activity.costPerPerson !== null">
+            💰 人均 {{ formatActivityCost(activity.costPerPerson) }}
+          </span>
+        </div>
+
+        <p v-if="!cta?.visible" class="notice" data-testid="activity-closed-banner">
+          活动{{ activityStatusText(activity.status) }}，不再接受报名。
+        </p>
+
+        <Button size="small" plain type="primary" @click="copyLink">复制链接</Button>
+      </header>
+
+      <div class="activity-detail-grid">
+        <section class="card activity-description">
+          <div class="card-head">
+            <h2>活动说明</h2>
+          </div>
+          <img
+            v-if="showImage"
+            class="activity-description__image"
+            :src="activity.locationImageUrl ?? undefined"
+            alt="活动地点"
+            @error="imageFailed = true"
+          />
+          <div v-else class="activity-description__placeholder">暂无活动图片</div>
+          <p v-if="activity.description" class="activity-description__text">
+            {{ activity.description }}
+          </p>
+          <p v-else class="muted">暂无补充说明</p>
+        </section>
+
+        <section class="card activity-signup" data-testid="activity-signup-card">
+          <div class="card-head">
+            <h2>报名</h2>
+            <Tag
+              v-if="mySignup"
+              class="status-tag"
+              :class="isSignedUp ? 'status-tag--open' : 'status-tag--muted'"
+            >
+              {{ isSignedUp ? '已报名' : '已取消' }}
+            </Tag>
+          </div>
+
+          <template v-if="isSignedUp">
+            <p class="muted small">
+              报名时间 {{ formatDateTime(mySignup?.signedUpAt) }} ·
+              {{ mySignup ? activityFamilyText(mySignup) : '' }}
+            </p>
+            <template v-if="!activityClosed">
+              <Button
+                type="primary"
+                plain
+                block
+                data-testid="activity-cancel"
+                :disabled="cancelState?.disabled"
+                :loading="cancelling"
+                @click="cancelSignup"
+              >
+                {{ cancelState?.label ?? '取消报名' }}
+              </Button>
+              <p v-if="cancelState?.reason" class="hint">{{ cancelState.reason }}</p>
+            </template>
+            <p v-else class="muted small">
+              活动{{ activityStatusText(activity.status) }}，报名记录仅保留。
+            </p>
+          </template>
+
+          <template v-else-if="signupState?.visible">
+            <Button
+              type="primary"
+              block
+              data-testid="activity-signup"
+              :disabled="signupState.disabled"
+              @click="onSignupClick"
+            >
+              {{ signupState.label }}
+            </Button>
+            <p v-if="signupState.reason" class="hint">{{ signupState.reason }}</p>
+          </template>
+
+          <p v-else-if="signupState?.reason" class="notice">{{ signupState.reason }}</p>
+
+          <p v-else class="muted small">{{ signupState?.label || '当前不可报名' }}</p>
+
+          <p v-if="activity.capacity === null" class="muted small">人数无上限。</p>
+          <p v-else class="muted small">人数只计报名人数，不含家属。</p>
+
+          <p v-if="actionMessage" class="hint" data-testid="activity-message">
+            {{ actionMessage }}
+          </p>
+          <p v-if="actionError" class="action-error" data-testid="activity-error">
+            {{ actionError }}
+          </p>
+        </section>
+      </div>
+    </template>
+
+    <Popup v-model:show="popupOpen" position="bottom" round>
+      <div class="activity-signup-popup">
+        <div class="card-head">
+          <h2>报名活动</h2>
+        </div>
+
+        <Checkbox v-model="withFamily" shape="square">携带家属</Checkbox>
+
+        <Field
+          v-model="familyNote"
+          label="家属备注"
+          type="textarea"
+          rows="2"
+          maxlength="255"
+          show-word-limit
+          placeholder="如：带 1 位家属，儿童餐"
+          :disabled="!withFamily"
+        />
+
+        <p v-if="actionError" class="action-error">{{ actionError }}</p>
+
+        <Button
+          type="primary"
+          block
+          :loading="submitting"
+          :disabled="submitting"
+          @click="submitSignup"
+        >
+          确认报名
+        </Button>
+      </div>
+    </Popup>
+  </section>
+</template>
+
+<style scoped>
+.activity-hero {
+  padding: 20px;
+}
+
+.activity-hero__head {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.activity-hero__head h1 {
+  margin: 4px 0 12px;
+  font-size: 26px;
+}
+
+.activity-hero__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-bottom: 14px;
+}
+
+.activity-detail-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr);
+  margin-top: 16px;
+}
+
+.activity-description,
+.activity-signup {
+  padding: 18px;
+}
+
+.activity-description__image,
+.activity-description__placeholder {
+  width: 100%;
+  height: 220px;
+  margin: 10px 0;
+  object-fit: cover;
+  border-radius: 12px;
+}
+
+.activity-description__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--yh-muted);
+  background: var(--yh-slate-soft);
+}
+
+.activity-description__text {
+  white-space: pre-wrap;
+}
+
+.activity-signup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.activity-signup-popup {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px 18px 28px;
+}
+
+@media (max-width: 860px) {
+  .activity-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

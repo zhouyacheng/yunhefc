@@ -53,6 +53,22 @@ export const router = createRouter({
           component: () => import('../pages/LeaderboardPage.vue'),
         },
         {
+          path: 'activities',
+          name: 'activities',
+          component: () => import('../pages/ActivitiesPage.vue'),
+        },
+        {
+          path: 'activities/:id',
+          name: 'activity-detail',
+          component: () => import('../pages/ActivityDetailPage.vue'),
+        },
+        {
+          path: 'ledger',
+          name: 'ledger',
+          component: () => import('../pages/LedgerPage.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('../pages/ProfilePage.vue'),

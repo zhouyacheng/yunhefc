@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunhefc.ledger.infrastructure.TeamLedgerEntryMapper">
+
+    <select id="selectSummary" resultType="com.yunhefc.ledger.infrastructure.LedgerSummaryRow">
+        SELECT COALESCE(SUM(CASE WHEN type = 0 THEN amount ELSE 0 END), 0) AS income,
+               COALESCE(SUM(CASE WHEN type = 1 THEN amount ELSE 0 END), 0) AS expense
+        FROM team_ledger_entry
+        WHERE team_id = #{teamId} AND is_deleted = 0
+        <if test="from != null">
+            AND occurred_at &gt;= #{from}
+        </if>
+        <if test="to != null">
+            AND occurred_at &lt;= #{to}
+        </if>
+        <if test="type != null">
+            AND type = #{type}
+        </if>
+        <if test="categoryId != null">
+            AND category_id = #{categoryId}
+        </if>
+    </select>
+
+</mapper>

@@ -51,7 +51,7 @@ public class ActivityRosterAssembler {
                 signup.getId(),
                 signup.getActivityId(),
                 signup.getPlayerId(),
-                player == null ? null : player.name(),
+                player == null ? "未知球员" : player.name(),
                 player == null ? null : player.jersey(),
                 player == null ? null : avatarUrlSigner.sign(player.avatarUrl()),
                 Boolean.TRUE.equals(signup.getWithFamily()),

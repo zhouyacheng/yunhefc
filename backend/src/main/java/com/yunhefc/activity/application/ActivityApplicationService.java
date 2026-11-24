@@ -84,11 +84,11 @@ public class ActivityApplicationService {
 
         ActivityQueryParsing.validatePaging(query.page(), query.pageSize());
         if (ActivityQueryParsing.ascending(query.sort())) {
-            wrapper.orderByAsc(TeamActivity::getStartAt);
+            wrapper.orderByAsc(TeamActivity::getStartAt).orderByAsc(TeamActivity::getId);
         } else {
-            wrapper.orderByDesc(TeamActivity::getStartAt);
+            // 与 scope=latest / 管理端一致：同一开始时间按 id 倒序取最新。
+            wrapper.orderByDesc(TeamActivity::getStartAt).orderByDesc(TeamActivity::getId);
         }
-        wrapper.orderByAsc(TeamActivity::getId);
         Page<TeamActivity> result = teamActivityMapper.selectPage(
                 new Page<>(query.page(), query.pageSize()), wrapper);
         return PageResponse.of(toSummaries(result.getRecords(), now),
@@ -160,10 +160,7 @@ public class ActivityApplicationService {
     @Transactional
     public ActivityCancelResult cancel(Long activityId) {
         AuthPrincipal principal = CurrentUser.principal();
-        TeamActivity activity = findActivity(principal.teamId(), activityId);
-        if (activity == null) {
-            throw new BusinessException(ErrorCode.NOT_FOUND, "活动不存在");
-        }
+        TeamActivity activity = requireActivityForShare(principal.teamId(), activityId);
         LocalDateTime now = ShanghaiTime.now();
         if (!ActivityRules.withinSignupWindow(activity, now)) {
             throw new BusinessException(ErrorCode.ACTIVITY_STATE_CONFLICT, "活动当前不可取消报名");
@@ -255,6 +252,14 @@ public class ActivityApplicationService {
         return teamActivityMapper.selectOne(new LambdaQueryWrapper<TeamActivity>()
                 .eq(TeamActivity::getId, activityId)
                 .eq(TeamActivity::getTeamId, teamId));
+    }
+
+    private TeamActivity requireActivityForShare(Long teamId, Long activityId) {
+        TeamActivity activity = teamActivityMapper.selectByIdForShare(activityId, teamId);
+        if (activity == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "活动不存在");
+        }
+        return activity;
     }
 
     private Optional<ActivitySignupView> mySignup(Long activityId, AuthPrincipal principal) {

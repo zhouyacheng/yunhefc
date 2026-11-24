@@ -98,6 +98,19 @@ class ActivityPublicIT extends ActivityITSupport {
     }
 
     @Test
+    void latestTieBreakerMatchesListOrder() throws Exception {
+        String start = futureAt(30, 18);
+        insertActivity("同时间A", start, 0, 10, futureAt(30, 17), 1);
+        Long newer = insertActivity("同时间B", start, 0, 10, futureAt(30, 17), 1);
+
+        mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest"))
+                .andExpect(jsonPath("$.data.items[0].id").value(newer));
+        mockMvc.perform(get("/api/v1/c/activities"))
+                .andExpect(jsonPath("$.data.items[0].id").value(newer))
+                .andExpect(jsonPath("$.data.items[1].id").value(newer - 1));
+    }
+
+    @Test
     void detailExcludesRosterAndReturnsMySignup() throws Exception {
         Long activityId = insertActivity("详情活动", futureAt(30, 18), 0, 1,
                 futureAt(30, 17), 1);
@@ -324,6 +337,54 @@ class ActivityPublicIT extends ActivityITSupport {
         }
         assertThat(success).isEqualTo(1);
         assertThat(full).isEqualTo(9);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM activity_signup WHERE activity_id = ? AND status = 0",
+                Integer.class, activityId)).isEqualTo(1);
+    }
+
+    @Test
+    void simultaneousSignupsNeverOversell() throws Exception {
+        Long activityId = insertActivity("同时并发活动", futureAt(30, 18), 0, 1,
+                futureAt(30, 17), 1);
+        List<Long> userIds = new ArrayList<>();
+        for (int i = 0; i < 10; i++) {
+            String phone = "139000024%02d".formatted(i);
+            createPlayerUser(phone, "同时球员" + i, 850 + i, 1);
+            userIds.add(userId(phone));
+        }
+
+        ExecutorService executor = Executors.newFixedThreadPool(userIds.size());
+        CountDownLatch start = new CountDownLatch(1);
+        List<Future<ErrorCode>> results = new ArrayList<>();
+        for (Long userId : userIds) {
+            results.add(executor.submit(() -> {
+                SecurityContextHolder.getContext().setAuthentication(authenticated(userId));
+                start.await();
+                try {
+                    activityService.signup(activityId, new ActivitySignupRequest(false, null));
+                    return null;
+                } catch (BusinessException ex) {
+                    return ex.errorCode();
+                } finally {
+                    SecurityContextHolder.clearContext();
+                }
+            }));
+        }
+        start.countDown();
+        executor.shutdown();
+        assertThat(executor.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+
+        int success = 0;
+        for (Future<ErrorCode> result : results) {
+            ErrorCode code = result.get();
+            if (code == null) {
+                success++;
+            } else {
+                // 完全同时到达可能耗尽 3×50ms 重试预算（40919），但绝不能超卖。
+                assertThat(code).isIn(ErrorCode.ACTIVITY_FULL, ErrorCode.ACTIVITY_SIGNUP_BUSY);
+            }
+        }
+        assertThat(success).isEqualTo(1);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM activity_signup WHERE activity_id = ? AND status = 0",
                 Integer.class, activityId)).isEqualTo(1);

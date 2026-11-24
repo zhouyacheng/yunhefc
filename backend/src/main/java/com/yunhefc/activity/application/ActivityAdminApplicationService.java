@@ -139,16 +139,17 @@ public class ActivityAdminApplicationService {
     public ActivityAdmin update(Long activityId, ActivityUpdateRequest request) {
         rejectUnknownFields(request);
         Long teamId = CurrentUser.principal().teamId();
-        // 调低上限与报名「计数+写入」共用活动锁，避免计数后并发报名把人数顶到新上限之上。
-        if (request.hasCapacity() && request.getCapacity() != null) {
-            signupLock.acquire(activityId);
-        }
         TeamActivity activity = requireActivityForUpdate(teamId, activityId);
         ActivityStatusMachine.requireEditable(activity.getStatus());
         if (!request.getVersion().equals(activity.getVersion())) {
             throw versionConflict(activity.getVersion());
         }
-        if (request.hasCapacity() && request.getCapacity() != null) {
+        // 只有调低上限需要与报名「计数+写入」串行；调高不可能违反 count<=capacity。
+        boolean capacityShrink = request.hasCapacity() && request.getCapacity() != null
+                && (activity.getCapacity() == null
+                || request.getCapacity() < activity.getCapacity());
+        if (capacityShrink) {
+            signupLock.acquire(activityId);
             int signupCount = activitySignupMapper.countActive(activityId);
             if (request.getCapacity() < signupCount) {
                 throw new BusinessException(ErrorCode.BUSINESS_RULE_VIOLATION,
@@ -188,14 +189,14 @@ public class ActivityAdminApplicationService {
         String reason = target == ActivityStatus.CANCELLED
                 ? requiredText(request.reason(), "reason", "取消原因")
                 : null;
-        // 取消与报名串行化：取消提交后不得再写入有效报名，避免漏发取消通知。
-        if (target == ActivityStatus.CANCELLED) {
-            signupLock.acquire(activityId);
-        }
         TeamActivity activity = requireActivityForUpdate(principal.teamId(), activityId);
         ActivityStatusMachine.requireTransition(activity.getStatus(), target);
         if (!request.version().equals(activity.getVersion())) {
             throw versionConflict(activity.getVersion());
+        }
+        // 取消与报名串行化：取消提交后不得再写入有效报名，避免漏发取消通知。
+        if (target == ActivityStatus.CANCELLED) {
+            signupLock.acquire(activityId);
         }
         Map<String, Object> before = ActivityAuditSnapshot.of(activity);
 
@@ -238,7 +239,7 @@ public class ActivityAdminApplicationService {
     @Transactional
     public ActivitySignupRemoveResult removeSignup(Long activityId, Long signupId) {
         AuthPrincipal principal = CurrentUser.principal();
-        TeamActivity activity = requireActivity(principal.teamId(), activityId);
+        TeamActivity activity = requireActivityForShare(principal.teamId(), activityId);
         ActivityStatusMachine.requireRemovableSignup(activity.getStatus());
         ActivitySignup signup = activitySignupMapper.selectOne(new LambdaQueryWrapper<ActivitySignup>()
                 .eq(ActivitySignup::getId, signupId)
@@ -361,6 +362,14 @@ public class ActivityAdminApplicationService {
 
     private TeamActivity requireActivityForUpdate(Long teamId, Long activityId) {
         TeamActivity activity = teamActivityMapper.selectByIdForUpdate(activityId, teamId);
+        if (activity == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND, "活动不存在");
+        }
+        return activity;
+    }
+
+    private TeamActivity requireActivityForShare(Long teamId, Long activityId) {
+        TeamActivity activity = teamActivityMapper.selectByIdForShare(activityId, teamId);
         if (activity == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "活动不存在");
         }

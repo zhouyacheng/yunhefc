@@ -18,6 +18,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.TreeSet;
 
 public final class ActivityDtos {
 
@@ -95,10 +96,19 @@ public final class ActivityDtos {
         @Min(0)
         private Integer version;
 
-        // 不忽略：幂等哈希需要区分「显式 null」与「字段缺失」以及未知字段。
+        @JsonIgnore
         private final Set<String> presentFields = new LinkedHashSet<>();
 
+        @JsonIgnore
         private final Set<String> unknownFields = new LinkedHashSet<>();
+
+        /**
+         * 只读幂等指纹：让请求哈希区分「显式 null」与字段缺失及未知字段，同时不暴露可写属性。
+         */
+        @JsonProperty(value = "_presence", access = JsonProperty.Access.READ_ONLY)
+        public String presenceFingerprint() {
+            return new TreeSet<>(presentFields) + "|" + new TreeSet<>(unknownFields);
+        }
 
         @JsonProperty("endAt")
         public void setEndAt(LocalDateTime endAt) {

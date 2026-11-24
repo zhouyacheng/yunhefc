@@ -390,6 +390,29 @@ class ActivityAdminIT extends ActivityITSupport {
     }
 
     @Test
+    void updateRejectsClientSuppliedPresenceFields() throws Exception {
+        Cookie admin = bAdminLogin("13900002085");
+        Long activityId = activityId(createActivity(admin, "指纹活动", futureAt(30, 18), 4));
+
+        mockMvc.perform(patch("/api/v1/b/activities/" + activityId).cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"presentFields\":null}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.presentFields").exists());
+
+        mockMvc.perform(patch("/api/v1/b/activities/" + activityId).cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"version\":0,\"status\":2,\"unknownFields\":[]}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.status").exists())
+                .andExpect(jsonPath("$.data.details.unknownFields").exists());
+    }
+
+    @Test
     void updateIdempotencyHashDistinguishesExplicitNull() throws Exception {
         Cookie admin = bAdminLogin("13900002082");
         Long activityId = activityId(createActivity(admin, "哈希活动", futureAt(30, 18), 4));

@@ -18,6 +18,7 @@ import {
   activityTimeText,
   activityTypeText,
   buildActivityCard,
+  clampGalleryIndex,
   familySummary,
   withoutFailedImage,
 } from '../miniprogram/utils/activity-view';
@@ -167,6 +168,14 @@ describe('活动展示字段', () => {
     expect(withoutFailedImage(urls, 1)).toEqual(['a.png', 'c.png']);
     expect(withoutFailedImage(urls, 9)).toEqual(urls);
     expect(withoutFailedImage(urls, -1)).toEqual(urls);
+  });
+
+  it('图片增删后轮播索引收敛到合法范围', () => {
+    expect(clampGalleryIndex(0, 0)).toBe(0);
+    expect(clampGalleryIndex(2, 0)).toBe(0);
+    expect(clampGalleryIndex(2, 3)).toBe(2);
+    expect(clampGalleryIndex(4, 3)).toBe(2);
+    expect(clampGalleryIndex(-1, 3)).toBe(0);
   });
 
   it('时间拼接日期与时段', () => {

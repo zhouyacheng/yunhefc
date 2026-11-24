@@ -14,6 +14,7 @@ import {
   Tag,
   showToast,
 } from 'vant';
+import type { SwipeInstance } from 'vant';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
@@ -126,6 +127,57 @@ const loginTarget = computed(() => ({
   query: { redirect: toBrowserPath(route.fullPath) },
 }));
 const imageUrls = computed<string[]>(() => activity.value?.locationImageUrls ?? []);
+
+// Vant Swipe 只监听 touchstart/touchmove/touchend，桌面端鼠标拖拽不会切换，
+// 这里在松手时按水平位移调用其暴露的 swipeTo 补上鼠标操作。
+const gallerySwipe = ref<SwipeInstance | null>(null);
+const galleryIndex = ref(0);
+const GALLERY_DRAG_THRESHOLD = 40;
+let galleryDragStartX: number | null = null;
+let galleryDragStartY: number | null = null;
+
+function onGalleryChange(index: number): void {
+  galleryIndex.value = index;
+}
+
+function onGalleryPointerDown(event: PointerEvent): void {
+  if (event.pointerType !== 'mouse') {
+    return;
+  }
+  galleryDragStartX = event.clientX;
+  galleryDragStartY = event.clientY;
+  (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+}
+
+function onGalleryPointerUp(event: PointerEvent): void {
+  if (event.pointerType !== 'mouse' || galleryDragStartX === null) {
+    return;
+  }
+  const distance = event.clientX - galleryDragStartX;
+  const verticalDistance = Math.abs(event.clientY - (galleryDragStartY ?? event.clientY));
+  galleryDragStartX = null;
+  galleryDragStartY = null;
+  if (Math.abs(distance) < GALLERY_DRAG_THRESHOLD || Math.abs(distance) <= verticalDistance) {
+    return;
+  }
+  stepGallery(distance < 0 ? 1 : -1);
+}
+
+function onGalleryPointerCancel(): void {
+  galleryDragStartX = null;
+  galleryDragStartY = null;
+}
+
+// 先乐观更新索引再调用 swipeTo，连点箭头时才能按最新目标连续切换。
+function stepGallery(step: -1 | 1): void {
+  const count = imageUrls.value.length;
+  if (count < 2) {
+    return;
+  }
+  const target = (galleryIndex.value + step + count) % count;
+  galleryIndex.value = target;
+  gallerySwipe.value?.swipeTo(target);
+}
 
 const REFRESH_CONFLICT_CODES: readonly number[] = [
   ERROR_CODES.VERSION_CONFLICT,
@@ -471,16 +523,46 @@ onBeforeUnmount(() => {
         <div class="card-head">
           <h2>场地环境</h2>
         </div>
-        <Swipe class="activity-gallery__swipe" :autoplay="0" indicator-dots>
-          <SwipeItem v-for="(url, index) in imageUrls" :key="`${index}-${url}`">
-            <img
-              class="activity-gallery__image"
-              :src="url"
-              alt="场地环境图片"
-              @error="imageFailed = true"
-            />
-          </SwipeItem>
-        </Swipe>
+        <div class="activity-gallery__stage">
+          <Swipe
+            ref="gallerySwipe"
+            class="activity-gallery__swipe"
+            :autoplay="0"
+            show-indicators
+            @change="onGalleryChange"
+            @pointerdown="onGalleryPointerDown"
+            @pointerup="onGalleryPointerUp"
+            @pointercancel="onGalleryPointerCancel"
+          >
+            <SwipeItem v-for="(url, index) in imageUrls" :key="`${index}-${url}`">
+              <img
+                class="activity-gallery__image"
+                :src="url"
+                alt="场地环境图片"
+                draggable="false"
+                @error="imageFailed = true"
+              />
+            </SwipeItem>
+          </Swipe>
+          <template v-if="imageUrls.length > 1">
+            <button
+              type="button"
+              class="activity-gallery__nav activity-gallery__nav--prev"
+              aria-label="上一张"
+              @click="stepGallery(-1)"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              class="activity-gallery__nav activity-gallery__nav--next"
+              aria-label="下一张"
+              @click="stepGallery(1)"
+            >
+              ›
+            </button>
+          </template>
+        </div>
       </section>
 
       <div class="overview-grid">
@@ -688,6 +770,42 @@ onBeforeUnmount(() => {
 
 .activity-gallery {
   margin-bottom: 18px;
+}
+
+.activity-gallery__stage {
+  position: relative;
+}
+
+.activity-gallery__nav {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.45);
+  border: 0;
+  border-radius: 50%;
+  transform: translateY(-50%);
+  transition: background-color 0.2s ease;
+}
+
+.activity-gallery__nav:hover {
+  background: rgba(15, 23, 42, 0.65);
+}
+
+.activity-gallery__nav--prev {
+  left: 10px;
+}
+
+.activity-gallery__nav--next {
+  right: 10px;
 }
 
 .activity-gallery__swipe,

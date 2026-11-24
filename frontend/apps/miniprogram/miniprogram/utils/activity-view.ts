@@ -133,6 +133,11 @@ export function activityCapacityPercent(
   );
 }
 
+/** 图片增删后把轮播索引收敛到合法范围；无图时回到 0。 */
+export function clampGalleryIndex(index: number, count: number): number {
+  return Math.min(Math.max(index, 0), Math.max(count - 1, 0));
+}
+
 /** 单张图片加载失败时只移除该张，其余有效图片继续展示。 */
 export function withoutFailedImage(urls: string[], index: number): string[] {
   if (!Number.isInteger(index) || index < 0 || index >= urls.length) {

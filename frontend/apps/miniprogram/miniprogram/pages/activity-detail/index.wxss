@@ -123,6 +123,34 @@
   border-radius: var(--yh-radius-sm);
 }
 
+.gallery-stage {
+  position: relative;
+}
+
+.gallery-nav {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56rpx;
+  height: 56rpx;
+  color: #ffffff;
+  font-size: 36rpx;
+  line-height: 1;
+  background: rgba(15, 23, 42, 0.45);
+  border-radius: 50%;
+  transform: translateY(-50%);
+}
+
+.gallery-nav--prev {
+  left: 16rpx;
+}
+
+.gallery-nav--next {
+  right: 16rpx;
+}
+
 .description-text {
   color: var(--yh-ink);
   font-size: 28rpx;

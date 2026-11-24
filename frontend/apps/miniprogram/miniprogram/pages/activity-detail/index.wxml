@@ -44,25 +44,43 @@
       <view class="card-head">
         <text class="card-title">场地环境</text>
       </view>
-      <swiper
-        class="gallery-image"
-        indicator-dots
-        circular="{{activity.locationImageUrls.length > 1}}"
-      >
-        <swiper-item
-          wx:for="{{activity.locationImageUrls}}"
-          wx:for-index="index"
-          wx:key="*this"
+      <view class="gallery-stage">
+        <swiper
+          class="gallery-image"
+          indicator-dots
+          circular="{{activity.locationImageUrls.length > 1}}"
+          current="{{galleryIndex}}"
+          bindchange="onGalleryChange"
         >
-          <image
-            class="gallery-image"
-            src="{{item}}"
-            mode="aspectFill"
-            data-index="{{index}}"
-            binderror="onImageError"
-          />
-        </swiper-item>
-      </swiper>
+          <swiper-item
+            wx:for="{{activity.locationImageUrls}}"
+            wx:for-index="index"
+            wx:key="*this"
+          >
+            <image
+              class="gallery-image"
+              src="{{item}}"
+              mode="aspectFill"
+              data-index="{{index}}"
+              binderror="onImageError"
+            />
+          </swiper-item>
+        </swiper>
+        <block wx:if="{{activity.locationImageUrls.length > 1}}">
+          <view
+            class="gallery-nav gallery-nav--prev"
+            catchtap="prevImage"
+            aria-role="button"
+            aria-label="上一张"
+          >‹</view>
+          <view
+            class="gallery-nav gallery-nav--next"
+            catchtap="nextImage"
+            aria-role="button"
+            aria-label="下一张"
+          >›</view>
+        </block>
+      </view>
     </view>
 
     <view class="overview-grid">

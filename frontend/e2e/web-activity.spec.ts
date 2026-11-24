@@ -306,7 +306,7 @@ test('C12 活动详情：访客在已截止活动看到禁用文案', async ({ p
 test('C12 活动详情：展示场地环境图片，无图时不展示该区块', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const image = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-  const withImages = { ...OPEN_ACTIVITY, locationImageUrls: [image, image] };
+  const withImages = { ...OPEN_ACTIVITY, locationImageUrls: [image, image, image] };
 
   await page.route(
     (url) => url.pathname === '/api/v1/c/activities/9001',
@@ -314,7 +314,34 @@ test('C12 活动详情：展示场地环境图片，无图时不展示该区块'
   );
   await page.goto('/activities/9001');
   await expect(page.getByRole('heading', { name: '场地环境' })).toBeVisible();
-  await expect(page.locator('img[alt="场地环境图片"]')).toHaveCount(2);
+  await expect(page.locator('img[alt="场地环境图片"]')).toHaveCount(3);
+
+  // 桌面端鼠标拖拽切图：Vant Swipe 本身只处理触摸事件，页面补了鼠标位移切换。
+  const swipe = page.locator('.van-swipe');
+  await swipe.scrollIntoViewIfNeeded();
+  const indicators = page.locator('.van-swipe__indicator');
+  await expect(indicators.nth(0)).toHaveClass(/van-swipe__indicator--active/);
+  const box = (await swipe.boundingBox())!;
+  const centerY = box.y + box.height / 2;
+  await page.mouse.move(box.x + box.width * 0.7, centerY);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.3, centerY, { steps: 5 });
+  await page.mouse.up();
+  await expect(indicators.nth(1)).toHaveClass(/van-swipe__indicator--active/);
+
+  // 左右箭头可点击切换，且可循环。
+  await page.getByRole('button', { name: '下一张' }).click();
+  await expect(indicators.nth(2)).toHaveClass(/van-swipe__indicator--active/);
+  await page.getByRole('button', { name: '上一张' }).click();
+  await expect(indicators.nth(1)).toHaveClass(/van-swipe__indicator--active/);
+
+  // 连续两次点击不能被 Vant 的 change 回写吞掉（乐观索引）。
+  await page.evaluate(() => {
+    const next = document.querySelector<HTMLElement>('[aria-label="下一张"]');
+    next?.click();
+    next?.click();
+  });
+  await expect(indicators.nth(0)).toHaveClass(/van-swipe__indicator--active/);
 
   await page.route(
     (url) => url.pathname === '/api/v1/c/activities/9001',

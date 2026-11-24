@@ -18,6 +18,7 @@ import {
   activityStatusTone,
   activityTimeText,
   activityTypeText,
+  clampGalleryIndex,
   familySummary,
   withoutFailedImage,
   type ActivityActionView,
@@ -59,6 +60,7 @@ Page({
     costText: '',
     countText: '',
     capacityPercent: 0,
+    galleryIndex: 0,
     mySignup: null as ActivitySignup | null,
     familyText: '',
     signedUpText: '',
@@ -170,6 +172,7 @@ Page({
       costText: activityCostText(activity),
       countText: activityCountText(activity),
       capacityPercent: activityCapacityPercent(activity),
+      galleryIndex: clampGalleryIndex(this.data.galleryIndex, activity.locationImageUrls.length),
       mySignup,
       familyText: familySummary(activity.mySignup),
       signedUpText: mySignup ? formatDateTime(mySignup.signedUpAt) : '',
@@ -348,8 +351,30 @@ Page({
   onImageError(event: WechatMiniprogram.CustomEvent) {
     const index = Number(event.currentTarget.dataset.index);
     const urls = this.data.activity?.locationImageUrls ?? [];
+    const next = withoutFailedImage(urls, index);
     this.setData({
-      'activity.locationImageUrls': withoutFailedImage(urls, index),
+      'activity.locationImageUrls': next,
+      galleryIndex: clampGalleryIndex(this.data.galleryIndex, next.length),
     });
+  },
+
+  onGalleryChange(event: WechatMiniprogram.CustomEvent) {
+    this.setData({ galleryIndex: Number(event.detail.current) || 0 });
+  },
+
+  prevImage() {
+    this.shiftGallery(-1);
+  },
+
+  nextImage() {
+    this.shiftGallery(1);
+  },
+
+  shiftGallery(step: number) {
+    const count = this.data.activity?.locationImageUrls.length ?? 0;
+    if (count < 2) {
+      return;
+    }
+    this.setData({ galleryIndex: (this.data.galleryIndex + step + count) % count });
   },
 });

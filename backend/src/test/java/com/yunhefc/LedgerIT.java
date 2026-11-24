@@ -182,7 +182,13 @@ class LedgerIT extends ActivityITSupport {
                 .andExpect(jsonPath("$.data.items[*].name").value(
                         org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("球衣"))));
 
+        // LED-09 缺省含停用分类；显式 includeInactive=false 才排除。
         mockMvc.perform(get("/api/v1/b/ledger/categories").cookie(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[?(@.name == '球衣')].isActive")
+                        .value(org.hamcrest.Matchers.contains(false)));
+        mockMvc.perform(get("/api/v1/b/ledger/categories")
+                        .param("includeInactive", "false").cookie(admin))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[*].name").value(
                         org.hamcrest.Matchers.not(org.hamcrest.Matchers.hasItem("球衣"))));

@@ -195,8 +195,9 @@ public class LedgerAdminApplicationService {
     public ItemsResponse<LedgerCategoryView> categories(Integer typeCode, Boolean includeInactive) {
         Long teamId = CurrentUser.principal().teamId();
         LedgerType type = LedgerRules.type(typeCode);
+        // 05 §3.17 与票 04 均写明 LED-09「含停用分类」，故缺省包含；显式 false 才排除。
         return new ItemsResponse<>(ledgerService.categoryViews(teamId, type,
-                Boolean.TRUE.equals(includeInactive)));
+                includeInactive == null || includeInactive));
     }
 
     @Transactional

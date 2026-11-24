@@ -1,6 +1,5 @@
 {
   "navigationBarTitleText": "活动详情",
-  "enablePullDownRefresh": true,
   "usingComponents": {
     "van-field": "@vant/weapp/field/index",
     "van-loading": "@vant/weapp/loading/index",

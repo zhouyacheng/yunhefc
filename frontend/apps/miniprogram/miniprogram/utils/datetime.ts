@@ -30,6 +30,29 @@ export function formatDayStartTime(value: string | null | undefined): string {
   return `${month}月${day}日 ${weekday} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`;
 }
 
+/** 展示文案：`M月D日 周X HH:mm–HH:mm`；跨天结束带月/日，无结束只显示开始时刻。 */
+export function formatDayTimeRange(
+  startAt: string | null | undefined,
+  endAt: string | null | undefined,
+): string {
+  const date = shanghaiDate(startAt);
+  const start = formatHourMinute(startAt);
+  if (!date || !start) {
+    return '—';
+  }
+  const head = `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${WEEKDAYS[date.getUTCDay()]}`;
+  const end = formatHourMinute(endAt);
+  if (!end) {
+    return `${head} ${start}`;
+  }
+  const startDate = formatDateYmd(startAt);
+  const endDate = formatDateYmd(endAt);
+  if (!endDate || startDate === endDate) {
+    return `${head} ${start}–${end}`;
+  }
+  return `${head} ${start}–${formatMonthDay(endAt)} ${end}`;
+}
+
 /** 当前年月（Asia/Shanghai），输出 `YYYY-MM`。 */
 export function currentShanghaiMonth(now: number | Date = Date.now()): string {
   const time = typeof now === 'number' ? now : now.getTime();

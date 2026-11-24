@@ -343,14 +343,14 @@ describe('ledger client', () => {
     await listLedgerEntries({
       type: 1,
       categoryId: 3,
-      from: '2026-11-01T00:00:00',
-      to: '2026-11-30T23:59:59',
+      from: '2026-11-01T00:00:00+08:00',
+      to: '2026-11-30T23:59:59+08:00',
       page: 2,
       pageSize: 20,
     });
     expect(mocks.request).toHaveBeenCalledWith(
       'GET',
-      '/ledger/entries?type=1&categoryId=3&from=2026-11-01T00%3A00%3A00&to=2026-11-30T23%3A59%3A59&page=2&pageSize=20',
+      '/ledger/entries?type=1&categoryId=3&from=2026-11-01T00%3A00%3A00%2B08%3A00&to=2026-11-30T23%3A59%3A59%2B08%3A00&page=2&pageSize=20',
     );
   });
 

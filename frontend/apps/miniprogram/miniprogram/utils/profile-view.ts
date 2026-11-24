@@ -1,6 +1,7 @@
 import type { AuthUser, MyRegistration, Notification, PlayerView } from '../types/api';
 import { avatarInitial, avatarSrc } from './avatar';
 import { formatDateTime } from './datetime';
+import type { InvalidationResource } from './invalidation';
 import {
   matchStatusText,
   positionText,
@@ -38,6 +39,11 @@ export interface NotificationRow {
   readAt: string | null;
   refType: string | null;
   refId: number | null;
+  /** 通知落点文案与页面路径；无落点为空串。 */
+  linkLabel: string;
+  linkUrl: string;
+  /** 点击后需要失效的跨页资源。 */
+  invalidate: InvalidationResource | null;
 }
 
 export interface RegistrationRowView {
@@ -73,7 +79,33 @@ export function identityOf(user: AuthUser, player: PlayerView | null): IdentityV
   };
 }
 
+function notificationLink(
+  refType: string | null,
+  refId: number | null,
+): Pick<NotificationRow, 'linkLabel' | 'linkUrl' | 'invalidate'> {
+  if (typeof refId !== 'number' || refId < 1) {
+    return { linkLabel: '', linkUrl: '', invalidate: null };
+  }
+  if (refType === 'MATCH') {
+    return {
+      linkLabel: '查看比赛',
+      linkUrl: `/pages/match-detail/index?id=${refId}`,
+      invalidate: 'my-registrations',
+    };
+  }
+  if (refType === 'ACTIVITY') {
+    return {
+      linkLabel: '查看活动',
+      linkUrl: `/pages/activity-detail/index?id=${refId}`,
+      invalidate: null,
+    };
+  }
+  return { linkLabel: '', linkUrl: '', invalidate: null };
+}
+
 export function decorateNotification(item: Notification): NotificationRow {
+  const refType = item.refType ?? null;
+  const refId = item.refId ?? null;
   return {
     id: item.id,
     title: item.title,
@@ -81,8 +113,9 @@ export function decorateNotification(item: Notification): NotificationRow {
     timeText: formatDateTime(item.createdAt),
     unread: !item.readAt,
     readAt: item.readAt ?? null,
-    refType: item.refType ?? null,
-    refId: item.refId ?? null,
+    refType,
+    refId,
+    ...notificationLink(refType, refId),
   };
 }
 

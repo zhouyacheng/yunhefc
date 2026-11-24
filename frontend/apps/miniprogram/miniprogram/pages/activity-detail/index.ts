@@ -3,6 +3,7 @@ import { cancelActivitySignup, fetchActivity, signupActivity } from '../../utils
 import { errorMessage, shouldRefreshAfterActivityConflict } from '../../utils/api-errors';
 import {
   activityAction,
+  activityCanCancel,
   activityCostText,
   activityCountText,
   activityStatusTone,
@@ -11,7 +12,7 @@ import {
   type ActivityActionView,
   type ActivityStatusTone,
 } from '../../utils/activity-view';
-import { formatDayStartTime } from '../../utils/datetime';
+import { formatDateTime, formatDayStartTime } from '../../utils/datetime';
 import { invalidate } from '../../utils/invalidation';
 import { ACTIVITY_SIGNUP_OWN, hasPermission } from '../../utils/permissions';
 import { getPermissions, getUser, sessionReady } from '../../utils/session';
@@ -44,6 +45,7 @@ Page({
     countText: '',
     mySignup: null as ActivitySignup | null,
     familyText: '',
+    signedUpText: '',
     registered: false,
     canCancel: false,
     authenticated: false,
@@ -73,10 +75,6 @@ Page({
     if (hasLoaded) {
       void this.load(true);
     }
-  },
-
-  onPullDownRefresh() {
-    void this.load(true).then(() => wx.stopPullDownRefresh());
   },
 
   onUnload() {
@@ -134,8 +132,6 @@ Page({
     const mySignup = activity.mySignup && activity.mySignup.status === 0 ? activity.mySignup : null;
     const action = activityAction(activity, now);
     const canSignupPerm = authenticated && hasPermission(getPermissions(), ACTIVITY_SIGNUP_OWN);
-    const canCancel =
-      !!mySignup && activity.status === 0 && now < Date.parse(activity.signupDeadline);
     const hint =
       action.reason || (authenticated && !pending && !canSignupPerm ? '仅正式球员可报名' : '');
     this.setData({
@@ -148,8 +144,9 @@ Page({
       countText: activityCountText(activity),
       mySignup,
       familyText: familySummary(activity.mySignup),
+      signedUpText: mySignup ? formatDateTime(mySignup.signedUpAt) : '',
       registered: !!mySignup,
-      canCancel,
+      canCancel: activityCanCancel(activity, now),
       authenticated,
       pending,
       canSignupPerm,

@@ -164,10 +164,6 @@ Page({
     void feed?.load();
   },
 
-  loadMore() {
-    void feed?.loadMore();
-  },
-
   goDetail(event: WechatMiniprogram.BaseEvent) {
     const id = Number(event.currentTarget.dataset.id);
     if (!id) {

@@ -1,12 +1,20 @@
-import type { LedgerEntry, LedgerSummary, LedgerType } from '../../types/api';
+import type { LedgerCategory, LedgerEntry, LedgerSummary, LedgerType } from '../../types/api';
 import {
   fetchLedgerSummary,
   listLedgerCategories,
   listLedgerEntries,
-  type LedgerFilter,
 } from '../../utils/api-client';
 import { errorMessage } from '../../utils/api-errors';
 import { formatDateTime } from '../../utils/datetime';
+import {
+  ALL_CATEGORIES_OPTION,
+  categoryOptionsFor,
+  DEFAULT_LEDGER_KEY,
+  ledgerFilterKey,
+  ledgerFilterQuery,
+  parseLedgerFilterKey,
+  type LedgerFilterState,
+} from '../../utils/ledger-query';
 import { LEDGER_VIEW_ANY, hasPermission } from '../../utils/permissions';
 import {
   createPagedFeed,
@@ -46,15 +54,18 @@ const TYPE_OPTIONS: FilterOption[] = [
   { value: 1, label: '支出' },
 ];
 
-const ALL_CATEGORIES = { value: 0, label: '全部分类' };
+function typeValue(index: number): LedgerType | '' {
+  return TYPE_OPTIONS[index]?.value ?? '';
+}
 
 let feed: PagedFeed<LedgerEntryView> | null = null;
 let summarySeq = 0;
 let unloading = false;
 let lastFeedError = '';
 
+/** 负数按 `−¥123.00` 展示，与 Web 一致。 */
 function moneyText(value: number): string {
-  return `¥${value.toFixed(2)}`;
+  return value < 0 ? `−¥${Math.abs(value).toFixed(2)}` : `¥${value.toFixed(2)}`;
 }
 
 function decorateEntry(entry: LedgerEntry): LedgerEntryView {
@@ -63,7 +74,7 @@ function decorateEntry(entry: LedgerEntry): LedgerEntryView {
     categoryName: entry.categoryName,
     description: entry.description,
     timeText: formatDateTime(entry.occurredAt),
-    amountText: `${entry.type === 0 ? '+' : '-'}${moneyText(entry.amount)}`,
+    amountText: `${entry.type === 0 ? '+' : '−'}${moneyText(entry.amount)}`,
     tone: entry.type === 0 ? 'income' : 'expense',
     metaText: [entry.playerName, entry.activityTitle].filter(Boolean).join(' · '),
   };
@@ -78,22 +89,18 @@ function summaryView(summary: LedgerSummary): SummaryView {
   };
 }
 
-function rangeStart(date: string): string {
-  return date ? `${date}T00:00:00` : '';
-}
-
-function rangeEnd(date: string): string {
-  return date ? `${date}T23:59:59` : '';
-}
-
-/** key = `type|categoryId|from|to`；空值为不过滤。 */
-function parseKey(key: string): LedgerFilter {
-  const [type, categoryId, from, to] = key.split('|');
+function filterStateOf(data: {
+  typeIndex: number;
+  categoryOptions: { value: number }[];
+  categoryIndex: number;
+  fromDate: string;
+  toDate: string;
+}): LedgerFilterState {
   return {
-    type: type === '' ? undefined : (Number(type) as LedgerType),
-    categoryId: Number(categoryId) || undefined,
-    from: from || undefined,
-    to: to || undefined,
+    type: typeValue(data.typeIndex),
+    categoryId: data.categoryOptions[data.categoryIndex]?.value ?? 0,
+    fromDate: data.fromDate,
+    toDate: data.toDate,
   };
 }
 
@@ -103,13 +110,16 @@ Page({
     authenticated: false,
     authorized: false,
     categoriesLoaded: false,
-    feed: emptyPagedFeedState<LedgerEntryView>('|0||') as PagedFeedState<LedgerEntryView>,
+    feed: emptyPagedFeedState<LedgerEntryView>(
+      DEFAULT_LEDGER_KEY,
+    ) as PagedFeedState<LedgerEntryView>,
     summary: null as SummaryView | null,
     summaryLoading: false,
     summaryError: '',
     typeOptions: TYPE_OPTIONS,
     typeIndex: 0,
-    categoryOptions: [ALL_CATEGORIES],
+    categories: [] as LedgerCategory[],
+    categoryOptions: [ALL_CATEGORIES_OPTION],
     categoryIndex: 0,
     fromDate: '',
     toDate: '',
@@ -119,9 +129,10 @@ Page({
     unloading = false;
     feed = createPagedFeed<LedgerEntryView>({
       pageSize: PAGE_SIZE,
-      initialKey: '|0||',
+      initialKey: DEFAULT_LEDGER_KEY,
       fetchPage: async ({ key, page, pageSize }) => {
-        const result = await listLedgerEntries({ ...parseKey(key), page, pageSize });
+        const filter = ledgerFilterQuery(parseLedgerFilterKey(key));
+        const result = await listLedgerEntries({ ...filter, page, pageSize });
         return { ...result, items: result.items.map(decorateEntry) };
       },
       onChange: (state) => {
@@ -147,7 +158,7 @@ Page({
       return;
     }
     const loading = feed?.load() ?? Promise.resolve();
-    this.loadSummary(feed?.state.key ?? '|0||');
+    this.loadSummary(feed?.state.key ?? DEFAULT_LEDGER_KEY);
     void loading.then(() => wx.stopPullDownRefresh());
   },
 
@@ -184,13 +195,15 @@ Page({
 
   async loadCategories() {
     try {
-      const items = await listLedgerCategories();
+      const categories = await listLedgerCategories();
+      const selected = this.data.categoryOptions[this.data.categoryIndex]?.value ?? 0;
+      const options = categoryOptionsFor(categories, typeValue(this.data.typeIndex));
+      const index = options.findIndex((option) => option.value === selected);
       this.setData({
         categoriesLoaded: true,
-        categoryOptions: [
-          ALL_CATEGORIES,
-          ...items.map((category) => ({ value: category.id, label: category.name })),
-        ],
+        categories,
+        categoryOptions: options,
+        categoryIndex: index >= 0 ? index : 0,
       });
     } catch (error) {
       // 分类失败不阻断流水；下次进入页面重试。
@@ -202,7 +215,7 @@ Page({
     const seq = ++summarySeq;
     this.setData({ summaryLoading: true, summaryError: '' });
     try {
-      const summary = await fetchLedgerSummary(parseKey(key));
+      const summary = await fetchLedgerSummary(ledgerFilterQuery(parseLedgerFilterKey(key)));
       if (seq !== summarySeq) {
         return;
       }
@@ -222,9 +235,7 @@ Page({
     if (!feed) {
       return;
     }
-    const type = TYPE_OPTIONS[this.data.typeIndex]?.value ?? '';
-    const categoryId = this.data.categoryOptions[this.data.categoryIndex]?.value ?? 0;
-    const key = `${type}|${categoryId}|${rangeStart(this.data.fromDate)}|${rangeEnd(this.data.toDate)}`;
+    const key = ledgerFilterKey(filterStateOf(this.data));
     if (key === feed.state.key) {
       return;
     }
@@ -234,7 +245,16 @@ Page({
   },
 
   onTypeChange(event: WechatMiniprogram.PickerChange) {
-    this.setData({ typeIndex: Number(event.detail.value) });
+    const typeIndex = Number(event.detail.value);
+    const selected = this.data.categoryOptions[this.data.categoryIndex]?.value ?? 0;
+    const options = categoryOptionsFor(this.data.categories, typeValue(typeIndex));
+    const index = options.findIndex((option) => option.value === selected);
+    // 方向变化后保留仍兼容的分类，否则回到「全部分类」，避免空列表。
+    this.setData({
+      typeIndex,
+      categoryOptions: options,
+      categoryIndex: index >= 0 ? index : 0,
+    });
     this.applyFilters();
   },
 
@@ -272,15 +292,11 @@ Page({
   },
 
   retrySummary() {
-    this.loadSummary(feed?.state.key ?? '|0||');
+    this.loadSummary(feed?.state.key ?? DEFAULT_LEDGER_KEY);
   },
 
   retry() {
     void feed?.load();
-  },
-
-  loadMore() {
-    void feed?.loadMore();
   },
 
   goLogin() {

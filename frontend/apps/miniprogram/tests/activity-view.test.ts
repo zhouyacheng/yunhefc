@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ActivitySignup, ActivitySummary } from '../miniprogram/types/api';
 import {
   activityAction,
+  activityCanCancel,
   activityCostText,
   activityCountText,
   activitySignupOpen,
@@ -164,8 +165,22 @@ describe('活动展示字段', () => {
       actionLabel: '报名',
       actionVisible: true,
       actionDisabled: false,
-      actionReason: '',
     });
+  });
+});
+
+describe('activityCanCancel', () => {
+  it('仅本人有效报名且活动报名中、未过截止时可取消', () => {
+    expect(activityCanCancel(activity({ mySignup: signup() }), NOW)).toBe(true);
+    expect(activityCanCancel(activity(), NOW)).toBe(false);
+    expect(activityCanCancel(activity({ mySignup: signup({ status: 1 }) }), NOW)).toBe(false);
+    expect(activityCanCancel(activity({ mySignup: signup(), status: 1 }), NOW)).toBe(false);
+    expect(
+      activityCanCancel(
+        activity({ mySignup: signup(), signupDeadline: '2026-11-30T23:59:00+08:00' }),
+        NOW,
+      ),
+    ).toBe(false);
   });
 });
 

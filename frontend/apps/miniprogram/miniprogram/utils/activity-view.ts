@@ -1,7 +1,7 @@
 // MP10/MP11 活动派生态：列表卡片、报名按钮与家属摘要。
 // 服务端 signupOpen 仍是权威门禁，本地只负责即时展示与文案矩阵。
 import type { ActivitySignup, ActivityStatus, ActivitySummary } from '../types/api';
-import { formatDayStartTime, formatTimeRange } from './datetime';
+import { formatDayTimeRange } from './datetime';
 
 export type ActivityStatusTone = 'open' | 'closed' | 'finished' | 'cancelled';
 
@@ -26,7 +26,6 @@ export interface ActivityCardView {
   actionLabel: string;
   actionVisible: boolean;
   actionDisabled: boolean;
-  actionReason: string;
 }
 
 export function activityStatusTone(status: ActivityStatus): ActivityStatusTone {
@@ -87,11 +86,16 @@ export function activityCountText(
 }
 
 export function activityTimeText(activity: Pick<ActivitySummary, 'startAt' | 'endAt'>): string {
-  const start = formatDayStartTime(activity.startAt);
-  const range = formatTimeRange(activity.startAt, activity.endAt);
-  // 复用比赛时段文案，只取结束部分拼到「M月D日 周X HH:mm」之后。
-  const suffix = range.includes('–') ? range.slice(range.indexOf('–')) : '';
-  return `${start}${suffix}`;
+  return formatDayTimeRange(activity.startAt, activity.endAt);
+}
+
+/** 本人取消仅限报名中且未过截止；管理员移除不走此判断。 */
+export function activityCanCancel(activity: ActivitySummary, now: number): boolean {
+  return (
+    activity.status === 0 &&
+    activity.mySignup?.status === 0 &&
+    now < Date.parse(activity.signupDeadline)
+  );
 }
 
 export function activityCostText(activity: Pick<ActivitySummary, 'costPerPerson'>): string {
@@ -124,6 +128,5 @@ export function buildActivityCard(activity: ActivitySummary, now: number): Activ
     actionLabel: action.label,
     actionVisible: action.visible,
     actionDisabled: action.disabled,
-    actionReason: action.reason,
   };
 }

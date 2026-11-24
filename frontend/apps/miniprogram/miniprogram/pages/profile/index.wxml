@@ -115,7 +115,7 @@
               <view class="notification__main">
                 <text class="notification__title">{{item.title}}</text>
                 <text class="notification__body">{{item.body}}</text>
-                <text class="notification__meta">{{item.timeText}}<text wx:if="{{item.refType === 'MATCH'}}"> · 查看比赛</text><text wx:elif="{{item.refType === 'ACTIVITY'}}"> · 查看活动</text></text>
+                <text class="notification__meta">{{item.timeText}}<text wx:if="{{item.linkLabel}}"> · {{item.linkLabel}}</text></text>
               </view>
             </view>
           </view>

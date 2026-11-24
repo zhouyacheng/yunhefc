@@ -7,6 +7,7 @@ import {
   formatDateTime,
   formatDateTimeWithYear,
   formatDayStartTime,
+  formatDayTimeRange,
   formatHourMinute,
   formatTimeRange,
 } from '../miniprogram/utils/datetime';
@@ -84,6 +85,26 @@ describe('formatDateWithYear / formatDateTimeWithYear', () => {
     expect(formatDateWithYear('bad')).toBe('—');
     expect(formatDateTimeWithYear('')).toBe('—');
     expect(formatDateTimeWithYear(undefined)).toBe('—');
+  });
+});
+
+describe('formatDayTimeRange', () => {
+  it('拼接日期与同日时段', () => {
+    expect(formatDayTimeRange('2026-12-05T18:00:00+08:00', '2026-12-05T21:00:00+08:00')).toBe(
+      '12月5日 周六 18:00–21:00',
+    );
+    expect(formatDayTimeRange('2026-12-05T18:00:00+08:00', null)).toBe('12月5日 周六 18:00');
+  });
+
+  it('跨天结束带月日', () => {
+    expect(formatDayTimeRange('2026-12-05T22:00:00+08:00', '2026-12-06T02:00:00+08:00')).toBe(
+      '12月5日 周六 22:00–12/06 02:00',
+    );
+  });
+
+  it('无效开始时间返回占位符', () => {
+    expect(formatDayTimeRange(null, '2026-12-05T21:00:00+08:00')).toBe('—');
+    expect(formatDayTimeRange('bad', null)).toBe('—');
   });
 });
 

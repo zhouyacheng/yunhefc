@@ -477,10 +477,7 @@ export function fetchLedgerSummary(filter: LedgerFilter = {}): Promise<LedgerSum
 }
 
 /** LED-08 启用中的分类；direction=null 的通用分类也会返回。 */
-export async function listLedgerCategories(type?: LedgerType): Promise<LedgerCategory[]> {
-  const { items } = await request<{ items: LedgerCategory[] }>(
-    'GET',
-    `/ledger/categories${queryString({ type })}`,
-  );
+export async function listLedgerCategories(): Promise<LedgerCategory[]> {
+  const { items } = await request<{ items: LedgerCategory[] }>('GET', '/ledger/categories');
   return items || [];
 }

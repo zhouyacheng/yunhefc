@@ -12,7 +12,7 @@ import { promotionText, registrationDecision } from '../../utils/registration';
 import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
 import { createPagedFeed, emptyPagedFeedState, type PagedFeed } from '../../utils/paged-feed';
 import { invalidate, subscribe } from '../../utils/invalidation';
-import { LEDGER_VIEW_ANY } from '../../utils/permissions';
+import { LEDGER_VIEW_ANY, hasPermission } from '../../utils/permissions';
 import {
   decorateNotification,
   decorateRegistration,
@@ -25,7 +25,6 @@ import {
   getPermissions,
   getPlayer,
   getUser,
-  hasPermission,
   logout as logoutSession,
   restore,
 } from '../../utils/session';
@@ -149,7 +148,7 @@ Page({
       player,
       identity: identityOf(user, player),
       pending,
-      canViewLedger: !pending && hasPermission(LEDGER_VIEW_ANY),
+      canViewLedger: !pending && hasPermission(getPermissions(), LEDGER_VIEW_ANY),
       actionError: '',
     });
     void refreshUnreadBadge().then((unreadCount) => {
@@ -202,11 +201,11 @@ Page({
         }
         await notificationFeed?.load();
       }
-      if (item.refType === 'MATCH' && typeof item.refId === 'number' && item.refId > 0) {
-        invalidate('my-registrations');
-        await wx.navigateTo({ url: `/pages/match-detail/index?id=${item.refId}` });
-      } else if (item.refType === 'ACTIVITY' && typeof item.refId === 'number' && item.refId > 0) {
-        await wx.navigateTo({ url: `/pages/activity-detail/index?id=${item.refId}` });
+      if (item.invalidate) {
+        invalidate(item.invalidate);
+      }
+      if (item.linkUrl) {
+        await wx.navigateTo({ url: item.linkUrl });
       }
     } finally {
       this.setData({ busyId: 0 });

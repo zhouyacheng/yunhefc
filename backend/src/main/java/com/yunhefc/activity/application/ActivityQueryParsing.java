@@ -6,6 +6,11 @@ import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeParseException;
+import java.util.regex.Pattern;
+
 /**
  * 活动列表（ACT-01/06）公共的筛选参数解析。
  */
@@ -16,6 +21,9 @@ final class ActivityQueryParsing {
     static final String SCOPE_HISTORY = "history";
     private static final String SORT_START_AT_ASC = "startAt:asc";
     private static final String SORT_START_AT_DESC = "startAt:desc";
+    private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
+    private static final LocalDate MIN_DATE = LocalDate.of(2000, 1, 1);
+    private static final LocalDate MAX_DATE = LocalDate.of(2100, 12, 31);
 
     private ActivityQueryParsing() {
     }
@@ -72,8 +80,56 @@ final class ActivityQueryParsing {
         return keyword;
     }
 
+    /**
+     * 管理端活动列表的自定义日期范围；按 Asia/Shanghai 自然日左闭右开过滤 start_at。
+     */
+    static DateRange dateRange(String start, String end) {
+        String startDate = normalize(start);
+        String endDate = normalize(end);
+        if (startDate == null && endDate == null) {
+            return null;
+        }
+        if (startDate == null || endDate == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "开始日期与结束日期必须同时提供");
+        }
+        LocalDate from = parseDate(startDate);
+        LocalDate to = parseDate(endDate);
+        if (from.isAfter(to)) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "开始日期不能晚于结束日期");
+        }
+        return new DateRange(from, to);
+    }
+
+    private static LocalDate parseDate(String value) {
+        if (!DATE_PATTERN.matcher(value).matches()) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "日期必须为 YYYY-MM-DD");
+        }
+        LocalDate date;
+        try {
+            date = LocalDate.parse(value);
+        } catch (DateTimeParseException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "日期必须为 YYYY-MM-DD");
+        }
+        if (date.isBefore(MIN_DATE) || date.isAfter(MAX_DATE)) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                    "日期范围需在 2000-01-01 至 2100-12-31");
+        }
+        return date;
+    }
+
     static void validatePaging(long page, long pageSize) {
         PageQuery.of(page, pageSize);
+    }
+
+    record DateRange(LocalDate start, LocalDate end) {
+
+        LocalDateTime startAt() {
+            return start.atStartOfDay();
+        }
+
+        LocalDateTime endExclusiveAt() {
+            return end.plusDays(1).atStartOfDay();
+        }
     }
 
     static String normalize(String value) {

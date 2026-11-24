@@ -782,12 +782,15 @@ test('B 端：侧栏按 sections 过滤，直访无权限分区显示 403', asyn
   await expect(page).toHaveURL(/\/admin\/registrations$/);
   await expect(page.getByRole('menuitem', { name: '报名/考勤' })).toBeVisible();
   await expect(page.getByRole('menuitem', { name: '比赛管理' })).toHaveCount(0);
+  await expect(page.getByRole('menuitem', { name: '活动管理' })).toHaveCount(0);
+  // P-98：正式球员持 ledger:view:any，可进账本只读分区。
+  await expect(page.getByRole('menuitem', { name: '账本管理' })).toBeVisible();
 
   // 侧栏按 02 §2.4 分组：无权限分区的组不渲染。
   const sidebar = page.locator('.admin-sidebar');
   await expect(sidebar.getByText('运营', { exact: true })).toBeVisible();
   await expect(sidebar.getByText('战术', { exact: true })).toBeVisible();
-  await expect(sidebar.getByText('球队', { exact: true })).toHaveCount(0);
+  await expect(sidebar.getByText('球队', { exact: true })).toBeVisible();
   await expect(sidebar.getByText('系统', { exact: true })).toHaveCount(0);
 
   // 直访 /admin/ 也应落首个有权限分区，而不是已下线的 dashboard。
@@ -797,6 +800,64 @@ test('B 端：侧栏按 sections 过滤，直访无权限分区显示 403', asyn
   await page.goto('/admin/matches');
   await expect(page).toHaveURL(/\/admin\/forbidden\?section=matches$/);
   await expect(page.getByText('403 无权限访问')).toBeVisible();
+
+  await page.goto('/admin/activities');
+  await expect(page).toHaveURL(/\/admin\/forbidden\?section=activities$/);
+
+  // 账本只读：可看汇总与流水，不出现维护入口。
+  await page.goto('/admin/ledger');
+  await expect(page).toHaveURL(/\/admin\/ledger$/);
+  await expect(page.getByRole('heading', { name: '账本管理', level: 2 })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新增流水' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: '分类管理' })).toHaveCount(0);
+  await expect(page.getByRole('columnheader', { name: '操作' })).toHaveCount(0);
+});
+
+test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page);
+
+  await page.getByRole('menuitem', { name: '活动管理' }).click();
+  await expect(page).toHaveURL(/\/admin\/activities$/);
+  await expect(page.getByRole('heading', { name: '活动管理', level: 2 })).toBeVisible();
+  await expect(page.getByRole('columnheader', { name: '活动名' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新建活动' })).toBeVisible();
+
+  await page.getByRole('button', { name: '新建活动' }).click();
+  const dialog = page.locator('.el-dialog').filter({ hasText: '创建活动' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.el-form-item').filter({ hasText: '活动名称' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '上传图片' })).toBeVisible();
+  await dialog.getByRole('button', { name: '取消' }).click();
+  await expect(dialog).toBeHidden();
+
+  expect(errors).toEqual([]);
+});
+
+test('B 端：B13 账本管理页渲染汇总与关键操作', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await loginAdmin(page);
+  await page.getByRole('menuitem', { name: '账本管理' }).click();
+  await expect(page).toHaveURL(/\/admin\/ledger$/);
+  await expect(page.getByRole('heading', { name: '账本管理', level: 2 })).toBeVisible();
+  await expect(page.locator('.summary-card')).toHaveCount(3);
+  await expect(page.getByRole('columnheader', { name: '摘要' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '新增流水' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '分类管理' })).toBeVisible();
+
+  await page.getByRole('button', { name: '新增流水' }).click();
+  const dialog = page.locator('.el-dialog').filter({ hasText: '新增流水' });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator('.el-form-item').filter({ hasText: '金额' })).toBeVisible();
+  await dialog.getByRole('button', { name: '取消' }).click();
+  await expect(dialog).toBeHidden();
+
+  await page.getByRole('button', { name: '分类管理' }).click();
+  const drawer = page.locator('.el-drawer').filter({ hasText: '分类管理' });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole('button', { name: '新增分类' })).toBeVisible();
+
+  expect(errors).toEqual([]);
 });
 
 test('B 端：B02 创建 → 编辑 → 延期 → 重新排期 → 取消', async ({ page }) => {

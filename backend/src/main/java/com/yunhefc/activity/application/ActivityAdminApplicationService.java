@@ -74,11 +74,17 @@ public class ActivityAdminApplicationService {
         Long teamId = CurrentUser.principal().teamId();
         ActivityQueryParsing.validatePaging(query.page(), query.pageSize());
         String keyword = ActivityQueryParsing.keyword(query.keyword());
+        ActivityQueryParsing.DateRange dateRange =
+                ActivityQueryParsing.dateRange(query.startDate(), query.endDate());
         LambdaQueryWrapper<TeamActivity> wrapper = new LambdaQueryWrapper<TeamActivity>()
                 .eq(TeamActivity::getTeamId, teamId)
                 .eq(query.type() != null, TeamActivity::getType, ActivityQueryParsing.type(query.type()))
-                .eq(query.status() != null, TeamActivity::getStatus, ActivityQueryParsing.status(query.status()))
-                .and(keyword != null, nested -> nested
+                .eq(query.status() != null, TeamActivity::getStatus, ActivityQueryParsing.status(query.status()));
+        if (dateRange != null) {
+            wrapper.ge(TeamActivity::getStartAt, dateRange.startAt())
+                    .lt(TeamActivity::getStartAt, dateRange.endExclusiveAt());
+        }
+        wrapper.and(keyword != null, nested -> nested
                         .like(TeamActivity::getTitle, LikePattern.escape(keyword))
                         .or()
                         .like(TeamActivity::getLocation, LikePattern.escape(keyword)))
@@ -397,6 +403,7 @@ public class ActivityAdminApplicationService {
                 activity.getCapacity(),
                 activity.getCostPerPerson(),
                 activity.getLocation(),
+                activity.getLocationImageKey(),
                 avatarUrlSigner.sign(activity.getLocationImageKey()),
                 activity.getDescription(),
                 activity.getStatus().code(),

@@ -69,6 +69,56 @@ class ActivityAdminIT extends ActivityITSupport {
     }
 
     @Test
+    void adminViewReturnsLocationImageKeyForCopyAndEdit() throws Exception {
+        Cookie admin = bAdminLogin("13900002005");
+        String imageKey = "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ0.png";
+
+        MvcResult created = createActivity(admin, """
+                {"title":"带图活动","type":2,"startAt":"%s","signupDeadline":"%s",
+                 "location":"体育馆","locationImageKey":"%s"}
+                """.formatted(futureAt(30, 18), futureAt(30, 17), imageKey))
+                .andExpect(jsonPath("$.data.locationImageKey").value(imageKey))
+                .andReturn();
+        Long activityId = activityId(created);
+
+        mockMvc.perform(get("/api/v1/b/activities/" + activityId).cookie(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.locationImageKey").value(imageKey));
+    }
+
+    @Test
+    void adminListFiltersByStartDateRange() throws Exception {
+        Cookie admin = bAdminLogin("13900002006");
+        String inRange = futureAt(30, 18);
+        String outOfRange = futureAt(40, 18);
+        createActivity(admin, "范围内活动", inRange, 4);
+        createActivity(admin, "范围外活动", outOfRange, 4);
+        String day = inRange.substring(0, 10);
+
+        mockMvc.perform(get("/api/v1/b/activities").cookie(admin)
+                        .param("startDate", day)
+                        .param("endDate", day))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].title").value("范围内活动"));
+
+        mockMvc.perform(get("/api/v1/b/activities").cookie(admin)
+                        .param("startDate", day))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/b/activities").cookie(admin)
+                        .param("startDate", "2026-13-01")
+                        .param("endDate", "2026-13-02"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/b/activities").cookie(admin)
+                        .param("startDate", day)
+                        .param("endDate", java.time.LocalDate.parse(day).minusDays(1).toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
     void createRejectsInvalidCrossFields() throws Exception {
         Cookie admin = bAdminLogin("13900002011");
         String template = """

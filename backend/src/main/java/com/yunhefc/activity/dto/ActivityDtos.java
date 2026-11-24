@@ -38,6 +38,8 @@ public final class ActivityDtos {
             Integer type,
             Integer status,
             String keyword,
+            String startDate,
+            String endDate,
             long page,
             long pageSize) {
     }
@@ -213,6 +215,7 @@ public final class ActivityDtos {
             Integer capacity,
             BigDecimal costPerPerson,
             String location,
+            String locationImageKey,
             String locationImageUrl,
             String description,
             Integer status,

@@ -37,10 +37,12 @@ public class ActivityAdminController {
             @RequestParam(required = false) Integer type,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         return ApiResponse.ok(activityAdminService.list(
-                new ActivityAdminQuery(type, status, keyword, page, pageSize)));
+                new ActivityAdminQuery(type, status, keyword, startDate, endDate, page, pageSize)));
     }
 
     @GetMapping("/{id}")

@@ -34,8 +34,10 @@ export interface ActivitySummary {
 
 export type ActivityDetail = ActivitySummary;
 
-/** ACT-06/07/08/09/10：管理端额外返回 version 与创建人。 */
+/** ACT-06/07/08/09/10：管理端额外返回 version、创建人与原始图片对象键。 */
 export interface ActivityAdmin extends ActivitySummary {
+  /** 写请求回传的原始对象键；编辑与复制用它回填图片，展示仍用 locationImageUrl。 */
+  locationImageKey: string | null;
   version: number;
   createdBy: number;
 }

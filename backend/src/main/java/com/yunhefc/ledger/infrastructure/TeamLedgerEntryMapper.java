@@ -1,7 +1,6 @@
 package com.yunhefc.ledger.infrastructure;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.yunhefc.ledger.domain.LedgerEntry;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -10,7 +9,7 @@ import org.apache.ibatis.annotations.Update;
 import java.time.LocalDateTime;
 
 @Mapper
-public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntry> {
+public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntryEntity> {
 
     LedgerSummaryRow selectSummary(@Param("teamId") Long teamId,
                                    @Param("incomeCode") int incomeCode,
@@ -32,7 +31,7 @@ public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntry> {
             WHERE id = #{id} AND team_id = #{teamId} AND is_deleted = 0
             FOR UPDATE
             """)
-    LedgerEntry selectByIdForUpdate(@Param("id") Long id, @Param("teamId") Long teamId);
+    LedgerEntryEntity selectByIdForUpdate(@Param("id") Long id, @Param("teamId") Long teamId);
 
     @Update("""
             UPDATE team_ledger_entry

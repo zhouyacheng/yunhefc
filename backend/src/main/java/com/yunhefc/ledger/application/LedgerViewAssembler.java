@@ -7,8 +7,12 @@ import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.ledger.domain.LedgerCategory;
 import com.yunhefc.ledger.domain.LedgerEntry;
+import com.yunhefc.ledger.domain.LedgerType;
+import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryView;
+import com.yunhefc.ledger.infrastructure.LedgerCategoryEntity;
 import com.yunhefc.ledger.infrastructure.LedgerCategoryMapper;
+import com.yunhefc.ledger.infrastructure.LedgerCategoryRow;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -53,9 +57,10 @@ class LedgerViewAssembler {
     }
 
     LedgerEntryView view(Long teamId, LedgerEntry entry) {
-        LedgerCategory category = categoryMapper.selectOne(new LambdaQueryWrapper<LedgerCategory>()
-                .eq(LedgerCategory::getId, entry.getCategoryId())
-                .eq(LedgerCategory::getTeamId, teamId));
+        LedgerCategoryEntity category = categoryMapper.selectOne(
+                new LambdaQueryWrapper<LedgerCategoryEntity>()
+                        .eq(LedgerCategoryEntity::getId, entry.getCategoryId())
+                        .eq(LedgerCategoryEntity::getTeamId, teamId));
         String playerName = entry.getPlayerId() == null ? null
                 : playerReadPort.findById(entry.getPlayerId())
                         .filter(player -> teamId.equals(player.teamId()))
@@ -65,7 +70,30 @@ class LedgerViewAssembler {
                 : activityReadPort.findById(teamId, entry.getActivityId())
                         .map(ActivitySnapshot::title)
                         .orElse(null);
-        return view(entry, category, playerName, activityTitle);
+        return view(entry, category == null ? null : category.toDomain(), playerName, activityTitle);
+    }
+
+    LedgerCategoryView categoryView(LedgerCategoryRow row) {
+        return new LedgerCategoryView(
+                row.getId(),
+                row.getName(),
+                row.getDirection(),
+                row.getDirection() == null ? null : LedgerType.of(row.getDirection()).label(),
+                row.getSortNo(),
+                Boolean.TRUE.equals(row.getIsActive()),
+                row.getEntryCount() == null ? 0L : row.getEntryCount());
+    }
+
+    LedgerCategoryView categoryView(LedgerCategory category, long entryCount) {
+        LedgerType direction = category.getDirection();
+        return new LedgerCategoryView(
+                category.getId(),
+                category.getName(),
+                direction == null ? null : direction.code(),
+                direction == null ? null : direction.label(),
+                category.getSortNo(),
+                Boolean.TRUE.equals(category.getIsActive()),
+                entryCount);
     }
 
     private LedgerEntryView view(LedgerEntry entry, LedgerCategory category,
@@ -92,10 +120,11 @@ class LedgerViewAssembler {
         if (categoryIds.isEmpty()) {
             return Map.of();
         }
-        return categoryMapper.selectList(new LambdaQueryWrapper<LedgerCategory>()
-                        .eq(LedgerCategory::getTeamId, teamId)
-                        .in(LedgerCategory::getId, categoryIds))
+        return categoryMapper.selectList(new LambdaQueryWrapper<LedgerCategoryEntity>()
+                        .eq(LedgerCategoryEntity::getTeamId, teamId)
+                        .in(LedgerCategoryEntity::getId, categoryIds))
                 .stream()
+                .map(LedgerCategoryEntity::toDomain)
                 .collect(Collectors.toMap(LedgerCategory::getId, Function.identity()));
     }
 

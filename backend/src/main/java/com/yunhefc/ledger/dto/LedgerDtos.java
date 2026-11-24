@@ -1,9 +1,7 @@
 package com.yunhefc.ledger.dto;
 
-import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Max;
@@ -16,34 +14,35 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.TreeSet;
 
 public final class LedgerDtos {
 
     private LedgerDtos() {
     }
 
+    /**
+     * LED-01/02/03/07 共用的筛选条件；由 Spring MVC 从查询参数绑定。
+     */
+    @Getter
+    @Setter
+    public static class LedgerFilterQuery {
+
+        private Integer type;
+        private Long categoryId;
+        private Long playerId;
+        private Long activityId;
+        private String from;
+        private String to;
+    }
+
     public record LedgerEntryQuery(
-            Integer type,
-            Long categoryId,
-            Long playerId,
-            Long activityId,
-            String from,
-            String to,
+            LedgerFilterQuery filter,
             String keyword,
             long page,
             long pageSize) {
     }
 
-    public record LedgerSummaryQuery(
-            Integer type,
-            Long categoryId,
-            Long playerId,
-            Long activityId,
-            String from,
-            String to) {
+    public record LedgerSummaryQuery(LedgerFilterQuery filter) {
     }
 
     public record LedgerEntryView(
@@ -95,7 +94,7 @@ public final class LedgerDtos {
      */
     @Getter
     @Setter
-    public static class LedgerEntryUpdateRequest {
+    public static class LedgerEntryUpdateRequest extends PresenceTrackedRequest {
 
         @Min(0)
         @Max(1)
@@ -123,45 +122,26 @@ public final class LedgerDtos {
         @Min(0)
         private Integer version;
 
-        @JsonIgnore
-        private final Set<String> presentFields = new LinkedHashSet<>();
-
-        @JsonIgnore
-        private final Set<String> unknownFields = new LinkedHashSet<>();
-
-        /**
-         * 只读幂等指纹：让请求哈希区分「显式 null」与字段缺失及未知字段，同时不暴露可写属性。
-         */
-        @JsonProperty(value = "_presence", access = JsonProperty.Access.READ_ONLY)
-        public String presenceFingerprint() {
-            return new TreeSet<>(presentFields) + "|" + new TreeSet<>(unknownFields);
-        }
-
         @JsonProperty("playerId")
         public void setPlayerId(Long playerId) {
-            presentFields.add("playerId");
+            markPresent("playerId");
             this.playerId = playerId;
         }
 
         @JsonProperty("activityId")
         public void setActivityId(Long activityId) {
-            presentFields.add("activityId");
+            markPresent("activityId");
             this.activityId = activityId;
         }
 
         @JsonIgnore
         public boolean hasPlayerId() {
-            return presentFields.contains("playerId");
+            return getPresentFields().contains("playerId");
         }
 
         @JsonIgnore
         public boolean hasActivityId() {
-            return presentFields.contains("activityId");
-        }
-
-        @JsonAnySetter
-        void addUnknownField(String field, JsonNode value) {
-            unknownFields.add(field);
+            return getPresentFields().contains("activityId");
         }
     }
 
@@ -180,7 +160,7 @@ public final class LedgerDtos {
      */
     @Getter
     @Setter
-    public static class LedgerCategoryUpdateRequest {
+    public static class LedgerCategoryUpdateRequest extends PresenceTrackedRequest {
 
         @Size(max = 32)
         private String name;
@@ -195,31 +175,15 @@ public final class LedgerDtos {
 
         private Boolean isActive;
 
-        @JsonIgnore
-        private final Set<String> presentFields = new LinkedHashSet<>();
-
-        @JsonIgnore
-        private final Set<String> unknownFields = new LinkedHashSet<>();
-
-        @JsonProperty(value = "_presence", access = JsonProperty.Access.READ_ONLY)
-        public String presenceFingerprint() {
-            return new TreeSet<>(presentFields) + "|" + new TreeSet<>(unknownFields);
-        }
-
         @JsonProperty("direction")
         public void setDirection(Integer direction) {
-            presentFields.add("direction");
+            markPresent("direction");
             this.direction = direction;
         }
 
         @JsonIgnore
         public boolean hasDirection() {
-            return presentFields.contains("direction");
-        }
-
-        @JsonAnySetter
-        void addUnknownField(String field, JsonNode value) {
-            unknownFields.add(field);
+            return getPresentFields().contains("direction");
         }
     }
 

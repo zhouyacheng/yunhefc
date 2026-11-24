@@ -5,6 +5,7 @@ import com.yunhefc.common.api.ItemsResponse;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
 import com.yunhefc.ledger.application.LedgerAdminApplicationService;
+import com.yunhefc.ledger.application.LedgerCategoryAdminApplicationService;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryCreateRequest;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryUpdateRequest;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryView;
@@ -14,6 +15,7 @@ import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryCreateRequest;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryUpdateRequest;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryView;
+import com.yunhefc.ledger.dto.LedgerDtos.LedgerFilterQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerSummaryQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerSummaryView;
 import jakarta.validation.Valid;
@@ -21,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -35,34 +38,23 @@ import org.springframework.web.bind.annotation.RestController;
 public class LedgerAdminController {
 
     private final LedgerAdminApplicationService ledgerAdminService;
+    private final LedgerCategoryAdminApplicationService ledgerCategoryService;
 
     @GetMapping("/entries")
     @PreAuthorize("hasAuthority('ledger:view:any')")
     public ApiResponse<PageResponse<LedgerEntryView>> entries(
-            @RequestParam(required = false) Integer type,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Long playerId,
-            @RequestParam(required = false) Long activityId,
-            @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to,
+            @ModelAttribute LedgerFilterQuery filter,
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
-        return ApiResponse.ok(ledgerAdminService.entries(new LedgerEntryQuery(
-                type, categoryId, playerId, activityId, from, to, keyword, page, pageSize)));
+        return ApiResponse.ok(ledgerAdminService.entries(
+                new LedgerEntryQuery(filter, keyword, page, pageSize)));
     }
 
     @GetMapping("/summary")
     @PreAuthorize("hasAuthority('ledger:view:any')")
-    public ApiResponse<LedgerSummaryView> summary(
-            @RequestParam(required = false) Integer type,
-            @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Long playerId,
-            @RequestParam(required = false) Long activityId,
-            @RequestParam(required = false) String from,
-            @RequestParam(required = false) String to) {
-        return ApiResponse.ok(ledgerAdminService.summary(
-                new LedgerSummaryQuery(type, categoryId, playerId, activityId, from, to)));
+    public ApiResponse<LedgerSummaryView> summary(@ModelAttribute LedgerFilterQuery filter) {
+        return ApiResponse.ok(ledgerAdminService.summary(new LedgerSummaryQuery(filter)));
     }
 
     @PostMapping("/entries")
@@ -93,7 +85,7 @@ public class LedgerAdminController {
     public ApiResponse<ItemsResponse<LedgerCategoryView>> categories(
             @RequestParam(required = false) Integer type,
             @RequestParam(required = false) Boolean includeInactive) {
-        return ApiResponse.ok(ledgerAdminService.categories(type, includeInactive));
+        return ApiResponse.ok(ledgerCategoryService.categories(type, includeInactive));
     }
 
     @PostMapping("/categories")
@@ -101,7 +93,7 @@ public class LedgerAdminController {
     @Idempotent("LED-10")
     public ApiResponse<LedgerCategoryView> createCategory(
             @Valid @RequestBody LedgerCategoryCreateRequest request) {
-        return ApiResponse.ok(ledgerAdminService.createCategory(request));
+        return ApiResponse.ok(ledgerCategoryService.createCategory(request));
     }
 
     @PatchMapping("/categories/{id}")
@@ -110,6 +102,6 @@ public class LedgerAdminController {
     public ApiResponse<LedgerCategoryView> updateCategory(
             @PathVariable Long id,
             @Valid @RequestBody LedgerCategoryUpdateRequest request) {
-        return ApiResponse.ok(ledgerAdminService.updateCategory(id, request));
+        return ApiResponse.ok(ledgerCategoryService.updateCategory(id, request));
     }
 }

@@ -10,8 +10,10 @@ import com.yunhefc.common.util.LikePattern;
 import com.yunhefc.ledger.domain.LedgerEntry;
 import com.yunhefc.ledger.domain.LedgerRules;
 import com.yunhefc.ledger.domain.LedgerType;
+import com.yunhefc.ledger.infrastructure.LedgerEntryEntity;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryQuery;
+import com.yunhefc.ledger.dto.LedgerDtos.LedgerFilterQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerSummaryQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerSummaryView;
@@ -42,32 +44,34 @@ public class LedgerApplicationService {
     @Transactional(readOnly = true)
     public PageResponse<LedgerEntryView> entries(LedgerEntryQuery query) {
         Long teamId = CurrentUser.principal().teamId();
-        LedgerType type = LedgerRules.type(query.type());
+        LedgerFilterQuery filter = query.filter();
+        LedgerType type = LedgerRules.type(filter.getType());
         PageQuery page = PageQuery.of(query.page(), query.pageSize());
         String keyword = LedgerQueryParsing.keyword(query.keyword());
-        Long categoryId = LedgerQueryParsing.positiveId(query.categoryId(), "categoryId");
-        Long playerId = LedgerQueryParsing.positiveId(query.playerId(), "playerId");
-        Long activityId = LedgerQueryParsing.positiveId(query.activityId(), "activityId");
-        LocalDateTime from = LedgerQueryParsing.time(query.from(), "from");
-        LocalDateTime to = LedgerQueryParsing.time(query.to(), "to");
+        Long categoryId = LedgerQueryParsing.positiveId(filter.getCategoryId(), "categoryId");
+        Long playerId = LedgerQueryParsing.positiveId(filter.getPlayerId(), "playerId");
+        Long activityId = LedgerQueryParsing.positiveId(filter.getActivityId(), "activityId");
+        LocalDateTime from = LedgerQueryParsing.time(filter.getFrom(), "from");
+        LocalDateTime to = LedgerQueryParsing.time(filter.getTo(), "to");
         LedgerQueryParsing.validateRange(from, to);
 
-        LambdaQueryWrapper<LedgerEntry> wrapper = new LambdaQueryWrapper<LedgerEntry>()
-                .eq(LedgerEntry::getTeamId, teamId)
-                .eq(type != null, LedgerEntry::getType, type)
-                .eq(categoryId != null, LedgerEntry::getCategoryId, categoryId)
-                .eq(playerId != null, LedgerEntry::getPlayerId, playerId)
-                .eq(activityId != null, LedgerEntry::getActivityId, activityId)
-                .ge(from != null, LedgerEntry::getOccurredAt, from)
-                .le(to != null, LedgerEntry::getOccurredAt, to)
-                .like(keyword != null, LedgerEntry::getDescription,
+        LambdaQueryWrapper<LedgerEntryEntity> wrapper = new LambdaQueryWrapper<LedgerEntryEntity>()
+                .eq(LedgerEntryEntity::getTeamId, teamId)
+                .eq(type != null, LedgerEntryEntity::getType, type)
+                .eq(categoryId != null, LedgerEntryEntity::getCategoryId, categoryId)
+                .eq(playerId != null, LedgerEntryEntity::getPlayerId, playerId)
+                .eq(activityId != null, LedgerEntryEntity::getActivityId, activityId)
+                .ge(from != null, LedgerEntryEntity::getOccurredAt, from)
+                .le(to != null, LedgerEntryEntity::getOccurredAt, to)
+                .like(keyword != null, LedgerEntryEntity::getDescription,
                         keyword == null ? null : LikePattern.escape(keyword))
-                .orderByDesc(LedgerEntry::getOccurredAt)
-                .orderByDesc(LedgerEntry::getId);
+                .orderByDesc(LedgerEntryEntity::getOccurredAt)
+                .orderByDesc(LedgerEntryEntity::getId);
 
-        Page<LedgerEntry> result = entryMapper.selectPage(
+        Page<LedgerEntryEntity> result = entryMapper.selectPage(
                 new Page<>(page.page(), page.pageSize()), wrapper);
-        return PageResponse.of(assembler.views(teamId, result.getRecords()),
+        return PageResponse.of(assembler.views(teamId,
+                        result.getRecords().stream().map(LedgerEntryEntity::toDomain).toList()),
                 result.getTotal(), page.page(), page.pageSize());
     }
 
@@ -77,12 +81,13 @@ public class LedgerApplicationService {
     @Transactional(readOnly = true)
     public LedgerSummaryView summary(LedgerSummaryQuery query) {
         Long teamId = CurrentUser.principal().teamId();
-        LedgerType type = LedgerRules.type(query.type());
-        Long categoryId = LedgerQueryParsing.positiveId(query.categoryId(), "categoryId");
-        Long playerId = LedgerQueryParsing.positiveId(query.playerId(), "playerId");
-        Long activityId = LedgerQueryParsing.positiveId(query.activityId(), "activityId");
-        LocalDateTime from = LedgerQueryParsing.time(query.from(), "from");
-        LocalDateTime to = LedgerQueryParsing.time(query.to(), "to");
+        LedgerFilterQuery filter = query.filter();
+        LedgerType type = LedgerRules.type(filter.getType());
+        Long categoryId = LedgerQueryParsing.positiveId(filter.getCategoryId(), "categoryId");
+        Long playerId = LedgerQueryParsing.positiveId(filter.getPlayerId(), "playerId");
+        Long activityId = LedgerQueryParsing.positiveId(filter.getActivityId(), "activityId");
+        LocalDateTime from = LedgerQueryParsing.time(filter.getFrom(), "from");
+        LocalDateTime to = LedgerQueryParsing.time(filter.getTo(), "to");
         LedgerQueryParsing.validateRange(from, to);
 
         LedgerSummaryRow row = entryMapper.selectSummary(teamId,
@@ -103,16 +108,7 @@ public class LedgerApplicationService {
     List<LedgerCategoryView> categoryViews(Long teamId, LedgerType type, boolean includeInactive) {
         List<LedgerCategoryRow> rows = categoryMapper.selectWithUsage(teamId,
                 type == null ? null : type.code(), includeInactive);
-        return rows.stream()
-                .map(row -> new LedgerCategoryView(
-                        row.getId(),
-                        row.getName(),
-                        row.getDirection(),
-                        row.getDirection() == null ? null : LedgerType.of(row.getDirection()).label(),
-                        row.getSortNo(),
-                        Boolean.TRUE.equals(row.getIsActive()),
-                        row.getEntryCount() == null ? 0L : row.getEntryCount()))
-                .toList();
+        return rows.stream().map(assembler::categoryView).toList();
     }
 
     private static BigDecimal money(BigDecimal value) {

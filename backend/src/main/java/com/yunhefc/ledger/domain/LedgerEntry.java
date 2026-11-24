@@ -1,21 +1,18 @@
 package com.yunhefc.ledger.domain;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
-import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+/**
+ * 账本流水领域对象；表映射由 infrastructure 实体负责。
+ */
 @Getter
 @Setter
-@TableName("team_ledger_entry")
 public class LedgerEntry {
 
-    @TableId(type = IdType.AUTO)
     private Long id;
     private Long teamId;
     private LedgerType type;
@@ -29,6 +26,5 @@ public class LedgerEntry {
     private Long createdBy;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    @TableLogic
     private Integer isDeleted;
 }

@@ -20,7 +20,7 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
-class LedgerIT extends ActivityITSupport {
+class LedgerIT extends AccountITSupport {
 
     private static final String OCCURRED_AT = "2026-11-20T20:10:00+08:00";
 
@@ -589,20 +589,6 @@ class LedgerIT extends ActivityITSupport {
         return cLogin(phone, "Passw0rd!");
     }
 
-    private Cookie bLoginExisting(String phone) throws Exception {
-        jdbc.update("UPDATE app_user SET password_hash = ? WHERE phone = ?",
-                passwordEncoder.encode("Admin123!"), phone);
-        MvcResult result = mockMvc.perform(post("/api/v1/b/auth/login")
-                        .with(csrf())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("""
-                                {"phone":"%s","password":"Admin123!"}
-                                """.formatted(phone)))
-                .andExpect(status().isOk())
-                .andReturn();
-        return cookie(result, "YHFC_B");
-    }
-
     private Long categoryId(String name) {
         return jdbc.queryForObject(
                 "SELECT id FROM ledger_category WHERE team_id = 1 AND name = ?", Long.class, name);
@@ -645,6 +631,11 @@ class LedgerIT extends ActivityITSupport {
                 .header("Idempotency-Key", idemKey())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
+    }
+
+    private Long insertActivity(String title, String startAt, int status, Integer capacity,
+                                String deadline, long teamId) {
+        return ActivityFixtures.insert(jdbc, title, startAt, status, capacity, deadline, teamId);
     }
 
     private Long insertEntry(int type, Long categoryId, String amount, String description,

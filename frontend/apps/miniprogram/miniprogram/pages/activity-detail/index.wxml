@@ -34,32 +34,36 @@
       </view>
     </view>
 
+    <view wx:if="{{activity.locationImageUrls.length}}" class="card activity-gallery">
+      <view class="card-head">
+        <text class="card-title">场地环境</text>
+      </view>
+      <swiper
+        class="gallery-image"
+        indicator-dots
+        circular="{{activity.locationImageUrls.length > 1}}"
+      >
+        <swiper-item
+          wx:for="{{activity.locationImageUrls}}"
+          wx:for-index="index"
+          wx:key="*this"
+        >
+          <image
+            class="gallery-image"
+            src="{{item}}"
+            mode="aspectFill"
+            data-index="{{index}}"
+            binderror="onImageError"
+          />
+        </swiper-item>
+      </swiper>
+    </view>
+
     <view class="overview-grid">
       <view class="card activity-description">
         <view class="card-head">
           <text class="card-title">活动说明</text>
         </view>
-        <swiper
-          wx:if="{{activity.locationImageUrls.length}}"
-          class="description-image"
-          indicator-dots
-          circular="{{activity.locationImageUrls.length > 1}}"
-        >
-          <swiper-item
-            wx:for="{{activity.locationImageUrls}}"
-            wx:for-index="index"
-            wx:key="*this"
-          >
-            <image
-              class="description-image"
-              src="{{item}}"
-              mode="aspectFill"
-              data-index="{{index}}"
-              binderror="onImageError"
-            />
-          </swiper-item>
-        </swiper>
-        <view wx:else class="description-placeholder">暂无活动图片</view>
         <text wx:if="{{activity.description}}" class="description-text">{{activity.description}}</text>
         <text wx:else class="muted">暂无补充说明</text>
       </view>

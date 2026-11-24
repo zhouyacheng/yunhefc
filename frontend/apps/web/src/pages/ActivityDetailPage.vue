@@ -326,26 +326,27 @@ onBeforeUnmount(() => {
         </p>
       </header>
 
+      <section v-if="imageUrls.length && !imageFailed" class="card activity-gallery">
+        <div class="card-head">
+          <h2>场地环境</h2>
+        </div>
+        <Swipe class="activity-gallery__swipe" :autoplay="0" indicator-dots>
+          <SwipeItem v-for="(url, index) in imageUrls" :key="`${index}-${url}`">
+            <img
+              class="activity-gallery__image"
+              :src="url"
+              alt="场地环境图片"
+              @error="imageFailed = true"
+            />
+          </SwipeItem>
+        </Swipe>
+      </section>
+
       <div class="overview-grid">
         <section class="card activity-description">
           <div class="card-head">
             <h2>活动说明</h2>
           </div>
-          <Swipe
-            v-if="imageUrls.length && !imageFailed"
-            class="activity-description__image"
-            :autoplay="0"
-            indicator-dots
-          >
-            <SwipeItem v-for="(url, index) in imageUrls" :key="`${index}-${url}`">
-              <img
-                class="activity-description__image"
-                :src="url"
-                alt="活动地点"
-                @error="imageFailed = true"
-              />
-            </SwipeItem>
-          </Swipe>
           <p v-if="activity.description" class="activity-description__text">
             {{ activity.description }}
           </p>
@@ -489,12 +490,21 @@ onBeforeUnmount(() => {
   transition: width 0.2s ease;
 }
 
-.activity-description__image {
+.activity-gallery {
+  margin-bottom: 18px;
+}
+
+.activity-gallery__swipe,
+.activity-gallery__image {
   width: 100%;
   height: 220px;
-  margin: 10px 0;
-  object-fit: cover;
+  overflow: hidden;
   border-radius: 12px;
+}
+
+.activity-gallery__image {
+  display: block;
+  object-fit: cover;
 }
 
 .activity-description__text {

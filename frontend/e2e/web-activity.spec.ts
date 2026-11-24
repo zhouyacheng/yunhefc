@@ -300,3 +300,26 @@ test('C12 活动详情：访客在已截止活动看到禁用文案', async ({ p
   await expect(signup).toBeDisabled();
   expect(errors).toEqual([]);
 });
+
+test('C12 活动详情：展示场地环境图片，无图时不展示该区块', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const image = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+  const withImages = { ...OPEN_ACTIVITY, locationImageUrls: [image, image] };
+
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/activities/9001',
+    (route) => fulfill(route, withImages),
+  );
+  await page.goto('/activities/9001');
+  await expect(page.getByRole('heading', { name: '场地环境' })).toBeVisible();
+  await expect(page.locator('img[alt="场地环境图片"]')).toHaveCount(2);
+
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/activities/9001',
+    (route) => fulfill(route, OPEN_ACTIVITY),
+  );
+  await page.goto('/activities/9001');
+  await expect(page.getByRole('heading', { name: '活动说明' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '场地环境' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

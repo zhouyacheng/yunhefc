@@ -83,7 +83,8 @@ class ActivityAdminIT extends ActivityITSupport {
 
         mockMvc.perform(get("/api/v1/b/activities/" + activityId).cookie(admin))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.locationImageKey").value(imageKey));
+                .andExpect(jsonPath("$.data.locationImageKey").value(imageKey))
+                .andExpect(jsonPath("$.data.version").value(0));
     }
 
     @Test
@@ -116,6 +117,84 @@ class ActivityAdminIT extends ActivityITSupport {
                         .param("endDate", java.time.LocalDate.parse(day).minusDays(1).toString()))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001));
+    }
+
+    @Test
+    void adminListRosterAndRemoveExposeContract() throws Exception {
+        Cookie admin = bAdminLogin("13900002091");
+        Long activityId = activityId(createActivity(admin, "管理名单活动", futureAt(30, 18), 3));
+
+        createPlayerUser("13900002092", "名单甲", 891, 1);
+        createPlayerUser("13900002093", "名单乙", 892, 1);
+        Long firstPlayer = playerId("13900002092");
+        Long secondPlayer = playerId("13900002093");
+        jdbc.update("""
+                INSERT INTO activity_signup (activity_id, player_id, with_family, family_note,
+                                             status, signed_up_at)
+                VALUES (?, ?, 1, '两位家属', 0, ?)
+                """, activityId, firstPlayer, pastAt(1, 10).replace('T', ' '));
+        jdbc.update("""
+                INSERT INTO activity_signup (activity_id, player_id, status, signed_up_at)
+                VALUES (?, ?, 0, ?)
+                """, activityId, secondPlayer, pastAt(1, 11).replace('T', ' '));
+        Long secondSignup = jdbc.queryForObject("""
+                SELECT id FROM activity_signup WHERE activity_id = ? AND player_id = ?
+                """, Long.class, activityId, secondPlayer);
+
+        mockMvc.perform(get("/api/v1/b/activities").cookie(admin).param("keyword", "管理名单"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(10))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.items[0].type").value(0))
+                .andExpect(jsonPath("$.data.items[0].typeLabel").value("DINNER"))
+                .andExpect(jsonPath("$.data.items[0].status").value(0))
+                .andExpect(jsonPath("$.data.items[0].statusLabel").value("SIGNUP_OPEN"))
+                .andExpect(jsonPath("$.data.items[0].signupCount").value(2))
+                .andExpect(jsonPath("$.data.items[0].signupOpen").value(true))
+                .andExpect(jsonPath("$.data.items[0].version").value(0));
+
+        mockMvc.perform(get("/api/v1/b/activities/" + activityId + "/signups").cookie(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(10))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.items[0].playerName").value("名单甲"))
+                .andExpect(jsonPath("$.data.items[0].playerNo").value(891))
+                .andExpect(jsonPath("$.data.items[0].withFamily").value(true))
+                .andExpect(jsonPath("$.data.items[0].familyNote").value("两位家属"))
+                .andExpect(jsonPath("$.data.items[0].status").value(0))
+                .andExpect(jsonPath("$.data.items[0].statusLabel").value("CONFIRMED"))
+                .andExpect(jsonPath("$.data.items[0].signedUpAt").exists())
+                .andExpect(jsonPath("$.data.items[1].playerName").value("名单乙"));
+
+        mockMvc.perform(get("/api/v1/b/activities/" + activityId + "/signups")
+                        .cookie(admin).param("pageSize", "30"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+
+        String removeKey = idemKey();
+        mockMvc.perform(delete("/api/v1/b/activities/" + activityId + "/signups/" + secondSignup)
+                        .cookie(admin).with(csrf())
+                        .header("Idempotency-Key", removeKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.removed").value(true));
+        mockMvc.perform(delete("/api/v1/b/activities/" + activityId + "/signups/" + secondSignup)
+                        .cookie(admin).with(csrf())
+                        .header("Idempotency-Key", removeKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.removed").value(true));
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'ACTIVITY_SIGNUP_REMOVE'
+                """, Integer.class, secondSignup)).isEqualTo(1);
+        mockMvc.perform(get("/api/v1/b/activities/" + activityId + "/signups").cookie(admin))
+                .andExpect(jsonPath("$.data.total").value(1));
     }
 
     @Test
@@ -368,7 +447,7 @@ class ActivityAdminIT extends ActivityITSupport {
     }
 
     @Test
-    void uploadsActivityImageWithFiveMiBLimit() throws Exception {
+    void uploadsActivityImageWithinLimitsAndRejectsUnsupportedFiles() throws Exception {
         Cookie admin = bAdminLogin("13900002071");
         Long adminUserId = userId("13900002071");
 
@@ -396,6 +475,13 @@ class ActivityAdminIT extends ActivityITSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value(40001))
                 .andExpect(jsonPath("$.data.details.file").value("图片不能超过 5MB"));
+
+        mockMvc.perform(multipart("/api/v1/b/files/activity-image")
+                        .file(new MockMultipartFile("file", "fake.png", "image/png",
+                                "%PDF-1.7 not an image".getBytes(StandardCharsets.US_ASCII)))
+                        .cookie(admin).with(csrf()))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.code").value(41501));
 
         mockMvc.perform(multipart("/api/v1/b/files/activity-image")
                         .file(new MockMultipartFile("file", "a.gif", "image/gif",

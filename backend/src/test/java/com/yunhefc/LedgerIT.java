@@ -61,7 +61,11 @@ class LedgerIT extends AccountITSupport {
 
         MvcResult cList = mockMvc.perform(get("/api/v1/c/ledger/entries").cookie(player))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(10))
                 .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
                 .andExpect(jsonPath("$.data.items[0].id").value(entryId))
                 .andReturn();
         MvcResult bList = mockMvc.perform(get("/api/v1/b/ledger/entries").cookie(admin))
@@ -280,6 +284,71 @@ class LedgerIT extends AccountITSupport {
                 {"direction":0}
                 """).andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.direction").value(0));
+    }
+
+    @Test
+    void categoryWritesReplayByIdempotencyKey() throws Exception {
+        Cookie admin = bAdminLogin("13900004081");
+        String createKey = idemKey();
+        String body = """
+                {"name":"幂等分类","direction":1}
+                """;
+
+        Long categoryId = JsonPath.<Number>read(mockMvc.perform(
+                        post("/api/v1/b/ledger/categories")
+                                .cookie(admin).with(csrf())
+                                .header("Idempotency-Key", createKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                        .andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString(),
+                "$.data.id").longValue();
+        Long replayedId = JsonPath.<Number>read(mockMvc.perform(
+                        post("/api/v1/b/ledger/categories")
+                                .cookie(admin).with(csrf())
+                                .header("Idempotency-Key", createKey)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content(body))
+                        .andExpect(status().isOk())
+                        .andReturn().getResponse().getContentAsString(),
+                "$.data.id").longValue();
+        assertThat(replayedId).isEqualTo(categoryId);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM ledger_category WHERE name = '幂等分类'", Integer.class))
+                .isEqualTo(1);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'LEDGER_CATEGORY_CREATE'
+                """, Integer.class, categoryId)).isEqualTo(1);
+
+        mockMvc.perform(post("/api/v1/b/ledger/categories")
+                        .cookie(admin).with(csrf())
+                        .header("Idempotency-Key", createKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"幂等分类","direction":0}
+                                """))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40906));
+
+        String patchKey = idemKey();
+        for (int i = 0; i < 2; i++) {
+            mockMvc.perform(patch("/api/v1/b/ledger/categories/" + categoryId)
+                            .cookie(admin).with(csrf())
+                            .header("Idempotency-Key", patchKey)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("""
+                                    {"name":"幂等分类改名"}
+                                    """))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.name").value("幂等分类改名"));
+        }
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM outbox_event
+                WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
+                  AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'LEDGER_CATEGORY_UPDATE'
+                """, Integer.class, categoryId)).isEqualTo(1);
     }
 
     @Test

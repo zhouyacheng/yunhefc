@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.jayway.jsonpath.JsonPath;
 import com.yunhefc.activity.application.ActivityApplicationService;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupRequest;
 import com.yunhefc.common.error.BusinessException;
@@ -21,6 +22,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -139,11 +141,117 @@ class ActivityPublicIT extends ActivityITSupport {
                 .andExpect(status().isUnauthorized());
         mockMvc.perform(get("/api/v1/c/activities/" + activityId + "/signups").cookie(player))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(10))
                 .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
                 .andExpect(jsonPath("$.data.items[0].playerName").value("详情报名者"))
                 .andExpect(jsonPath("$.data.items[0].playerNo").value(811))
                 .andExpect(jsonPath("$.data.items[0].status").value(0))
                 .andExpect(jsonPath("$.data.items[0].statusLabel").value("CONFIRMED"));
+    }
+
+    @Test
+    void listAndDetailExposePagedEnvelopeAndEnumLabels() throws Exception {
+        Long activityId = insertActivity("标签活动", futureAt(30, 18), 0, 5,
+                futureAt(30, 17), 1);
+        String imageKey = "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ0.png";
+        jdbc.update("""
+                UPDATE team_activity SET type = 2, status = 1, location_image_key = ?
+                WHERE id = ?
+                """, imageKey, activityId);
+        createPlayerUser("13900002161", "标签报名者", 816, 1);
+        Long playerId = playerId("13900002161");
+        jdbc.update("""
+                INSERT INTO activity_signup (activity_id, player_id, status) VALUES (?, ?, 0)
+                """, activityId, playerId);
+        Cookie player = cLogin("13900002161", "Passw0rd!");
+
+        mockMvc.perform(get("/api/v1/c/activities"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(0))
+                .andExpect(jsonPath("$.data.page").value(1))
+                .andExpect(jsonPath("$.data.pageSize").value(10))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.totalPages").value(1))
+                .andExpect(jsonPath("$.data.items[0].type").value(2))
+                .andExpect(jsonPath("$.data.items[0].typeLabel").value("OTHER"))
+                .andExpect(jsonPath("$.data.items[0].status").value(1))
+                .andExpect(jsonPath("$.data.items[0].statusLabel").value("SIGNUP_CLOSED"))
+                .andExpect(jsonPath("$.data.items[0].signupCount").value(1))
+                .andExpect(jsonPath("$.data.items[0].signupOpen").value(false))
+                .andExpect(jsonPath("$.data.items[0].locationImageUrl")
+                        .value("mock://oss/" + imageKey))
+                .andExpect(jsonPath("$.data.items[0].mySignup").value((Object) null));
+
+        mockMvc.perform(get("/api/v1/c/activities").cookie(player))
+                .andExpect(jsonPath("$.data.items[0].mySignup.playerId").value(playerId));
+
+        mockMvc.perform(get("/api/v1/c/activities/" + activityId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.typeLabel").value("OTHER"))
+                .andExpect(jsonPath("$.data.statusLabel").value("SIGNUP_CLOSED"))
+                .andExpect(jsonPath("$.data.locationImageUrl").value("mock://oss/" + imageKey));
+    }
+
+    @Test
+    void signupAndCancelReplayStoredResponses() throws Exception {
+        Long activityId = insertActivity("幂等报名", futureAt(30, 18), 0, 2,
+                futureAt(30, 17), 1);
+        createPlayerUser("13900002171", "幂等报名者", 817, 1);
+        Cookie player = cLogin("13900002171", "Passw0rd!");
+        String signupKey = idemKey();
+        String body = "{\"withFamily\":true,\"familyNote\":\"带一位家属\"}";
+
+        MvcResult first = mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/signups")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", signupKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.signup.withFamily").value(true))
+                .andReturn();
+        Long signupId = JsonPath.<Number>read(
+                first.getResponse().getContentAsString(), "$.data.signup.id").longValue();
+
+        MvcResult replay = mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/signups")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", signupKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isOk())
+                .andReturn();
+        assertThat(JsonPath.<Number>read(
+                replay.getResponse().getContentAsString(), "$.data.signup.id").longValue())
+                .isEqualTo(signupId);
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM activity_signup WHERE activity_id = ? AND status = 0
+                """, Integer.class, activityId)).isEqualTo(1);
+
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/signups")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", signupKey)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"withFamily\":false}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40906));
+
+        String cancelKey = idemKey();
+        mockMvc.perform(delete("/api/v1/c/activities/" + activityId + "/signups/me")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", cancelKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cancelled").value(true));
+        mockMvc.perform(delete("/api/v1/c/activities/" + activityId + "/signups/me")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", cancelKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cancelled").value(true));
+        mockMvc.perform(delete("/api/v1/c/activities/" + activityId + "/signups/me")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", idemKey()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.cancelled").value(false));
     }
 
     @Test

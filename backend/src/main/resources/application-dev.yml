@@ -1,7 +1,12 @@
-# 本地联调：短信走 mock，微信走 mock，关闭 Kafka 消费与 Outbox 中继，减少本地依赖。
+# 本地联调：短信走 mock，微信走 mock，关闭 Kafka 消费与 Outbox 中继，减少本地依赖；
+# OSS 默认连真实私有 Bucket（凭证走环境变量），CI/E2E 需显式 OSS_MODE=mock。
 yunhefc:
   sms:
     mock-enabled: true
+  oss:
+    mode: ${OSS_MODE:real}
+    endpoint: ${OSS_ENDPOINT:https://oss-cn-shanghai.aliyuncs.com}
+    bucket: ${OSS_BUCKET:yunshuv1}
   wechat:
     mini:
       enabled: true

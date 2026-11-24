@@ -1,6 +1,6 @@
 # 云河FC 微信小程序
 
-原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。首页对具备后台权限的账号显示「管理后台」，复制带 AUTH-18 一次性票据的链接（60 秒有效）到浏览器打开；个人主体小程序不支持 web-view，不做内嵌。不做比赛邀请/复制链接、分享、订阅消息、账号密码登录/找回密码与 B 端专属操作。
+原生小程序 + Vant Weapp。范围：微信登录、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）/ 活动（对齐 C11/C12：范围与类型/状态筛选、详情报名/取消、家属与备注、分享卡片、活动通知落点）/ 账本（对齐 C13：汇总、流水、方向/分类/区间筛选，仅正式球员只读）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。首页对具备后台权限的账号显示「管理后台」，复制带 AUTH-18 一次性票据的链接（60 秒有效）到浏览器打开；个人主体小程序不支持 web-view，不做内嵌。不做比赛邀请/复制链接、分享、订阅消息、账号密码登录/找回密码与 B 端专属操作。
 
 ## 结构
 
@@ -13,7 +13,7 @@ frontend/apps/miniprogram/
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
-    ├── utils/{config,request,api-client,session,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view}.ts
+    ├── utils/{config,request,api-client,session,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view,activity-view}.ts
     │   ├── request.ts      # 传输层：Cookie jar、CSRF、ApiError
     │   └── api-client.ts   # 唯一请求入口：按域暴露函数，路径/分页/幂等键集中于此
     ├── components/
@@ -29,6 +29,9 @@ frontend/apps/miniprogram/
         ├── login/               # wx.login → AUTH-20
         ├── phone-bind/          # 手机号 + 短信 → AUTH-21
         ├── leaderboard/         # 排行榜（MP09：单行五列表格）
+        ├── activity/            # 活动列表（MP10：范围/类型/状态筛选）
+        ├── activity-detail/     # 活动详情（MP11：报名/取消、分享、通知落点）
+        ├── ledger/              # 账本（MP12：汇总与流水只读）
         └── spike/               # Phase 0 会话实验页，仅用于真机验证
 ```
 

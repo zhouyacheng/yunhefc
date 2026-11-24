@@ -71,6 +71,15 @@
     </view>
 
     <view class="home-body">
+      <view class="quick-entry" bindtap="goActivities" hover-class="card--pressed">
+        <text class="quick-entry__icon">🎉</text>
+        <view class="quick-entry__body">
+          <text class="quick-entry__title">队内活动</text>
+          <text class="quick-entry__text">聚餐、年会与报名</text>
+        </view>
+        <text class="quick-entry__arrow">→</text>
+      </view>
+
       <view wx:if="{{!hero}}" class="card home-empty">
         <van-empty description="暂无比赛" />
         <text class="muted home-empty__text">还没有比赛记录，等管理员排期后这里会显示最近一场。</text>

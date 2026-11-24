@@ -1,0 +1,139 @@
+.detail-head {
+  margin-bottom: 24rpx;
+}
+
+.detail-head__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin: 8rpx 0 6rpx;
+}
+
+.detail-head__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.detail-image {
+  width: 100%;
+  height: 360rpx;
+  margin-bottom: 20rpx;
+  border-radius: var(--yh-radius);
+}
+
+.card-title {
+  color: var(--yh-ink);
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.detail-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24rpx;
+  padding: 18rpx 0;
+  border-bottom: 1rpx solid var(--yh-line);
+}
+
+.info-row:last-child {
+  border-bottom: none;
+}
+
+.info-row--column {
+  flex-direction: column;
+  gap: 10rpx;
+}
+
+.info-row__label {
+  flex: 0 0 150rpx;
+  color: var(--yh-muted);
+  font-size: 26rpx;
+}
+
+.info-row__value {
+  flex: 1;
+  min-width: 0;
+  color: var(--yh-ink);
+  font-size: 28rpx;
+  text-align: right;
+  word-break: break-all;
+}
+
+.info-row__text {
+  color: var(--yh-ink);
+  font-size: 28rpx;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.signup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.signup-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.signup-card__mine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  padding: 20rpx 24rpx;
+  color: var(--yh-green-ink);
+  font-size: 28rpx;
+  font-weight: 600;
+  background: var(--yh-green-soft);
+  border-radius: var(--yh-radius-sm);
+}
+
+.signup-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  padding: 32rpx 40rpx calc(32rpx + env(safe-area-inset-bottom));
+}
+
+.signup-sheet__title {
+  color: var(--yh-ink);
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.signup-sheet__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  min-height: 88rpx;
+  border-bottom: 1rpx solid var(--yh-line);
+}
+
+.signup-sheet__label {
+  display: flex;
+  flex-direction: column;
+  gap: 4rpx;
+  font-size: 28rpx;
+}
+
+.signup-sheet__actions {
+  display: flex;
+  gap: 16rpx;
+}
+
+.signup-sheet__actions .btn {
+  flex: 1;
+}

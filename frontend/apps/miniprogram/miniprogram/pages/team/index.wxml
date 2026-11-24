@@ -11,7 +11,10 @@
           <view class="team-season__select">{{seasons[seasonIndex] || '—'}} ▾</view>
         </picker>
       </view>
-      <view class="team-head__link" bindtap="openLeaderboard">排行榜 →</view>
+      <view class="team-head__links">
+        <view class="team-head__link" bindtap="goActivities">活动 →</view>
+        <view class="team-head__link" bindtap="openLeaderboard">排行榜 →</view>
+      </view>
     </view>
   </view>
 

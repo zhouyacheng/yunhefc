@@ -1,0 +1,119 @@
+<view class="container ledger">
+  <view class="page-head">
+    <text class="page-head__eyebrow">LEDGER</text>
+    <view class="page-head__title">账本</view>
+    <text class="muted">球队收支与汇总 · 只读</text>
+  </view>
+
+  <view wx:if="{{!ready}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
+
+  <view wx:elif="{{!authenticated}}" class="state">
+    <van-empty description="登录后查看球队账本" />
+    <view class="btn btn--primary btn--small" bindtap="goLogin" hover-class="btn--pressed">去登录</view>
+  </view>
+
+  <view wx:elif="{{!authorized}}" class="state">
+    <van-empty description="仅正式球员可查看球队账本" />
+  </view>
+
+  <block wx:else>
+    <view class="summary">
+      <view class="summary__item">
+        <text class="summary__label">收入</text>
+        <text class="summary__value summary__value--income">{{summary ? summary.incomeText : '—'}}</text>
+      </view>
+      <view class="summary__item">
+        <text class="summary__label">支出</text>
+        <text class="summary__value summary__value--expense">{{summary ? summary.expenseText : '—'}}</text>
+      </view>
+      <view class="summary__item">
+        <text class="summary__label">余额</text>
+        <text class="summary__value summary__value--{{summary ? summary.tone : 'income'}}">{{summary ? summary.balanceText : '—'}}</text>
+      </view>
+    </view>
+
+    <view wx:if="{{summaryLoading && !summary}}" class="state state--inline">
+      <van-loading size="18px">汇总加载中…</van-loading>
+    </view>
+    <view wx:elif="{{summaryError && !summary}}" class="state state--inline">
+      <text class="muted">{{summaryError}}</text>
+      <view class="btn btn--small btn--outline" bindtap="retrySummary" hover-class="btn--pressed">重试</view>
+    </view>
+
+    <view class="filters">
+      <view class="filter-row">
+        <text class="filter-row__label">方向</text>
+        <picker
+          mode="selector"
+          range="{{typeOptions}}"
+          range-key="label"
+          value="{{typeIndex}}"
+          bindchange="onTypeChange"
+        >
+          <view class="filter-row__value">{{typeOptions[typeIndex].label}} ▾</view>
+        </picker>
+      </view>
+      <view class="filter-row">
+        <text class="filter-row__label">分类</text>
+        <picker
+          mode="selector"
+          range="{{categoryOptions}}"
+          range-key="label"
+          value="{{categoryIndex}}"
+          bindchange="onCategoryChange"
+        >
+          <view class="filter-row__value">{{categoryOptions[categoryIndex].label}} ▾</view>
+        </picker>
+      </view>
+      <view class="filter-row">
+        <text class="filter-row__label">区间</text>
+        <view class="filter-row__range">
+          <picker mode="date" value="{{fromDate}}" start="2000-01-01" end="2100-12-31" bindchange="onFromChange">
+            <view class="range-pick">{{fromDate || '开始日期'}}</view>
+          </picker>
+          <text class="muted">至</text>
+          <picker mode="date" value="{{toDate}}" start="2000-01-01" end="2100-12-31" bindchange="onToChange">
+            <view class="range-pick">{{toDate || '结束日期'}}</view>
+          </picker>
+          <text wx:if="{{fromDate || toDate}}" class="filter-row__clear" bindtap="clearRange">清除</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
+      <van-loading size="20px">流水加载中…</van-loading>
+    </view>
+
+    <view wx:elif="{{feed.error && feed.items.length === 0}}" class="state">
+      <text class="muted">{{feed.error}}</text>
+      <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+    </view>
+
+    <view wx:elif="{{feed.loaded && feed.items.length === 0}}" class="state">
+      <van-empty description="暂无符合条件的流水" />
+    </view>
+
+    <view wx:else class="ledger-list">
+      <view class="ledger-row" wx:for="{{feed.items}}" wx:key="id">
+        <view class="ledger-row__head">
+          <text class="ledger-row__category">{{item.categoryName}}</text>
+          <text class="ledger-row__amount ledger-row__amount--{{item.tone}}">{{item.amountText}}</text>
+        </view>
+        <text class="ledger-row__desc">{{item.description}}</text>
+        <text class="muted small">{{item.timeText}}<text wx:if="{{item.metaText}}"> · {{item.metaText}}</text></text>
+      </view>
+    </view>
+
+    <view wx:if="{{feed.items.length > 0}}" class="feed-footer">
+      <van-loading wx:if="{{feed.loadingMore}}" size="18px">加载中…</van-loading>
+      <block wx:elif="{{feed.error}}">
+        <text class="muted">{{feed.error}}</text>
+        <view class="btn btn--small btn--outline" bindtap="retry" hover-class="btn--pressed">重试加载</view>
+      </block>
+      <text wx:elif="{{feed.page >= feed.totalPages}}" class="muted">已显示全部</text>
+      <text wx:else class="muted">上拉加载更多</text>
+    </view>
+  </block>
+</view>

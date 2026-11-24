@@ -1,6 +1,6 @@
 // 跨页失效：写入方用 invalidate 声明哪份命名数据已改动，订阅方在刷新时机 consume，消费一次即复位。
 // 资源名是接口的一部分：新增资源先在此登记，避免隐藏布尔让页面之间隐式耦合。
-export type InvalidationResource = 'my-registrations';
+export type InvalidationResource = 'activities' | 'my-registrations';
 
 const invalidated = new Set<InvalidationResource>();
 

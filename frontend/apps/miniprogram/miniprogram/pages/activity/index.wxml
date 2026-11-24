@@ -1,0 +1,97 @@
+<view class="container activities">
+  <view class="page-head">
+    <text class="page-head__eyebrow">TEAM DAYS</text>
+    <view class="page-head__title">活动</view>
+    <text class="muted">队内聚餐、年会与日常约定</text>
+  </view>
+
+  <view class="filters">
+    <view class="segmented">
+      <view
+        wx:for="{{scopeOptions}}"
+        wx:key="key"
+        class="segmented__item {{scope === item.key ? 'segmented__item--active' : ''}}"
+        data-scope="{{item.key}}"
+        bindtap="selectScope"
+      >{{item.label}}</view>
+    </view>
+
+    <view class="filters__pickers">
+      <picker
+        mode="selector"
+        range="{{typeOptions}}"
+        range-key="label"
+        value="{{typeIndex}}"
+        bindchange="onTypeChange"
+      >
+        <view class="filter-chip">{{typeOptions[typeIndex].label}} ▾</view>
+      </picker>
+      <picker
+        mode="selector"
+        range="{{statusOptions}}"
+        range-key="label"
+        value="{{statusIndex}}"
+        bindchange="onStatusChange"
+      >
+        <view class="filter-chip">{{statusOptions[statusIndex].label}} ▾</view>
+      </picker>
+    </view>
+  </view>
+
+  <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
+
+  <view wx:elif="{{feed.error && feed.items.length === 0}}" class="state">
+    <text class="muted">{{feed.error}}</text>
+    <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+  </view>
+
+  <view wx:elif="{{feed.loaded && feed.items.length === 0}}" class="state">
+    <van-empty description="{{emptyText}}" />
+  </view>
+
+  <view wx:else class="activity-list">
+    <view
+      class="activity-card"
+      wx:for="{{feed.items}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="goDetail"
+      hover-class="card--pressed"
+    >
+      <image
+        wx:if="{{item.imageUrl}}"
+        class="activity-card__thumb"
+        src="{{item.imageUrl}}"
+        mode="aspectFill"
+      />
+      <view class="activity-card__body">
+        <view class="activity-card__head">
+          <text class="activity-card__title">{{item.title}}</text>
+          <text class="status-pill status-pill--{{item.statusTone}}">{{item.statusText}}</text>
+        </view>
+        <text class="activity-card__type">{{item.typeText}}</text>
+        <text class="activity-card__line">{{item.timeText}}</text>
+        <text class="activity-card__line">📍 {{item.locationText}}</text>
+        <view class="activity-card__foot">
+          <text class="muted">{{item.countText}}</text>
+          <text
+            wx:if="{{item.actionVisible}}"
+            class="activity-card__action {{item.actionDisabled ? 'activity-card__action--disabled' : ''}}"
+          >{{item.actionLabel}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{feed.items.length > 0}}" class="feed-footer">
+    <van-loading wx:if="{{feed.loadingMore}}" size="18px">加载中…</van-loading>
+    <block wx:elif="{{feed.error}}">
+      <text class="muted">{{feed.error}}</text>
+      <view class="btn btn--small btn--outline" bindtap="retry" hover-class="btn--pressed">重试加载</view>
+    </block>
+    <text wx:elif="{{feed.page >= feed.totalPages}}" class="muted">已显示全部</text>
+    <text wx:else class="muted">上拉加载更多</text>
+  </view>
+</view>

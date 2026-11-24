@@ -219,4 +219,8 @@ Page({
   goTeam() {
     void wx.switchTab({ url: '/pages/team/index' });
   },
+
+  goActivities() {
+    void wx.navigateTo({ url: '/pages/activity/index' });
+  },
 });

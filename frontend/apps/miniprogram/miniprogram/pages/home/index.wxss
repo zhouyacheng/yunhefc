@@ -301,3 +301,48 @@
   font-size: 26rpx;
   line-height: 1.5;
 }
+
+.quick-entry {
+  display: flex;
+  align-items: center;
+  gap: 20rpx;
+  padding: 24rpx 28rpx;
+  background: var(--yh-surface);
+  border: 2rpx solid var(--yh-line);
+  border-radius: var(--yh-radius);
+  box-shadow: var(--yh-shadow-sm);
+}
+
+.quick-entry__icon {
+  width: 68rpx;
+  height: 68rpx;
+  font-size: 32rpx;
+  line-height: 68rpx;
+  text-align: center;
+  background: var(--yh-surface-soft);
+  border-radius: var(--yh-radius-sm);
+}
+
+.quick-entry__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4rpx;
+}
+
+.quick-entry__title {
+  color: var(--yh-ink);
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.quick-entry__text {
+  color: var(--yh-muted);
+  font-size: 24rpx;
+}
+
+.quick-entry__arrow {
+  color: var(--yh-green);
+  font-size: 30rpx;
+  font-weight: 700;
+}

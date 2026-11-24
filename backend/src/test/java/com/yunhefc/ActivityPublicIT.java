@@ -152,6 +152,71 @@ class ActivityPublicIT extends ActivityITSupport {
     }
 
     @Test
+    void detailExposesVersionAndAdminCanChangeStatus() throws Exception {
+        Cookie admin = bAdminLogin("13900002111");
+        Cookie cAdmin = cLogin("13900002111", "Admin123!");
+        Long activityId = activityId(createActivity(admin, "C 端改状态", futureAt(30, 18), 4));
+
+        mockMvc.perform(get("/api/v1/c/activities/" + activityId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.version").value(0));
+        mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].version").value(0));
+
+        createPlayerUser("13900002112", "普通球员", 812, 1);
+        Cookie player = cLogin("13900002112", "Passw0rd!");
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
+                        .cookie(player).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":1,\"version\":0}"))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
+                        .cookie(cAdmin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":1,\"version\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(1))
+                .andExpect(jsonPath("$.data.version").value(1));
+
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
+                        .cookie(cAdmin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":2,\"version\":0}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40901))
+                .andExpect(jsonPath("$.data.currentVersion").value(1));
+
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
+                        .cookie(cAdmin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":3,\"version\":1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
+                        .cookie(cAdmin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":2,\"version\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(2));
+
+        mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
+                        .cookie(cAdmin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":3,\"version\":2,\"reason\":\"终态取消\"}"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40917));
+    }
+
+    @Test
     void listAndDetailExposePagedEnvelopeAndEnumLabels() throws Exception {
         Long activityId = insertActivity("标签活动", futureAt(30, 18), 0, 5,
                 futureAt(30, 17), 1);

@@ -1,4 +1,5 @@
 // 05 §5.1 权限码；只用于小程序入口渲染，服务端仍是权威校验。
+export const ACTIVITY_MANAGE_ANY = 'activity:manage:any' as const;
 export const ACTIVITY_SIGNUP_OWN = 'activity:signup:own' as const;
 export const ATTENDANCE_CHECKIN_OWN = 'attendance:checkin:own' as const;
 export const ATTENDANCE_VIEW_ANY = 'attendance:view:any' as const;

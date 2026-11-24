@@ -1,11 +1,14 @@
 package com.yunhefc.activity.controller;
 
+import com.yunhefc.activity.application.ActivityAdminApplicationService;
 import com.yunhefc.activity.application.ActivityApplicationService;
+import com.yunhefc.activity.dto.ActivityDtos.ActivityAdmin;
 import com.yunhefc.activity.dto.ActivityDtos.ActivityCancelResult;
 import com.yunhefc.activity.dto.ActivityDtos.ActivityQuery;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupRequest;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupResponse;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupView;
+import com.yunhefc.activity.dto.ActivityDtos.ActivityStatusRequest;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySummary;
 import com.yunhefc.common.api.ApiResponse;
 import com.yunhefc.common.api.PageResponse;
@@ -28,6 +31,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ActivityController {
 
     private final ActivityApplicationService activityService;
+    private final ActivityAdminApplicationService activityAdminService;
 
     @GetMapping
     public ApiResponse<PageResponse<ActivitySummary>> list(
@@ -68,5 +72,13 @@ public class ActivityController {
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         return ApiResponse.ok(activityService.roster(id, page, pageSize));
+    }
+
+    @PostMapping("/{id}/status")
+    @PreAuthorize("hasAuthority('activity:manage:any')")
+    @Idempotent("ACT-13")
+    public ApiResponse<ActivityAdmin> changeStatus(@PathVariable Long id,
+                                                   @Valid @RequestBody ActivityStatusRequest request) {
+        return ApiResponse.ok(activityAdminService.changeStatus(id, request));
     }
 }

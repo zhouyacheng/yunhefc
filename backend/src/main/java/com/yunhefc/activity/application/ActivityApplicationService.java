@@ -333,6 +333,7 @@ public class ActivityApplicationService {
                 activity.getStatus().label(),
                 signupCount,
                 ActivityRules.signupOpen(activity, signupCount, now),
+                activity.getVersion(),
                 mine);
     }
 }

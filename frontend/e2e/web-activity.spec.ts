@@ -20,6 +20,7 @@ const OPEN_ACTIVITY = {
   statusLabel: 'SIGNUP_OPEN',
   signupCount: 12,
   signupOpen: true,
+  version: 0,
   mySignup: null,
 };
 
@@ -96,13 +97,13 @@ const ME = {
   unreadCount: 0,
 };
 
-async function mockSession(page: Page): Promise<void> {
+async function mockSession(page: Page, me: typeof ME = ME): Promise<void> {
   await page.addInitScript(() => {
     localStorage.setItem('yunhefc.c.sessionHint', '1');
   });
   await page.route(
     (url) => url.pathname === '/api/v1/c/me',
-    (route) => fulfill(route, ME),
+    (route) => fulfill(route, me),
   );
   await page.route(
     (url) => url.pathname === '/api/v1/c/notifications/unread-count',
@@ -246,6 +247,7 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
   await page.getByTestId('activity-cancel').click();
   await expect(page.getByTestId('activity-message')).toHaveText('已取消报名');
   await expect(page.getByTestId('activity-signup')).toBeVisible();
+  await expect(page.getByTestId('activity-status-select')).toHaveCount(0);
   expect(deleteCalls).toBe(1);
 
   await page.getByRole('button', { name: '复制链接' }).click();
@@ -321,5 +323,66 @@ test('C12 活动详情：展示场地环境图片，无图时不展示该区块'
   await page.goto('/activities/9001');
   await expect(page.getByRole('heading', { name: '活动说明' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '场地环境' })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('C12 管理员：状态下拉、直接流转与取消原因', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await mockSession(page, {
+    ...ME,
+    permissions: [...ME.permissions, 'activity:manage:any'],
+  });
+
+  let version = 0;
+  let status = 0;
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/activities/9001',
+    (route) =>
+      fulfill(route, {
+        ...OPEN_ACTIVITY,
+        status,
+        signupOpen: status === 0,
+        version,
+        mySignup: null,
+      }),
+  );
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/auth/csrf',
+    (route) => fulfill(route, { token: 'csrf-token' }),
+  );
+  const bodies: Array<Record<string, unknown>> = [];
+  const keys: Array<string | undefined> = [];
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/activities/9001/status',
+    async (route) => {
+      const body = JSON.parse(route.request().postData() ?? '{}') as Record<string, unknown>;
+      bodies.push(body);
+      keys.push(route.request().headers()['idempotency-key']);
+      version += 1;
+      status = Number(body.status);
+      await fulfill(route, { ...OPEN_ACTIVITY, status, version });
+    },
+  );
+
+  await page.goto('/activities/9001');
+  const select = page.getByTestId('activity-status-select');
+  await expect(select).toBeVisible();
+  await expect(select.locator('option')).toHaveCount(4);
+
+  await select.selectOption('1');
+  await expect(page.locator('.match-hero__top .van-tag')).toContainText('报名截止');
+  expect(bodies[0]).toEqual({ status: 1, version: 0 });
+  expect(keys[0]).toBeTruthy();
+
+  await select.selectOption('3');
+  await expect(page.getByRole('heading', { name: '取消活动' })).toBeVisible();
+  await page.getByRole('button', { name: '确认取消' }).click();
+  await expect(page.getByTestId('activity-cancel-error')).toHaveText('请输入取消原因');
+  await page.getByPlaceholder('请填写取消原因（最多 255 字）').fill('场地停业');
+  await page.getByRole('button', { name: '确认取消' }).click();
+
+  await expect(page.locator('.match-hero__top .van-tag')).toContainText('已取消');
+  expect(bodies[1]).toEqual({ status: 3, version: 1, reason: '场地停业' });
+  await expect(page.getByTestId('activity-status-select')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

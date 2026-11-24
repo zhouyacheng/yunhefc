@@ -426,6 +426,17 @@ export function cancelActivitySignup(id: number): Promise<{ cancelled: boolean }
   return highRiskWrite<{ cancelled: boolean }>('DELETE', `/activities/${id}/signups/me`);
 }
 
+export interface ActivityStatusUpdate {
+  status: ActivityStatus;
+  version: number;
+  reason?: string;
+}
+
+/** ACT-13 C 端详情流转状态；仅 activity:manage:any 可用。 */
+export function changeActivityStatus(id: number, body: ActivityStatusUpdate): Promise<void> {
+  return highRiskWrite<void>('POST', `/activities/${id}/status`, body);
+}
+
 /** ACT-05 名单分页；详情页不展示名单，预留给后续只读入口。 */
 export function listActivitySignups(
   id: number,

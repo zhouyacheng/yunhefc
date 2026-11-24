@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ERROR_CODES, describeError, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
-import type { ActivityDetail, ActivitySignup } from '@yunhefc/shared';
-import { formatDateTime, formatDayTimeRange } from '@yunhefc/shared';
+import { ACTIVITY_MANAGE_ANY, hasPermission } from '@yunhefc/permissions';
+import type { ActivityDetail, ActivitySignup, ActivityStatus } from '@yunhefc/shared';
+import { activityEditable, formatDateTime, formatDayTimeRange } from '@yunhefc/shared';
 import {
   Button,
   Checkbox,
@@ -33,6 +34,11 @@ import {
   activityTypeText,
   formatActivityCost,
 } from '../features/activity/presentation';
+import {
+  activityCancelReasonError,
+  activityStatusChoice,
+  activityStatusOptions,
+} from '../features/activity/status-options';
 import { toBrowserPath } from '../router';
 import { useSessionStore } from '../stores/session';
 import { hasSessionHint } from '../stores/session-hint';
@@ -58,7 +64,20 @@ const familyNote = ref('');
 const submitting = ref(false);
 const cancelling = ref(false);
 
+const statusBusy = ref(false);
+const statusActionError = ref('');
+const cancelDialogOpen = ref(false);
+const cancelReason = ref('');
+const cancelError = ref('');
+const cancelSubmitting = ref(false);
+
 const pending = computed(() => isPending(session.user?.status ?? -1));
+const canChangeStatus = computed(
+  () => session.isAuthenticated && hasPermission(session.permissions, ACTIVITY_MANAGE_ANY),
+);
+const statusOptionList = computed(() =>
+  activity.value ? activityStatusOptions(activity.value.status) : [],
+);
 const mySignup = computed<ActivitySignup | null>(() => activity.value?.mySignup ?? null);
 const isSignedUp = computed(() => mySignup.value?.status === ACTIVITY_SIGNUP_ACTIVE);
 const activityClosed = computed(
@@ -109,6 +128,7 @@ const loginTarget = computed(() => ({
 const imageUrls = computed<string[]>(() => activity.value?.locationImageUrls ?? []);
 
 const REFRESH_CONFLICT_CODES: readonly number[] = [
+  ERROR_CODES.VERSION_CONFLICT,
   ERROR_CODES.ACTIVITY_SIGNUP_CONFLICT,
   ERROR_CODES.ACTIVITY_STATE_CONFLICT,
   ERROR_CODES.ACTIVITY_FULL,
@@ -238,6 +258,104 @@ async function cancelSignup(): Promise<void> {
   }
 }
 
+/** ACT-13 统一写入口；成功返回 null，失败返回展示文案并处理冲突重载。 */
+async function postStatusChange(
+  status: ActivityStatus,
+  reason?: string,
+  fallback = '状态修改失败，请稍后重试',
+): Promise<string | null> {
+  const current = activity.value;
+  if (!current) {
+    return '活动不存在';
+  }
+  try {
+    await api.post<unknown>(
+      `/activities/${activityId}/status`,
+      { status, version: current.version, ...(reason ? { reason } : {}) },
+      { idempotencyKey: newIdempotencyKey() },
+    );
+    return null;
+  } catch (caught) {
+    if (onConflict(caught)) {
+      await load(true);
+    }
+    return describeError(caught, fallback);
+  }
+}
+
+async function changeStatus(target: ActivityStatus): Promise<void> {
+  if (!activity.value || statusBusy.value) {
+    return;
+  }
+  statusBusy.value = true;
+  statusActionError.value = '';
+  actionMessage.value = '';
+  try {
+    const error = await postStatusChange(target);
+    if (error) {
+      statusActionError.value = error;
+      return;
+    }
+    actionMessage.value = '活动状态已更新';
+    await load(true);
+  } finally {
+    statusBusy.value = false;
+  }
+}
+
+function onStatusSelect(event: Event): void {
+  const select = event.target as HTMLSelectElement;
+  const current = activity.value;
+  if (!current) {
+    return;
+  }
+  statusActionError.value = '';
+  const choice = activityStatusChoice(statusOptionList.value, current.status, Number(select.value));
+  select.value = String(current.status);
+  switch (choice.kind) {
+    case 'ignore':
+      return;
+    case 'cancel':
+      cancelReason.value = '';
+      cancelError.value = '';
+      cancelDialogOpen.value = true;
+      return;
+    case 'change':
+      void changeStatus(choice.status);
+      return;
+  }
+}
+
+async function submitCancelStatus(): Promise<void> {
+  if (!activity.value || cancelSubmitting.value) {
+    return;
+  }
+  statusActionError.value = '';
+  const message = activityCancelReasonError(cancelReason.value);
+  if (message) {
+    cancelError.value = message;
+    return;
+  }
+  cancelSubmitting.value = true;
+  cancelError.value = '';
+  try {
+    const error = await postStatusChange(
+      ACTIVITY_CANCELLED,
+      cancelReason.value.trim(),
+      '取消活动失败，请稍后重试',
+    );
+    if (error) {
+      cancelError.value = error;
+      return;
+    }
+    cancelDialogOpen.value = false;
+    actionMessage.value = '活动已取消';
+    await load(true);
+  } finally {
+    cancelSubmitting.value = false;
+  }
+}
+
 async function copyText(text: string): Promise<boolean> {
   try {
     if (navigator.clipboard?.writeText) {
@@ -308,8 +426,31 @@ onBeforeUnmount(() => {
         <h1 class="activity-hero__title">{{ activity.title }}</h1>
 
         <div class="match-hero__actions">
+          <select
+            v-if="canChangeStatus && activityEditable(activity.status)"
+            class="status-select"
+            data-testid="activity-status-select"
+            aria-label="修改活动状态"
+            :disabled="statusBusy"
+            @change="onStatusSelect"
+          >
+            <option
+              v-for="option in statusOptionList"
+              :key="option.status"
+              :value="option.status"
+              :selected="option.status === activity.status"
+              :disabled="option.disabled"
+              :title="option.reason"
+            >
+              {{ option.label }}
+            </option>
+          </select>
           <Button size="small" plain type="primary" @click="copyLink">复制链接</Button>
         </div>
+
+        <p v-if="statusActionError" class="action-error" data-testid="activity-status-error">
+          {{ statusActionError }}
+        </p>
 
         <div class="match-hero__meta muted small">
           <span>{{ dayTimeText }}</span>
@@ -422,6 +563,41 @@ onBeforeUnmount(() => {
       </div>
     </template>
 
+    <Popup v-model:show="cancelDialogOpen" position="bottom" round>
+      <div class="activity-signup-popup">
+        <div class="card-head">
+          <h2>取消活动</h2>
+        </div>
+
+        <p class="muted small">取消后已报名记录保留但不再有效，且不可恢复。</p>
+
+        <Field
+          v-model="cancelReason"
+          label="取消原因"
+          type="textarea"
+          rows="3"
+          maxlength="255"
+          show-word-limit
+          placeholder="请填写取消原因（最多 255 字）"
+          :disabled="cancelSubmitting"
+        />
+
+        <p v-if="cancelError" class="action-error" data-testid="activity-cancel-error">
+          {{ cancelError }}
+        </p>
+
+        <Button
+          type="primary"
+          block
+          :loading="cancelSubmitting"
+          :disabled="cancelSubmitting"
+          @click="submitCancelStatus"
+        >
+          确认取消
+        </Button>
+      </div>
+    </Popup>
+
     <Popup v-model:show="popupOpen" position="bottom" round>
       <div class="activity-signup-popup">
         <div class="card-head">
@@ -461,6 +637,26 @@ onBeforeUnmount(() => {
 
 <style scoped>
 /* Hero 复用 C03 的 .match-hero；此处仅补活动标题排版。 */
+.status-select {
+  flex: 0 0 auto;
+  height: var(--van-button-small-height);
+  padding: 0 10px;
+  color: #ffffff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+  text-align-last: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: var(--van-button-radius);
+}
+
+.status-select option {
+  color: var(--yh-ink);
+  background: var(--yh-surface);
+}
+
 .activity-hero__title {
   margin: 0;
   color: #ffffff;

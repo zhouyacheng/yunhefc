@@ -1439,6 +1439,35 @@ render();
       return '当前不可报名';
     }
 
+    const activityStatusFlow = ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'FINISHED', 'CANCELLED'];
+
+    function activityStatusEditable(item) {
+      return item.status === 'SIGNUP_OPEN' || item.status === 'SIGNUP_CLOSED';
+    }
+
+    function activityStatusDisabled(item, next) {
+      if (!activityStatusEditable(item)) return true;
+      return next === 'SIGNUP_OPEN' && item.status === 'SIGNUP_CLOSED';
+    }
+
+    function openActivityCancelModal(item) {
+      const body = `<form id="activity-cancel-form" class="form-grid">
+        <label class="full">取消原因<textarea class="input" name="reason" rows="3" required maxlength="255" placeholder="例如：场地临时关闭"></textarea></label>
+        <p class="muted small full">取消后已报名记录保留但不再有效，且不可恢复。</p>
+      </form>`;
+      const modal = Y.openModal('取消活动', body, '<button class="btn btn-danger" id="activity-cancel-submit">确认取消</button><button class="btn btn-ghost" data-close-modal>取消</button>');
+      modal.querySelector('#activity-cancel-submit').addEventListener('click', () => {
+        const form = modal.querySelector('#activity-cancel-form');
+        if (!form.reportValidity()) return;
+        const reason = String(new FormData(form).get('reason') || '').trim();
+        if (!reason) { Y.toast('请填写取消原因'); return; }
+        item.status = 'CANCELLED';
+        Y.closeModal();
+        Y.toast('活动已取消');
+        render();
+      });
+    }
+
     function filterSelect(id, label, options, current) {
       return `<label class="muted small" for="${id}">${label}
         <select id="${id}">
@@ -1484,6 +1513,7 @@ render();
                         : '<button class="btn btn-ghost btn-sm" disabled>已截止</button>')
                     : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>${ctaLabel(item)}</button>`}
                 <button class="btn btn-ghost btn-sm" data-share-activity="${item.id}">分享</button>
+                ${Y.hasPermission('activity:manage:any') && activityStatusEditable(item) ? `<select class="input input-sm" data-activity-status="${item.id}" aria-label="修改活动状态">${activityStatusFlow.map((next) => `<option value="${next}"${next === item.status ? ' selected' : ''}${activityStatusDisabled(item, next) ? ' disabled' : ''}>${statusLabels[next]}</option>`).join('')}</select>` : ''}
                 ${item.familyAllowed && !closed ? `<label class="muted small" style="display:flex;align-items:center;gap:4px"><input type="checkbox" data-family-toggle="${item.id}"${item.family ? ' checked' : ''}> 携带家属</label>` : ''}
               </div>
               ${item.mine && item.family ? '<p class="muted small">已勾选携带家属（原型演示）</p>' : ''}
@@ -1491,7 +1521,7 @@ render();
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已结束/已取消为终态。</p>
         </div>
       </div>`;
 
@@ -1540,6 +1570,19 @@ render();
           const url = `${location.origin}${location.pathname}?id=${button.dataset.shareActivity}`;
           if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => Y.toast('活动链接已复制'), () => Y.toast(url));
           else Y.toast(url);
+        });
+      });
+      $$('[data-activity-status]', host).forEach((select) => {
+        select.addEventListener('change', () => {
+          const item = activities.find((entry) => String(entry.id) === select.dataset.activityStatus);
+          if (!item) return;
+          const next = select.value;
+          select.value = item.status;
+          if (activityStatusDisabled(item, next) || next === item.status) return;
+          if (next === 'CANCELLED') { openActivityCancelModal(item); return; }
+          item.status = next;
+          Y.toast('活动状态已更新');
+          render();
         });
       });
     }

@@ -13,7 +13,13 @@
       <view class="detail-hero__top">
         <text class="detail-hero__type">{{typeText}}</text>
         <view class="detail-hero__tools">
-          <text class="status-pill status-pill--{{statusTone}}">{{statusText}}</text>
+          <view
+            wx:if="{{canChangeStatus}}"
+            class="status-pill status-pill--{{statusTone}} status-pill--action"
+            hover-class="status-pill--pressed"
+            bindtap="openStatus"
+          >{{statusText}} ▾</view>
+          <text wx:else class="status-pill status-pill--{{statusTone}}">{{statusText}}</text>
           <button
             class="detail-share"
             size="mini"
@@ -165,4 +171,18 @@
       </view>
     </view>
   </van-popup>
+
+  <status-sheet
+    show="{{statusOpen}}"
+    options="{{statusOptions}}"
+    current-status="{{activity.status}}"
+    error="{{statusError}}"
+    entity-label="活动"
+    cancel-status="{{3}}"
+    cancel-max-length="{{255}}"
+    list-hint="选择「已取消」会打开取消原因表单；已结束与已取消为终态。"
+    bind:close="closeStatus"
+    bind:change="onStatusChange"
+    bind:cancel="onStatusCancel"
+  />
 </view>

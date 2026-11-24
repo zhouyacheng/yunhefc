@@ -4,6 +4,7 @@
     "van-field": "@vant/weapp/field/index",
     "van-loading": "@vant/weapp/loading/index",
     "van-popup": "@vant/weapp/popup/index",
-    "van-switch": "@vant/weapp/switch/index"
+    "van-switch": "@vant/weapp/switch/index",
+    "status-sheet": "../../components/status-sheet/index"
   }
 }

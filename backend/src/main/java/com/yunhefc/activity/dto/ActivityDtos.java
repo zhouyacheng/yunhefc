@@ -218,6 +218,7 @@ public final class ActivityDtos {
             String statusLabel,
             int signupCount,
             boolean signupOpen,
+            Integer version,
             ActivitySignupView mySignup) {
     }
 

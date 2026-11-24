@@ -1,5 +1,11 @@
-import type { ActivityDetail, ActivitySignup } from '../../types/api';
-import { cancelActivitySignup, fetchActivity, signupActivity } from '../../utils/api-client';
+import type { ActivityDetail, ActivitySignup, ActivityStatus } from '../../types/api';
+import {
+  cancelActivitySignup,
+  changeActivityStatus,
+  fetchActivity,
+  signupActivity,
+} from '../../utils/api-client';
+import { activityStatusOptions, type ActivityStatusOption } from '../../utils/activity-status';
 import { errorMessage, shouldRefreshAfterActivityConflict } from '../../utils/api-errors';
 import {
   activityAction,
@@ -7,6 +13,7 @@ import {
   activityCapacityPercent,
   activityCostText,
   activityCountText,
+  activityEditable,
   activityStatusText,
   activityStatusTone,
   activityTimeText,
@@ -18,7 +25,7 @@ import {
 } from '../../utils/activity-view';
 import { formatDateTime, formatDayStartTime } from '../../utils/datetime';
 import { invalidate } from '../../utils/invalidation';
-import { ACTIVITY_SIGNUP_OWN, hasPermission } from '../../utils/permissions';
+import { ACTIVITY_MANAGE_ANY, ACTIVITY_SIGNUP_OWN, hasPermission } from '../../utils/permissions';
 import { getPermissions, getUser, sessionReady } from '../../utils/session';
 
 let requestSeq = 0;
@@ -67,6 +74,11 @@ Page({
     sheetOpen: false,
     withFamily: false,
     familyNote: '',
+    canChangeStatus: false,
+    statusOpen: false,
+    statusOptions: [] as ActivityStatusOption[],
+    statusBusy: false,
+    statusError: '',
   },
 
   onLoad(options: Record<string, string | undefined>) {
@@ -141,6 +153,10 @@ Page({
     const mySignup = activity.mySignup && activity.mySignup.status === 0 ? activity.mySignup : null;
     const action = activityAction(activity, now);
     const canSignupPerm = authenticated && hasPermission(getPermissions(), ACTIVITY_SIGNUP_OWN);
+    const canChangeStatus =
+      authenticated &&
+      hasPermission(getPermissions(), ACTIVITY_MANAGE_ANY) &&
+      activityEditable(activity.status);
     const hint =
       action.reason || (authenticated && !pending && !canSignupPerm ? RESTRICTED_SIGNUP_HINT : '');
     this.setData({
@@ -162,6 +178,8 @@ Page({
       authenticated,
       pending,
       canSignupPerm,
+      canChangeStatus,
+      statusOptions: activityStatusOptions(activity.status),
       hint,
       loading: false,
       error: '',
@@ -264,6 +282,61 @@ Page({
       }
     } finally {
       this.setData({ cancelBusy: false });
+    }
+  },
+
+  openStatus() {
+    if (!this.data.canChangeStatus) {
+      return;
+    }
+    this.setData({
+      statusOpen: true,
+      statusError: '',
+    });
+  },
+
+  closeStatus() {
+    if (this.data.statusBusy) {
+      return;
+    }
+    this.setData({ statusOpen: false });
+  },
+
+  onStatusChange(event: WechatMiniprogram.CustomEvent) {
+    void this.submitStatus(Number(event.detail.status) as ActivityStatus);
+  },
+
+  onStatusCancel(event: WechatMiniprogram.CustomEvent) {
+    void this.submitStatus(3, String(event.detail.reason));
+  },
+
+  async submitStatus(status: ActivityStatus, reason?: string) {
+    const activity = this.data.activity;
+    if (!activity || this.data.statusBusy) {
+      return;
+    }
+    this.setData({ statusBusy: true, statusError: '' });
+    try {
+      await changeActivityStatus(activity.id, {
+        status,
+        version: activity.version,
+        reason,
+      });
+      invalidate('activities');
+      this.setData({ statusOpen: false });
+      wx.showToast({
+        title: `状态已改为${activityStatusText(status)}`,
+        icon: 'none',
+      });
+      await this.load(true);
+    } catch (error) {
+      const message = errorMessage(error, '状态修改失败，请稍后重试');
+      this.setData({ statusError: message });
+      if (shouldRefreshAfterActivityConflict(error)) {
+        await this.load(true);
+      }
+    } finally {
+      this.setData({ statusBusy: false });
     }
   },
 

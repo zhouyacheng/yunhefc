@@ -19,11 +19,13 @@ export function shouldRefreshAfterConflict(error: unknown): boolean {
   );
 }
 
-/** 活动报名的状态冲突：已报名/状态变化/满员都应重载详情。 */
+/** 活动报名/状态冲突：版本、已报名、状态变化、满员都应重载详情。 */
 export function shouldRefreshAfterActivityConflict(error: unknown): boolean {
   return (
     error instanceof ApiError &&
-    [ACTIVITY_SIGNUP_CONFLICT, ACTIVITY_STATE_CONFLICT, ACTIVITY_FULL].includes(error.code)
+    [VERSION_CONFLICT, ACTIVITY_SIGNUP_CONFLICT, ACTIVITY_STATE_CONFLICT, ACTIVITY_FULL].includes(
+      error.code,
+    )
   );
 }
 

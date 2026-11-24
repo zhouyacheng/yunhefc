@@ -200,3 +200,13 @@
 .signup-sheet__actions .btn {
   flex: 1;
 }
+
+/* ACT-13 管理员状态修改：状态胶囊可点，底部状态面板复用 status-sheet 组件。 */
+.status-pill--action {
+  padding: 6rpx 14rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.28);
+}
+
+.status-pill--pressed {
+  opacity: 0.75;
+}

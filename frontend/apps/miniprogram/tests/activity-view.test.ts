@@ -44,6 +44,7 @@ function activity(patch: Partial<ActivitySummary> = {}): ActivitySummary {
     statusLabel: 'SIGNUP_OPEN',
     signupCount: 3,
     signupOpen: true,
+    version: 0,
     mySignup: null,
     ...patch,
   };

@@ -2,14 +2,15 @@
   <view class="status-sheet">
     <view class="status-sheet__head">
       <text class="status-sheet__title">
-        {{mode === 'postpone' ? '延期比赛' : mode === 'cancel' ? '取消比赛' : '修改比赛状态'}}
+        {{mode === 'postpone' ? '延期' + entityLabel : mode === 'cancel' ? '取消' + entityLabel : '修改' + entityLabel + '状态'}}
       </text>
       <text class="status-sheet__close" bindtap="close">关闭</text>
     </view>
 
     <block wx:if="{{mode === 'list'}}">
       <view class="status-sheet__hint">当前状态：{{currentLabel}}</view>
-      <view class="status-sheet__hint">选择「报名中」即重新开启报名；「已延期」「已取消」会打开对应表单。</view>
+      <view wx:if="{{listHint}}" class="status-sheet__hint">{{listHint}}</view>
+      <view wx:else class="status-sheet__hint">选择「报名中」即重新开启报名；「已延期」「已取消」会打开对应表单。</view>
       <view
         wx:for="{{options}}"
         wx:key="status"
@@ -64,11 +65,11 @@
       <textarea
         class="status-reason"
         value="{{reason}}"
-        maxlength="200"
-        placeholder="请填写取消原因（最多 200 字）"
+        maxlength="{{cancelMaxLength}}"
+        placeholder="请填写取消原因（最多 {{cancelMaxLength}} 字）"
         bindinput="onReason"
       ></textarea>
-      <text class="status-sheet__hint">{{reason.length}} / 200</text>
+      <text class="status-sheet__hint">{{reason.length}} / {{cancelMaxLength}}</text>
       <text wx:if="{{formError}}" class="form-error">{{formError}}</text>
       <text wx:if="{{error}}" class="form-error">{{error}}</text>
       <view class="status-sheet__actions">

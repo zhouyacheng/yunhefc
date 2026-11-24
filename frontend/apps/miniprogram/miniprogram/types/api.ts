@@ -452,6 +452,8 @@ export interface ActivitySummary {
   statusLabel: string;
   signupCount: number;
   signupOpen: boolean;
+  /** ACT-13 乐观锁版本；详情的状态修改回传。 */
+  version: number;
   /** 仅登录时返回。 */
   mySignup?: ActivitySignup | null;
 }

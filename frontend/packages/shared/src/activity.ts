@@ -31,17 +31,18 @@ export interface ActivitySummary {
   statusLabel: string;
   signupCount: number;
   signupOpen: boolean;
+  /** ACT-13 乐观锁版本；详情的状态修改回传。 */
+  version: number;
   /** 仅登录时返回；对齐 05 §4 与 MatchDetail.myRegistration 的可选口径。 */
   mySignup?: ActivitySignup | null;
 }
 
 export type ActivityDetail = ActivitySummary;
 
-/** ACT-06/07/08/09/10：管理端额外返回 version、创建人与原始图片对象键。 */
+/** ACT-06/07/08/09/10/13：管理端额外返回创建人与原始图片对象键。 */
 export interface ActivityAdmin extends ActivitySummary {
   /** 写请求回传的原始对象键；编辑与复制用它回填图片，展示仍用 locationImageUrls。 */
   locationImageKeys: string[];
-  version: number;
   createdBy: number;
 }
 

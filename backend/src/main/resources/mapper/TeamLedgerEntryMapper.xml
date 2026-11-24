@@ -4,8 +4,8 @@
 <mapper namespace="com.yunhefc.ledger.infrastructure.TeamLedgerEntryMapper">
 
     <select id="selectSummary" resultType="com.yunhefc.ledger.infrastructure.LedgerSummaryRow">
-        SELECT COALESCE(SUM(CASE WHEN type = 0 THEN amount ELSE 0 END), 0) AS income,
-               COALESCE(SUM(CASE WHEN type = 1 THEN amount ELSE 0 END), 0) AS expense
+        SELECT COALESCE(SUM(CASE WHEN type = #{incomeCode} THEN amount ELSE 0 END), 0) AS income,
+               COALESCE(SUM(CASE WHEN type = #{expenseCode} THEN amount ELSE 0 END), 0) AS expense
         FROM team_ledger_entry
         WHERE team_id = #{teamId} AND is_deleted = 0
         <if test="from != null">

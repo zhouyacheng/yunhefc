@@ -62,7 +62,7 @@ public class LedgerAdminController {
             @RequestParam(required = false) String from,
             @RequestParam(required = false) String to) {
         return ApiResponse.ok(ledgerAdminService.summary(
-                new LedgerSummaryQuery(from, to, type, categoryId, playerId, activityId)));
+                new LedgerSummaryQuery(type, categoryId, playerId, activityId, from, to)));
     }
 
     @PostMapping("/entries")

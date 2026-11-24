@@ -43,7 +43,7 @@ public class LedgerApplicationService {
     public PageResponse<LedgerEntryView> entries(LedgerEntryQuery query) {
         Long teamId = CurrentUser.principal().teamId();
         LedgerType type = LedgerRules.type(query.type());
-        PageQuery page = LedgerQueryParsing.page(query.page(), query.pageSize());
+        PageQuery page = PageQuery.of(query.page(), query.pageSize());
         String keyword = LedgerQueryParsing.keyword(query.keyword());
         Long categoryId = LedgerQueryParsing.positiveId(query.categoryId(), "categoryId");
         Long playerId = LedgerQueryParsing.positiveId(query.playerId(), "playerId");
@@ -85,7 +85,8 @@ public class LedgerApplicationService {
         LocalDateTime to = LedgerQueryParsing.time(query.to(), "to");
         LedgerQueryParsing.validateRange(from, to);
 
-        LedgerSummaryRow row = entryMapper.selectSummary(teamId, from, to,
+        LedgerSummaryRow row = entryMapper.selectSummary(teamId,
+                LedgerType.INCOME.code(), LedgerType.EXPENSE.code(), from, to,
                 type == null ? null : type.code(), categoryId, playerId, activityId);
         BigDecimal income = money(row == null ? null : row.getIncome());
         BigDecimal expense = money(row == null ? null : row.getExpense());

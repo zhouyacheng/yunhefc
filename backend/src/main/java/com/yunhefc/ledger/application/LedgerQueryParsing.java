@@ -1,6 +1,5 @@
 package com.yunhefc.ledger.application;
 
-import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.time.ShanghaiTime;
@@ -56,7 +55,4 @@ final class LedgerQueryParsing {
         return id;
     }
 
-    static PageQuery page(long page, long pageSize) {
-        return PageQuery.of(page, pageSize);
-    }
 }

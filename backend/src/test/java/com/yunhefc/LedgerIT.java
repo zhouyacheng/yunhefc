@@ -215,6 +215,17 @@ class LedgerIT extends ActivityITSupport {
                 .andExpect(jsonPath("$.data.direction").value((Object) null))
                 .andExpect(jsonPath("$.data.directionLabel").value((Object) null));
 
+        // 停用分类未换分类、仅改方向：通用分类允许收支两侧，历史流水仍可编辑。
+        mockMvc.perform(patch("/api/v1/b/ledger/entries/" + jerseyEntryId)
+                        .cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":0,"version":1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.type").value(0));
+
         mockMvc.perform(patch("/api/v1/b/ledger/categories/" + jerseyId)
                         .cookie(admin).with(csrf())
                         .header("Idempotency-Key", idemKey())

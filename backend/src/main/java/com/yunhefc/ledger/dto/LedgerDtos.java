@@ -38,12 +38,12 @@ public final class LedgerDtos {
     }
 
     public record LedgerSummaryQuery(
-            String from,
-            String to,
             Integer type,
             Long categoryId,
             Long playerId,
-            Long activityId) {
+            Long activityId,
+            String from,
+            String to) {
     }
 
     public record LedgerEntryView(

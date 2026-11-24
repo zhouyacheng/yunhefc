@@ -112,12 +112,15 @@ public class LedgerAdminApplicationService {
         LedgerType type = request.getType() == null ? entry.getType() : requireType(request.getType());
         Long categoryId = request.getCategoryId() == null
                 ? entry.getCategoryId() : request.getCategoryId();
-        boolean categoryChanged = (request.getType() != null && request.getType() != entry.getType().code())
-                || (request.getCategoryId() != null
-                && !request.getCategoryId().equals(entry.getCategoryId()));
-        // 分类未变更时允许继续编辑已停用分类的历史流水；变更分类才重新校验启用与方向。
-        if (categoryChanged) {
+        boolean categoryAssigned = request.getCategoryId() != null
+                && !request.getCategoryId().equals(entry.getCategoryId());
+        boolean typeChanged = request.getType() != null && request.getType() != entry.getType().code();
+        // 改分类才要求新分类启用；仅改方向按现有分类校验方向，停用分类的历史流水仍可编辑。
+        if (categoryAssigned) {
             LedgerCategory category = requireActiveCategory(teamId, categoryId);
+            LedgerRules.requireDirectionMatch(type, category);
+        } else if (typeChanged) {
+            LedgerCategory category = requireCategory(teamId, categoryId);
             LedgerRules.requireDirectionMatch(type, category);
         }
         BigDecimal amount = request.getAmount() == null
@@ -288,13 +291,18 @@ public class LedgerAdminApplicationService {
         return type;
     }
 
-    private LedgerCategory requireActiveCategory(Long teamId, Long categoryId) {
+    private LedgerCategory requireCategory(Long teamId, Long categoryId) {
         LedgerCategory category = categoryMapper.selectOne(new LambdaQueryWrapper<LedgerCategory>()
                 .eq(LedgerCategory::getId, categoryId)
                 .eq(LedgerCategory::getTeamId, teamId));
         if (category == null) {
             throw LedgerRules.invalid("categoryId", "分类不存在或不属于本队");
         }
+        return category;
+    }
+
+    private LedgerCategory requireActiveCategory(Long teamId, Long categoryId) {
+        LedgerCategory category = requireCategory(teamId, categoryId);
         if (!Boolean.TRUE.equals(category.getIsActive())) {
             throw LedgerRules.invalid("categoryId", "分类已停用");
         }

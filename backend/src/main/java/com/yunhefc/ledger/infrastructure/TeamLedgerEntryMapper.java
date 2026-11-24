@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntry> {
 
     LedgerSummaryRow selectSummary(@Param("teamId") Long teamId,
+                                   @Param("incomeCode") int incomeCode,
+                                   @Param("expenseCode") int expenseCode,
                                    @Param("from") LocalDateTime from,
                                    @Param("to") LocalDateTime to,
                                    @Param("type") Integer type,

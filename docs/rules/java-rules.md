@@ -77,10 +77,10 @@ com.yunhefc.<domain>/
 
 - 依赖方向：controller → application → domain；infrastructure 实现 domain/application 定义的接口。
 - controller 不得直接调用 Mapper/Repository，不得包含业务规则。
-- domain 不得依赖 Spring Web、MyBatis、Kafka、Redis、OSS SDK。
+- domain 优先使用 MyBatis-Plus 注解声明表映射；不得依赖 Spring Web、Kafka、Redis、OSS SDK，也不得直接调用 Mapper/Repository 或存储客户端。
 - 跨领域只调用对方 application 服务、contracts 只读 port 或消费事件，不直接访问对方 Mapper/表。
 - 一个本地事务默认只修改一个聚合；三个显式例外：报名生命周期（Match + Registration）、注册建档（User + PlayerProfile）与账号生命周期编排（审核/转正/注销：User + Player + UserRole + Registration）。例外集中在应用服务层，不得扩散。
-- 以上规则由 ArchUnit 在 CI 固化；不得用注释或约定替代。
+- 跨域与对 `com.yunhefc.infra` 的依赖由 ArchUnit 在 CI 固化；同域分层与其余依赖约定由评审保证。
 
 ## 4. 命名与代码风格
 

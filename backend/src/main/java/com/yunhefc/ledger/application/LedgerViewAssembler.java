@@ -10,7 +10,6 @@ import com.yunhefc.ledger.domain.LedgerEntry;
 import com.yunhefc.ledger.domain.LedgerType;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryView;
-import com.yunhefc.ledger.infrastructure.LedgerCategoryEntity;
 import com.yunhefc.ledger.infrastructure.LedgerCategoryMapper;
 import com.yunhefc.ledger.infrastructure.LedgerCategoryRow;
 import lombok.RequiredArgsConstructor;
@@ -57,10 +56,7 @@ class LedgerViewAssembler {
     }
 
     LedgerEntryView view(Long teamId, LedgerEntry entry) {
-        LedgerCategoryEntity category = categoryMapper.selectOne(
-                new LambdaQueryWrapper<LedgerCategoryEntity>()
-                        .eq(LedgerCategoryEntity::getId, entry.getCategoryId())
-                        .eq(LedgerCategoryEntity::getTeamId, teamId));
+        LedgerCategory category = categoryMapper.selectByIdAndTeam(entry.getCategoryId(), teamId);
         String playerName = entry.getPlayerId() == null ? null
                 : playerReadPort.findById(entry.getPlayerId())
                         .filter(player -> teamId.equals(player.teamId()))
@@ -70,7 +66,7 @@ class LedgerViewAssembler {
                 : activityReadPort.findById(teamId, entry.getActivityId())
                         .map(ActivitySnapshot::title)
                         .orElse(null);
-        return view(entry, category == null ? null : category.toDomain(), playerName, activityTitle);
+        return view(entry, category, playerName, activityTitle);
     }
 
     LedgerCategoryView categoryView(LedgerCategoryRow row) {
@@ -120,11 +116,10 @@ class LedgerViewAssembler {
         if (categoryIds.isEmpty()) {
             return Map.of();
         }
-        return categoryMapper.selectList(new LambdaQueryWrapper<LedgerCategoryEntity>()
-                        .eq(LedgerCategoryEntity::getTeamId, teamId)
-                        .in(LedgerCategoryEntity::getId, categoryIds))
+        return categoryMapper.selectList(new LambdaQueryWrapper<LedgerCategory>()
+                        .eq(LedgerCategory::getTeamId, teamId)
+                        .in(LedgerCategory::getId, categoryIds))
                 .stream()
-                .map(LedgerCategoryEntity::toDomain)
                 .collect(Collectors.toMap(LedgerCategory::getId, Function.identity()));
     }
 

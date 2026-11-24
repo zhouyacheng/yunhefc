@@ -9,6 +9,7 @@ import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.ledger.domain.LedgerCategory;
 import com.yunhefc.ledger.domain.LedgerEntry;
+import com.yunhefc.ledger.domain.LedgerEntryKey;
 import com.yunhefc.ledger.domain.LedgerRules;
 import com.yunhefc.ledger.domain.LedgerType;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerDeleteRequest;
@@ -19,7 +20,6 @@ import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryUpdateRequest;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerSummaryQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerSummaryView;
-import com.yunhefc.ledger.infrastructure.LedgerEntryEntity;
 import com.yunhefc.ledger.infrastructure.TeamLedgerEntryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -69,20 +69,19 @@ public class LedgerAdminApplicationService {
             guards.requireTeamActivity(teamId, request.activityId());
         }
 
-        LedgerEntryEntity entity = new LedgerEntryEntity();
-        entity.setTeamId(teamId);
-        entity.setType(type);
-        entity.setCategoryId(category.getId());
-        entity.setAmount(amount);
-        entity.setDescription(description);
-        entity.setOccurredAt(request.occurredAt());
-        entity.setPlayerId(request.playerId());
-        entity.setActivityId(request.activityId());
-        entity.setVersion(0);
-        entity.setCreatedBy(principal.userId());
-        entryMapper.insert(entity);
+        LedgerEntry entry = new LedgerEntry();
+        entry.setTeamId(teamId);
+        entry.setType(type);
+        entry.setCategoryId(category.getId());
+        entry.setAmount(amount);
+        entry.setDescription(description);
+        entry.setOccurredAt(request.occurredAt());
+        entry.setPlayerId(request.playerId());
+        entry.setActivityId(request.activityId());
+        entry.setVersion(0);
+        entry.setCreatedBy(principal.userId());
+        entryMapper.insert(entry);
 
-        LedgerEntry entry = entity.toDomain();
         auditRecorder.recordCurrent("LEDGER_CREATE", "LEDGER_ENTRY", entry.getId(),
                 null, LedgerAuditSnapshot.of(entry));
         return assembler.view(teamId, entry);
@@ -92,11 +91,11 @@ public class LedgerAdminApplicationService {
     public LedgerEntryView update(Long entryId, LedgerEntryUpdateRequest request) {
         guards.rejectUnknownFields(request.getUnknownFields());
         Long teamId = CurrentUser.principal().teamId();
-        LedgerEntryEntity current = entryMapper.selectByIdForUpdate(entryId, teamId);
-        if (current == null) {
+        LedgerEntryKey key = new LedgerEntryKey(entryId, teamId);
+        LedgerEntry entry = entryMapper.selectByIdForUpdate(key);
+        if (entry == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "流水不存在");
         }
-        LedgerEntry entry = current.toDomain();
         if (!request.getVersion().equals(entry.getVersion())) {
             throw guards.versionConflict(entry.getVersion());
         }
@@ -147,20 +146,20 @@ public class LedgerAdminApplicationService {
         entry.setPlayerId(playerId);
         entry.setActivityId(activityId);
 
-        int updated = entryMapper.update(null, new LambdaUpdateWrapper<LedgerEntryEntity>()
-                .eq(LedgerEntryEntity::getId, entryId)
-                .eq(LedgerEntryEntity::getTeamId, teamId)
-                .eq(LedgerEntryEntity::getVersion, currentVersion)
-                .set(LedgerEntryEntity::getType, type)
-                .set(LedgerEntryEntity::getCategoryId, categoryId)
-                .set(LedgerEntryEntity::getAmount, amount)
-                .set(LedgerEntryEntity::getDescription, description)
-                .set(LedgerEntryEntity::getOccurredAt, occurredAt)
-                .set(LedgerEntryEntity::getPlayerId, playerId)
-                .set(LedgerEntryEntity::getActivityId, activityId)
-                .set(LedgerEntryEntity::getVersion, currentVersion + 1));
+        int updated = entryMapper.update(null, new LambdaUpdateWrapper<LedgerEntry>()
+                .eq(LedgerEntry::getId, entryId)
+                .eq(LedgerEntry::getTeamId, teamId)
+                .eq(LedgerEntry::getVersion, currentVersion)
+                .set(LedgerEntry::getType, type)
+                .set(LedgerEntry::getCategoryId, categoryId)
+                .set(LedgerEntry::getAmount, amount)
+                .set(LedgerEntry::getDescription, description)
+                .set(LedgerEntry::getOccurredAt, occurredAt)
+                .set(LedgerEntry::getPlayerId, playerId)
+                .set(LedgerEntry::getActivityId, activityId)
+                .set(LedgerEntry::getVersion, currentVersion + 1));
         if (updated == 0) {
-            throwNotFoundOrVersionConflict(entryId, teamId);
+            throwNotFoundOrVersionConflict(key);
         }
         entry.setVersion(currentVersion + 1);
         auditRecorder.recordCurrent("LEDGER_UPDATE", "LEDGER_ENTRY", entryId,
@@ -171,17 +170,17 @@ public class LedgerAdminApplicationService {
     @Transactional
     public LedgerDeletedResult delete(Long entryId, LedgerDeleteRequest request) {
         Long teamId = CurrentUser.principal().teamId();
-        LedgerEntryEntity current = entryMapper.selectByIdForUpdate(entryId, teamId);
-        if (current == null) {
+        LedgerEntryKey key = new LedgerEntryKey(entryId, teamId);
+        LedgerEntry entry = entryMapper.selectByIdForUpdate(key);
+        if (entry == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "流水不存在");
         }
-        LedgerEntry entry = current.toDomain();
         if (!request.version().equals(entry.getVersion())) {
             throw guards.versionConflict(entry.getVersion());
         }
         Map<String, Object> before = LedgerAuditSnapshot.of(entry);
-        if (entryMapper.logicalDelete(entryId, teamId, request.version()) == 0) {
-            throwNotFoundOrVersionConflict(entryId, teamId);
+        if (entryMapper.logicalDelete(key, request.version()) == 0) {
+            throwNotFoundOrVersionConflict(key);
         }
         auditRecorder.recordCurrent("LEDGER_DELETE", "LEDGER_ENTRY", entryId, before, null);
         return new LedgerDeletedResult(true);
@@ -198,8 +197,8 @@ public class LedgerAdminApplicationService {
     /**
      * 0 行更新后重新读取当前版本；行已消失时返回 404，否则返回 40901。
      */
-    private void throwNotFoundOrVersionConflict(Long entryId, Long teamId) {
-        LedgerEntryEntity current = entryMapper.selectByIdForUpdate(entryId, teamId);
+    private void throwNotFoundOrVersionConflict(LedgerEntryKey key) {
+        LedgerEntry current = entryMapper.selectByIdForUpdate(key);
         if (current == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "流水不存在");
         }

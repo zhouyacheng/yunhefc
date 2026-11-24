@@ -1,13 +1,11 @@
 package com.yunhefc.ledger.application;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.contracts.activity.ActivityReadPort;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.ledger.domain.LedgerCategory;
 import com.yunhefc.ledger.domain.LedgerRules;
-import com.yunhefc.ledger.infrastructure.LedgerCategoryEntity;
 import com.yunhefc.ledger.infrastructure.LedgerCategoryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -28,14 +26,11 @@ class LedgerAdminGuards {
     private final ActivityReadPort activityReadPort;
 
     LedgerCategory requireCategory(Long teamId, Long categoryId) {
-        LedgerCategoryEntity category = categoryMapper.selectOne(
-                new LambdaQueryWrapper<LedgerCategoryEntity>()
-                        .eq(LedgerCategoryEntity::getId, categoryId)
-                        .eq(LedgerCategoryEntity::getTeamId, teamId));
+        LedgerCategory category = categoryMapper.selectByIdAndTeam(categoryId, teamId);
         if (category == null) {
             throw LedgerRules.invalid("categoryId", "分类不存在或不属于本队");
         }
-        return category.toDomain();
+        return category;
     }
 
     LedgerCategory requireActiveCategory(Long teamId, Long categoryId) {

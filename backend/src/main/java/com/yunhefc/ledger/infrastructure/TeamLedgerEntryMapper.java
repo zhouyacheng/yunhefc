@@ -1,6 +1,8 @@
 package com.yunhefc.ledger.infrastructure;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.yunhefc.ledger.domain.LedgerEntry;
+import com.yunhefc.ledger.domain.LedgerEntryKey;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -9,7 +11,7 @@ import org.apache.ibatis.annotations.Update;
 import java.time.LocalDateTime;
 
 @Mapper
-public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntryEntity> {
+public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntry> {
 
     LedgerSummaryRow selectSummary(@Param("teamId") Long teamId,
                                    @Param("incomeCode") int incomeCode,
@@ -28,16 +30,16 @@ public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntryEntity> {
             SELECT id, team_id, type, category_id, amount, description, occurred_at,
                    player_id, activity_id, version, created_by, created_at, updated_at, is_deleted
             FROM team_ledger_entry
-            WHERE id = #{id} AND team_id = #{teamId} AND is_deleted = 0
+            WHERE id = #{key.entryId} AND team_id = #{key.teamId} AND is_deleted = 0
             FOR UPDATE
             """)
-    LedgerEntryEntity selectByIdForUpdate(@Param("id") Long id, @Param("teamId") Long teamId);
+    LedgerEntry selectByIdForUpdate(@Param("key") LedgerEntryKey key);
 
     @Update("""
             UPDATE team_ledger_entry
             SET is_deleted = 1, version = version + 1
-            WHERE id = #{id} AND team_id = #{teamId} AND version = #{version} AND is_deleted = 0
+            WHERE id = #{key.entryId} AND team_id = #{key.teamId}
+              AND version = #{version} AND is_deleted = 0
             """)
-    int logicalDelete(@Param("id") Long id, @Param("teamId") Long teamId,
-                      @Param("version") Integer version);
+    int logicalDelete(@Param("key") LedgerEntryKey key, @Param("version") Integer version);
 }

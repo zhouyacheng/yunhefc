@@ -10,7 +10,6 @@ import com.yunhefc.common.util.LikePattern;
 import com.yunhefc.ledger.domain.LedgerEntry;
 import com.yunhefc.ledger.domain.LedgerRules;
 import com.yunhefc.ledger.domain.LedgerType;
-import com.yunhefc.ledger.infrastructure.LedgerEntryEntity;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerFilterQuery;
@@ -55,23 +54,22 @@ public class LedgerApplicationService {
         LocalDateTime to = LedgerQueryParsing.time(filter.getTo(), "to");
         LedgerQueryParsing.validateRange(from, to);
 
-        LambdaQueryWrapper<LedgerEntryEntity> wrapper = new LambdaQueryWrapper<LedgerEntryEntity>()
-                .eq(LedgerEntryEntity::getTeamId, teamId)
-                .eq(type != null, LedgerEntryEntity::getType, type)
-                .eq(categoryId != null, LedgerEntryEntity::getCategoryId, categoryId)
-                .eq(playerId != null, LedgerEntryEntity::getPlayerId, playerId)
-                .eq(activityId != null, LedgerEntryEntity::getActivityId, activityId)
-                .ge(from != null, LedgerEntryEntity::getOccurredAt, from)
-                .le(to != null, LedgerEntryEntity::getOccurredAt, to)
-                .like(keyword != null, LedgerEntryEntity::getDescription,
+        LambdaQueryWrapper<LedgerEntry> wrapper = new LambdaQueryWrapper<LedgerEntry>()
+                .eq(LedgerEntry::getTeamId, teamId)
+                .eq(type != null, LedgerEntry::getType, type)
+                .eq(categoryId != null, LedgerEntry::getCategoryId, categoryId)
+                .eq(playerId != null, LedgerEntry::getPlayerId, playerId)
+                .eq(activityId != null, LedgerEntry::getActivityId, activityId)
+                .ge(from != null, LedgerEntry::getOccurredAt, from)
+                .le(to != null, LedgerEntry::getOccurredAt, to)
+                .like(keyword != null, LedgerEntry::getDescription,
                         keyword == null ? null : LikePattern.escape(keyword))
-                .orderByDesc(LedgerEntryEntity::getOccurredAt)
-                .orderByDesc(LedgerEntryEntity::getId);
+                .orderByDesc(LedgerEntry::getOccurredAt)
+                .orderByDesc(LedgerEntry::getId);
 
-        Page<LedgerEntryEntity> result = entryMapper.selectPage(
+        Page<LedgerEntry> result = entryMapper.selectPage(
                 new Page<>(page.page(), page.pageSize()), wrapper);
-        return PageResponse.of(assembler.views(teamId,
-                        result.getRecords().stream().map(LedgerEntryEntity::toDomain).toList()),
+        return PageResponse.of(assembler.views(teamId, result.getRecords()),
                 result.getTotal(), page.page(), page.pageSize());
     }
 

@@ -931,7 +931,7 @@ onBeforeUnmount(() => {
           />
           <span class="muted small">留空表示不限；只计报名人数，不含家属。</span>
         </el-form-item>
-        <el-form-item label="允许携带家属">
+        <el-form-item label="是否携带家属">
           <el-switch v-model="activityForm.familyAllowed" />
           <span class="muted small">开启后报名人才可选择携带家属；默认关闭。</span>
         </el-form-item>
@@ -948,10 +948,10 @@ onBeforeUnmount(() => {
         <el-form-item label="活动地址">
           <el-input v-model="activityForm.location" maxlength="128" placeholder="活动地址" />
         </el-form-item>
-        <el-form-item label="地点图片">
+        <el-form-item label="场地环境">
           <div class="image-field">
             <div v-if="imagePreviews.length === 0" class="image-placeholder">
-              未上传地点图片
+              未上传场地环境图片
             </div>
             <div
               v-for="(url, index) in imagePreviews"

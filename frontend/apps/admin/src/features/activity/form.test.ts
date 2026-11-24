@@ -62,10 +62,10 @@ describe('activityFormError', () => {
     expect(activityFormError({ ...base, costPerPerson: '0' })).toBeNull();
   });
 
-  it('地点图片最多 10 张', () => {
+  it('场地环境图片最多 10 张', () => {
     expect(activityFormError({ ...base, locationImageKeys: Array(10).fill('key') })).toBeNull();
     expect(activityFormError({ ...base, locationImageKeys: Array(11).fill('key') })).toBe(
-      '地点图片最多 10 张',
+      '场地环境图片最多 10 张',
     );
   });
 });

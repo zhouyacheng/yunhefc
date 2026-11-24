@@ -20,7 +20,7 @@ export const ACTIVITY_IMAGE_MAX_BYTES = 5 * 1024 * 1024;
 export const ACTIVITY_IMAGE_MAX_COUNT = 10;
 export const ACTIVITY_IMAGE_TYPE_ERROR = '仅支持 JPG/PNG/WebP';
 export const ACTIVITY_IMAGE_SIZE_ERROR = '图片不能超过 5MB';
-export const ACTIVITY_IMAGE_COUNT_ERROR = '地点图片最多 10 张';
+export const ACTIVITY_IMAGE_COUNT_ERROR = '场地环境图片最多 10 张';
 export const ACTIVITY_IMAGE_UPLOAD_ERROR = '上传失败，请稍后重试';
 
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -113,7 +113,7 @@ export function activityFormError(form: ActivityFormValues): string | null {
   return null;
 }
 
-/** 地点图片本地校验；返回错误文案或 null。 */
+/** 场地环境图片本地校验；返回错误文案或 null。 */
 export function validateActivityImage(file: { type: string; size: number }): string | null {
   if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
     return ACTIVITY_IMAGE_TYPE_ERROR;

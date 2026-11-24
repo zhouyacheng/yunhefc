@@ -1,12 +1,10 @@
-import type { LedgerCategory, LedgerDirection, LedgerType } from '@yunhefc/shared';
+import type { LedgerCategory, LedgerType } from '@yunhefc/shared';
+import { LEDGER_TYPE_TEXT, ledgerDirectionText, ledgerTypeText } from '@yunhefc/shared';
+
+export { LEDGER_TYPE_TEXT, ledgerDirectionText, ledgerTypeText };
 
 /** 05 §3.17：金额 >0 且 <=99,999,999.99，最多两位小数。 */
 export const LEDGER_AMOUNT_MAX = 99_999_999.99;
-
-export const LEDGER_TYPE_TEXT: Record<LedgerType, string> = {
-  0: '收入',
-  1: '支出',
-};
 
 export const LEDGER_TYPE_OPTIONS = Object.entries(LEDGER_TYPE_TEXT).map(([value, text]) => ({
   value: Number(value) as LedgerType,
@@ -15,18 +13,6 @@ export const LEDGER_TYPE_OPTIONS = Object.entries(LEDGER_TYPE_TEXT).map(([value,
 
 /** 分类方向：收入/支出/通用（null）。 */
 export const LEDGER_DIRECTION_OPTIONS = [{ value: '', text: '通用' }, ...LEDGER_TYPE_OPTIONS];
-
-export function ledgerTypeText(type: number): string {
-  return LEDGER_TYPE_TEXT[type as LedgerType] ?? '—';
-}
-
-export function ledgerDirectionText(direction: LedgerDirection): string {
-  return direction === null ? '通用' : ledgerTypeText(direction);
-}
-
-export function ledgerAmountText(amount: number): string {
-  return amount.toFixed(2);
-}
 
 /** 金额输入校验；返回错误文案或 null。 */
 export function validateLedgerAmount(value: string): string | null {

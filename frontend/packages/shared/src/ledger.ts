@@ -40,3 +40,17 @@ export interface LedgerSummary {
   expense: number;
   balance: number;
 }
+
+/** 三端共用的收支方向文案；服务端 fieldLabel 是英文枚举名。 */
+export const LEDGER_TYPE_TEXT: Readonly<Record<number, string>> = {
+  0: '收入',
+  1: '支出',
+};
+
+export function ledgerTypeText(type: LedgerType): string {
+  return LEDGER_TYPE_TEXT[type] ?? '—';
+}
+
+export function ledgerDirectionText(direction: LedgerDirection): string {
+  return direction === null ? '通用' : ledgerTypeText(direction);
+}

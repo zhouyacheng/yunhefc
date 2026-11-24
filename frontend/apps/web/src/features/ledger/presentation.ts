@@ -1,17 +1,11 @@
 import type { LedgerCategory, LedgerEntry, LedgerType } from '@yunhefc/shared';
+import { LEDGER_TYPE_TEXT, formatMoney, ledgerTypeText } from '@yunhefc/shared';
 
-export const LEDGER_TYPE_TEXT: Readonly<Record<number, string>> = {
-  0: '收入',
-  1: '支出',
-};
+export { LEDGER_TYPE_TEXT, ledgerTypeText };
 
 export const LEDGER_TYPE_OPTIONS: ReadonlyArray<{ value: LedgerType; label: string }> = (
   [0, 1] as const
 ).map((value) => ({ value, label: LEDGER_TYPE_TEXT[value] ?? '' }));
-
-export function ledgerTypeText(type: LedgerType): string {
-  return LEDGER_TYPE_TEXT[type] ?? '—';
-}
 
 /** LED-08 分类选项按方向过滤，通用分类始终保留。 */
 export function categoryOptions(
@@ -38,18 +32,7 @@ export function entryCategoryLabel(
   return labels.get(entry.categoryId) ?? entry.categoryName ?? '—';
 }
 
-function groupDigits(value: string): string {
-  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-}
-
-export function formatMoney(value: number): string {
-  if (!Number.isFinite(value)) {
-    return '—';
-  }
-  const sign = value < 0 ? '−' : '';
-  const [integer = '0', fraction = '00'] = Math.abs(value).toFixed(2).split('.');
-  return `${sign}¥${groupDigits(integer)}.${fraction}`;
-}
+export { formatMoney };
 
 export function formatSignedAmount(entry: Pick<LedgerEntry, 'type' | 'amount'>): string {
   return `${entry.type === 0 ? '+' : '−'}${formatMoney(Math.abs(entry.amount))}`;

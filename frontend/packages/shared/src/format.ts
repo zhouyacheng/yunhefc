@@ -143,3 +143,25 @@ export function formatDateTimeRange(
   }
   return `${startText} ~ ${monthDayFormatter.format(end)} ${timeFormatter.format(end)}`;
 }
+
+function groupDigits(value: string): string {
+  return value.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+/** 金额展示：固定两位小数并千分位，不带货币符号。 */
+export function formatAmount(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+  const [integer = '0', fraction = '00'] = Math.abs(value).toFixed(2).split('.');
+  return `${groupDigits(integer)}.${fraction}`;
+}
+
+/** 金额展示：负数用 U+2212，统一为 −¥1,234.50。 */
+export function formatMoney(value: number): string {
+  if (!Number.isFinite(value)) {
+    return '—';
+  }
+  const sign = value < 0 ? '−' : '';
+  return `${sign}¥${formatAmount(value)}`;
+}

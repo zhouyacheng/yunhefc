@@ -4,7 +4,6 @@ import { describe, expect, it } from 'vitest';
 import {
   LEDGER_AMOUNT_MAX,
   categoriesForType,
-  ledgerAmountText,
   ledgerDirectionText,
   ledgerTypeText,
   validateLedgerAmount,
@@ -63,10 +62,5 @@ describe('账本文案与金额', () => {
     expect(ledgerDirectionText(0)).toBe('收入');
     expect(ledgerDirectionText(1)).toBe('支出');
     expect(ledgerDirectionText(null)).toBe('通用');
-  });
-
-  it('金额固定两位小数', () => {
-    expect(ledgerAmountText(88.5)).toBe('88.50');
-    expect(ledgerAmountText(0)).toBe('0.00');
   });
 });

@@ -11,7 +11,7 @@ import type {
   Page,
   PlayerAdmin,
 } from '@yunhefc/shared';
-import { formatDateTime } from '@yunhefc/shared';
+import { formatAmount, formatDateTime } from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onMounted, reactive, ref } from 'vue';
 
@@ -21,7 +21,6 @@ import {
   LEDGER_DIRECTION_OPTIONS,
   LEDGER_TYPE_OPTIONS,
   categoriesForType,
-  ledgerAmountText,
   ledgerDirectionText,
   ledgerTypeText,
   validateLedgerAmount,
@@ -498,7 +497,7 @@ async function deleteEntry(row: LedgerEntry): Promise<void> {
   }
   try {
     await ElMessageBox.confirm(
-      `确认删除「${row.description}」（${ledgerTypeText(row.type)} ¥${ledgerAmountText(row.amount)}）？`,
+      `确认删除「${row.description}」（${ledgerTypeText(row.type)} ¥${formatAmount(row.amount)}）？`,
       '删除流水',
       { type: 'warning', confirmButtonText: '删除', cancelButtonText: '返回' },
     );
@@ -698,15 +697,15 @@ onMounted(() => {
     <div v-loading="summaryLoading" class="summary-cards">
       <div class="summary-card income">
         <span>收入</span>
-        <strong>¥{{ ledgerAmountText(summary.income) }}</strong>
+        <strong>¥{{ formatAmount(summary.income) }}</strong>
       </div>
       <div class="summary-card expense">
         <span>支出</span>
-        <strong>¥{{ ledgerAmountText(summary.expense) }}</strong>
+        <strong>¥{{ formatAmount(summary.expense) }}</strong>
       </div>
       <div class="summary-card balance">
         <span>余额</span>
-        <strong>¥{{ ledgerAmountText(summary.balance) }}</strong>
+        <strong>¥{{ formatAmount(summary.balance) }}</strong>
       </div>
     </div>
     <el-alert
@@ -831,7 +830,7 @@ onMounted(() => {
       <el-table-column label="金额" width="130" align="right">
         <template #default="{ row }">
           <span :class="row.type === 0 ? 'amount-income' : 'amount-expense'">
-            {{ row.type === 0 ? '+' : '−' }}¥{{ ledgerAmountText(row.amount) }}
+            {{ row.type === 0 ? '+' : '−' }}¥{{ formatAmount(row.amount) }}
           </span>
         </template>
       </el-table-column>

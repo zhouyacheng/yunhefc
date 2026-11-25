@@ -32,11 +32,26 @@
       <view class="detail-hero__title">{{activity.title}}</view>
 
       <view class="detail-hero__meta">
-        <text>📅 {{timeText}}</text>
-        <text>📍 {{activity.location}}</text>
-        <text>⏰ 报名截止 {{deadlineText}}</text>
-        <text>👥 {{countText}}</text>
-        <text wx:if="{{activity.costPerPerson !== null}}">💰 {{costText}}</text>
+        <view class="detail-hero__meta-row">
+          <view class="detail-hero__meta-icon">📅</view>
+          <text>{{timeText}}</text>
+        </view>
+        <view class="detail-hero__meta-row">
+          <view class="detail-hero__meta-icon">📍</view>
+          <text>{{activity.location}}</text>
+        </view>
+        <view class="detail-hero__meta-row">
+          <view class="detail-hero__meta-icon">⏰</view>
+          <text>报名截止 {{deadlineText}}</text>
+        </view>
+        <view class="detail-hero__meta-row">
+          <view class="detail-hero__meta-icon">👥</view>
+          <text>{{countText}}</text>
+        </view>
+        <view wx:if="{{activity.costPerPerson !== null}}" class="detail-hero__meta-row">
+          <view class="detail-hero__meta-icon">💰</view>
+          <text>{{costText}}</text>
+        </view>
       </view>
     </view>
 

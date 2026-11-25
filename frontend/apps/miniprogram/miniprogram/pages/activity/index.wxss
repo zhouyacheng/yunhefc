@@ -97,7 +97,7 @@
 .activity-card__line {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 6rpx;
   color: var(--yh-muted);
   font-size: 24rpx;
 }
@@ -131,7 +131,7 @@
 .activity-card__count {
   display: inline-flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 6rpx;
 }
 
 /* Apple Color Emoji 的墨迹重心比中文低约 1px（26rpx 字号下 2rpx），按视觉中线做光学校正。

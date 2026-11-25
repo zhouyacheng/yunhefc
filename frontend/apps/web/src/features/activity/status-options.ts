@@ -53,13 +53,9 @@ export function activityStatusChoice(
   return { kind: 'change', status: option.status };
 }
 
-/** ACT-13 取消原因：非空、≤255 字。 */
+/** ACT-13 取消原因：可选、≤255 字。 */
 export function activityCancelReasonError(reason: string): string | null {
-  const trimmed = reason.trim();
-  if (!trimmed) {
-    return '请输入取消原因';
-  }
-  if (trimmed.length > 255) {
+  if (reason.trim().length > 255) {
     return '取消原因不能超过 255 字';
   }
   return null;

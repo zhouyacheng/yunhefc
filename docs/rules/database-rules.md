@@ -116,6 +116,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
    - `V16__team_activity_ledger.sql`：新增 `team_activity`、`activity_signup`、`ledger_category`、`team_ledger_entry` 四表与索引，并补 `notification.type` 列注释 12/13（P-92、P-99）。
    - `V17__seed_activity_ledger.sql`：新增 5 个活动/账本权限码与角色授权，写入 7 个内置账本分类（P-92）。
    - `V18__activity_family_and_images.sql`：`team_activity` 新增 `family_allowed`；新增 `activity_image`；回填存量单图后删除 `location_image_key`（P-105/P-106/P-107）。
+   - `V19__activity_capacity_required.sql`：`team_activity.capacity` 存量 NULL 回填 50，改为 `NOT NULL DEFAULT 50`（P-121）。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。单部署单元不存在新旧版本并行的滚动窗口时，允许在同一迁移完成加列/建表/回填/删列，但必须在 04 §9 记录该例外（如 V18）。
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。
@@ -167,5 +168,5 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 - [ ] 索引覆盖查询，无重复/可覆盖索引；`is_deleted` 不单独建索引
 - [ ] 时间存 Asia/Shanghai 墙钟、`DATETIME(3)`；业务边界直接在 Asia/Shanghai 推导
 - [ ] 唯一约束、`version` 乐观锁、批量写入正确
-- [ ] Flyway V1–V18 顺序正确、可重复、无环境硬编码（V15 为空号）
+- [ ] Flyway V1–V19 顺序正确、可重复、无环境硬编码（V15 为空号）
 - [ ] 未执行生产 DDL、未手工改表

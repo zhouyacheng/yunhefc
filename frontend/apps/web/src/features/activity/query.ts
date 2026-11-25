@@ -80,7 +80,7 @@ export function normalizeActivityPageSize(value: number): number {
   return isSupportedPageSize(value) ? value : DEFAULT_ACTIVITY_PAGE_SIZE;
 }
 
-/** ACT-01 查询参数；「最近活动」由后端只取一条，前端不再下发分页。 */
+/** ACT-01 查询参数；「最近活动」同为分页列表，仅由服务端限定报名中。 */
 export function toActivityRequest(query: ActivityQuery): QueryParams {
   const params: QueryParams = { scope: query.scope };
   if (query.type !== null) {
@@ -89,9 +89,7 @@ export function toActivityRequest(query: ActivityQuery): QueryParams {
   if (query.status !== null) {
     params.status = query.status;
   }
-  if (query.scope !== 'latest') {
-    params.page = query.page;
-    params.pageSize = query.pageSize;
-  }
+  params.page = query.page;
+  params.pageSize = query.pageSize;
   return params;
 }

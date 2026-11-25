@@ -32,10 +32,12 @@ describe('活动筛选编码', () => {
   it('非法片段回落到默认值', () => {
     expect(parseActivityFeedKey('')).toEqual(DEFAULT_ACTIVITY_FILTERS);
     expect(parseActivityFeedKey('bogus|9|x')).toEqual(DEFAULT_ACTIVITY_FILTERS);
+    // P-116：MP10 不再提供历史范围，旧 key 回落缺省最近活动。
+    expect(parseActivityFeedKey('history||')).toEqual(DEFAULT_ACTIVITY_FILTERS);
   });
 
   it('选项顺序与 02 一致', () => {
-    expect(ACTIVITY_SCOPES.map((option) => option.label)).toEqual(['最近活动', '历史', '全部']);
+    expect(ACTIVITY_SCOPES.map((option) => option.label)).toEqual(['最近活动', '全部']);
     expect(ACTIVITY_TYPE_OPTIONS.map((option) => option.label)).toEqual([
       '全部类型',
       '聚餐',

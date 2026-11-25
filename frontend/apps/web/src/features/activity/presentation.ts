@@ -20,7 +20,7 @@ export type ActivityStatusTone = 'open' | 'closed' | 'finished' | 'cancelled';
 export interface ActivityGateInput {
   status: ActivityStatus;
   signupDeadline: string;
-  capacity: number | null;
+  capacity: number;
   signupCount: number;
   signupOpen: boolean;
 }
@@ -75,7 +75,7 @@ export function activityCta(input: ActivityGateInput, now = Date.now()): Activit
   if (input.status !== ACTIVITY_SIGNUP_OPEN || !withinDeadline(input, now)) {
     return { visible: true, label: '已截止', disabled: true };
   }
-  if (input.capacity !== null && input.signupCount >= input.capacity) {
+  if (input.signupCount >= input.capacity) {
     return { visible: true, label: '已满', disabled: true };
   }
   // signupOpen 是后端对同一组条件（状态/截止/满员）的派生值，不一致时保守禁用。
@@ -146,19 +146,26 @@ export function activityCancelState(
   return { visible: true, label, disabled: false, reason: '' };
 }
 
-/** 报名人数进度百分比；上限未知或非法时返回 0。 */
-export function activityCapacityPercent(signupCount: number, capacity: number | null): number {
-  if (capacity === null || capacity <= 0) {
+/** 报名人数进度百分比；上限非法时返回 0。 */
+export function activityCapacityPercent(signupCount: number, capacity: number): number {
+  if (capacity <= 0) {
     return 0;
   }
   return Math.max(0, Math.min(100, Math.round((signupCount / capacity) * 100)));
 }
 
-/** 只计报名人数，不含家属；无上限只显示已报人数。 */
-export function activitySignupText(signupCount: number, capacity: number | null): string {
-  return capacity === null
-    ? `已报 ${signupCount} 人（不含家属）`
-    : `已报 ${signupCount} / ${capacity} 人（不含家属）`;
+function signupCountText(prefix: string, signupCount: number, capacity: number): string {
+  return `${prefix} ${signupCount} / ${capacity} 人`;
+}
+
+/** C11 列表与 C12 hero 的人数文案。 */
+export function activitySignupText(signupCount: number, capacity: number): string {
+  return signupCountText('已报', signupCount, capacity);
+}
+
+/** C12 报名卡内的人数文案；与 hero 的短文案区分，明确「已报名」。 */
+export function activitySignupCardText(signupCount: number, capacity: number): string {
+  return signupCountText('已报名', signupCount, capacity);
 }
 
 export function formatActivityCost(value: number | null): string {

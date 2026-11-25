@@ -406,7 +406,7 @@ export interface AvatarUploadView {
   signedUrl: string;
 }
 
-// ---- M15 队内活动（05 §3.16）：列表与详情均不含报名名单 ----
+// ---- M15 队内活动（05 §3.16）：列表与详情接口不内联名单，报名队列经 ACT-05 单独加载 ----
 
 /** 0-聚餐；1-年会；2-其他。 */
 export type ActivityType = 0 | 1 | 2;
@@ -439,8 +439,8 @@ export interface ActivitySummary {
   startAt: string;
   endAt: string | null;
   signupDeadline: string;
-  /** 只计报名人数，不含家属；null 为不限。 */
-  capacity: number | null;
+  /** 只计报名人数，不含家属；创建未传时默认 50。 */
+  capacity: number;
   /** 活动级开关；关闭时报名不展示家属选项。 */
   familyAllowed: boolean;
   costPerPerson: number | null;

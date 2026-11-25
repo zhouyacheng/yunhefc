@@ -48,11 +48,11 @@ class FlywayUpgradeIT {
         migrateTo(null);
 
         try (Connection connection = connect()) {
-            assertThat(schemaVersion(connection)).isEqualTo("18");
+            assertThat(schemaVersion(connection)).isEqualTo("19");
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM flyway_schema_history
-                    WHERE success = 1 AND version IN ('16', '17', '18')
-                    """)).isEqualTo(3);
+                    WHERE success = 1 AND version IN ('16', '17', '18', '19')
+                    """)).isEqualTo(4);
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM flyway_schema_history WHERE version = '15'
                     """)).isZero();
@@ -120,6 +120,18 @@ class FlywayUpgradeIT {
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM team_activity
                     WHERE title = '迁移带图活动' AND family_allowed = 0
+                    """)).isEqualTo(1);
+
+            // V19：人数上限回填 50 并改为 NOT NULL DEFAULT 50。
+            assertThat(countOf(connection, """
+                    SELECT COUNT(*) FROM team_activity
+                    WHERE title = '迁移带图活动' AND capacity = 50
+                    """)).isEqualTo(1);
+            assertThat(countOf(connection, """
+                    SELECT COUNT(*) FROM information_schema.columns
+                    WHERE table_schema = DATABASE() AND table_name = 'team_activity'
+                      AND column_name = 'capacity' AND is_nullable = 'NO'
+                      AND column_default = '50'
                     """)).isEqualTo(1);
         }
     }

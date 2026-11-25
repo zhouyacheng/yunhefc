@@ -66,10 +66,10 @@ describe('toActivityRequest', () => {
     ).toEqual({ scope: 'history', page: 1, pageSize: 10 });
   });
 
-  it('最近活动不下发分页参数', () => {
+  it('最近活动同样下发分页参数', () => {
     expect(
       toActivityRequest({ scope: 'latest', type: null, status: null, page: 3, pageSize: 20 }),
-    ).toEqual({ scope: 'latest' });
+    ).toEqual({ scope: 'latest', page: 3, pageSize: 20 });
   });
 });
 

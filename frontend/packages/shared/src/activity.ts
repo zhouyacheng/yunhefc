@@ -9,7 +9,7 @@ export type ActivityStatus = 0 | 1 | 2 | 3;
 /** 0-已报名；1-已取消。 */
 export type ActivitySignupStatus = 0 | 1;
 
-/** ACT-01/02：列表与详情均不含报名名单。 */
+/** ACT-01/02：列表与详情接口不内联报名名单；C12/MP11 经 ACT-05 单独加载报名队列。 */
 export interface ActivitySummary {
   id: number;
   title: string;
@@ -18,8 +18,8 @@ export interface ActivitySummary {
   startAt: string;
   endAt: string | null;
   signupDeadline: string;
-  /** 只计报名人数，不含家属；null 为不限。 */
-  capacity: number | null;
+  /** 只计报名人数，不含家属；创建未传时默认 50。 */
+  capacity: number;
   /** 活动级开关；关闭时报名不展示家属选项。 */
   familyAllowed: boolean;
   costPerPerson: number | null;

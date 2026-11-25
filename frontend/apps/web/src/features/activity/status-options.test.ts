@@ -74,8 +74,8 @@ describe('activityStatusChoice', () => {
 });
 
 describe('activityCancelReasonError', () => {
-  it('要求非空且不超过 255 字', () => {
-    expect(activityCancelReasonError('   ')).toBe('请输入取消原因');
+  it('可选且不超过 255 字', () => {
+    expect(activityCancelReasonError('   ')).toBeNull();
     expect(activityCancelReasonError('x'.repeat(256))).toBe('取消原因不能超过 255 字');
     expect(activityCancelReasonError('  场地停业  ')).toBeNull();
   });

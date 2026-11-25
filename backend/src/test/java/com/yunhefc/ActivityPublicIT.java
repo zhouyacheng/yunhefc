@@ -50,15 +50,23 @@ class ActivityPublicIT extends ActivityITSupport {
         Long cancelledId = insertActivity("更早已取消", pastAt(60, 18), 3, 10, pastAt(60, 17), 1);
         insertActivity("他队活动", futureAt(90, 18), 0, 10, futureAt(90, 17), 2);
 
+        // P-117：最近活动 = 所有报名中活动（含开始时间已过），按开始时间倒序分页。
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.items.length()").value(1))
-                .andExpect(jsonPath("$.data.items[0].id").value(latestId))
-                .andExpect(jsonPath("$.data.items[0].status").value(2));
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].id").value(futureId))
+                .andExpect(jsonPath("$.data.items[1].id").value(pastId))
+                .andExpect(jsonPath("$.data.items[0].status").value(0));
 
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest").param("status", "3"))
-                .andExpect(jsonPath("$.data.items[0].id").value(cancelledId));
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.items.length()").value(0));
+
+        mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest")
+                        .param("page", "2").param("pageSize", "10"))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items.length()").value(0));
 
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "history"))
                 .andExpect(jsonPath("$.data.total").value(2))
@@ -106,6 +114,7 @@ class ActivityPublicIT extends ActivityITSupport {
         Long newer = insertActivity("同时间B", start, 0, 10, futureAt(30, 17), 1);
 
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest"))
+                .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.items[0].id").value(newer));
         mockMvc.perform(get("/api/v1/c/activities"))
                 .andExpect(jsonPath("$.data.items[0].id").value(newer))
@@ -191,29 +200,31 @@ class ActivityPublicIT extends ActivityITSupport {
                 .andExpect(jsonPath("$.code").value(40901))
                 .andExpect(jsonPath("$.data.currentVersion").value(1));
 
+        // 取消原因可选（P-120）。
         mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
                         .cookie(cAdmin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"status\":3,\"version\":1}"))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(40001));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(3))
+                .andExpect(jsonPath("$.data.version").value(2));
 
         // 报名截止可恢复为报名中（P-111）。
         mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
                         .cookie(cAdmin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":0,\"version\":1}"))
+                        .content("{\"status\":0,\"version\":2}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value(0))
-                .andExpect(jsonPath("$.data.version").value(2));
+                .andExpect(jsonPath("$.data.version").value(3));
 
         mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
                         .cookie(cAdmin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":2,\"version\":2}"))
+                        .content("{\"status\":2,\"version\":3}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value(2));
 
@@ -221,7 +232,7 @@ class ActivityPublicIT extends ActivityITSupport {
                         .cookie(cAdmin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":3,\"version\":3,\"reason\":\"结束不可取消\"}"))
+                        .content("{\"status\":3,\"version\":4,\"reason\":\"结束不可取消\"}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40917));
 
@@ -230,17 +241,17 @@ class ActivityPublicIT extends ActivityITSupport {
                         .cookie(cAdmin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":0,\"version\":3}"))
+                        .content("{\"status\":0,\"version\":4}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value(0))
-                .andExpect(jsonPath("$.data.version").value(4));
+                .andExpect(jsonPath("$.data.version").value(5));
 
         // 已取消可恢复为报名中/报名截止，但不可变为已结束（P-114）。
         mockMvc.perform(post("/api/v1/c/activities/" + activityId + "/status")
                         .cookie(cAdmin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":3,\"version\":4,\"reason\":\"场地停业\"}"))
+                        .content("{\"status\":3,\"version\":5,\"reason\":\"场地停业\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value(3));
 
@@ -248,7 +259,7 @@ class ActivityPublicIT extends ActivityITSupport {
                         .cookie(cAdmin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":2,\"version\":5}"))
+                        .content("{\"status\":2,\"version\":6}"))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value(40917));
 
@@ -256,10 +267,10 @@ class ActivityPublicIT extends ActivityITSupport {
                         .cookie(cAdmin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"status\":1,\"version\":5}"))
+                        .content("{\"status\":1,\"version\":6}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value(1))
-                .andExpect(jsonPath("$.data.version").value(6));
+                .andExpect(jsonPath("$.data.version").value(7));
     }
 
     @Test

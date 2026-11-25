@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yunhefc.activity.domain.ActivityRules;
 import com.yunhefc.activity.domain.ActivitySignup;
+import com.yunhefc.activity.domain.ActivityStatus;
 import com.yunhefc.activity.domain.SignupStatus;
 import com.yunhefc.activity.domain.TeamActivity;
 import com.yunhefc.activity.dto.ActivityDtos.ActivityCancelResult;
@@ -74,21 +75,16 @@ public class ActivityApplicationService {
         if (ActivityQueryParsing.SCOPE_HISTORY.equals(scope)) {
             wrapper.lt(TeamActivity::getStartAt, now);
         }
-
         if (ActivityQueryParsing.SCOPE_LATEST.equals(scope)) {
-            List<TeamActivity> latest = teamActivityMapper.selectList(wrapper
-                    .orderByDesc(TeamActivity::getStartAt)
-                    .orderByDesc(TeamActivity::getId)
-                    .last("LIMIT 1"));
-            List<ActivitySummary> items = toSummaries(latest, now);
-            return PageResponse.of(items, items.size(), 1, 1);
+            // P-117：最近活动 = 所有报名中活动（不论是否已过截止或满员），沿用分页与排序。
+            wrapper.eq(TeamActivity::getStatus, ActivityStatus.SIGNUP_OPEN);
         }
 
         ActivityQueryParsing.validatePaging(query.page(), query.pageSize());
         if (ActivityQueryParsing.ascending(query.sort())) {
             wrapper.orderByAsc(TeamActivity::getStartAt).orderByAsc(TeamActivity::getId);
         } else {
-            // 与 scope=latest / 管理端一致：同一开始时间按 id 倒序取最新。
+            // 与管理端一致：同一开始时间按 id 倒序取最新。
             wrapper.orderByDesc(TeamActivity::getStartAt).orderByDesc(TeamActivity::getId);
         }
         Page<TeamActivity> result = teamActivityMapper.selectPage(
@@ -149,7 +145,7 @@ public class ActivityApplicationService {
         }
         ActivityRules.validateFamilyAllowed(activity, Boolean.TRUE.equals(request.withFamily()));
         int signupCount = activitySignupMapper.countActive(activityId);
-        if (activity.getCapacity() != null && signupCount >= activity.getCapacity()) {
+        if (signupCount >= activity.getCapacity()) {
             throw new BusinessException(ErrorCode.ACTIVITY_FULL);
         }
         ActivitySignup signup = existing == null

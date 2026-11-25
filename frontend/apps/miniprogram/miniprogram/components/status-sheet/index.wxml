@@ -66,7 +66,7 @@
         class="status-reason"
         value="{{reason}}"
         maxlength="{{cancelMaxLength}}"
-        placeholder="请填写取消原因（最多 {{cancelMaxLength}} 字）"
+        placeholder="{{cancelReasonRequired ? '请填写取消原因（最多 ' + cancelMaxLength + ' 字）' : '选填，最多 ' + cancelMaxLength + ' 字'}}"
         bindinput="onReason"
       ></textarea>
       <text class="status-sheet__hint">{{reason.length}} / {{cancelMaxLength}}</text>

@@ -68,7 +68,7 @@ export function activityStatusTone(status: ActivityStatus): ActivityStatusTone {
 export function isActivityFull(
   activity: Pick<ActivitySummary, 'capacity' | 'signupCount'>,
 ): boolean {
-  return activity.capacity !== null && activity.signupCount >= activity.capacity;
+  return activity.signupCount >= activity.capacity;
 }
 
 /** 本地镜像服务端口径：报名中、未过截止且未满员。 */
@@ -106,20 +106,32 @@ export function activityAction(activity: ActivitySummary, now: number): Activity
   return { visible: true, disabled: false, label: '报名', reason: '' };
 }
 
-/** 人数只计报名球员，不含家属。 */
+function signupCountText(
+  prefix: string,
+  activity: Pick<ActivitySummary, 'capacity' | 'signupCount'>,
+): string {
+  return `${prefix ? `${prefix} ` : ''}${activity.signupCount} / ${activity.capacity} 人`;
+}
+
+/** hero/列表的人数文案。 */
 export function activityCountText(
   activity: Pick<ActivitySummary, 'capacity' | 'signupCount'>,
 ): string {
-  return activity.capacity === null
-    ? `${activity.signupCount} 人报名`
-    : `${activity.signupCount} / ${activity.capacity} 人`;
+  return signupCountText('', activity);
 }
 
-/** 报名人数进度百分比；与 packages/shared 的同名派生保持一致，上限未知或非法时返回 0。 */
+/** MP11 报名卡内的人数文案；与 hero 的短文案区分，明确「已报名」。 */
+export function activitySignupCardText(
+  activity: Pick<ActivitySummary, 'capacity' | 'signupCount'>,
+): string {
+  return signupCountText('已报名', activity);
+}
+
+/** 报名人数进度百分比；与 packages/shared 的同名派生保持一致，上限非法时返回 0。 */
 export function activityCapacityPercent(
   activity: Pick<ActivitySummary, 'capacity' | 'signupCount'>,
 ): number {
-  if (activity.capacity === null || activity.capacity <= 0) {
+  if (activity.capacity <= 0) {
     return 0;
   }
   return Math.max(

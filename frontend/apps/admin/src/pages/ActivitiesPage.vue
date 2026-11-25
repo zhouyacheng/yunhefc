@@ -26,6 +26,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { api } from '../api/client';
 import { fromPickerDate, shanghaiDayAt, toPickerDate } from '../features/time/picker';
 import {
+  ACTIVITY_DEFAULT_CAPACITY,
   ACTIVITY_IMAGE_COUNT_ERROR,
   ACTIVITY_IMAGE_MAX_COUNT,
   ACTIVITY_IMAGE_UPLOAD_ERROR,
@@ -47,7 +48,7 @@ interface ActivityFormState {
   startAt: Date | null;
   endAt: Date | null;
   signupDeadline: Date | null;
-  capacity: number | null;
+  capacity: number;
   familyAllowed: boolean;
   costPerPerson: string;
   location: string;
@@ -61,7 +62,7 @@ interface ActivityPayload {
   startAt: string;
   endAt: string | null;
   signupDeadline: string;
-  capacity: number | null;
+  capacity: number;
   familyAllowed: boolean;
   costPerPerson: number | null;
   location: string;
@@ -156,7 +157,7 @@ function defaultActivityForm(): ActivityFormState {
     startAt,
     endAt: new Date(startAt.getTime() + TWO_HOURS_MS),
     signupDeadline: new Date(startAt.getTime() - TWO_HOURS_MS),
-    capacity: null,
+    capacity: ACTIVITY_DEFAULT_CAPACITY,
     familyAllowed: false,
     costPerPerson: '',
     location: '',
@@ -171,8 +172,7 @@ function displayableImageUrl(url: string | null | undefined): string {
 }
 
 function signupText(row: ActivityAdmin): string {
-  const capacity = row.capacity === null ? '不限' : String(row.capacity);
-  return `${row.signupCount} / ${capacity}`;
+  return `${row.signupCount} / ${row.capacity}`;
 }
 
 function revokeLocalPreviews(): void {
@@ -473,7 +473,7 @@ function buildPayload(version?: number): ActivityPayload {
     startAt: startAt.toISOString(),
     endAt: endAt ? endAt.toISOString() : null,
     signupDeadline: signupDeadline.toISOString(),
-    capacity: typeof activityForm.capacity === 'number' ? activityForm.capacity : null,
+    capacity: activityForm.capacity,
     familyAllowed: activityForm.familyAllowed,
     costPerPerson: cost ? Number(cost) : null,
     location: activityForm.location.trim(),
@@ -626,10 +626,6 @@ async function submitCancel(): Promise<void> {
     return;
   }
   const reason = cancelReason.value.trim();
-  if (!reason) {
-    cancelDialog.error = '请输入取消原因';
-    return;
-  }
   if (reason.length > 255) {
     cancelDialog.error = '取消原因不能超过 255 字';
     return;
@@ -644,7 +640,7 @@ async function submitCancel(): Promise<void> {
     const detail = await fetchAuthoritative(target.id);
     await api.post<ActivityAdmin>(
       `/activities/${detail.id}/status`,
-      { status: STATUS_CANCELLED, version: detail.version, reason },
+      { status: STATUS_CANCELLED, version: detail.version, ...(reason ? { reason } : {}) },
       { idempotencyKey: newIdempotencyKey() },
     );
     cancelDialog.visible = false;
@@ -976,11 +972,11 @@ onBeforeUnmount(() => {
             v-model="activityForm.capacity"
             :min="1"
             :max="65535"
-            :value-on-clear="null"
+            :value-on-clear="ACTIVITY_DEFAULT_CAPACITY"
             controls-position="right"
-            placeholder="不限"
+            placeholder="50"
           />
-          <span class="muted small">留空表示不限；只计报名人数，不含家属。</span>
+          <span class="muted small">默认 50；只计报名人数，不含家属，不可留空。</span>
         </el-form-item>
         <el-form-item label="是否携带家属">
           <el-switch v-model="activityForm.familyAllowed" />
@@ -1093,12 +1089,6 @@ onBeforeUnmount(() => {
     </el-dialog>
 
     <el-dialog v-model="cancelDialog.visible" title="取消活动" width="480px">
-      <el-alert
-        type="warning"
-        :closable="false"
-        show-icon
-        :title="`确认取消「${cancelDialog.activity?.title ?? '该活动'}」？取消后已报名记录保留但不再有效，可再恢复为报名中/报名截止。`"
-      />
       <el-form label-width="96px">
         <el-form-item label="取消原因">
           <el-input
@@ -1107,7 +1097,6 @@ onBeforeUnmount(() => {
             :rows="3"
             maxlength="255"
             show-word-limit
-            placeholder="取消原因（将记入审计）"
           />
         </el-form-item>
       </el-form>
@@ -1123,8 +1112,7 @@ onBeforeUnmount(() => {
     <el-drawer v-model="rosterDrawer.visible" title="活动名单" size="560px">
       <div v-if="rosterDrawer.activity" class="roster-head muted small">
         {{ rosterDrawer.activity.title }} · 有效报名 {{ rosterDrawer.activity.signupCount }}
-        <template v-if="rosterDrawer.activity.capacity === null"> / 不限</template>
-        <template v-else> / {{ rosterDrawer.activity.capacity }}</template>
+        / {{ rosterDrawer.activity.capacity }}
       </div>
       <el-alert
         v-if="rosterDrawer.error"

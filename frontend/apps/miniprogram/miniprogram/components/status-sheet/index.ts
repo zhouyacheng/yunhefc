@@ -33,6 +33,8 @@ Component({
     cancelStatus: { type: Number, value: 6 },
     /** 取消原因上限；活动为 255。 */
     cancelMaxLength: { type: Number, value: 200 },
+    /** 取消原因是否必填；活动设为 false。 */
+    cancelReasonRequired: { type: Boolean, value: true },
     /** 列表态提示；空则使用比赛默认文案。 */
     listHint: { type: String, value: '' },
   },
@@ -142,7 +144,10 @@ Component({
     },
 
     submitCancel(): void {
-      const submission = buildCancelSubmission(this.data.reason, this.data.cancelMaxLength);
+      const submission = buildCancelSubmission(this.data.reason, {
+        maxLength: this.data.cancelMaxLength,
+        required: this.data.cancelReasonRequired,
+      });
       if (!submission.ok) {
         this.setData({ formError: submission.error });
         return;

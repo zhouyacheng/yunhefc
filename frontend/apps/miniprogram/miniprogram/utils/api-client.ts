@@ -369,7 +369,7 @@ export function fetchLeaderboards(query: LeaderboardsQuery = {}): Promise<Leader
 
 // ---- 队内活动 ----
 
-/** 最近活动（start_at 最大一条）/历史/全部；缺省由服务端按 all 处理。 */
+/** 最近活动（所有报名中活动）/历史/全部；缺省由服务端按 all 处理。 */
 export type ActivityScope = 'latest' | 'history' | 'all';
 
 export interface ActivityListQuery {
@@ -380,16 +380,13 @@ export interface ActivityListQuery {
   pageSize?: number;
 }
 
-/** ACT-01 C 端活动列表；登录时含 mySignup。「最近活动」只取一条，不下发分页。 */
+/** ACT-01 C 端活动列表；登录时含 mySignup。「最近活动」为所有报名中活动，正常分页。 */
 export function listActivities(query: ActivityListQuery = {}): Promise<Page<ActivitySummary>> {
   const filters = queryString({
     type: query.type,
     status: query.status,
     scope: query.scope,
   });
-  if (query.scope === 'latest') {
-    return request<Page<ActivitySummary>>('GET', `/activities${filters}`);
-  }
   const page = Math.max(1, Math.floor(query.page ?? 1) || 1);
   const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
   return request<Page<ActivitySummary>>(
@@ -398,7 +395,7 @@ export function listActivities(query: ActivityListQuery = {}): Promise<Page<Acti
   );
 }
 
-/** ACT-02 活动详情；不含报名名单。 */
+/** ACT-02 活动详情；不内联报名名单，报名队列另调 ACT-05。 */
 export function fetchActivity(id: number): Promise<ActivityDetail> {
   return request<ActivityDetail>('GET', `/activities/${id}`);
 }
@@ -437,7 +434,7 @@ export function changeActivityStatus(id: number, body: ActivityStatusUpdate): Pr
   return highRiskWrite<void>('POST', `/activities/${id}/status`, body);
 }
 
-/** ACT-05 名单分页；详情页不展示名单，预留给后续只读入口。 */
+/** ACT-05 报名队列分页；C12/MP11 详情页登录后按 activity:view:any 展示。 */
 export function listActivitySignups(
   id: number,
   query: { page: number; pageSize: number },

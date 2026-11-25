@@ -24,9 +24,7 @@ const base = {
 describe('activityFormError', () => {
   it('接受合法表单', () => {
     expect(activityFormError(base)).toBeNull();
-    expect(
-      activityFormError({ ...base, endAt: null, capacity: null, costPerPerson: '' }),
-    ).toBeNull();
+    expect(activityFormError({ ...base, endAt: null, costPerPerson: '' })).toBeNull();
   });
 
   it('校验名称、地址与详情', () => {

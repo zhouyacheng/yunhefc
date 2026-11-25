@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ERROR_CODES, describeError, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
-import { ACTIVITY_MANAGE_ANY, hasPermission } from '@yunhefc/permissions';
-import type { ActivityDetail, ActivitySignup, ActivityStatus } from '@yunhefc/shared';
+import { ACTIVITY_MANAGE_ANY, ACTIVITY_VIEW_ANY, hasPermission } from '@yunhefc/permissions';
+import type { ActivityDetail, ActivitySignup, ActivityStatus, Page } from '@yunhefc/shared';
 import { formatDateTime, formatDayTimeRange } from '@yunhefc/shared';
 import {
   Button,
@@ -28,6 +28,7 @@ import {
   activityCapacityPercent,
   activityCta,
   activityFamilyText,
+  activitySignupCardText,
   activitySignupState,
   activitySignupText,
   activityStatusText,
@@ -65,6 +66,14 @@ const familyNote = ref('');
 const submitting = ref(false);
 const cancelling = ref(false);
 
+const signups = ref<ActivitySignup[]>([]);
+/** null 表示尚未成功加载；头部人数只在拿到 ACT-05 的 total 后展示。 */
+const signupTotal = ref<number | null>(null);
+const signupsLoading = ref(false);
+const signupsError = ref('');
+let signupsSeq = 0;
+const SIGNUP_PAGE_SIZE = 100;
+
 const statusBusy = ref(false);
 const statusActionError = ref('');
 const cancelDialogOpen = ref(false);
@@ -76,10 +85,14 @@ const pending = computed(() => isPending(session.user?.status ?? -1));
 const canChangeStatus = computed(
   () => session.isAuthenticated && hasPermission(session.permissions, ACTIVITY_MANAGE_ANY),
 );
+const canViewSignups = computed(
+  () => session.isAuthenticated && hasPermission(session.permissions, ACTIVITY_VIEW_ANY),
+);
 const statusOptionList = computed(() =>
   activity.value ? activityStatusOptions(activity.value.status) : [],
 );
 const mySignup = computed<ActivitySignup | null>(() => activity.value?.mySignup ?? null);
+const myPlayerId = computed(() => session.player?.id ?? mySignup.value?.playerId ?? null);
 const isSignedUp = computed(() => mySignup.value?.status === ACTIVITY_SIGNUP_ACTIVE);
 const activityClosed = computed(
   () =>
@@ -113,6 +126,9 @@ const cancelState = computed(() => {
 const cta = computed(() => (activity.value ? activityCta(activity.value, now.value) : null));
 const signupText = computed(() =>
   activity.value ? activitySignupText(activity.value.signupCount, activity.value.capacity) : '',
+);
+const signupCardText = computed(() =>
+  activity.value ? activitySignupCardText(activity.value.signupCount, activity.value.capacity) : '',
 );
 /** 时间用完整文本承载：日期 + 星期 + 时段。 */
 const dayTimeText = computed(() =>
@@ -213,6 +229,7 @@ async function load(silent = false): Promise<void> {
     }
     activity.value = detail;
     imageFailed.value = false;
+    void loadSignups();
   } catch (caught) {
     if (seq !== requestSeq) {
       return;
@@ -228,6 +245,42 @@ async function load(silent = false): Promise<void> {
   } finally {
     if (seq === requestSeq) {
       loading.value = false;
+    }
+  }
+}
+
+/** ACT-05 报名队列：详情接口不内联名单，登录且持 activity:view:any 时单独加载。 */
+async function loadSignups(): Promise<void> {
+  if (!canViewSignups.value) {
+    signupsSeq += 1;
+    signups.value = [];
+    signupTotal.value = null;
+    signupsLoading.value = false;
+    signupsError.value = '';
+    return;
+  }
+  const seq = ++signupsSeq;
+  signupsLoading.value = signups.value.length === 0;
+  signupsError.value = '';
+  try {
+    const page = await api.get<Page<ActivitySignup>>(`/activities/${activityId}/signups`, {
+      query: { page: 1, pageSize: SIGNUP_PAGE_SIZE },
+      redirectOnUnauthorized: false,
+    });
+    if (seq !== signupsSeq) {
+      return;
+    }
+    signups.value = page.items;
+    signupTotal.value = page.total;
+  } catch (caught) {
+    if (seq !== signupsSeq) {
+      return;
+    }
+    signups.value = [];
+    signupsError.value = describeError(caught, '报名队列加载失败，请稍后重试');
+  } finally {
+    if (seq === signupsSeq) {
+      signupsLoading.value = false;
     }
   }
 }
@@ -588,17 +641,14 @@ onBeforeUnmount(() => {
             </Tag>
           </div>
 
-          <div v-if="activity.capacity !== null" class="signup-capacity">
+          <div class="signup-capacity">
             <div class="signup-capacity__track">
               <div class="signup-capacity__fill" :style="{ width: `${capacityPercent}%` }"></div>
             </div>
           </div>
+          <p class="muted small" data-testid="activity-signup-count">{{ signupCardText }}</p>
 
           <template v-if="isSignedUp">
-            <p class="muted small">
-              报名时间 {{ formatDateTime(mySignup?.signedUpAt) }} ·
-              {{ mySignup ? activityFamilyText(mySignup) : '' }}
-            </p>
             <template v-if="!activityClosed">
               <Button
                 type="primary"
@@ -643,6 +693,61 @@ onBeforeUnmount(() => {
           </p>
         </section>
       </div>
+
+      <section class="card activity-signup-list" data-testid="activity-signup-list">
+        <div class="card-head">
+          <h2>报名队列</h2>
+          <span v-if="canViewSignups && signupTotal !== null" class="muted small">
+            {{ signupTotal }} 人
+          </span>
+        </div>
+
+        <p v-if="!session.isAuthenticated" class="muted small">登录后查看报名队列</p>
+        <p v-else-if="!canViewSignups" class="muted small">报名队列仅正式球员与管理员可见</p>
+
+        <div v-else-if="signupsLoading" class="state state--inline">
+          <Loading size="20">报名队列加载中…</Loading>
+        </div>
+
+        <div v-else-if="signupsError" class="state state--inline">
+          <p class="muted">{{ signupsError }}</p>
+          <Button size="small" @click="loadSignups">重试</Button>
+        </div>
+
+        <template v-else>
+          <p v-if="!signups.length" class="muted small">暂无报名</p>
+          <div
+            v-for="(entry, index) in signups"
+            :key="entry.id"
+            class="activity-signup-list__row"
+            data-testid="activity-signup-list-row"
+          >
+            <span class="activity-signup-list__order">{{ index + 1 }}</span>
+            <img
+              v-if="entry.avatarUrl"
+              class="activity-signup-list__avatar"
+              :src="entry.avatarUrl"
+              alt=""
+            />
+            <span v-else class="activity-signup-list__avatar activity-signup-list__avatar--empty">
+              {{ entry.playerName.slice(0, 1) }}
+            </span>
+            <span class="activity-signup-list__main">
+              <span class="activity-signup-list__name">
+                {{ entry.playerName }}
+                <small class="muted">#{{ entry.playerNo ?? '—' }}</small>
+              </span>
+              <span v-if="entry.withFamily" class="activity-signup-list__family">
+                {{ activityFamilyText(entry) }}
+              </span>
+            </span>
+            <Tag v-if="entry.playerId === myPlayerId" class="status-tag status-tag--open"> 我 </Tag>
+          </div>
+          <p v-if="signupTotal !== null && signupTotal > signups.length" class="hint">
+            仅展示前 {{ signups.length }} 位报名球员
+          </p>
+        </template>
+      </section>
     </template>
 
     <Popup v-model:show="cancelDialogOpen" position="bottom" round>
@@ -660,7 +765,7 @@ onBeforeUnmount(() => {
           rows="3"
           maxlength="255"
           show-word-limit
-          placeholder="请填写取消原因（最多 255 字）"
+          placeholder="选填，最多 255 字"
           :disabled="cancelSubmitting"
         />
 
@@ -696,7 +801,6 @@ onBeforeUnmount(() => {
             rows="2"
             maxlength="255"
             show-word-limit
-            placeholder="如：带 1 位家属，儿童餐"
             :disabled="!withFamily"
           />
         </template>
@@ -825,10 +929,80 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
 }
 
+/* 报名区固定在活动详情下方，不与详情并排。 */
+.overview-grid {
+  grid-template-columns: 1fr;
+}
+
 .activity-signup {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.activity-signup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.activity-signup-list__row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: 44px;
+  padding: 9px 10px;
+  background: var(--yh-surface-soft);
+  border-radius: var(--yh-radius-sm);
+}
+
+.activity-signup-list__order {
+  flex: 0 0 auto;
+  min-width: 18px;
+  color: var(--yh-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.activity-signup-list__avatar {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.activity-signup-list__avatar--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--yh-green-ink);
+  font-size: 13px;
+  font-weight: 700;
+  background: var(--yh-green-soft);
+}
+
+.activity-signup-list__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.activity-signup-list__name {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.activity-signup-list__family {
+  color: var(--yh-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .activity-signup-popup {

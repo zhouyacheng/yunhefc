@@ -39,8 +39,7 @@ const now = ref(Date.now());
 const failedImages = ref<number[]>([]);
 let requestSeq = 0;
 
-const isLatest = computed(() => scope.value === 'latest');
-const showPagination = computed(() => !isLatest.value && total.value > pageSize.value);
+const showPagination = computed(() => total.value > pageSize.value);
 
 function currentFilters() {
   return fromActivityForm({
@@ -202,17 +201,17 @@ onMounted(() => {
               </Tag>
             </div>
 
+            <p class="muted small">{{ activityTypeText(activity.type) }}</p>
             <p class="muted small">
-              {{ activityTypeText(activity.type) }} ·
-              {{ formatDateTimeRange(activity.startAt, activity.endAt) }}
+              📅 {{ formatDateTimeRange(activity.startAt, activity.endAt) }}
             </p>
             <p class="muted small">📍 {{ activity.location }}</p>
+            <p class="muted small">⏰ 截止 {{ formatDateTime(activity.signupDeadline) }}</p>
             <p class="muted small">
-              截止 {{ formatDateTime(activity.signupDeadline) }} ·
-              {{ activitySignupText(activity.signupCount, activity.capacity) }}
-              <template v-if="activity.costPerPerson !== null">
-                · 人均 {{ formatActivityCost(activity.costPerPerson) }}
-              </template>
+              👥 {{ activitySignupText(activity.signupCount, activity.capacity) }}
+            </p>
+            <p v-if="activity.costPerPerson !== null" class="muted small">
+              💰 人均 {{ formatActivityCost(activity.costPerPerson) }}
             </p>
           </div>
 
@@ -256,8 +255,8 @@ onMounted(() => {
 .activity-card {
   display: flex;
   flex-direction: column;
+  align-self: start;
   gap: 10px;
-  height: 100%;
   padding: 18px;
   color: inherit;
   text-decoration: none;

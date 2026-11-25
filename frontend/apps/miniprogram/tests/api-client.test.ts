@@ -297,10 +297,13 @@ describe('profile save', () => {
 });
 
 describe('activity client', () => {
-  it('lists activities with filters; latest omits pagination', async () => {
+  it('lists activities with filters; latest also sends pagination', async () => {
     mocks.request.mockResolvedValue(page([]));
     await listActivities({ scope: 'latest', type: 0, status: 1 });
-    expect(mocks.request).toHaveBeenCalledWith('GET', '/activities?type=0&status=1&scope=latest');
+    expect(mocks.request).toHaveBeenCalledWith(
+      'GET',
+      '/activities?type=0&status=1&scope=latest&page=1&pageSize=10',
+    );
 
     mocks.request.mockClear();
     await listActivities({ scope: 'all' });

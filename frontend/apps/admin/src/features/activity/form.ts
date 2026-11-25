@@ -20,6 +20,8 @@ export const ACTIVITY_IMAGE_TYPE_ERROR = '仅支持 JPG/PNG/WebP';
 export const ACTIVITY_IMAGE_SIZE_ERROR = '图片不能超过 5MB';
 export const ACTIVITY_IMAGE_COUNT_ERROR = '场地环境图片最多 10 张';
 export const ACTIVITY_IMAGE_UPLOAD_ERROR = '上传失败，请稍后重试';
+/** 活动人数上限默认值；不提供无上限（P-121）。 */
+export const ACTIVITY_DEFAULT_CAPACITY = 50;
 
 const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
@@ -40,7 +42,7 @@ export interface ActivityFormValues {
   startAt: Date | null;
   endAt: Date | null;
   signupDeadline: Date | null;
-  capacity: number | null;
+  capacity: number;
   familyAllowed: boolean;
   costPerPerson: string;
   location: string;
@@ -84,8 +86,8 @@ export function activityFormError(form: ActivityFormValues): string | null {
   if (form.endAt && form.endAt.getTime() <= form.startAt.getTime()) {
     return '结束时间必须晚于活动时间';
   }
-  const capacity = form.capacity ?? null;
-  if (capacity !== null && (!Number.isInteger(capacity) || capacity < 1 || capacity > 65535)) {
+  const capacity = form.capacity;
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 65535) {
     return '总人数上限必须为 1–65535 的整数';
   }
   const cost = form.costPerPerson.trim();

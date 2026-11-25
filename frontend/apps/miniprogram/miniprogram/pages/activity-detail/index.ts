@@ -3,6 +3,7 @@ import {
   cancelActivitySignup,
   changeActivityStatus,
   fetchActivity,
+  listActivitySignups,
   signupActivity,
 } from '../../utils/api-client';
 import { activityStatusOptions, type ActivityStatusOption } from '../../utils/activity-status';
@@ -13,6 +14,7 @@ import {
   activityCapacityPercent,
   activityCostText,
   activityCountText,
+  activitySignupCardText,
   activityStatusText,
   activityStatusTone,
   activityTimeText,
@@ -23,15 +25,28 @@ import {
   type ActivityActionView,
   type ActivityStatusTone,
 } from '../../utils/activity-view';
-import { formatDateTime, formatDayStartTime } from '../../utils/datetime';
+import { formatDayStartTime } from '../../utils/datetime';
 import { invalidate } from '../../utils/invalidation';
-import { ACTIVITY_MANAGE_ANY, ACTIVITY_SIGNUP_OWN, hasPermission } from '../../utils/permissions';
-import { getPermissions, getUser, sessionReady } from '../../utils/session';
+import {
+  ACTIVITY_MANAGE_ANY,
+  ACTIVITY_SIGNUP_OWN,
+  ACTIVITY_VIEW_ANY,
+  hasPermission,
+} from '../../utils/permissions';
+import { getPermissions, getPlayer, getUser, sessionReady } from '../../utils/session';
+
+/** 报名队列行：在 ACT-05 返回字段上补展示文案。 */
+interface ActivitySignupRowView extends ActivitySignup {
+  initial: string;
+  familyText: string;
+  isMine: boolean;
+}
 
 let requestSeq = 0;
 let hasLoaded = false;
 
 const RESTRICTED_SIGNUP_HINT = '仅正式球员可报名';
+const SIGNUP_PAGE_SIZE = 100;
 
 function confirmDialog(title: string, content: string): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
@@ -58,11 +73,10 @@ Page({
     deadlineText: '',
     costText: '',
     countText: '',
+    signupCardText: '',
     capacityPercent: 0,
     galleryIndex: 0,
     mySignup: null as ActivitySignup | null,
-    familyText: '',
-    signedUpText: '',
     registered: false,
     canCancel: false,
     authenticated: false,
@@ -80,6 +94,11 @@ Page({
     statusOptions: [] as ActivityStatusOption[],
     statusBusy: false,
     statusError: '',
+    canViewSignups: false,
+    signups: [] as ActivitySignupRowView[],
+    signupTotal: null as number | null,
+    signupsLoading: false,
+    signupsError: '',
   },
 
   onLoad(options: Record<string, string | undefined>) {
@@ -132,6 +151,9 @@ Page({
       }
       hasLoaded = true;
       this.applyActivity(activity);
+      if (this.data.canViewSignups) {
+        void this.loadSignups(seq);
+      }
     } catch (error) {
       if (seq !== requestSeq) {
         return;
@@ -156,6 +178,8 @@ Page({
     const canSignupPerm = authenticated && hasPermission(getPermissions(), ACTIVITY_SIGNUP_OWN);
     const canChangeStatus =
       authenticated && hasPermission(getPermissions(), ACTIVITY_MANAGE_ANY);
+    const canViewSignups =
+      authenticated && hasPermission(getPermissions(), ACTIVITY_VIEW_ANY);
     const hint =
       action.reason || (authenticated && !pending && !canSignupPerm ? RESTRICTED_SIGNUP_HINT : '');
     this.setData({
@@ -168,23 +192,70 @@ Page({
       deadlineText: formatDayStartTime(activity.signupDeadline),
       costText: activityCostText(activity),
       countText: activityCountText(activity),
+      signupCardText: activitySignupCardText(activity),
       capacityPercent: activityCapacityPercent(activity),
       galleryIndex: clampGalleryIndex(this.data.galleryIndex, activity.locationImageUrls.length),
       mySignup,
-      familyText: familySummary(activity.mySignup),
-      signedUpText: mySignup ? formatDateTime(mySignup.signedUpAt) : '',
       registered: !!mySignup,
       canCancel: activityCanCancel(activity, now),
       authenticated,
       pending,
       canSignupPerm,
       canChangeStatus,
+      canViewSignups,
+      signups: canViewSignups ? this.data.signups : [],
+      signupTotal: canViewSignups ? this.data.signupTotal : null,
+      signupsLoading: canViewSignups ? this.data.signupsLoading : false,
+      signupsError: canViewSignups ? this.data.signupsError : '',
       statusOptions: activityStatusOptions(activity.status),
       hint,
       loading: false,
       error: '',
       actionError: '',
     });
+  },
+
+  /** ACT-05 报名队列；详情接口不内联名单，登录且持 activity:view:any 时单独加载。 */
+  async loadSignups(seq: number) {
+    if (!this.data.canViewSignups) {
+      return;
+    }
+    this.setData({
+      signupsLoading: this.data.signups.length === 0,
+      signupsError: '',
+    });
+    try {
+      const page = await listActivitySignups(this.data.id, {
+        page: 1,
+        pageSize: SIGNUP_PAGE_SIZE,
+      });
+      if (seq !== requestSeq) {
+        return;
+      }
+      const myPlayerId = getPlayer()?.id ?? this.data.mySignup?.playerId ?? null;
+      this.setData({
+        signups: page.items.map((item) => ({
+          ...item,
+          initial: item.playerName.slice(0, 1),
+          familyText: item.withFamily ? familySummary(item) : '',
+          isMine: myPlayerId !== null && item.playerId === myPlayerId,
+        })),
+        signupTotal: page.total,
+        signupsLoading: false,
+      });
+    } catch (error) {
+      if (seq !== requestSeq) {
+        return;
+      }
+      this.setData({
+        signupsLoading: false,
+        signupsError: errorMessage(error, '报名队列加载失败，请稍后重试'),
+      });
+    }
+  },
+
+  retrySignups() {
+    void this.loadSignups(requestSeq);
   },
 
   goLogin() {
@@ -320,7 +391,7 @@ Page({
       await changeActivityStatus(activity.id, {
         status,
         version: activity.version,
-        reason,
+        ...(reason ? { reason } : {}),
       });
       invalidate('activities');
       this.setData({ statusOpen: false });

@@ -103,6 +103,36 @@ class ActivityNotificationIT extends ActivityITSupport {
         assertThat(notification.get("ref_type")).isEqualTo("ACTIVITY");
     }
 
+    @Test
+    void cancelWithoutReasonOmitsReasonSegment() throws Exception {
+        Cookie admin = bAdminLogin("13900002321");
+        createPlayerUser("13900002322", "无原因取消报名", 835, 1);
+        Long activityId = activityId(createActivity(admin, "无原因取消活动", futureAt(30, 18), 4));
+        jdbc.update("""
+                INSERT INTO activity_signup (activity_id, player_id, status)
+                VALUES (?, ?, 0)
+                """, activityId, playerId("13900002322"));
+
+        mockMvc.perform(post("/api/v1/b/activities/" + activityId + "/status")
+                        .cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"status\":3,\"version\":0}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value(3));
+
+        Map<String, Object> event = latestEvent(EventTypes.ACTIVITY_CANCELLED, activityId);
+        String payload = (String) event.get("payload_json");
+        assertThat(payload).doesNotContain("\"reason\"");
+
+        consume(event, 321L);
+
+        Map<String, Object> notification = latestNotification(userId("13900002322"));
+        assertThat(notification.get("title")).isEqualTo("活动取消");
+        assertThat((String) notification.get("body")).isEqualTo("「无原因取消活动」已取消");
+        assertThat(notification.get("ref_type")).isEqualTo("ACTIVITY");
+    }
+
     private void consume(Map<String, Object> row, long offset) throws Exception {
         OutboxMessage message = new OutboxMessage(
                 (String) row.get("event_id"),

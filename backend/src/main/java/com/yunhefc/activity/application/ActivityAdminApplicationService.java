@@ -120,7 +120,8 @@ public class ActivityAdminApplicationService {
         activity.setStartAt(request.startAt());
         activity.setEndAt(request.endAt());
         activity.setSignupDeadline(request.signupDeadline());
-        activity.setCapacity(request.capacity());
+        activity.setCapacity(request.capacity() == null
+                ? ActivityRules.DEFAULT_CAPACITY : request.capacity());
         activity.setFamilyAllowed(Boolean.TRUE.equals(request.familyAllowed()));
         activity.setCostPerPerson(request.costPerPerson());
         activity.setLocation(requiredText(request.location(), "location", "活动地址"));
@@ -201,7 +202,7 @@ public class ActivityAdminApplicationService {
         AuthPrincipal principal = CurrentUser.principal();
         ActivityStatus target = ActivityStatus.of(request.status());
         String reason = target == ActivityStatus.CANCELLED
-                ? requiredText(request.reason(), "reason", "取消原因")
+                ? optionalText(request.reason())
                 : null;
         TeamActivity activity = requireActivityForUpdate(principal.teamId(), activityId);
         ActivityStatusMachine.requireTransition(activity.getStatus(), target);
@@ -230,11 +231,14 @@ public class ActivityAdminApplicationService {
         auditRecorder.recordCurrent("ACTIVITY_STATUS_CHANGE", "ACTIVITY", activityId,
                 before, ActivityAuditSnapshot.of(saved, imageKeys));
         if (target == ActivityStatus.CANCELLED) {
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("activityId", activityId);
+            payload.put("activityTitle", saved.getTitle());
+            if (saved.getCancelReason() != null) {
+                payload.put("reason", saved.getCancelReason());
+            }
             outboxService.append(saved.getTeamId(), "ACTIVITY", activityId,
-                    EventTypes.ACTIVITY_CANCELLED, Map.of(
-                            "activityId", activityId,
-                            "activityTitle", saved.getTitle(),
-                            "reason", saved.getCancelReason()));
+                    EventTypes.ACTIVITY_CANCELLED, payload);
         }
         log.info("activity status changed, activityId={}, from={}, to={}",
                 activityId, before.get("status"), target.code());

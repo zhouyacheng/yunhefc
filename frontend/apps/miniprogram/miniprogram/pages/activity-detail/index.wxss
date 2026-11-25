@@ -229,17 +229,20 @@
   flex: 1;
 }
 
-/* 报名队列：按报名时间升序，与比赛名单行同一视觉语言。 */
+/* 报名队列：与 C 端活动详情（ActivityDetailPage）报名队列样式对齐，尺寸按 1px = 2rpx 换算。 */
 .activity-signup-list {
-  margin-top: 8rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  margin-top: 32rpx;
 }
 
 .activity-signup-list__row {
   display: flex;
-  gap: 16rpx;
+  gap: 20rpx;
   align-items: center;
   min-height: 88rpx;
-  padding: 16rpx 20rpx;
+  padding: 18rpx 20rpx;
   background: var(--yh-surface-soft);
   border-radius: var(--yh-radius-sm);
 }
@@ -248,7 +251,7 @@
   flex: 0 0 auto;
   min-width: 36rpx;
   color: var(--yh-muted);
-  font-size: 22rpx;
+  font-size: 24rpx;
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -280,23 +283,32 @@
 
 .activity-signup-list__name {
   display: flex;
-  gap: 12rpx;
   align-items: baseline;
+  min-width: 0;
+  font-size: 32rpx;
+  font-weight: 400;
+}
+
+/* 号码对应 C 端 <small class="muted">，约等于 16px 的 0.83 倍；名称与号码间距 6px。 */
+.activity-signup-list__name .activity-signup-list__no {
+  margin-left: 12rpx;
   font-size: 26rpx;
-  font-weight: 600;
 }
 
 .activity-signup-list__family {
   color: var(--yh-muted);
-  font-size: 22rpx;
+  font-size: 24rpx;
+  overflow-wrap: anywhere;
 }
 
 .activity-signup-list__mine {
   flex: 0 0 auto;
-  padding: 2rpx 12rpx;
+  padding: 8rpx 16rpx;
   color: var(--yh-green-ink);
-  font-size: 20rpx;
+  font-size: 22rpx;
   font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
   background: var(--yh-green-soft);
   border-radius: 999rpx;
 }

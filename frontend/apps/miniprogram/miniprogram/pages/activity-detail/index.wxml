@@ -184,7 +184,7 @@
           <text wx:else class="activity-signup-list__avatar activity-signup-list__avatar--empty">{{item.initial}}</text>
           <view class="activity-signup-list__main">
             <text class="activity-signup-list__name">
-              {{item.playerName}}<text class="muted small">#{{item.playerNo === null ? '—' : item.playerNo}}</text>
+              <text>{{item.playerName}}</text><text class="muted activity-signup-list__no">#{{item.playerNo === null ? '—' : item.playerNo}}</text>
             </text>
             <text wx:if="{{item.familyText}}" class="activity-signup-list__family">{{item.familyText}}</text>
           </view>

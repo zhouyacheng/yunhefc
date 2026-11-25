@@ -194,7 +194,8 @@ export function buildActivityCard(activity: ActivitySummary, now: number): Activ
     countText: activityCountText(activity),
     imageUrl: activity.locationImageUrls[0] || '',
     actionLabel: action.label,
-    actionVisible: action.visible,
-    actionDisabled: action.disabled,
+    // 卡片底部动作位始终占位：已结束/已取消以禁用态展示，与报名/已截止同尺寸。
+    actionVisible: true,
+    actionDisabled: action.disabled || !action.visible,
   };
 }

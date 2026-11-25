@@ -1508,7 +1508,7 @@ render();
               <p class="muted small">报名截止 ${new Date(item.deadline).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · 已报 ${item.signed} / ${item.capacity} 人${item.cost === null ? '' : ` · 人均 ¥${item.cost}`}${item.familyAllowed ? ' · 可携带家属' : ''} · 场地环境图 ${item.imageCount} 张</p>
               <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
                 ${closed
-                  ? ''
+                  ? `<button class="btn btn-ghost btn-sm" disabled>${statusLabels[item.status]}</button>`
                   : item.mine
                     ? (item.status === 'SIGNUP_OPEN' && !pastDeadline(item)
                         ? '<button class="btn btn-ghost btn-sm" data-cancel-activity="' + item.id + '">取消报名</button>'

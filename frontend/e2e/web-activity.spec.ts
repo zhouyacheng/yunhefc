@@ -174,7 +174,8 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
   await expect(cards.filter({ hasText: '已截止活动' })).toContainText('已截止');
   const cancelled = cards.filter({ hasText: '已取消活动' });
   await expect(cancelled).toContainText('已取消');
-  await expect(cancelled.locator('.activity-cta')).toHaveCount(0);
+  // 已取消/已结束仍以禁用态占位，与报名中/报名截止的按钮同尺寸。
+  await expect(cancelled.locator('.activity-cta--disabled')).toHaveText('已取消');
 
   await page.getByLabel('活动范围').selectOption('latest');
   await expect(cards).toHaveCount(2);

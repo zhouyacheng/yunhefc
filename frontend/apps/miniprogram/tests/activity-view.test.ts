@@ -216,6 +216,19 @@ describe('活动展示字段', () => {
       actionDisabled: false,
     });
   });
+
+  it('已结束/已取消卡片底部保留禁用动作位', () => {
+    expect(buildActivityCard(activity({ status: 2 }), NOW)).toMatchObject({
+      actionLabel: '已结束',
+      actionVisible: true,
+      actionDisabled: true,
+    });
+    expect(buildActivityCard(activity({ status: 3 }), NOW)).toMatchObject({
+      actionLabel: '已取消',
+      actionVisible: true,
+      actionDisabled: true,
+    });
+  });
 });
 
 describe('activityCanCancel', () => {

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   ApiError,
   extractSessionCookie,
@@ -28,14 +28,19 @@ type WxUploadOptions = {
 
 let responder: (options: WxOptions) => void;
 let uploadResponder: (options: WxUploadOptions) => void;
+let storage: Map<string, unknown>;
 
 beforeEach(() => {
-  resetAuth();
+  storage = new Map();
   uploadResponder = () => undefined;
   (globalThis as unknown as { wx: unknown }).wx = {
+    getStorageSync: (key: string) => storage.get(key) ?? '',
+    setStorageSync: (key: string, value: unknown) => storage.set(key, value),
+    removeStorageSync: (key: string) => storage.delete(key),
     request: (options: WxOptions) => responder(options),
     uploadFile: (options: WxUploadOptions) => uploadResponder(options),
   };
+  resetAuth();
 });
 
 afterEach(() => {
@@ -51,9 +56,9 @@ describe('extractSessionCookie', () => {
     );
   });
 
-  it('returns empty when missing or cleared', () => {
-    expect(extractSessionCookie({})).toBe('');
-    expect(extractSessionCookie({ 'Set-Cookie': 'other=1' })).toBe('');
+  it('distinguishes missing from explicitly cleared', () => {
+    expect(extractSessionCookie({})).toBeNull();
+    expect(extractSessionCookie({ 'Set-Cookie': 'other=1' })).toBeNull();
     expect(extractSessionCookie({ 'Set-Cookie': 'YHFC_C=abc; Max-Age=0' })).toBe('');
   });
 });
@@ -204,5 +209,101 @@ describe('request', () => {
       options.success({ statusCode: 200, data: { code: 0, data: {} }, header: {} });
     };
     await request('GET', '/me');
+  });
+});
+
+describe('session persistence', () => {
+  const STORAGE_KEY = 'yhfc.c.session';
+
+  it('writes the session cookie to local storage and clears it on reset', async () => {
+    responder = (options) =>
+      options.success({
+        statusCode: 200,
+        data: { code: 0, data: {} },
+        header: { 'Set-Cookie': 'YHFC_C=s9; Path=/api/v1/c' },
+      });
+
+    await request('GET', '/auth/csrf');
+    expect(storage.get(STORAGE_KEY)).toBe('YHFC_C=s9');
+
+    resetAuth();
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+  });
+
+  it('clears the stored cookie when the server expires it', async () => {
+    responder = (options) =>
+      options.success({
+        statusCode: 200,
+        data: { code: 0, data: {} },
+        header: { 'Set-Cookie': 'YHFC_C=s9; Path=/' },
+      });
+    await request('GET', '/auth/csrf');
+    expect(storage.get(STORAGE_KEY)).toBe('YHFC_C=s9');
+
+    responder = (options) =>
+      options.success({
+        statusCode: 200,
+        data: { code: 0, data: {} },
+        header: { 'Set-Cookie': 'YHFC_C=; Max-Age=0; Path=/' },
+      });
+    await request('GET', '/auth/csrf');
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+
+    responder = (options) => {
+      expect(options.header.Cookie).toBeUndefined();
+      options.success({ statusCode: 200, data: { code: 0, data: {} }, header: {} });
+    };
+    await request('GET', '/me');
+  });
+
+  it('keeps the session when a request opts out of the 401 reset', async () => {
+    responder = (options) =>
+      options.success({
+        statusCode: 200,
+        data: { code: 0, data: {} },
+        header: { 'Set-Cookie': 'YHFC_C=s1; Path=/' },
+      });
+    await request('GET', '/auth/csrf');
+
+    let unauthorized = 0;
+    setUnauthorizedHandler(() => {
+      unauthorized += 1;
+    });
+    responder = (options) =>
+      options.success({
+        statusCode: 401,
+        data: { code: 40102, message: '手机号或密码错误' },
+        header: {},
+      });
+    await expect(
+      request(
+        'POST',
+        '/auth/login',
+        { phone: '13900000000', password: 'wrong-pass' },
+        { skipSessionResetOn401: true },
+      ),
+    ).rejects.toMatchObject({ code: 40102 });
+    expect(unauthorized).toBe(0);
+    expect(storage.get(STORAGE_KEY)).toBe('YHFC_C=s1');
+
+    responder = (options) => {
+      expect(options.header.Cookie).toBe('YHFC_C=s1');
+      options.success({ statusCode: 200, data: { code: 0, data: {} }, header: {} });
+    };
+    await request('GET', '/me');
+  });
+
+  it('rehydrates the persisted cookie on cold start', async () => {
+    storage.set(STORAGE_KEY, 'YHFC_C=stored');
+    responder = (options) => {
+      expect(options.header.Cookie).toBe('YHFC_C=stored');
+      expect(options.header['X-XSRF-TOKEN']).toBe('t-9');
+      options.success({ statusCode: 200, data: { code: 0, data: {} }, header: {} });
+    };
+
+    vi.resetModules();
+    const fresh = await import('../miniprogram/utils/request');
+    fresh.setCsrf('t-9');
+    await fresh.request('POST', '/auth/login', { phone: '13900000000' });
   });
 });

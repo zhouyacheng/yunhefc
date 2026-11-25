@@ -2,13 +2,15 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ApiError, request } from '../miniprogram/utils/request';
 import {
   bindPhone,
+  clearBindTicket,
   clearSession,
   getBindTicket,
   getPermissions,
   getPlayer,
   getUser,
   hasPermission,
-  login,
+  loginWithPassword,
+  loginWithWechat,
   logout,
   restore,
   sendSmsCode,
@@ -26,14 +28,18 @@ type WxOptions = {
 
 let responder: (options: WxOptions) => void;
 let calls: WxOptions[];
+let loginCalls: number;
 
 beforeEach(() => {
   clearSession();
   calls = [];
+  loginCalls = 0;
   responder = () => undefined;
   (globalThis as unknown as { wx: unknown }).wx = {
-    login: (options: { success: (res: { code: string }) => void }) =>
-      options.success({ code: 'c1' }),
+    login: (options: { success: (res: { code: string }) => void }) => {
+      loginCalls += 1;
+      options.success({ code: 'c1' });
+    },
     request: (options: WxOptions) => {
       calls.push(options);
       responder(options);
@@ -52,7 +58,7 @@ describe('session', () => {
       data: { needBindPhone: true, bindTicket: 't1', user: null, csrfToken: null },
     });
 
-    const result = await login();
+    const result = await loginWithWechat();
 
     expect(result.needBindPhone).toBe(true);
     expect(getBindTicket()).toBe('t1');
@@ -71,7 +77,7 @@ describe('session', () => {
       },
     });
 
-    await login();
+    await loginWithWechat();
 
     expect(getBindTicket()).toBeNull();
     expect(getUser()?.id).toBe(7);
@@ -94,6 +100,107 @@ describe('session', () => {
 
     expect(user?.id).toBe(7);
     expect(getPlayer()?.type).toBe(1);
+  });
+
+  it('logs in with phone and password after fetching csrf', async () => {
+    responder = (options) => {
+      if (options.url.endsWith('/auth/csrf')) {
+        options.success({
+          statusCode: 200,
+          data: { code: 0, data: { token: 'csrf-0', headerName: 'X-XSRF-TOKEN' } },
+          header: { 'Set-Cookie': 'YHFC_C=s0; Path=/' },
+        });
+        return;
+      }
+      options.success({
+        statusCode: 200,
+        data: {
+          code: 0,
+          data: {
+            user: { id: 9, name: '球员' },
+            player: { id: 3, type: 1 },
+            permissions: [REGISTRATION_CREATE_OWN],
+            csrfToken: 'csrf-1',
+          },
+        },
+        header: { 'Set-Cookie': 'YHFC_C=s1; Path=/' },
+      });
+    };
+
+    await loginWithPassword('13900000000', 'abc12345');
+
+    expect(getUser()?.id).toBe(9);
+    expect(getPlayer()?.id).toBe(3);
+    expect(hasPermission(REGISTRATION_CREATE_OWN)).toBe(true);
+    const loginCall = calls.find((call) => call.url.endsWith('/auth/login'));
+    expect(loginCall?.header['X-XSRF-TOKEN']).toBe('csrf-0');
+    expect((await sessionReady())?.id).toBe(9);
+  });
+
+  it('keeps the restored session when password login is rejected', async () => {
+    responder = respond({
+      code: 0,
+      data: { user: { id: 7, name: '球员' }, player: { id: 1, type: 1 } },
+    });
+    await restore();
+
+    responder = (options) => {
+      if (options.url.endsWith('/auth/csrf')) {
+        options.success({
+          statusCode: 200,
+          data: { code: 0, data: { token: 'csrf-0', headerName: 'X-XSRF-TOKEN' } },
+          header: {},
+        });
+        return;
+      }
+      options.success({
+        statusCode: 401,
+        data: { code: 40102, message: '手机号或密码错误' },
+        header: {},
+      });
+    };
+
+    await expect(loginWithPassword('13900000000', 'wrong-pass')).rejects.toBeInstanceOf(ApiError);
+
+    expect(getUser()?.id).toBe(7);
+  });
+
+  it('does not resume silent login after a failed password login following logout', async () => {
+    responder = respond({ code: 0, data: {} });
+    await logout();
+
+    responder = (options) => {
+      if (options.url.endsWith('/auth/csrf')) {
+        options.success({
+          statusCode: 200,
+          data: { code: 0, data: { token: 'csrf-0', headerName: 'X-XSRF-TOKEN' } },
+          header: {},
+        });
+        return;
+      }
+      options.success({
+        statusCode: 401,
+        data: { code: 40102, message: '手机号或密码错误' },
+        header: {},
+      });
+    };
+
+    await expect(loginWithPassword('13900000000', 'wrong-pass')).rejects.toBeInstanceOf(ApiError);
+
+    expect(await sessionReady()).toBeNull();
+    expect(loginCalls).toBe(0);
+  });
+
+  it('discards the bind ticket when switching to password login', async () => {
+    responder = respond({
+      code: 0,
+      data: { needBindPhone: true, bindTicket: 't1', user: null, csrfToken: null },
+    });
+    await loginWithWechat();
+
+    clearBindTicket();
+
+    expect(getBindTicket()).toBeNull();
   });
 
   it('runs the launch session once for concurrent callers', async () => {
@@ -179,7 +286,7 @@ describe('session', () => {
         csrfToken: 'csrf-1',
       },
     });
-    await login();
+    await loginWithWechat();
 
     expect((await sessionReady())?.id).toBe(7);
   });
@@ -195,7 +302,7 @@ describe('session', () => {
         csrfToken: 'csrf-1',
       },
     });
-    await login();
+    await loginWithWechat();
     expect(getUser()?.id).toBe(7);
 
     responder = respond({ code: 40101, message: '会话已过期' }, 401);
@@ -216,7 +323,7 @@ describe('session', () => {
         csrfToken: null,
       },
     });
-    await login();
+    await loginWithWechat();
 
     responder = respond({
       code: 0,
@@ -257,7 +364,7 @@ describe('session', () => {
         csrfToken: 'csrf-1',
       },
     });
-    await login();
+    await loginWithWechat();
 
     responder = respond({ code: 0, data: {} });
     await logout();
@@ -281,7 +388,7 @@ describe('session', () => {
       },
     });
 
-    await login();
+    await loginWithWechat();
 
     expect(getPermissions()).toEqual([REGISTRATION_CREATE_OWN]);
     expect(hasPermission(REGISTRATION_CREATE_OWN)).toBe(true);

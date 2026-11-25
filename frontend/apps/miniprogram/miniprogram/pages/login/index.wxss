@@ -1,8 +1,3 @@
-.center {
-  margin-top: 120rpx;
-  text-align: center;
-}
-
 .brand {
   font-size: 40rpx;
   font-weight: 700;
@@ -10,15 +5,62 @@
   margin-bottom: 24rpx;
 }
 
+.form {
+  margin-top: 8rpx;
+}
+
+.field {
+  margin-top: 24rpx;
+}
+
+.label {
+  display: block;
+  font-size: 24rpx;
+  color: var(--yh-muted);
+  margin-bottom: 8rpx;
+}
+
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--yh-surface-soft);
+  border: 1rpx solid var(--yh-line);
+  border-radius: var(--yh-radius-sm);
+  padding: 18rpx 20rpx;
+  font-size: 28rpx;
+  min-height: 76rpx;
+  line-height: 40rpx;
+}
+
 .error {
+  margin-top: 20rpx;
   color: var(--yh-red-ink);
   background: var(--yh-red-soft);
   border-radius: var(--yh-radius-sm);
   padding: 16rpx;
-  margin-bottom: 20rpx;
   font-size: 24rpx;
 }
 
 .btn {
-  margin-top: 20rpx;
+  margin-top: 24rpx;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  margin-top: 28rpx;
+  color: var(--yh-muted);
+  font-size: 24rpx;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1rpx;
+  background: var(--yh-line);
+}
+
+.divider__text {
+  padding: 0 20rpx;
 }

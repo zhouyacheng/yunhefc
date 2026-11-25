@@ -1,11 +1,53 @@
 <view class="container">
-  <view class="card center">
+  <view class="card">
     <view class="brand">云河FC</view>
-    <van-loading wx:if="{{status === 'loading'}}" size="20px">正在微信登录…</van-loading>
-    <block wx:else>
-      <view class="error">{{message}}</view>
-      <van-button class="btn" type="primary" block bind:click="retry">重试</van-button>
-      <van-button class="btn" block bind:click="skip">先逛逛</van-button>
-    </block>
+
+    <view class="form">
+      <view class="field">
+        <text class="label">手机号</text>
+        <input
+          class="input"
+          type="number"
+          maxlength="11"
+          value="{{phone}}"
+          placeholder="请输入手机号"
+          bindinput="onPhoneInput"
+        />
+      </view>
+      <view class="field">
+        <text class="label">密码</text>
+        <input
+          class="input"
+          password
+          maxlength="64"
+          value="{{password}}"
+          placeholder="请输入密码"
+          bindinput="onPasswordInput"
+        />
+      </view>
+    </view>
+
+    <view class="error" wx:if="{{error}}">{{error}}</view>
+
+    <van-button
+      class="btn"
+      type="primary"
+      block
+      loading="{{submitting}}"
+      disabled="{{submitting || wechatLoading}}"
+      bind:click="submit"
+    >登录</van-button>
+
+    <view class="divider"><text class="divider__text">或</text></view>
+
+    <van-button
+      class="btn"
+      block
+      loading="{{wechatLoading}}"
+      disabled="{{submitting || wechatLoading}}"
+      bind:click="wechatLogin"
+    >微信一键登录</van-button>
+
+    <van-button class="btn" block plain bind:click="skip">先逛逛</van-button>
   </view>
 </view>

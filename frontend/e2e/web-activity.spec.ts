@@ -348,7 +348,7 @@ test('C12 活动详情：展示场地环境图片，无图时不展示该区块'
     (route) => fulfill(route, OPEN_ACTIVITY),
   );
   await page.goto('/activities/9001');
-  await expect(page.getByRole('heading', { name: '活动详情' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '活动说明' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '场地环境' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });

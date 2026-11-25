@@ -21,9 +21,7 @@ public final class ActivityStatusMachine {
             case SIGNUP_CLOSED -> to == ActivityStatus.SIGNUP_OPEN
                     || to == ActivityStatus.FINISHED
                     || to == ActivityStatus.CANCELLED;
-            case FINISHED -> to == ActivityStatus.SIGNUP_OPEN
-                    || to == ActivityStatus.SIGNUP_CLOSED;
-            case CANCELLED -> to == ActivityStatus.SIGNUP_OPEN
+            case FINISHED, CANCELLED -> to == ActivityStatus.SIGNUP_OPEN
                     || to == ActivityStatus.SIGNUP_CLOSED;
         };
         if (!allowed) {

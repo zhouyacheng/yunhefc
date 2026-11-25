@@ -85,3 +85,13 @@ export function activityStatusText(status: ActivityStatus): string {
   return ACTIVITY_STATUS_TEXT[status] ?? '—';
 }
 
+/** ACT-10 状态合法目标集：0↔1、0/1→2/3、2→0/1、3→0/1。 */
+export const ACTIVITY_STATUS_TARGETS: Readonly<
+  Record<ActivityStatus, readonly ActivityStatus[]>
+> = {
+  0: [1, 2, 3],
+  1: [0, 2, 3],
+  2: [0, 1],
+  3: [0, 1],
+};
+

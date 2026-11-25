@@ -106,7 +106,7 @@ export function activityFormError(form: ActivityFormValues): string | null {
     return '活动地址不能超过 128 字';
   }
   if (form.description.trim().length > 1000) {
-    return '活动详情不能超过 1000 字';
+    return '活动说明不能超过 1000 字';
   }
   return null;
 }

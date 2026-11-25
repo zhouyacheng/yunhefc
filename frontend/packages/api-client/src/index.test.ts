@@ -374,6 +374,80 @@ describe('multipart', () => {
     expect(retriedHeaders.get('Content-Type')).toBeNull();
   });
 
+  it('reports upload progress through XHR and unwraps the response', async () => {
+    class FakeXhr {
+      static instances: FakeXhr[] = [];
+      readonly upload: { onprogress: ((event: ProgressEvent) => void) | null } = {
+        onprogress: null,
+      };
+      readonly requestHeaders = new Headers();
+      status = 200;
+      statusText = 'OK';
+      responseText = '';
+      withCredentials = false;
+      onload: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onabort: (() => void) | null = null;
+      private method = '';
+      private url = '';
+
+      open(method: string, url: string): void {
+        this.method = method;
+        this.url = url;
+      }
+
+      setRequestHeader(name: string, value: string): void {
+        this.requestHeaders.set(name, value);
+      }
+
+      getAllResponseHeaders(): string {
+        return 'content-type: application/json\r\nX-Request-Id: req-xhr\r\n';
+      }
+
+      send(): void {
+        FakeXhr.instances.push(this);
+        this.upload.onprogress?.({
+          lengthComputable: true,
+          loaded: 50,
+          total: 100,
+        } as ProgressEvent);
+        this.responseText = JSON.stringify(envelope({ objectKey: 'activity/1/x.jpg' }));
+        this.onload?.();
+      }
+
+      abort(): void {
+        this.onabort?.();
+      }
+
+      describe(): string {
+        return `${this.method} ${this.url}`;
+      }
+    }
+
+    vi.stubGlobal('XMLHttpRequest', FakeXhr);
+    try {
+      const { client, calls } = harness(async () => json(envelope(null)));
+      client.setCsrfToken('csrf-1');
+      const onUploadProgress = vi.fn();
+      const form = new FormData();
+      form.append('file', new Blob(['x']), 'x.jpg');
+
+      await expect(
+        client.postForm('/files/activity-image', form, { onUploadProgress }),
+      ).resolves.toEqual({ objectKey: 'activity/1/x.jpg' });
+
+      expect(calls).toHaveLength(0);
+      expect(onUploadProgress).toHaveBeenCalledWith(50);
+      expect(FakeXhr.instances).toHaveLength(1);
+      expect(FakeXhr.instances[0]?.describe()).toBe('POST /api/v1/c/files/activity-image');
+      expect(FakeXhr.instances[0]?.withCredentials).toBe(true);
+      expect(FakeXhr.instances[0]?.requestHeaders.get('X-XSRF-TOKEN')).toBe('csrf-1');
+      expect(FakeXhr.instances[0]?.requestHeaders.get('Content-Type')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('unwraps error envelopes for multipart requests', async () => {
     const { client } = harness(async () =>
       json({ code: 40001, message: '参数校验失败', data: null, requestId: 'req-form' }, 400),

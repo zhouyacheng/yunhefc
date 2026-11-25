@@ -835,7 +835,9 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   const dialog = page.locator('.el-dialog').filter({ hasText: '创建活动' });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('.el-form-item').filter({ hasText: '活动名称' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: '上传图片' })).toBeVisible();
+  await expect(
+    dialog.locator('.el-form-item').filter({ hasText: '场地环境' }).locator('.image-upload-slot'),
+  ).toHaveCount(10);
   await dialog.getByRole('button', { name: '取消' }).click();
   await expect(dialog).toBeHidden();
 
@@ -909,6 +911,11 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   await cancelDialog.getByPlaceholder('取消原因（将记入审计）').fill('E2E 取消');
   await cancelDialog.getByRole('button', { name: '确认取消' }).click();
   await expect(row.locator('.el-tag').filter({ hasText: '已取消' })).toBeVisible();
+  // 已取消仍可编辑（P-113）。
+  await row.getByRole('button', { name: '编辑' }).click();
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByRole('button', { name: '取消' }).click();
+  await expect(editDialog).toBeHidden();
   await row.getByRole('button', { name: '状态' }).click();
   await page.getByRole('menuitem', { name: '报名中' }).click();
   await expect(row.locator('.el-tag').filter({ hasText: '报名中' })).toBeVisible();

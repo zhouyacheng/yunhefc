@@ -1,5 +1,5 @@
 import type { ActivityStatus } from '@yunhefc/shared';
-import { activityStatusText } from '@yunhefc/shared';
+import { ACTIVITY_STATUS_TARGETS, activityStatusText } from '@yunhefc/shared';
 
 export interface ActivityStatusOption {
   status: ActivityStatus;
@@ -10,14 +10,6 @@ export interface ActivityStatusOption {
 
 const ALL_STATUSES: ActivityStatus[] = [0, 1, 2, 3];
 
-/** 合法目标集：0↔1、0/1→2/3、2→0/1、3→0/1。 */
-const ALLOWED_TARGETS: Readonly<Record<ActivityStatus, readonly ActivityStatus[]>> = {
-  0: [1, 2, 3],
-  1: [0, 2, 3],
-  2: [0, 1],
-  3: [0, 1],
-};
-
 /**
  * ACT-13 状态下拉：展示全部状态，但按 ACT-10 合法集禁用。
  * 报名中与报名截止可互转（P-111）；已结束可重新开放（P-110）、已取消可恢复（P-114），
@@ -26,7 +18,7 @@ const ALLOWED_TARGETS: Readonly<Record<ActivityStatus, readonly ActivityStatus[]
 export function activityStatusOptions(currentStatus: ActivityStatus): ActivityStatusOption[] {
   return ALL_STATUSES.map((status) => {
     const label = activityStatusText(status);
-    if (status === currentStatus || ALLOWED_TARGETS[currentStatus].includes(status)) {
+    if (status === currentStatus || ACTIVITY_STATUS_TARGETS[currentStatus].includes(status)) {
       return { status, label, disabled: false };
     }
     return { status, label, disabled: true, reason: disabledReason(currentStatus, status) };

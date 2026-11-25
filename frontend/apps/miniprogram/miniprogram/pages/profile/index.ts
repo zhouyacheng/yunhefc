@@ -12,7 +12,6 @@ import { promotionText, registrationDecision } from '../../utils/registration';
 import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
 import { createPagedFeed, emptyPagedFeedState, type PagedFeed } from '../../utils/paged-feed';
 import { invalidate, subscribe } from '../../utils/invalidation';
-import { LEDGER_VIEW_ANY, hasPermission } from '../../utils/permissions';
 import {
   decorateNotification,
   decorateRegistration,
@@ -43,7 +42,6 @@ function loggedOutState() {
     player: null,
     identity: null,
     pending: false,
-    canViewLedger: false,
     unreadCount: null,
     actionError: '',
     actionMessage: '',
@@ -57,7 +55,6 @@ Page({
     player: null as PlayerView | null,
     identity: null as IdentityView | null,
     pending: false,
-    canViewLedger: false,
     notifications: emptyPagedFeedState<NotificationRow>('all'),
     registrations: emptyPagedFeedState<RegistrationRowView>('active'),
     markingAll: false,
@@ -148,7 +145,6 @@ Page({
       player,
       identity: identityOf(user, player),
       pending,
-      canViewLedger: !pending && hasPermission(getPermissions(), LEDGER_VIEW_ANY),
       actionError: '',
     });
     void refreshUnreadBadge().then((unreadCount) => {
@@ -324,10 +320,6 @@ Page({
       return;
     }
     void wx.navigateTo({ url: '/pages/profile-edit/index' });
-  },
-
-  goLedger() {
-    void wx.navigateTo({ url: '/pages/ledger/index' });
   },
 
   confirmLogout() {

@@ -10,7 +10,7 @@ import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors
 import { buildHero, HOME_FEATURES, type HeroView } from '../../utils/home-view';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import { invalidate } from '../../utils/invalidation';
-import { hasBackendPermission } from '../../utils/permissions';
+import { LEDGER_VIEW_ANY, hasBackendPermission, hasPermission, isPending } from '../../utils/permissions';
 import { REGISTRATION_STATUS } from '../../utils/registration';
 import { getPermissions, getPlayer, getUser, sessionReady } from '../../utils/session';
 
@@ -25,6 +25,12 @@ function heroView(detail: MatchDetail, now: number): HeroView {
 
 interface TimerPage {
   syncCta: () => void;
+}
+
+interface QuickEntryView {
+  icon: string;
+  title: string;
+  url: string;
 }
 
 function stopTimer(): void {
@@ -48,6 +54,7 @@ Page({
     features: HOME_FEATURES,
     signupBusy: false,
     canEnterAdmin: false,
+    quickEntries: [] as QuickEntryView[],
     adminBusy: false,
   },
 
@@ -75,7 +82,16 @@ Page({
   async bootstrap() {
     // 等启动静默登录结束再加载，保证 myRegistration 与 CTA 使用当前身份。
     await sessionReady();
-    this.setData({ canEnterAdmin: hasBackendPermission(getPermissions()) });
+    const permissions = getPermissions();
+    const canViewLedger =
+      !isPending(getUser()?.status) && hasPermission(permissions, LEDGER_VIEW_ANY);
+    this.setData({
+      canEnterAdmin: hasBackendPermission(permissions),
+      quickEntries: [
+        { icon: '🎉', title: '活动', url: '/pages/activity/index' },
+        ...(canViewLedger ? [{ icon: '💰', title: '账本', url: '/pages/ledger/index' }] : []),
+      ],
+    });
     await this.load(true);
   },
 
@@ -220,7 +236,8 @@ Page({
     void wx.switchTab({ url: '/pages/team/index' });
   },
 
-  goActivities() {
-    void wx.navigateTo({ url: '/pages/activity/index' });
+  goQuickEntry(event: WechatMiniprogram.BaseEvent) {
+    const url = event.currentTarget.dataset.url as string;
+    void wx.navigateTo({ url });
   },
 });

@@ -167,7 +167,6 @@ onMounted(() => {
     <header class="page-head">
       <p class="eyebrow">LEDGER</p>
       <h1>账本</h1>
-      <p class="muted">球队收支流水；正式球员只读，管理员在后台维护</p>
     </header>
 
     <section v-if="!allowed" class="state">

@@ -250,29 +250,3 @@
   font-size: 28rpx;
   border-bottom: 1rpx dashed var(--yh-line);
 }
-
-.ledger-entry {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16rpx;
-  margin-bottom: 20rpx;
-}
-
-.ledger-entry__body {
-  display: flex;
-  flex-direction: column;
-  gap: 4rpx;
-}
-
-.ledger-entry__title {
-  color: var(--yh-ink);
-  font-size: 30rpx;
-  font-weight: 700;
-}
-
-.ledger-entry__arrow {
-  color: var(--yh-green);
-  font-size: 30rpx;
-  font-weight: 700;
-}

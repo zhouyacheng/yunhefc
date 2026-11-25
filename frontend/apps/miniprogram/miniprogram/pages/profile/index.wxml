@@ -198,19 +198,6 @@
         </block>
       </view>
 
-      <view
-        wx:if="{{canViewLedger}}"
-        class="card ledger-entry"
-        bindtap="goLedger"
-        hover-class="item--pressed"
-      >
-        <view class="ledger-entry__body">
-          <text class="ledger-entry__title">账本</text>
-          <text class="muted small">球队收支与汇总 · 只读</text>
-        </view>
-        <text class="ledger-entry__arrow">→</text>
-      </view>
-
       <view class="card section">
         <view class="section-head">
           <text class="section-head__title">账号与安全</text>

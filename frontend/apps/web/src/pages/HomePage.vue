@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { isApiError, newIdempotencyKey } from '@yunhefc/api-client';
-import { hasBackendPermission } from '@yunhefc/permissions';
+import { LEDGER_VIEW_ANY, hasBackendPermission, hasPermission } from '@yunhefc/permissions';
 import type { MatchDetail, MatchSummary, Page, Registration } from '@yunhefc/shared';
 import {
   formatDayStartTime,
@@ -15,13 +15,13 @@ import { useRouter } from 'vue-router';
 import { api } from '../api/client';
 import MatchCard from '../components/MatchCard.vue';
 import { adminUrl, openAdmin } from '../features/admin-handoff/admin-handoff';
+import { isPending } from '../features/auth/user-status';
 import { homeCta, type HomeCtaResult } from '../features/home/cta';
 import { queuePercent, scoreText, statusTone, winnerSide } from '../features/matches/presentation';
 import { useSessionStore } from '../stores/session';
 
 const FEATURES = [
   { icon: '📈', title: 'AI 身价', text: '基于位置、出场、进球与助攻的身价模型' },
-  { icon: '💰', title: '球队账本', text: '收入/支出分类，按月/年统计' },
   { icon: '📸', title: '动态与相册', text: '比赛照片、B 站视频、点赞留言' },
   { icon: '🗳️', title: '投票', text: '标题、图片选项、多选、截止时间' },
   { icon: '📣', title: '公众号提醒', text: '赛事发布与模板消息' },
@@ -36,6 +36,10 @@ const canEnterAdmin = computed(
   () => session.isAuthenticated && hasBackendPermission(session.permissions),
 );
 const adminEntryUrl = computed(() => adminUrl({ path: '/' }));
+/** 账本入口与 MP06 同口径：仅具备 ledger:view:any 且非待审核的账号显示。 */
+const canViewLedger = computed(
+  () => !isPending(session.user?.status ?? 1) && hasPermission(session.permissions, LEDGER_VIEW_ANY),
+);
 
 function onAdminEntry(event: MouseEvent): void {
   event.preventDefault();
@@ -332,6 +336,12 @@ onUnmounted(() => {
           </RouterLink>
         </div>
       </section>
+
+      <RouterLink v-if="canViewLedger" class="card home-entry" to="/ledger">
+        <span class="home-entry__icon" aria-hidden="true">💰</span>
+        <span class="home-entry__title">账本</span>
+        <span class="home-entry__arrow" aria-hidden="true">→</span>
+      </RouterLink>
 
       <section class="home-firepower">
         <div class="section-head">

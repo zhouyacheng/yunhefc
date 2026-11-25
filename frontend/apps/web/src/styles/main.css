@@ -1938,6 +1938,30 @@ textarea {
   margin-bottom: 14px;
 }
 
+.home-entry {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 32px;
+  color: var(--yh-ink);
+  text-decoration: none;
+}
+
+.home-entry__icon {
+  font-size: 18px;
+}
+
+.home-entry__title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.home-entry__arrow {
+  color: var(--yh-green);
+  font-weight: 700;
+}
+
 .home-firepower {
   margin-top: 32px;
 }

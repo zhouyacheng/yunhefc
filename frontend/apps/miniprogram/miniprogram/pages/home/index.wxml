@@ -97,10 +97,17 @@
         </view>
       </view>
 
-      <view class="quick-entry" bindtap="goActivities" hover-class="card--pressed">
-        <text class="quick-entry__icon">🎉</text>
+      <view
+        wx:for="{{quickEntries}}"
+        wx:key="url"
+        class="quick-entry"
+        data-url="{{item.url}}"
+        bindtap="goQuickEntry"
+        hover-class="card--pressed"
+      >
+        <text class="quick-entry__icon">{{item.icon}}</text>
         <view class="quick-entry__body">
-          <text class="quick-entry__title">队内活动</text>
+          <text class="quick-entry__title">{{item.title}}</text>
         </view>
         <text class="quick-entry__arrow">→</text>
       </view>

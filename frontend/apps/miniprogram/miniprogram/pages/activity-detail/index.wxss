@@ -44,7 +44,7 @@
   letter-spacing: -0.02em;
 }
 
-/* 每个字段独占一行，emoji 与文本按中线对齐；与活动卡同一口径。 */
+/* 每个字段独占一行，行内 emoji 与文本对齐由 .emoji-row 提供。 */
 .detail-hero__meta {
   display: flex;
   flex-direction: column;
@@ -52,19 +52,6 @@
   color: #cbd5e1;
   font-size: 26rpx;
   line-height: 1.6;
-}
-
-.detail-hero__meta-row {
-  display: flex;
-  align-items: center;
-  gap: 6rpx;
-}
-
-.detail-hero__meta-icon {
-  flex: none;
-  font-size: 26rpx;
-  line-height: 1;
-  transform: translateY(-2rpx);
 }
 
 /* 分享按钮：深色 Hero 内的浅色描边胶囊，尺寸贴合文本。 */

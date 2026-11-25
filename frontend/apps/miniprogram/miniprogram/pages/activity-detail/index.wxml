@@ -32,24 +32,24 @@
       <view class="detail-hero__title">{{activity.title}}</view>
 
       <view class="detail-hero__meta">
-        <view class="detail-hero__meta-row">
-          <view class="detail-hero__meta-icon">📅</view>
+        <view class="emoji-row">
+          <view class="emoji-icon">📅</view>
           <text>{{timeText}}</text>
         </view>
-        <view class="detail-hero__meta-row">
-          <view class="detail-hero__meta-icon">📍</view>
+        <view class="emoji-row">
+          <view class="emoji-icon">📍</view>
           <text>{{activity.location}}</text>
         </view>
-        <view class="detail-hero__meta-row">
-          <view class="detail-hero__meta-icon">⏰</view>
+        <view class="emoji-row">
+          <view class="emoji-icon">⏰</view>
           <text>报名截止 {{deadlineText}}</text>
         </view>
-        <view class="detail-hero__meta-row">
-          <view class="detail-hero__meta-icon">👥</view>
+        <view class="emoji-row">
+          <view class="emoji-icon">👥</view>
           <text>{{countText}}</text>
         </view>
-        <view wx:if="{{activity.costPerPerson !== null}}" class="detail-hero__meta-row">
-          <view class="detail-hero__meta-icon">💰</view>
+        <view wx:if="{{activity.costPerPerson !== null}}" class="emoji-row">
+          <view class="emoji-icon">💰</view>
           <text>{{costText}}</text>
         </view>
       </view>

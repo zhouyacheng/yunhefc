@@ -27,7 +27,7 @@ class SessionSlidingIT extends IntegrationTestSupport {
                 .andExpect(status().isOk())
                 .andReturn();
         assertThat(bResult.getResponse().getHeaders("Set-Cookie"))
-                .anyMatch(value -> value.contains("YHFC_B=") && value.contains("Max-Age=7200"));
+                .anyMatch(value -> value.contains("YHFC_B=") && value.contains("Max-Age=43200"));
     }
 
     private Cookie register(String phone) throws Exception {

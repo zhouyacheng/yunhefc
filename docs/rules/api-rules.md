@@ -92,7 +92,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 
 ## 7 认证、CSRF 与权限
 
-1. C/B 端分别使用 `YHFC_C` / `YHFC_B` 会话 Cookie；C 端滑动 7 天，B 端 2 小时，同一账号两端互不影响。
+1. C/B 端分别使用 `YHFC_C` / `YHFC_B` 会话 Cookie；C 端滑动 7 天，B 端 12 小时，同一账号两端互不影响。
 2. 登录前获取 CSRF token；登录成功后轮换 Session ID 与 CSRF token；登出/过期后重新获取。
 3. 权限码统一 `资源:动作:范围`；服务端按权限码校验，B 端额外校验后台分区权限。
 4. 待审核（PENDING）只允许公开读、登录/登出、AUTH-01/14、AUTH-10、短信/小程序登录、邀请落地、自助资料/头像、通知只读与标记已读（NTF-01~04）；其他写接口返回 `ACCOUNT_PENDING`。

@@ -12,7 +12,7 @@ import java.io.IOException;
 import java.util.Set;
 
 /**
- * 每个已登录请求重写会话 Cookie 的 Max-Age，实现 C 端 7 天 / B 端 2 小时滑动过期。
+ * 每个已登录请求重写会话 Cookie 的 Max-Age，实现 C 端 7 天 / B 端 12 小时滑动过期。
  * 登录、注册、微信回调、绑定手机与登出会轮换或销毁会话，由 Spring Session 自行写入 Cookie。
  */
 public class SessionCookieRefreshFilter extends OncePerRequestFilter {

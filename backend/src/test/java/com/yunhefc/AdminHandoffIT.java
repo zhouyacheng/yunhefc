@@ -29,7 +29,7 @@ class AdminHandoffIT extends IntegrationTestSupport {
 
         Cookie bCookie = cookie(exchanged, "YHFC_B");
         assertThat(bCookie.getPath()).isEqualTo("/api/v1/b");
-        assertThat(bCookie.getMaxAge()).isEqualTo(2 * 60 * 60);
+        assertThat(bCookie.getMaxAge()).isEqualTo(12 * 60 * 60);
         assertThat(bCookie.isHttpOnly()).isTrue();
         assertThat(exchanged.getResponse().getCookie("YHFC_C")).isNull();
 

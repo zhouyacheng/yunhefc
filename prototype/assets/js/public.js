@@ -1406,7 +1406,7 @@ render();
     if (!host) return;
     const typeLabels = { DINNER: '聚餐', ANNUAL_MEETING: '年会', OTHER: '其他' };
     const statusLabels = { SIGNUP_OPEN: '报名中', SIGNUP_CLOSED: '报名截止', FINISHED: '已结束', CANCELLED: '已取消' };
-    const scopeLabels = { LATEST: '最近活动', FINISHED: '已结束活动', HISTORY: '历史', ALL: '全部' };
+    const scopeLabels = { LATEST: '最近活动', FINISHED: '已结束活动', ALL: '全部' };
     const typeOptions = { ALL: '全部', ...typeLabels };
     const statusOptions = { ALL: '全部', ...statusLabels };
     const activities = [
@@ -1482,13 +1482,12 @@ render();
       const filtered = activities.filter((item) => (typeFilter === 'ALL' || item.type === typeFilter)
         && (statusFilter === 'ALL' || item.status === statusFilter))
         .sort((a, b) => new Date(b.startAt) - new Date(a.startAt) || b.id - a.id);
+      // P-127：C11 不提供「历史」范围，历史活动经「全部」查看。
       const list = scopeFilter === 'LATEST'
         ? filtered.filter((item) => item.status === 'SIGNUP_OPEN')
         : scopeFilter === 'FINISHED'
           ? filtered.filter((item) => item.status === 'FINISHED' || item.status === 'CANCELLED')
-          : scopeFilter === 'HISTORY'
-            ? filtered.filter((item) => new Date(item.startAt).getTime() < Date.now())
-            : filtered;
+          : filtered;
       host.innerHTML = `<div class="container section">
         <div class="page-head">
           <div><span class="eyebrow">ACTIVITY</span><h1>活动</h1><p class="muted">聚餐、年会与队内其他活动；报名受状态、截止时间与人数上限约束，满员不设候补</p></div>

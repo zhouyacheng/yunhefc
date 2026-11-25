@@ -202,7 +202,6 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
   expect(await scopeSelect.locator('option').allTextContents()).toEqual([
     '最近活动',
     '已结束活动',
-    '历史',
     '全部',
   ]);
 

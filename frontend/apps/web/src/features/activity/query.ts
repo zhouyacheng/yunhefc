@@ -3,7 +3,7 @@ import type { ActivityStatus, ActivityType } from '@yunhefc/shared';
 
 import { ACTIVITY_STATUS_TEXT, ACTIVITY_TYPE_TEXT } from './presentation';
 
-export type ActivityScope = 'latest' | 'finished' | 'history' | 'all';
+export type ActivityScope = 'latest' | 'finished' | 'all';
 
 export const DEFAULT_ACTIVITY_PAGE_SIZE = 10;
 export const ACTIVITY_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
@@ -26,10 +26,10 @@ export interface ActivityForm {
   status: string;
 }
 
+/** C11 不提供「历史」范围（P-127），历史活动经「全部」查看。 */
 export const ACTIVITY_SCOPE_OPTIONS: ReadonlyArray<{ value: ActivityScope; label: string }> = [
   { value: 'latest', label: '最近活动' },
   { value: 'finished', label: '已结束活动' },
-  { value: 'history', label: '历史' },
   { value: 'all', label: '全部' },
 ];
 
@@ -43,7 +43,7 @@ export const ACTIVITY_STATUS_OPTIONS: ReadonlyArray<{ value: ActivityStatus; lab
 
 const TYPE_CODES = new Set(ACTIVITY_TYPE_OPTIONS.map((option) => option.value));
 const STATUS_CODES = new Set(ACTIVITY_STATUS_OPTIONS.map((option) => option.value));
-const SCOPES = new Set<ActivityScope>(['latest', 'finished', 'history', 'all']);
+const SCOPES = new Set<ActivityScope>(['latest', 'finished', 'all']);
 
 export function parseActivityScope(value: string): ActivityScope {
   return SCOPES.has(value as ActivityScope) ? (value as ActivityScope) : 'all';

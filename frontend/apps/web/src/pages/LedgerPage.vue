@@ -202,8 +202,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <section class="card ledger-filters">
-        <label class="ledger-filter">
+      <section class="schedule-filters">
+        <label class="schedule-filter">
           <span>方向</span>
           <select v-model="typeFilter" aria-label="收支方向" @change="onTypeChange">
             <option value="">全部</option>
@@ -216,7 +216,7 @@ onMounted(() => {
             </option>
           </select>
         </label>
-        <label class="ledger-filter">
+        <label class="schedule-filter">
           <span>分类</span>
           <select v-model="categoryFilter" aria-label="账本分类" @change="reload">
             <option value="">全部</option>
@@ -225,15 +225,17 @@ onMounted(() => {
             </option>
           </select>
         </label>
-        <label class="ledger-filter">
+        <label class="schedule-filter">
           <span>开始日期</span>
           <input v-model="fromDate" type="date" aria-label="开始日期" @change="reload" />
         </label>
-        <label class="ledger-filter">
+        <label class="schedule-filter">
           <span>结束日期</span>
           <input v-model="toDate" type="date" aria-label="结束日期" @change="reload" />
         </label>
-        <Button size="small" plain @click="resetFilters">重置筛选</Button>
+        <div class="schedule-filter-actions">
+          <Button size="small" native-type="button" plain @click="resetFilters">重置</Button>
+        </div>
       </section>
 
       <p v-if="categoriesError" class="hint">{{ categoriesError }}</p>
@@ -329,36 +331,6 @@ onMounted(() => {
 
 .ledger-summary__value--negative {
   color: var(--yh-red);
-}
-
-.ledger-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: flex-end;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-}
-
-.ledger-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: var(--yh-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.ledger-filter select,
-.ledger-filter input {
-  min-width: 130px;
-  min-height: 36px;
-  padding: 6px 9px;
-  color: var(--yh-ink);
-  font-size: 13px;
-  background: var(--yh-surface);
-  border: 1px solid var(--yh-line);
-  border-radius: 9px;
 }
 
 .ledger-list {

@@ -308,7 +308,7 @@ class ActivityAdminIT extends ActivityITSupport {
     }
 
     @Test
-    void updatesOnlyEditableActivitiesAndDetectsVersionConflict() throws Exception {
+    void updatesAnyStatusAndDetectsVersionConflict() throws Exception {
         Cookie admin = bAdminLogin("13900002021");
         Long activityId = activityId(createActivity(admin, "可编辑活动", futureAt(30, 18), 4));
 
@@ -342,13 +342,27 @@ class ActivityAdminIT extends ActivityITSupport {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.data.details.status").exists());
 
+        // 已结束与已取消均可编辑字段，状态保持不变（P-113）。
         changeStatus(admin, activityId, 2, 1, null);
         mockMvc.perform(patch("/api/v1/b/activities/" + activityId).cookie(admin).with(csrf())
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"title\":\"终态改名\",\"version\":2}"))
-                .andExpect(status().isConflict())
-                .andExpect(jsonPath("$.code").value(40917));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("终态改名"))
+                .andExpect(jsonPath("$.data.status").value(2))
+                .andExpect(jsonPath("$.data.version").value(3));
+
+        Long cancelId = activityId(createActivity(admin, "已取消可编辑", futureAt(34, 18), 4));
+        changeStatus(admin, cancelId, 3, 0, "场地停业");
+        mockMvc.perform(patch("/api/v1/b/activities/" + cancelId).cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"title\":\"取消后改名\",\"version\":1}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("取消后改名"))
+                .andExpect(jsonPath("$.data.status").value(3))
+                .andExpect(jsonPath("$.data.version").value(2));
     }
 
     @Test
@@ -357,9 +371,15 @@ class ActivityAdminIT extends ActivityITSupport {
         Long activityId = activityId(createActivity(admin, "状态机活动", futureAt(30, 18), 4));
 
         changeStatus(admin, activityId, 1, 0, null);
-        changeStatus(admin, activityId, 2, 1, null);
-        changeStatus(admin, activityId, 0, 2, null, status().isConflict(), 40917);
-        changeStatus(admin, activityId, 3, 2, "重复取消", status().isConflict(), 40917);
+        // 报名截止可恢复为报名中（P-111）。
+        changeStatus(admin, activityId, 0, 1, null);
+        changeStatus(admin, activityId, 1, 2, null);
+        changeStatus(admin, activityId, 2, 3, null);
+        // 已结束不可取消，但可重新开放为报名中/报名截止（P-110）。
+        changeStatus(admin, activityId, 3, 4, "结束不可取消", status().isConflict(), 40917);
+        changeStatus(admin, activityId, 0, 4, null);
+        changeStatus(admin, activityId, 2, 5, null);
+        changeStatus(admin, activityId, 1, 6, null);
 
         Long cancelId = activityId(createActivity(admin, "取消活动", futureAt(31, 18), 4));
         changeStatus(admin, cancelId, 3, 0, "  场地停业  ");
@@ -375,6 +395,14 @@ class ActivityAdminIT extends ActivityITSupport {
                 WHERE event_type = 'AUDIT_RECORDED' AND aggregate_id = ?
                   AND JSON_UNQUOTE(JSON_EXTRACT(payload_json, '$.action')) = 'ACTIVITY_STATUS_CHANGE'
                 """, Integer.class, cancelId)).isEqualTo(1);
+
+        // 已取消可恢复为报名中/报名截止，但不可变为已结束（P-114）。
+        changeStatus(admin, cancelId, 2, 1, null, status().isConflict(), 40917);
+        changeStatus(admin, cancelId, 1, 1, null);
+
+        Long reopenCancelId = activityId(createActivity(admin, "取消后恢复报名中", futureAt(35, 18), 4));
+        changeStatus(admin, reopenCancelId, 3, 0, "临时取消");
+        changeStatus(admin, reopenCancelId, 0, 1, null);
 
         Long noReasonId = activityId(createActivity(admin, "缺原因活动", futureAt(32, 18), 4));
         changeStatus(admin, noReasonId, 3, 0, "   ", status().isBadRequest(), 40001);

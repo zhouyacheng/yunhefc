@@ -13,7 +13,6 @@ import {
   activityCapacityPercent,
   activityCostText,
   activityCountText,
-  activityEditable,
   activityStatusText,
   activityStatusTone,
   activityTimeText,
@@ -156,9 +155,7 @@ Page({
     const action = activityAction(activity, now);
     const canSignupPerm = authenticated && hasPermission(getPermissions(), ACTIVITY_SIGNUP_OWN);
     const canChangeStatus =
-      authenticated &&
-      hasPermission(getPermissions(), ACTIVITY_MANAGE_ANY) &&
-      activityEditable(activity.status);
+      authenticated && hasPermission(getPermissions(), ACTIVITY_MANAGE_ANY);
     const hint =
       action.reason || (authenticated && !pending && !canSignupPerm ? RESTRICTED_SIGNUP_HINT : '');
     this.setData({

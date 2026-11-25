@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import { activityStatusOptions } from '../miniprogram/utils/activity-status';
-import { activityEditable } from '../miniprogram/utils/activity-view';
 
 describe('activityStatusOptions', () => {
   it('报名中可流转到报名截止、已结束与已取消', () => {
@@ -14,28 +13,30 @@ describe('activityStatusOptions', () => {
     ]);
   });
 
-  it('报名截止不可恢复报名中，但可结束或取消', () => {
+  it('报名截止可恢复报名中、结束或取消', () => {
     const options = activityStatusOptions(1);
-    expect(options[0]).toMatchObject({
-      status: 0,
-      disabled: true,
-      reason: '报名截止不可恢复为报名中',
-    });
-    expect(options.slice(1).every((option) => !option.disabled)).toBe(true);
+    expect(options.every((option) => !option.disabled)).toBe(true);
   });
 
-  it('已结束与已取消为终态', () => {
-    for (const status of [2, 3] as const) {
-      expect(activityStatusOptions(status).every((option) => option.disabled)).toBe(true);
-    }
+  it('已结束可重新开放为报名中/报名截止，但不可取消', () => {
+    const options = activityStatusOptions(2);
+    expect(options.map((option) => [option.status, option.disabled])).toEqual([
+      [0, false],
+      [1, false],
+      [2, false],
+      [3, true],
+    ]);
+    expect(options[3]?.reason).toBe('已结束的活动不可取消');
   });
-});
 
-describe('activityEditable', () => {
-  it('仅报名中与报名截止可流转', () => {
-    expect(activityEditable(0)).toBe(true);
-    expect(activityEditable(1)).toBe(true);
-    expect(activityEditable(2)).toBe(false);
-    expect(activityEditable(3)).toBe(false);
+  it('已取消可恢复为报名中/报名截止，但不可结束', () => {
+    const options = activityStatusOptions(3);
+    expect(options.map((option) => [option.status, option.disabled])).toEqual([
+      [0, false],
+      [1, false],
+      [2, true],
+      [3, false],
+    ]);
+    expect(options[2]?.reason).toBe('已取消的活动不可结束');
   });
 });

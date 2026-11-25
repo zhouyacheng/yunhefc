@@ -152,7 +152,6 @@ public class ActivityAdminApplicationService {
         rejectUnknownFields(request);
         Long teamId = CurrentUser.principal().teamId();
         TeamActivity activity = requireActivityForUpdate(teamId, activityId);
-        ActivityStatusMachine.requireEditable(activity.getStatus());
         if (!request.getVersion().equals(activity.getVersion())) {
             throw versionConflict(activity.getVersion());
         }
@@ -175,7 +174,6 @@ public class ActivityAdminApplicationService {
                 .eq(TeamActivity::getId, activityId)
                 .eq(TeamActivity::getTeamId, teamId)
                 .eq(TeamActivity::getVersion, request.getVersion())
-                .in(TeamActivity::getStatus, ActivityStatusMachine.editable())
                 .set(TeamActivity::getTitle, activity.getTitle())
                 .set(TeamActivity::getType, activity.getType())
                 .set(TeamActivity::getStartAt, activity.getStartAt())
@@ -351,7 +349,8 @@ public class ActivityAdminApplicationService {
     }
 
     /**
-     * 写入失败后重新读取以区分终态（40917）与版本冲突（40901）。
+     * 写入失败后重新读取：状态流转非法返回 40917，否则按版本冲突 40901。
+     * 字段编辑不受状态限制（P-113），失败只可能是版本冲突。
      */
     private TeamActivity reloadAfterWrite(int updated, Long teamId, Long activityId,
                                           ActivityStatus target) {
@@ -362,8 +361,6 @@ public class ActivityAdminApplicationService {
         if (updated == 0) {
             if (target != null) {
                 ActivityStatusMachine.requireTransition(current.getStatus(), target);
-            } else {
-                ActivityStatusMachine.requireEditable(current.getStatus());
             }
             throw versionConflict(current.getVersion());
         }

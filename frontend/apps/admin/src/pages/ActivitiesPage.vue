@@ -15,7 +15,11 @@ import type {
   ActivityType,
   Page,
 } from '@yunhefc/shared';
-import { formatDateTime } from '@yunhefc/shared';
+import {
+  activityStatusCanTransit,
+  activityStatusDisabledReason,
+  formatDateTime,
+} from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
@@ -27,7 +31,6 @@ import {
   ACTIVITY_IMAGE_UPLOAD_ERROR,
   ACTIVITY_STATUS_OPTIONS,
   ACTIVITY_TYPE_OPTIONS,
-  activityEditable,
   activityFormError,
   activityStatusText,
   activityStatusTone,
@@ -73,6 +76,7 @@ interface ActivityImageUploadView {
 }
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const STATUS_OPEN: ActivityStatus = 0;
 const STATUS_CLOSED: ActivityStatus = 1;
 const STATUS_FINISHED: ActivityStatus = 2;
 const STATUS_CANCELLED: ActivityStatus = 3;
@@ -111,7 +115,8 @@ const activityForm = reactive<ActivityFormState>(defaultActivityForm());
 const imageInput = ref<HTMLInputElement | null>(null);
 const imagePreviews = ref<string[]>([]);
 const imageUploading = ref(false);
-const imageError = ref('');
+const imageProgress = ref<number | null>(null);
+const pendingImageIndex = ref<number | null>(null);
 const localPreviewUrls = new Set<string>();
 let imageUploadSeq = 0;
 let activitySubmitKey: string | null = null;
@@ -182,7 +187,8 @@ function resetImageState(): void {
   revokeLocalPreviews();
   imagePreviews.value = [];
   imageUploading.value = false;
-  imageError.value = '';
+  imageProgress.value = null;
+  pendingImageIndex.value = null;
 }
 
 function fillForm(activity: ActivityAdmin): void {
@@ -282,36 +288,71 @@ function removeImage(index: number): void {
   activityForm.locationImageKeys.splice(index, 1);
 }
 
+function alertImageError(message: string): Promise<unknown> {
+  return ElMessageBox.alert(message, '无法上传图片', {
+    type: 'warning',
+    confirmButtonText: '知道了',
+  }).catch(() => undefined);
+}
+
 async function onImageChange(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const files = Array.from(input.files ?? []);
   input.value = '';
-  if (!file) {
+  if (files.length === 0) {
     return;
   }
-  imageError.value = '';
-  if (activityForm.locationImageKeys.length >= ACTIVITY_IMAGE_MAX_COUNT) {
-    imageError.value = ACTIVITY_IMAGE_COUNT_ERROR;
+  const used = Math.max(activityForm.locationImageKeys.length, imagePreviews.value.length);
+  const remaining = ACTIVITY_IMAGE_MAX_COUNT - used;
+  if (files.length > remaining) {
+    await alertImageError(ACTIVITY_IMAGE_COUNT_ERROR);
     return;
   }
-  const invalid = validateActivityImage(file);
-  if (invalid) {
-    imageError.value = invalid;
-    return;
+  for (const file of files) {
+    const invalid = validateActivityImage(file);
+    if (invalid) {
+      await alertImageError(invalid);
+      return;
+    }
   }
 
   const seq = ++imageUploadSeq;
+  imageUploading.value = true;
+  try {
+    for (const file of files) {
+      if (seq !== imageUploadSeq || !(await uploadActivityImage(file, seq))) {
+        return;
+      }
+    }
+  } finally {
+    if (seq === imageUploadSeq) {
+      imageUploading.value = false;
+      imageProgress.value = null;
+      pendingImageIndex.value = null;
+    }
+  }
+}
+
+/** 上传单张并落位预览；失败返回 false 并弹窗提示，已成功的图片保留。 */
+async function uploadActivityImage(file: File, seq: number): Promise<boolean> {
   const localUrl = URL.createObjectURL(file);
   localPreviewUrls.add(localUrl);
   const pendingIndex = imagePreviews.value.length;
   imagePreviews.value.push(localUrl);
-  imageUploading.value = true;
+  imageProgress.value = 0;
+  pendingImageIndex.value = pendingIndex;
   try {
     const body = new FormData();
     body.append('file', file);
-    const uploaded = await api.postForm<ActivityImageUploadView>('/files/activity-image', body);
+    const uploaded = await api.postForm<ActivityImageUploadView>('/files/activity-image', body, {
+      onUploadProgress: (percent) => {
+        if (seq === imageUploadSeq) {
+          imageProgress.value = percent;
+        }
+      },
+    });
     if (seq !== imageUploadSeq) {
-      return;
+      return false;
     }
     activityForm.locationImageKeys.push(uploaded.objectKey);
     if (displayableImageUrl(uploaded.signedUrl)) {
@@ -319,18 +360,16 @@ async function onImageChange(event: Event): Promise<void> {
       localPreviewUrls.delete(localUrl);
       imagePreviews.value[pendingIndex] = uploaded.signedUrl;
     }
+    return true;
   } catch (caught) {
     if (seq !== imageUploadSeq) {
-      return;
+      return false;
     }
     imagePreviews.value.splice(pendingIndex, 1);
     URL.revokeObjectURL(localUrl);
     localPreviewUrls.delete(localUrl);
-    imageError.value = describeError(caught, ACTIVITY_IMAGE_UPLOAD_ERROR);
-  } finally {
-    if (seq === imageUploadSeq) {
-      imageUploading.value = false;
-    }
+    await alertImageError(describeError(caught, ACTIVITY_IMAGE_UPLOAD_ERROR));
+    return false;
   }
 }
 
@@ -356,11 +395,6 @@ async function openEdit(row: ActivityAdmin): Promise<void> {
   actionBusy.value = `edit:${row.id}`;
   try {
     const detail = await fetchAuthoritative(row.id);
-    if (!activityEditable(detail.status)) {
-      ElMessage.warning('已结束或已取消的活动不可编辑。');
-      await load();
-      return;
-    }
     resetImageState();
     fillForm(detail);
     activityDialog.mode = 'edit';
@@ -484,11 +518,6 @@ async function submitActivity(): Promise<void> {
       return;
     }
     const detail = await fetchAuthoritative(target.id);
-    if (!activityEditable(detail.status)) {
-      activityDialog.error = '已结束或已取消的活动不可编辑。';
-      await load();
-      return;
-    }
     await api.patch<ActivityAdmin>(`/activities/${detail.id}`, buildPayload(detail.version), {
       idempotencyKey: newIdempotencyKey(),
     });
@@ -521,16 +550,25 @@ async function submitActivity(): Promise<void> {
 
 // ---------------------------------------------------------------- status
 
+/** 状态动作按 ACT-10 共享合法集判定（P-110/P-111/P-114）。 */
+function canTransit(row: ActivityAdmin, target: ActivityStatus): boolean {
+  return activityStatusCanTransit(row.status, target);
+}
+
+function canOpenSignup(row: ActivityAdmin): boolean {
+  return canTransit(row, STATUS_OPEN);
+}
+
 function canCloseSignup(row: ActivityAdmin): boolean {
-  return row.status === 0;
+  return canTransit(row, STATUS_CLOSED);
 }
 
 function canFinish(row: ActivityAdmin): boolean {
-  return activityEditable(row.status);
+  return canTransit(row, STATUS_FINISHED);
 }
 
 function canCancel(row: ActivityAdmin): boolean {
-  return activityEditable(row.status);
+  return canTransit(row, STATUS_CANCELLED);
 }
 
 async function changeStatus(row: ActivityAdmin, target: ActivityStatus): Promise<void> {
@@ -564,12 +602,12 @@ function openCancel(row: ActivityAdmin): void {
   cancelDialog.visible = true;
 }
 
-type RowAction = 'edit' | 'close' | 'finish' | 'cancel';
+type RowAction = 'open' | 'close' | 'finish' | 'cancel';
 
 function onRowCommand(row: ActivityAdmin, command: RowAction): void {
   switch (command) {
-    case 'edit':
-      void openEdit(row);
+    case 'open':
+      void changeStatus(row, STATUS_OPEN);
       return;
     case 'close':
       void changeStatus(row, STATUS_CLOSED);
@@ -721,7 +759,7 @@ onBeforeUnmount(() => {
     <div class="page-head">
       <div>
         <h2>活动管理</h2>
-        <p class="muted">组织聚餐、年会等队内活动；已结束与已取消为终态，需要重新组织时用复制。</p>
+        <p class="muted">组织聚餐、年会等队内活动；报名中与报名截止可互转，已结束可重新开放、已取消可恢复为报名中/报名截止，需要重新组织时也可用复制。</p>
       </div>
       <el-button v-if="canManage" type="primary" @click="openCreate">新建活动</el-button>
     </div>
@@ -801,7 +839,7 @@ onBeforeUnmount(() => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="210" fixed="right">
+      <el-table-column label="操作" width="270" fixed="right">
         <template #default="{ row }">
           <div class="row-actions">
             <el-button link type="primary" size="small" @click="openRoster(row)">名单</el-button>
@@ -815,33 +853,46 @@ onBeforeUnmount(() => {
               >
                 复制
               </el-button>
+              <el-button
+                link
+                type="primary"
+                size="small"
+                :disabled="actionBusy !== null"
+                @click="openEdit(row)"
+              >
+                编辑
+              </el-button>
               <el-dropdown trigger="click" @command="onRowCommand(row, $event)">
                 <el-button link type="primary" size="small" :disabled="actionBusy !== null">
-                  更多
+                  状态
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
-                      command="edit"
-                      :disabled="actionBusy !== null || !activityEditable(row.status)"
+                      command="open"
+                      :disabled="actionBusy !== null || !canOpenSignup(row)"
+                      :title="activityStatusDisabledReason(row.status,STATUS_OPEN)"
                     >
-                      编辑
+                      报名中
                     </el-dropdown-item>
                     <el-dropdown-item
                       command="close"
                       :disabled="actionBusy !== null || !canCloseSignup(row)"
+                      :title="activityStatusDisabledReason(row.status,STATUS_CLOSED)"
                     >
                       报名截止
                     </el-dropdown-item>
                     <el-dropdown-item
                       command="finish"
                       :disabled="actionBusy !== null || !canFinish(row)"
+                      :title="activityStatusDisabledReason(row.status,STATUS_FINISHED)"
                     >
                       已结束
                     </el-dropdown-item>
                     <el-dropdown-item
                       command="cancel"
                       :disabled="actionBusy !== null || !canCancel(row)"
+                      :title="activityStatusDisabledReason(row.status,STATUS_CANCELLED)"
                     >
                       取消
                     </el-dropdown-item>
@@ -950,48 +1001,65 @@ onBeforeUnmount(() => {
         </el-form-item>
         <el-form-item label="场地环境">
           <div class="image-field">
-            <div v-if="imagePreviews.length === 0" class="image-placeholder">
-              未上传场地环境图片
-            </div>
-            <div
-              v-for="(url, index) in imagePreviews"
-              :key="`${index}-${url}`"
-              class="image-item"
-            >
-              <el-image v-if="url" :src="url" fit="cover" class="image-preview" />
-              <div v-else class="image-placeholder">图片加载中</div>
-              <el-button
-                link
-                type="danger"
-                size="small"
-                :disabled="imageUploading"
-                @click="removeImage(index)"
-              >
-                移除
-              </el-button>
+            <div class="image-grid">
+              <div v-for="slot in ACTIVITY_IMAGE_MAX_COUNT" :key="slot" class="image-slot">
+                <template v-if="imagePreviews[slot - 1] !== undefined">
+                  <div class="image-slot__box">
+                    <el-image
+                      v-if="imagePreviews[slot - 1]"
+                      :src="imagePreviews[slot - 1]"
+                      fit="cover"
+                      class="image-preview"
+                    />
+                    <div v-else class="image-placeholder">图片加载中</div>
+                    <div v-if="pendingImageIndex === slot - 1" class="image-progress">
+                      <el-progress
+                        type="circle"
+                        :percentage="imageProgress ?? 0"
+                        :width="52"
+                        :stroke-width="6"
+                      />
+                    </div>
+                  </div>
+                  <el-button
+                    link
+                    type="danger"
+                    size="small"
+                    :disabled="imageUploading"
+                    @click="removeImage(slot - 1)"
+                  >
+                    移除
+                  </el-button>
+                </template>
+                <button
+                  v-else
+                  type="button"
+                  class="image-upload-slot"
+                  :aria-label="`上传第 ${slot} 张场地环境图片`"
+                  :disabled="imageUploading"
+                  @click="pickImage"
+                >
+                  <span class="image-upload-slot__plus">+</span>
+                  <span>上传图片</span>
+                </button>
+              </div>
             </div>
             <div class="image-actions">
               <input
                 ref="imageInput"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
+                multiple
                 hidden
                 @change="onImageChange"
               />
-              <el-button
-                size="small"
-                :loading="imageUploading"
-                :disabled="activityForm.locationImageKeys.length >= ACTIVITY_IMAGE_MAX_COUNT"
-                @click="pickImage"
-              >
-                上传图片
-              </el-button>
-              <span class="muted small">JPG/PNG/WebP，单张不超过 5MB，最多 10 张</span>
+              <span class="muted small">
+                JPG/PNG/WebP，单张不超过 5MB，最多 {{ ACTIVITY_IMAGE_MAX_COUNT }} 张
+              </span>
             </div>
           </div>
-          <p v-if="imageError" class="dialog-error">{{ imageError }}</p>
         </el-form-item>
-        <el-form-item label="活动说明">
+        <el-form-item label="活动详情">
           <el-input
             v-model="activityForm.description"
             type="textarea"
@@ -1006,7 +1074,7 @@ onBeforeUnmount(() => {
           label="当前状态"
         >
           <span class="muted small">
-            {{ activityStatusText(activityDialog.activity.status) }}；仅报名中与报名截止可编辑。
+            {{ activityStatusText(activityDialog.activity.status) }}；任意状态均可编辑，编辑不改变状态。
           </span>
         </el-form-item>
       </el-form>
@@ -1029,7 +1097,7 @@ onBeforeUnmount(() => {
         type="warning"
         :closable="false"
         show-icon
-        :title="`确认取消「${cancelDialog.activity?.title ?? '该活动'}」？取消后已报名记录保留但不再有效，且不可恢复。`"
+        :title="`确认取消「${cancelDialog.activity?.title ?? '该活动'}」？取消后已报名记录保留但不再有效，可再恢复为报名中/报名截止。`"
       />
       <el-form label-width="96px">
         <el-form-item label="取消原因">
@@ -1145,20 +1213,75 @@ onBeforeUnmount(() => {
 
 .image-field {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 12px;
 }
 
-.image-item {
+.image-slot {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
+}
+
+.image-slot__box {
+  position: relative;
+}
+
+.image-progress {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 72%);
+}
+
+.image-progress :deep(.el-progress__text) {
+  font-size: 12px !important;
+}
+
+.image-upload-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  padding: 0;
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  background: #fafafa;
+  color: var(--el-text-color-placeholder);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.image-upload-slot:hover:not(:disabled) {
+  border-color: var(--el-color-primary);
+  color: var(--el-color-primary);
+}
+
+.image-upload-slot:disabled {
+  cursor: not-allowed;
+}
+
+.image-upload-slot__plus {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .image-preview {
-  width: 160px;
-  height: 96px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   border-radius: 6px;
   background: #f5f7fa;
 }
@@ -1167,8 +1290,8 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 160px;
-  height: 96px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   border: 1px dashed var(--el-border-color);
   border-radius: 6px;
   color: var(--el-text-color-placeholder);

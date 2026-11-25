@@ -29,6 +29,8 @@ export interface RequestOptions {
   signal?: AbortSignal;
   /** 401 时是否跳转登录；静默探测会话（守卫内）传 false。 */
   redirectOnUnauthorized?: boolean;
+  /** multipart 上传字节进度（0–100）；传入后该请求改用 XHR 发送。 */
+  onUploadProgress?: (percent: number) => void;
 }
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
@@ -189,6 +191,13 @@ export class ApiClient {
     }
 
     try {
+      if (
+        options.onUploadProgress &&
+        body instanceof FormData &&
+        typeof XMLHttpRequest !== 'undefined'
+      ) {
+        return await this.sendWithProgress(method, url, options, body, headers);
+      }
       return await this.fetchImpl(url, {
         method,
         credentials: this.credentials,
@@ -206,6 +215,63 @@ export class ApiClient {
         cause,
       });
     }
+  }
+
+  /** fetch 不暴露上传进度，仅在 multipart 需要进度时改用 XHR，响应仍按统一 envelope 解析。 */
+  private sendWithProgress(
+    method: string,
+    url: string,
+    options: RequestOptions,
+    body: FormData,
+    headers: Headers,
+  ): Promise<Response> {
+    return new Promise((resolve, reject) => {
+      if (options.signal?.aborted) {
+        reject(new DOMException('Request aborted', 'AbortError'));
+        return;
+      }
+      const xhr = new XMLHttpRequest();
+      xhr.open(method, url, true);
+      xhr.withCredentials = this.credentials === 'include';
+      headers.forEach((value, key) => xhr.setRequestHeader(key, value));
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          options.onUploadProgress?.(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+        }
+      };
+
+      const onAbort = () => xhr.abort();
+      options.signal?.addEventListener('abort', onAbort, { once: true });
+      const settle = (callback: () => void) => {
+        options.signal?.removeEventListener('abort', onAbort);
+        callback();
+      };
+
+      xhr.onload = () =>
+        settle(() => {
+          const responseHeaders = new Headers();
+          for (const line of xhr
+            .getAllResponseHeaders()
+            .trim()
+            .split(/[\r\n]+/)) {
+            const index = line.indexOf(':');
+            if (index > 0) {
+              responseHeaders.append(line.slice(0, index).trim(), line.slice(index + 1).trim());
+            }
+          }
+          resolve(
+            new Response(xhr.responseText, {
+              status: xhr.status,
+              statusText: xhr.statusText,
+              headers: responseHeaders,
+            }),
+          );
+        });
+      xhr.onerror = () => settle(() => reject(new TypeError('Network request failed')));
+      xhr.onabort = () => settle(() => reject(new DOMException('Request aborted', 'AbortError')));
+      xhr.send(body);
+    });
   }
 
   private async fetchCsrfToken(): Promise<void> {

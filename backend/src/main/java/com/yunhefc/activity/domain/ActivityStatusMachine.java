@@ -3,25 +3,14 @@ package com.yunhefc.activity.domain;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 
-import java.util.Collections;
-import java.util.EnumSet;
-import java.util.Set;
-
 /**
- * 活动状态机：0→1、1→2、0→2、0/1→3；已结束（2）与已取消（3）均为终态。
- * 取消不可恢复，重新组织活动走复制新建（P-99）。
+ * 活动状态机：0↔1、0/1→2、0/1→3、2→0/1（P-110）、3→0/1（P-114）。
+ * 已取消可恢复为报名中/报名截止，但不可变为已结束；字段编辑与状态解耦，
+ * 任意状态均可编辑活动字段（P-113）；报名移除仍仅限报名中/报名截止。
  */
 public final class ActivityStatusMachine {
 
-    private static final Set<ActivityStatus> EDITABLE = Collections.unmodifiableSet(
-            EnumSet.of(ActivityStatus.SIGNUP_OPEN, ActivityStatus.SIGNUP_CLOSED));
-
     private ActivityStatusMachine() {
-    }
-
-    /** 可编辑状态集合；SQL 条件与领域预检共用，避免两处清单漂移。 */
-    public static Set<ActivityStatus> editable() {
-        return EDITABLE;
     }
 
     public static void requireTransition(ActivityStatus from, ActivityStatus to) {
@@ -29,9 +18,11 @@ public final class ActivityStatusMachine {
             case SIGNUP_OPEN -> to == ActivityStatus.SIGNUP_CLOSED
                     || to == ActivityStatus.FINISHED
                     || to == ActivityStatus.CANCELLED;
-            case SIGNUP_CLOSED -> to == ActivityStatus.FINISHED
+            case SIGNUP_CLOSED -> to == ActivityStatus.SIGNUP_OPEN
+                    || to == ActivityStatus.FINISHED
                     || to == ActivityStatus.CANCELLED;
-            case FINISHED, CANCELLED -> false;
+            case FINISHED, CANCELLED -> to == ActivityStatus.SIGNUP_OPEN
+                    || to == ActivityStatus.SIGNUP_CLOSED;
         };
         if (!allowed) {
             throw new BusinessException(ErrorCode.ACTIVITY_STATE_CONFLICT,
@@ -39,14 +30,8 @@ public final class ActivityStatusMachine {
         }
     }
 
-    public static void requireEditable(ActivityStatus status) {
-        if (!EDITABLE.contains(status)) {
-            throw new BusinessException(ErrorCode.ACTIVITY_STATE_CONFLICT, "活动已结束或已取消，不可编辑");
-        }
-    }
-
     public static void requireRemovableSignup(ActivityStatus status) {
-        if (!EDITABLE.contains(status)) {
+        if (status != ActivityStatus.SIGNUP_OPEN && status != ActivityStatus.SIGNUP_CLOSED) {
             throw new BusinessException(ErrorCode.ACTIVITY_STATE_CONFLICT, "活动已结束或已取消，不可移除报名");
         }
     }

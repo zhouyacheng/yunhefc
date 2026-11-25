@@ -85,7 +85,40 @@ export function activityStatusText(status: ActivityStatus): string {
   return ACTIVITY_STATUS_TEXT[status] ?? '—';
 }
 
-/** 仅报名中（0）与报名截止（1）可编辑或流转；已结束/已取消为终态。 */
-export function activityEditable(status: ActivityStatus): boolean {
-  return status === 0 || status === 1;
+/** ACT-10 状态合法目标集：0↔1、0/1→2/3、2→0/1、3→0/1。 */
+export const ACTIVITY_STATUS_TARGETS: Readonly<
+  Record<ActivityStatus, readonly ActivityStatus[]>
+> = {
+  0: [1, 2, 3],
+  1: [0, 2, 3],
+  2: [0, 1],
+  3: [0, 1],
+};
+
+/** ACT-10：当前状态能否流转到目标状态。 */
+export function activityStatusCanTransit(
+  currentStatus: ActivityStatus,
+  targetStatus: ActivityStatus,
+): boolean {
+  return ACTIVITY_STATUS_TARGETS[currentStatus].includes(targetStatus);
+}
+
+/** 状态目标不可选时的原因文案；当前已是目标状态时单独说明。 */
+export function activityStatusDisabledReason(
+  currentStatus: ActivityStatus,
+  targetStatus: ActivityStatus,
+): string | undefined {
+  if (activityStatusCanTransit(currentStatus, targetStatus)) {
+    return undefined;
+  }
+  if (currentStatus === targetStatus) {
+    return '当前已是该状态';
+  }
+  if (currentStatus === 2 && targetStatus === 3) {
+    return '已结束的活动不可取消';
+  }
+  if (currentStatus === 3 && targetStatus === 2) {
+    return '已取消的活动不可结束';
+  }
+  return '当前状态不允许该操作';
 }

@@ -70,10 +70,10 @@
         <text class="status-pill status-pill--{{item.statusTone}}">{{item.statusText}}</text>
       </view>
       <text class="activity-card__type">{{item.typeText}}</text>
-      <text class="activity-card__line">{{item.timeText}}</text>
+      <text class="activity-card__line">📅 {{item.timeText}}</text>
       <text class="activity-card__line">📍 {{item.locationText}}</text>
       <view class="activity-card__foot">
-        <text class="muted">{{item.countText}}</text>
+        <text class="muted">👥 {{item.countText}}</text>
         <text
           wx:if="{{item.actionVisible}}"
           class="activity-card__action {{item.actionDisabled ? 'activity-card__action--disabled' : ''}}"

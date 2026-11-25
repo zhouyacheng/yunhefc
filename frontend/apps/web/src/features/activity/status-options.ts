@@ -1,5 +1,9 @@
 import type { ActivityStatus } from '@yunhefc/shared';
-import { activityEditable, activityStatusText } from '@yunhefc/shared';
+import {
+  activityStatusCanTransit,
+  activityStatusDisabledReason,
+  activityStatusText,
+} from '@yunhefc/shared';
 
 export interface ActivityStatusOption {
   status: ActivityStatus;
@@ -12,20 +16,21 @@ const ALL_STATUSES: ActivityStatus[] = [0, 1, 2, 3];
 
 /**
  * ACT-13 状态下拉：展示全部状态，但按 ACT-10 合法集禁用。
- * 0→1/2/3，1→2/3；已结束与已取消为终态，报名截止不可恢复为报名中。
- * 权威状态机在后端 ActivityStatusMachine；Web 与小程序各自镜像同一份前端判定。
+ * 报名中与报名截止可互转（P-111）；已结束可重新开放（P-110）、已取消可恢复（P-114），
+ * 目标均仅限报名中/报名截止。权威状态机在后端 ActivityStatusMachine；Web 与小程序各自镜像同一份前端判定。
  */
 export function activityStatusOptions(currentStatus: ActivityStatus): ActivityStatusOption[] {
-  const editable = activityEditable(currentStatus);
   return ALL_STATUSES.map((status) => {
     const label = activityStatusText(status);
-    if (!editable) {
-      return { status, label, disabled: true, reason: '已结束或已取消的活动不可修改' };
+    if (status === currentStatus || activityStatusCanTransit(currentStatus, status)) {
+      return { status, label, disabled: false };
     }
-    if (status === 0 && currentStatus === 1) {
-      return { status, label, disabled: true, reason: '报名截止不可恢复为报名中' };
-    }
-    return { status, label, disabled: false };
+    return {
+      status,
+      label,
+      disabled: true,
+      reason: activityStatusDisabledReason(currentStatus, status),
+    };
   });
 }
 

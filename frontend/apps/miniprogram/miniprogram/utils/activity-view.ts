@@ -27,11 +27,6 @@ export function activityStatusText(status: ActivityStatus): string {
   return ACTIVITY_STATUS_TEXT[status] ?? '—';
 }
 
-/** 仅报名中（0）与报名截止（1）可编辑或流转；已结束/已取消为终态。 */
-export function activityEditable(status: ActivityStatus): boolean {
-  return status === 0 || status === 1;
-}
-
 export interface ActivityActionView {
   /** 已取消/已结束只显示状态徽标，不渲染按钮。 */
   visible: boolean;

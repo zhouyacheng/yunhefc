@@ -835,7 +835,114 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   const dialog = page.locator('.el-dialog').filter({ hasText: '创建活动' });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator('.el-form-item').filter({ hasText: '活动名称' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: '上传图片' })).toBeVisible();
+  await expect(
+    dialog.locator('.el-form-item').filter({ hasText: '场地环境' }).locator('.image-upload-slot'),
+  ).toHaveCount(10);
+
+  // 超过单张上限走弹窗提示，不进入上传流程。
+  await dialog.locator('input[type=file]').setInputFiles({
+    name: 'oversize.png',
+    mimeType: 'image/png',
+    buffer: Buffer.alloc(5 * 1024 * 1024 + 1),
+  });
+  await expect(page.getByText('图片不能超过 5MB')).toBeVisible();
+  await page.getByRole('button', { name: '知道了' }).click();
+  await expect(page.getByText('图片不能超过 5MB')).toBeHidden();
+
+  // 批量选择超过剩余张数时整批拒绝。
+  await dialog.locator('input[type=file]').setInputFiles(
+    Array.from({ length: 11 }, (_, index) => ({
+      name: `batch-${index}.png`,
+      mimeType: 'image/png',
+      buffer: VALID_PNG,
+    })),
+  );
+  await expect(page.getByText('场地环境图片最多 10 张')).toBeVisible();
+  await page.getByRole('button', { name: '知道了' }).click();
+  await expect(page.getByText('场地环境图片最多 10 张')).toBeHidden();
+
+  // 批量选择合法图片时按顺序逐张上传并各自落位。
+  let uploaded = 0;
+  await page.route('**/api/v1/b/files/activity-image', async (route) => {
+    uploaded += 1;
+    if (uploaded === 1) {
+      // 留出窗口断言上传中的进度覆盖层。
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'success',
+        data: {
+          objectKey: `activity/1/batch-${uploaded}.jpg`,
+          signedUrl: `data:image/png;base64,${VALID_PNG.toString('base64')}`,
+        },
+        requestId: 'e2e-upload',
+      }),
+    });
+  });
+  await dialog.locator('input[type=file]').setInputFiles([
+    { name: 'batch-a.png', mimeType: 'image/png', buffer: VALID_PNG },
+    { name: 'batch-b.png', mimeType: 'image/png', buffer: VALID_PNG },
+  ]);
+  await expect(dialog.locator('.image-progress')).toHaveCount(1);
+  await expect(dialog.locator('.image-progress .el-progress')).toBeVisible();
+  await expect(dialog.locator('.image-preview')).toHaveCount(2);
+  await expect(dialog.locator('.image-progress')).toHaveCount(0);
+  expect(uploaded).toBe(2);
+  await page.unroute('**/api/v1/b/files/activity-image');
+
+  // 批量中途失败：保留已成功项、停止后续上传并弹窗。
+  await dialog.getByRole('button', { name: '移除' }).first().click();
+  await dialog.getByRole('button', { name: '移除' }).first().click();
+  await expect(dialog.locator('.image-preview')).toHaveCount(0);
+
+  let attempts = 0;
+  await page.route('**/api/v1/b/files/activity-image', async (route) => {
+    attempts += 1;
+    if (attempts === 2) {
+      // 用 200 + 错误 envelope 模拟服务端失败，避免测试把 500 计入 console error。
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 50001,
+          message: '上传失败，请稍后重试',
+          data: null,
+          requestId: 'e2e-upload-fail',
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'success',
+        data: {
+          objectKey: `activity/1/partial-${attempts}.jpg`,
+          signedUrl: `data:image/png;base64,${VALID_PNG.toString('base64')}`,
+        },
+        requestId: 'e2e-upload',
+      }),
+    });
+  });
+  await dialog.locator('input[type=file]').setInputFiles([
+    { name: 'partial-a.png', mimeType: 'image/png', buffer: VALID_PNG },
+    { name: 'partial-b.png', mimeType: 'image/png', buffer: VALID_PNG },
+    { name: 'partial-c.png', mimeType: 'image/png', buffer: VALID_PNG },
+  ]);
+  await expect(page.getByText('上传失败，请稍后重试')).toBeVisible();
+  await page.getByRole('button', { name: '知道了' }).click();
+  await expect(dialog.locator('.image-preview')).toHaveCount(1);
+  expect(attempts).toBe(2);
+  await page.unroute('**/api/v1/b/files/activity-image');
+
+  await dialog.getByRole('button', { name: '移除' }).first().click();
+  await expect(dialog.locator('.image-preview')).toHaveCount(0);
   await dialog.getByRole('button', { name: '取消' }).click();
   await expect(dialog).toBeHidden();
 
@@ -869,7 +976,54 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   expect(created.ok()).toBe(true);
 
   await page.reload();
-  await expect(page.locator('.el-table__row').filter({ hasText: title })).toBeVisible();
+  const row = page.locator('.el-table__row').filter({ hasText: title });
+  await expect(row).toBeVisible();
+
+  // 编辑已独立成按钮；状态下拉提供报名中并支持与报名截止互转。
+  await expect(row.getByRole('button', { name: '编辑' })).toBeVisible();
+  await row.getByRole('button', { name: '编辑' }).click();
+  const editDialog = page.locator('.el-dialog').filter({ hasText: '编辑活动' });
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByRole('button', { name: '取消' }).click();
+  await expect(editDialog).toBeHidden();
+
+  await row.getByRole('button', { name: '状态' }).click();
+  await expect(page.getByRole('menuitem', { name: '报名中' })).toBeVisible();
+  await page.getByRole('menuitem', { name: '报名截止' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '报名截止' })).toBeVisible();
+
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '报名中' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '报名中' })).toBeVisible();
+
+  // 已结束仍可编辑（P-113）。
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '已结束' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '已结束' })).toBeVisible();
+  await row.getByRole('button', { name: '编辑' }).click();
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByRole('button', { name: '取消' }).click();
+  await expect(editDialog).toBeHidden();
+
+  // 已取消可恢复为报名中（P-114）。
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '报名中' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '报名中' })).toBeVisible();
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '取消' }).click();
+  const cancelDialog = page.locator('.el-dialog').filter({ hasText: '取消活动' });
+  await expect(cancelDialog).toBeVisible();
+  await cancelDialog.getByPlaceholder('取消原因（将记入审计）').fill('E2E 取消');
+  await cancelDialog.getByRole('button', { name: '确认取消' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '已取消' })).toBeVisible();
+  // 已取消仍可编辑（P-113）。
+  await row.getByRole('button', { name: '编辑' }).click();
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByRole('button', { name: '取消' }).click();
+  await expect(editDialog).toBeHidden();
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '报名中' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '报名中' })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

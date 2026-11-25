@@ -1938,11 +1938,17 @@ textarea {
   margin-bottom: 14px;
 }
 
+.home-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
 .home-entry {
   display: flex;
   gap: 12px;
   align-items: center;
-  margin-bottom: 32px;
   color: var(--yh-ink);
   text-decoration: none;
 }

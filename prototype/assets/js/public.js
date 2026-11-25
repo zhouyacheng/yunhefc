@@ -29,13 +29,17 @@
     const next = byStartDesc[0] || null;
     const finished = Y.state.matches.filter((match) => match.status === 'FINISHED');
     const recent = byStartDesc.slice(1, 4);
-    // P-132：账本入口从个人中心移到首页，门禁同原型顶部导航（非访客且非外挂）。
+    // P-134：活动入口常驻；P-132：账本入口在其下，门禁同原型顶部导航（非访客且非外挂）。
     const homeUser = Y.currentUser();
-    const ledgerEntry = Boolean(homeUser.id) && Y.userRole(homeUser) !== 'GUEST'
-      ? `<section class="container section"><a class="card between" href="ledger.html" style="text-decoration:none;color:inherit"><span>💰 账本</span><span class="link">查看 →</span></a></section>`
-      : '';
+    const homeEntryLinks = [
+      { icon: '🎉', title: '活动', href: 'activity.html' },
+      ...(Boolean(homeUser.id) && Y.userRole(homeUser) !== 'GUEST'
+        ? [{ icon: '💰', title: '账本', href: 'ledger.html' }]
+        : []),
+    ];
+    const homeEntries = `<section class="container section"><div style="display:flex;flex-direction:column;gap:12px">${homeEntryLinks.map(({ icon, title, href }) => `<a class="card between" href="${href}" style="text-decoration:none;color:inherit"><span>${icon} ${title}</span><span class="link">查看 →</span></a>`).join('')}</div></section>`;
     if (!next) {
-      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看比赛</a></div></section>${ledgerEntry}`;
+      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看比赛</a></div></section>${homeEntries}`;
       return;
     }
     const nextConfirmed = Y.confirmed(next, 'PLAYER').length;
@@ -105,7 +109,7 @@
       <div class="section-head"><div><h2>最近比赛</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部比赛 →</a></div>
       <div class="match-grid">${recent.map(Y.renderMatchCard).join('')}</div>
     </section>` : ''}
-    ${ledgerEntry}
+    ${homeEntries}
     <section class="container section">
       <div class="section-head"><div><h2>球队火力</h2><p class="muted">二期能力占位，首版不展示数据</p></div><a class="link" href="team.html">查看球队 →</a></div>
       <div class="card"><div class="empty-inline">球队火力将在二期上线。</div></div>

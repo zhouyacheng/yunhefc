@@ -41,6 +41,12 @@ const canViewLedger = computed(
   () => !isPending(session.user?.status ?? 1) && hasPermission(session.permissions, LEDGER_VIEW_ANY),
 );
 
+/** 活动入口常驻，账本入口在其下，与 MP06 首页同口径。 */
+const homeEntries = computed(() => [
+  { to: '/activities', icon: '🎉', title: '活动' },
+  ...(canViewLedger.value ? [{ to: '/ledger', icon: '💰', title: '账本' }] : []),
+]);
+
 function onAdminEntry(event: MouseEvent): void {
   event.preventDefault();
   void openAdmin({ path: '/' });
@@ -213,9 +219,6 @@ onUnmounted(() => {
               <RouterLink to="/team">
                 <Button plain>球队名单</Button>
               </RouterLink>
-              <RouterLink to="/activities">
-                <Button plain>活动</Button>
-              </RouterLink>
               <a
                 v-if="canEnterAdmin"
                 data-testid="hero-admin-entry"
@@ -314,9 +317,6 @@ onUnmounted(() => {
         <RouterLink to="/matches">
           <Button size="small" type="primary">去比赛</Button>
         </RouterLink>
-        <RouterLink to="/activities">
-          <Button size="small" plain>看活动</Button>
-        </RouterLink>
       </div>
 
       <section v-if="matches.length > 0" class="home-section">
@@ -337,11 +337,18 @@ onUnmounted(() => {
         </div>
       </section>
 
-      <RouterLink v-if="canViewLedger" class="card home-entry" to="/ledger">
-        <span class="home-entry__icon" aria-hidden="true">💰</span>
-        <span class="home-entry__title">账本</span>
-        <span class="home-entry__arrow" aria-hidden="true">→</span>
-      </RouterLink>
+      <div class="home-entries">
+        <RouterLink
+          v-for="entry in homeEntries"
+          :key="entry.to"
+          class="card home-entry"
+          :to="entry.to"
+        >
+          <span class="home-entry__icon" aria-hidden="true">{{ entry.icon }}</span>
+          <span class="home-entry__title">{{ entry.title }}</span>
+          <span class="home-entry__arrow" aria-hidden="true">→</span>
+        </RouterLink>
+      </div>
 
       <section class="home-firepower">
         <div class="section-head">

@@ -30,6 +30,7 @@
 
 .filters__pickers {
   display: flex;
+  flex-wrap: wrap;
   gap: 16rpx;
   margin-top: 16rpx;
 }
@@ -43,6 +44,16 @@
   border: 1rpx solid var(--yh-line);
   border-radius: 999rpx;
   white-space: nowrap;
+}
+
+.filter-chip--clear {
+  color: var(--yh-muted);
+}
+
+.filter-chip--range {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .activity-list {

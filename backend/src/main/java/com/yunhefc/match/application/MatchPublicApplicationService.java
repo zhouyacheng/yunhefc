@@ -7,6 +7,7 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.common.util.DateRanges;
 import com.yunhefc.contracts.event.DerivedScoreSnapshot;
 import com.yunhefc.contracts.event.EventScoreReadPort;
 import com.yunhefc.contracts.registration.RegistrationQueueCounts;
@@ -22,7 +23,6 @@ import com.yunhefc.match.dto.MatchDtos.DerivedScore;
 import com.yunhefc.match.dto.MatchDtos.MatchDetail;
 import com.yunhefc.match.dto.MatchDtos.MatchPublicQuery;
 import com.yunhefc.match.dto.MatchDtos.MatchSummary;
-import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.match.dto.MatchDtos.RegistrationView;
 import com.yunhefc.match.infrastructure.TeamMatchMapper;
 import lombok.RequiredArgsConstructor;
@@ -32,8 +32,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
@@ -46,8 +44,6 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class MatchPublicApplicationService {
-
-    private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM");
 
     private final TeamMatchMapper teamMatchMapper;
     private final TeamReadPort teamReadPort;
@@ -67,9 +63,8 @@ public class MatchPublicApplicationService {
         String venue = MatchQueryParsing.normalize(query.venue());
         String scope = MatchQueryParsing.scope(query.scope());
         boolean ascending = MatchQueryParsing.ascending(query.sort());
-        YearMonth month = month(query.month());
-        MatchQueryParsing.DateRange dateRange =
-                MatchQueryParsing.dateRange(query.startDate(), query.endDate());
+        YearMonth month = DateRanges.parseMonth(query.month());
+        DateRanges.Range dateRange = DateRanges.parse(query.startDate(), query.endDate());
 
         LambdaQueryWrapper<TeamMatch> wrapper = new LambdaQueryWrapper<TeamMatch>()
                 .eq(TeamMatch::getTeamId, teamReadPort.currentTeamId())
@@ -236,17 +231,5 @@ public class MatchPublicApplicationService {
 
     private LocalDateTime monthStart(YearMonth month) {
         return month.atDay(1).atStartOfDay();
-    }
-
-    private YearMonth month(String requested) {
-        String value = MatchQueryParsing.normalize(requested);
-        if (value == null) {
-            return null;
-        }
-        try {
-            return YearMonth.parse(value, MONTH_FORMAT);
-        } catch (DateTimeParseException ex) {
-            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "月份必须为 YYYY-MM");
-        }
     }
 }

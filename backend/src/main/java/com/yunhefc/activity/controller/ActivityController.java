@@ -10,6 +10,7 @@ import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupResponse;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupView;
 import com.yunhefc.activity.dto.ActivityDtos.ActivityStatusRequest;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySummary;
+import com.yunhefc.activity.dto.ActivityDtos.ActivityTimeQuery;
 import com.yunhefc.common.api.ApiResponse;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.idempotency.Idempotent;
@@ -39,10 +40,14 @@ public class ActivityController {
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String scope,
             @RequestParam(required = false) String sort,
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             @RequestParam(defaultValue = "1") long page,
             @RequestParam(defaultValue = "10") long pageSize) {
         return ApiResponse.ok(activityService.list(
-                new ActivityQuery(type, status, scope, sort, page, pageSize)));
+                new ActivityQuery(type, status, scope, sort,
+                        new ActivityTimeQuery(month, startDate, endDate), page, pageSize)));
     }
 
     @GetMapping("/{id}")

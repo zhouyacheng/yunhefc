@@ -28,6 +28,7 @@ import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.time.ShanghaiTime;
+import com.yunhefc.common.util.DateRanges;
 import com.yunhefc.common.util.LikePattern;
 import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.messaging.EventTypes;
@@ -74,8 +75,7 @@ public class ActivityAdminApplicationService {
         Long teamId = CurrentUser.principal().teamId();
         ActivityQueryParsing.validatePaging(query.page(), query.pageSize());
         String keyword = ActivityQueryParsing.keyword(query.keyword());
-        ActivityQueryParsing.DateRange dateRange =
-                ActivityQueryParsing.dateRange(query.startDate(), query.endDate());
+        DateRanges.Range dateRange = DateRanges.parse(query.startDate(), query.endDate());
         LambdaQueryWrapper<TeamActivity> wrapper = new LambdaQueryWrapper<TeamActivity>()
                 .eq(TeamActivity::getTeamId, teamId)
                 .eq(query.type() != null, TeamActivity::getType, ActivityQueryParsing.type(query.type()))

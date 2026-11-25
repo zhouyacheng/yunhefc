@@ -2,21 +2,22 @@ import type { QueryParams } from '@yunhefc/api-client';
 import type { MatchStatus, MatchType } from '@yunhefc/shared';
 import { MATCH_STATUS_TEXT, MATCH_TYPE_TEXT } from '@yunhefc/shared';
 
+import {
+  currentShanghaiMonth,
+  normalizeTimeFilter,
+  parseDate,
+  parseMonth,
+  timeParamEntries,
+} from '../common/time-filter';
+
 export const DEFAULT_PAGE_SIZE = 10;
 export const PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
-const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
-const DATE_PATTERN = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 /** URL 中表示“明确不限月份”的哨兵；不会下发到 MAT-02。 */
 export const MONTH_ALL = 'all';
 // 与下拉选项共用同一份枚举键，避免新增状态时前端校验与选项漂移。
 const TYPE_CODES = new Set(Object.keys(MATCH_TYPE_TEXT).map(Number));
 const STATUS_CODES = new Set(Object.keys(MATCH_STATUS_TEXT).map(Number));
-const SHANGHAI_MONTH = new Intl.DateTimeFormat('en-US', {
-  timeZone: 'Asia/Shanghai',
-  year: 'numeric',
-  month: '2-digit',
-});
 
 /** 已生效的筛选条件；自定义日期范围与 month 互斥。 */
 export interface ScheduleFilters {
@@ -62,34 +63,6 @@ function parseEnum(value: unknown, allowed: ReadonlySet<number>): number | null 
   return code !== null && allowed.has(code) ? code : null;
 }
 
-function parseMonth(value: unknown): string | null {
-  const text = firstValue(value);
-  return MONTH_PATTERN.test(text) ? text : null;
-}
-
-/** 严格校验 YYYY-MM-DD，并用 UTC 回读拒绝 2026-02-30 之类的非法日期。 */
-function parseDate(value: unknown): string | null {
-  const text = firstValue(value);
-  if (!DATE_PATTERN.test(text)) {
-    return null;
-  }
-  const [year = 0, month = 0, day = 0] = text.split('-').map(Number);
-  const date = new Date(Date.UTC(year, month - 1, day));
-  return date.getUTCFullYear() === year &&
-    date.getUTCMonth() === month - 1 &&
-    date.getUTCDate() === day
-    ? text
-    : null;
-}
-
-/** 当前年月（Asia/Shanghai），避免浏览器本地时区在月末预填错月。 */
-export function currentShanghaiMonth(now = new Date()): string {
-  const parts = SHANGHAI_MONTH.formatToParts(now);
-  const year = parts.find((part) => part.type === 'year')?.value ?? '';
-  const month = parts.find((part) => part.type === 'month')?.value ?? '';
-  return `${year}-${month}`;
-}
-
 function parsePageSize(value: unknown): number {
   const size = parseInteger(value);
   return size !== null && isSupportedPageSize(size) ? size : DEFAULT_PAGE_SIZE;
@@ -101,39 +74,15 @@ function isSupportedPageSize(value: number): boolean {
 
 /** 统一时间筛选不变量：有效范围优先；其次月份；两者都无时仅保留“明确不限”标记。 */
 function normalizeFilters(filters: ScheduleFilters): ScheduleFilters {
-  const startDate = parseDate(filters.startDate);
-  const endDate = parseDate(filters.endDate);
-  const hasRange = startDate !== null && endDate !== null && startDate <= endDate;
-  if (hasRange) {
-    return {
-      type: filters.type,
-      venue: filters.venue.trim(),
-      status: filters.status,
-      month: null,
-      monthAll: true,
-      startDate,
-      endDate,
-    };
-  }
-  if (filters.month) {
-    return {
-      type: filters.type,
-      venue: filters.venue.trim(),
-      status: filters.status,
-      month: filters.month,
-      monthAll: false,
-      startDate: null,
-      endDate: null,
-    };
-  }
+  const time = normalizeTimeFilter(filters);
   return {
     type: filters.type,
     venue: filters.venue.trim(),
     status: filters.status,
-    month: null,
-    monthAll: filters.monthAll,
-    startDate: null,
-    endDate: null,
+    month: time.month,
+    monthAll: time.startDate !== null ? true : time.month ? false : filters.monthAll,
+    startDate: time.startDate,
+    endDate: time.endDate,
   };
 }
 
@@ -156,19 +105,13 @@ function baseFilterEntries(filters: ScheduleFilters): Array<[string, string | nu
 /** MAT-02 请求筛选键值；month=all 与默认态都不下发时间参数。 */
 function requestFilterEntries(filters: ScheduleFilters): Array<[string, string | number]> {
   const normalized = normalizeFilters(filters);
-  const entries = baseFilterEntries(normalized);
-  if (normalized.startDate !== null && normalized.endDate !== null) {
-    entries.push(['startDate', normalized.startDate], ['endDate', normalized.endDate]);
-  } else if (normalized.month) {
-    entries.push(['month', normalized.month]);
-  }
-  return entries;
+  return [...baseFilterEntries(normalized), ...timeParamEntries(normalized)];
 }
 
 /** 从 route.query 解析；非法值一律忽略并回退默认值。 */
 export function parseScheduleQuery(raw: Record<string, unknown>): ScheduleQuery {
-  const startDate = parseDate(raw.startDate);
-  const endDate = parseDate(raw.endDate);
+  const startDate = parseDate(firstValue(raw.startDate));
+  const endDate = parseDate(firstValue(raw.endDate));
   const hasRange = startDate !== null && endDate !== null && startDate <= endDate;
   const monthRaw = firstValue(raw.month);
   const month = hasRange ? null : parseMonth(monthRaw);

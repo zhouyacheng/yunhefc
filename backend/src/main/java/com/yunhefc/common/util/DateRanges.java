@@ -5,19 +5,45 @@ import com.yunhefc.common.error.ErrorCode;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.regex.Pattern;
 
 /**
- * 管理端列表共用的自定义日期范围：按 Asia/Shanghai 自然日左闭右开。
+ * 列表共用的时间筛选参数：月份与自定义日期范围，均按 Asia/Shanghai 自然月/自然日。
  */
 public final class DateRanges {
 
     private static final Pattern DATE_PATTERN = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
     private static final LocalDate MIN_DATE = LocalDate.of(2000, 1, 1);
     private static final LocalDate MAX_DATE = LocalDate.of(2100, 12, 31);
+    private static final YearMonth MIN_MONTH = YearMonth.from(MIN_DATE);
+    private static final YearMonth MAX_MONTH = YearMonth.from(MAX_DATE);
+    private static final DateTimeFormatter MONTH_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM");
 
     private DateRanges() {
+    }
+
+    /**
+     * 空值不筛选；格式非法或超出 2000-01 至 2100-12 返回 40001。
+     */
+    public static YearMonth parseMonth(String value) {
+        String month = normalize(value);
+        if (month == null) {
+            return null;
+        }
+        YearMonth parsed;
+        try {
+            parsed = YearMonth.parse(month, MONTH_FORMAT);
+        } catch (DateTimeParseException ex) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED, "月份必须为 YYYY-MM");
+        }
+        if (parsed.isBefore(MIN_MONTH) || parsed.isAfter(MAX_MONTH)) {
+            throw new BusinessException(ErrorCode.VALIDATION_FAILED,
+                    "月份需在 2000-01 至 2100-12");
+        }
+        return parsed;
     }
 
     /**

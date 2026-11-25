@@ -1,5 +1,12 @@
 import { currentShanghaiMonth } from '../../utils/datetime';
 import { listMatches } from '../../utils/api-client';
+import {
+  TIME_FILTER_MAX,
+  TIME_FILTER_MIN,
+  patchMonth,
+  patchRange,
+  rangeError,
+} from '../../utils/time-filter';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import {
   createPagedFeed,
@@ -55,6 +62,8 @@ Page({
     statusOptions: STATUS_OPTIONS,
     typeIndex: 0,
     statusIndex: 0,
+    timeFilterMin: TIME_FILTER_MIN,
+    timeFilterMax: TIME_FILTER_MAX,
     monthPickerValue: `${toScheduleForm(emptyScheduleFilters()).month}-01`,
     rangeStart: '',
     rangeEnd: '',
@@ -180,10 +189,11 @@ Page({
 
   onMonthChange(event: WechatMiniprogram.PickerChange) {
     const month = String(event.detail.value).slice(0, 7);
-    this.patchForm(
-      { month, startDate: '', endDate: '' },
-      { monthPickerValue: `${month}-01`, rangeStart: '', rangeEnd: '' },
-    );
+    this.patchForm(patchMonth(month), {
+      monthPickerValue: `${month}-01`,
+      rangeStart: '',
+      rangeEnd: '',
+    });
   },
 
   clearMonth() {
@@ -193,7 +203,7 @@ Page({
   /** 清空后原生 picker 默认停在当月，重复确认不会触发 change；提供显式恢复入口。 */
   selectCurrentMonth() {
     const month = currentShanghaiMonth();
-    this.patchForm({ month, startDate: '', endDate: '' }, { monthPickerValue: `${month}-01` });
+    this.patchForm(patchMonth(month), { monthPickerValue: `${month}-01` });
   },
 
   openRange() {
@@ -219,15 +229,12 @@ Page({
 
   confirmRange() {
     const { rangeStart: startDate, rangeEnd: endDate } = this.data;
-    if (!startDate || !endDate) {
-      wx.showToast({ title: '请选择开始和结束日期', icon: 'none' });
+    const error = rangeError(startDate, endDate);
+    if (error) {
+      wx.showToast({ title: error, icon: 'none' });
       return;
     }
-    if (startDate > endDate) {
-      wx.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' });
-      return;
-    }
-    this.patchForm({ month: '', startDate, endDate }, { rangeOpen: false });
+    this.patchForm(patchRange(startDate, endDate), { rangeOpen: false });
   },
 
   clearRange() {

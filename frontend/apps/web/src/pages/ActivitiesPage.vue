@@ -6,6 +6,7 @@ import { Button, Empty, Loading, Pagination, Tag } from 'vant';
 import { computed, onMounted, ref } from 'vue';
 
 import { api } from '../api/client';
+import MonthRangeFilter from '../components/MonthRangeFilter.vue';
 import {
   ACTIVITY_PAGE_SIZE_OPTIONS,
   ACTIVITY_SCOPE_OPTIONS,
@@ -24,10 +25,12 @@ import {
   activityTypeText,
   formatActivityCost,
 } from '../features/activity/presentation';
+import type { TimeForm } from '../features/common/time-filter';
 
 const scope = ref('all');
 const typeFilter = ref('');
 const statusFilter = ref('');
+const timeFilter = ref<TimeForm>({ month: '', startDate: '', endDate: '' });
 const page = ref(1);
 const pageSize = ref(DEFAULT_ACTIVITY_PAGE_SIZE);
 const activities = ref<ActivitySummary[]>([]);
@@ -46,6 +49,7 @@ function currentFilters() {
     scope: scope.value,
     type: typeFilter.value,
     status: statusFilter.value,
+    ...timeFilter.value,
   });
 }
 
@@ -163,6 +167,7 @@ onMounted(() => {
           </option>
         </select>
       </label>
+      <MonthRangeFilter v-model="timeFilter" @change="reload" />
     </section>
 
     <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>

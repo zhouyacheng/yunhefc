@@ -11,7 +11,15 @@ import {
   type ActivityFilters,
 } from '../../utils/activity-query';
 import { buildActivityCard, type ActivityCardView } from '../../utils/activity-view';
+import { currentShanghaiMonth } from '../../utils/datetime';
 import { subscribe } from '../../utils/invalidation';
+import {
+  TIME_FILTER_MAX,
+  TIME_FILTER_MIN,
+  patchMonth,
+  patchRange,
+  rangeError,
+} from '../../utils/time-filter';
 import {
   createPagedFeed,
   emptyPagedFeedState,
@@ -47,6 +55,15 @@ Page({
     typeIndex: 0,
     statusOptions: ACTIVITY_STATUS_OPTIONS,
     statusIndex: 0,
+    month: '',
+    startDate: '',
+    endDate: '',
+    timeFilterMin: TIME_FILTER_MIN,
+    timeFilterMax: TIME_FILTER_MAX,
+    monthPickerDraft: `${currentShanghaiMonth()}-01`,
+    rangeDraftStart: '',
+    rangeDraftEnd: '',
+    rangeOpen: false,
     emptyText: emptyTextOf(DEFAULT_ACTIVITY_FILTERS.scope),
   },
 
@@ -107,25 +124,99 @@ Page({
       return;
     }
     this.setData({ scope, emptyText: emptyTextOf(scope) });
-    this.applyFilters(scope, this.data.typeIndex, this.data.statusIndex);
+    this.applyFilters();
   },
 
   onTypeChange(event: WechatMiniprogram.PickerChange) {
-    const typeIndex = Number(event.detail.value);
-    this.setData({ typeIndex });
-    this.applyFilters(this.data.scope, typeIndex, this.data.statusIndex);
+    this.setData({ typeIndex: Number(event.detail.value) });
+    this.applyFilters();
   },
 
   onStatusChange(event: WechatMiniprogram.PickerChange) {
-    const statusIndex = Number(event.detail.value);
-    this.setData({ statusIndex });
-    this.applyFilters(this.data.scope, this.data.typeIndex, statusIndex);
+    this.setData({ statusIndex: Number(event.detail.value) });
+    this.applyFilters();
   },
 
-  applyFilters(scope: ActivityFilters['scope'], typeIndex: number, statusIndex: number) {
-    const type = ACTIVITY_TYPE_OPTIONS[typeIndex]?.value ?? '';
-    const status = ACTIVITY_STATUS_OPTIONS[statusIndex]?.value ?? '';
-    const key = activityFeedKey({ scope, type, status });
+  onMonthChange(event: WechatMiniprogram.PickerChange) {
+    const month = String(event.detail.value).slice(0, 7);
+    this.setData({
+      ...patchMonth(month),
+      monthPickerDraft: `${month}-01`,
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
+    });
+    this.applyFilters();
+  },
+
+  clearMonth() {
+    this.setData({ month: '', monthPickerDraft: `${currentShanghaiMonth()}-01` });
+    this.applyFilters();
+  },
+
+  /** 清空后原生 picker 默认停在当月，重复确认不会触发 change；提供显式恢复入口。 */
+  selectCurrentMonth() {
+    const month = currentShanghaiMonth();
+    this.setData({
+      ...patchMonth(month),
+      monthPickerDraft: `${month}-01`,
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
+    });
+    this.applyFilters();
+  },
+
+  openRange() {
+    this.setData({
+      rangeOpen: true,
+      rangeDraftStart: this.data.startDate,
+      rangeDraftEnd: this.data.endDate,
+    });
+  },
+
+  closeRange() {
+    this.setData({ rangeOpen: false });
+  },
+
+  onRangeStartChange(event: WechatMiniprogram.PickerChange) {
+    this.setData({ rangeDraftStart: String(event.detail.value) });
+  },
+
+  onRangeEndChange(event: WechatMiniprogram.PickerChange) {
+    this.setData({ rangeDraftEnd: String(event.detail.value) });
+  },
+
+  confirmRange() {
+    const { rangeDraftStart: startDate, rangeDraftEnd: endDate } = this.data;
+    const error = rangeError(startDate, endDate);
+    if (error) {
+      wx.showToast({ title: error, icon: 'none' });
+      return;
+    }
+    this.setData({ ...patchRange(startDate, endDate), rangeOpen: false });
+    this.applyFilters();
+  },
+
+  clearRange() {
+    this.setData({
+      startDate: '',
+      endDate: '',
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
+      rangeOpen: false,
+    });
+    this.applyFilters();
+  },
+
+  applyFilters() {
+    const filters: ActivityFilters = {
+      scope: this.data.scope as ActivityFilters['scope'],
+      type: ACTIVITY_TYPE_OPTIONS[this.data.typeIndex]?.value ?? '',
+      status: ACTIVITY_STATUS_OPTIONS[this.data.statusIndex]?.value ?? '',
+      month: this.data.month,
+      startDate: this.data.startDate,
+      endDate: this.data.endDate,
+    };
+    const key = activityFeedKey(filters);
     if (key === feed?.state.key) {
       return;
     }

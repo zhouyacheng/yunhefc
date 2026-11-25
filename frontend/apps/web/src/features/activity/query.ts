@@ -1,6 +1,8 @@
 import type { QueryParams } from '@yunhefc/api-client';
 import type { ActivityStatus, ActivityType } from '@yunhefc/shared';
 
+import { normalizeTimeFilter, timeParamEntries } from '../common/time-filter';
+import type { TimeFilter, TimeForm } from '../common/time-filter';
 import { ACTIVITY_STATUS_TEXT, ACTIVITY_TYPE_TEXT } from './presentation';
 
 export type ActivityScope = 'latest' | 'finished' | 'all';
@@ -8,7 +10,7 @@ export type ActivityScope = 'latest' | 'finished' | 'all';
 export const DEFAULT_ACTIVITY_PAGE_SIZE = 10;
 export const ACTIVITY_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
-export interface ActivityFilters {
+export interface ActivityFilters extends TimeFilter {
   scope: ActivityScope;
   type: ActivityType | null;
   status: ActivityStatus | null;
@@ -19,8 +21,7 @@ export interface ActivityQuery extends ActivityFilters {
   pageSize: number;
 }
 
-/** 表单里的原始字符串；空字符串表示不筛选。 */
-export interface ActivityForm {
+export interface ActivityForm extends TimeForm {
   scope: string;
   type: string;
   status: string;
@@ -65,12 +66,19 @@ export function parseActivityStatus(value: string): ActivityStatus | null {
   return STATUS_CODES.has(code as ActivityStatus) ? (code as ActivityStatus) : null;
 }
 
+function normalizeActivityTime(filters: ActivityFilters): ActivityFilters {
+  return { ...filters, ...normalizeTimeFilter(filters) };
+}
+
 export function fromActivityForm(form: ActivityForm): ActivityFilters {
-  return {
+  return normalizeActivityTime({
     scope: parseActivityScope(form.scope),
     type: parseActivityType(form.type),
     status: parseActivityStatus(form.status),
-  };
+    month: form.month || null,
+    startDate: form.startDate || null,
+    endDate: form.endDate || null,
+  });
 }
 
 function isSupportedPageSize(value: number): value is (typeof ACTIVITY_PAGE_SIZE_OPTIONS)[number] {
@@ -83,12 +91,16 @@ export function normalizeActivityPageSize(value: number): number {
 
 /** ACT-01 查询参数；「最近活动」同为分页列表，仅由服务端限定报名中。 */
 export function toActivityRequest(query: ActivityQuery): QueryParams {
-  const params: QueryParams = { scope: query.scope };
-  if (query.type !== null) {
-    params.type = query.type;
+  const filters = normalizeActivityTime(query);
+  const params: QueryParams = { scope: filters.scope };
+  if (filters.type !== null) {
+    params.type = filters.type;
   }
-  if (query.status !== null) {
-    params.status = query.status;
+  if (filters.status !== null) {
+    params.status = filters.status;
+  }
+  for (const [key, value] of timeParamEntries(filters)) {
+    params[key] = value;
   }
   params.page = query.page;
   params.pageSize = query.pageSize;

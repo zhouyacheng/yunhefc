@@ -218,6 +218,47 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
   expect(errors).toEqual([]);
 });
 
+test('C11 活动列表：月份与自定义时间筛选下发 ACT-01', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  const queries: URLSearchParams[] = [];
+
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/activities',
+    async (route) => {
+      queries.push(new URL(route.request().url()).searchParams);
+      await fulfill(route, pageOf(LIST_ITEMS));
+    },
+  );
+
+  await page.goto('/activities');
+  await expect(page.getByTestId('activity-card')).toHaveCount(5);
+  expect(queries.at(-1)?.has('month')).toBe(false);
+
+  // 月份默认“全部月份”，确认后下发 month，并出现清除入口。
+  await page.getByRole('button', { name: '选择月份' }).click();
+  await page.getByRole('button', { name: '确认', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.get('month')).toMatch(/^\d{4}-\d{2}$/);
+  await expect(page.getByRole('button', { name: '清除月份', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: '清除月份', exact: true }).click();
+  await expect.poll(() => queries.at(-1)?.has('month')).toBe(false);
+
+  // 自定义时间与月份互斥：选范围后不再下发 month。
+  await page.getByRole('button', { name: '选择自定义时间' }).click();
+  const days = page.locator('.van-calendar__day:not(.van-calendar__day--disabled)');
+  await days.first().click();
+  await days.first().click();
+  await page.locator('.van-calendar__confirm').click();
+
+  await expect.poll(() => queries.at(-1)?.get('startDate')).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  const latest = queries.at(-1);
+  expect(latest?.get('endDate')).toBe(latest?.get('startDate'));
+  expect(latest?.has('month')).toBe(false);
+  await expect(page.getByRole('button', { name: '清除自定义时间', exact: true })).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
 test('C11 活动列表：加载失败可重试', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   let calls = 0;

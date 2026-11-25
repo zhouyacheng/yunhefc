@@ -85,7 +85,7 @@
     <view class="filter-field">
       <text class="filter-field__label">月份</text>
       <view class="filter-field__control">
-        <picker mode="date" fields="month" start="2000-01-01" end="2100-12-31" value="{{monthPickerValue}}" bindchange="onMonthChange">
+        <picker mode="date" fields="month" start="{{timeFilterMin}}" end="{{timeFilterMax}}" value="{{monthPickerValue}}" bindchange="onMonthChange">
           <view class="filter-field__value">{{form.month || '全部月份'}}</view>
         </picker>
         <text wx:if="{{form.month}}" class="filter-field__clear" bindtap="clearMonth">清除</text>
@@ -115,14 +115,14 @@
 
     <view class="filter-field">
       <text class="filter-field__label">开始日期</text>
-      <picker mode="date" value="{{rangeStart}}" start="2000-01-01" end="2100-12-31" bindchange="onRangeStartChange">
+      <picker mode="date" value="{{rangeStart}}" start="{{timeFilterMin}}" end="{{timeFilterMax}}" bindchange="onRangeStartChange">
         <view class="filter-field__value">{{rangeStart || '选择开始日期'}}</view>
       </picker>
     </view>
 
     <view class="filter-field">
       <text class="filter-field__label">结束日期</text>
-      <picker mode="date" value="{{rangeEnd}}" start="2000-01-01" end="2100-12-31" bindchange="onRangeEndChange">
+      <picker mode="date" value="{{rangeEnd}}" start="{{timeFilterMin}}" end="{{timeFilterMax}}" bindchange="onRangeEndChange">
         <view class="filter-field__value">{{rangeEnd || '选择结束日期'}}</view>
       </picker>
     </view>

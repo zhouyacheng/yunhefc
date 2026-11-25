@@ -8,8 +8,8 @@ import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * 活动状态机：0→1、1→2、0→2、0/1→3；已结束（2）与已取消（3）均为终态。
- * 取消不可恢复，重新组织活动走复制新建（P-99）。
+ * 活动状态机：0↔1、0→2、1→2、0/1→3，以及已结束（2）→0/1（重新开放，P-110/P-111）。
+ * 已取消（3）仍为终态、不可恢复；取消后重新组织活动走复制新建（P-99）。
  */
 public final class ActivityStatusMachine {
 
@@ -29,9 +29,12 @@ public final class ActivityStatusMachine {
             case SIGNUP_OPEN -> to == ActivityStatus.SIGNUP_CLOSED
                     || to == ActivityStatus.FINISHED
                     || to == ActivityStatus.CANCELLED;
-            case SIGNUP_CLOSED -> to == ActivityStatus.FINISHED
+            case SIGNUP_CLOSED -> to == ActivityStatus.SIGNUP_OPEN
+                    || to == ActivityStatus.FINISHED
                     || to == ActivityStatus.CANCELLED;
-            case FINISHED, CANCELLED -> false;
+            case FINISHED -> to == ActivityStatus.SIGNUP_OPEN
+                    || to == ActivityStatus.SIGNUP_CLOSED;
+            case CANCELLED -> false;
         };
         if (!allowed) {
             throw new BusinessException(ErrorCode.ACTIVITY_STATE_CONFLICT,

@@ -17,26 +17,36 @@ class ActivityDomainTest {
     private static final LocalDateTime START = LocalDateTime.of(2026, 12, 20, 18, 0);
 
     @Test
-    void allowsOnlyForwardTransitionsAndCancel() {
+    void allowsForwardTransitionsReopenAndCancel() {
         assertThatCode(() -> ActivityStatusMachine.requireTransition(
                 ActivityStatus.SIGNUP_OPEN, ActivityStatus.SIGNUP_CLOSED)).doesNotThrowAnyException();
         assertThatCode(() -> ActivityStatusMachine.requireTransition(
                 ActivityStatus.SIGNUP_OPEN, ActivityStatus.FINISHED)).doesNotThrowAnyException();
         assertThatCode(() -> ActivityStatusMachine.requireTransition(
                 ActivityStatus.SIGNUP_CLOSED, ActivityStatus.FINISHED)).doesNotThrowAnyException();
+        // 报名截止可恢复为报名中（P-111）。
+        assertThatCode(() -> ActivityStatusMachine.requireTransition(
+                ActivityStatus.SIGNUP_CLOSED, ActivityStatus.SIGNUP_OPEN)).doesNotThrowAnyException();
         assertThatCode(() -> ActivityStatusMachine.requireTransition(
                 ActivityStatus.SIGNUP_OPEN, ActivityStatus.CANCELLED)).doesNotThrowAnyException();
         assertThatCode(() -> ActivityStatusMachine.requireTransition(
                 ActivityStatus.SIGNUP_CLOSED, ActivityStatus.CANCELLED)).doesNotThrowAnyException();
+        // 已结束可重新开放（P-110）。
+        assertThatCode(() -> ActivityStatusMachine.requireTransition(
+                ActivityStatus.FINISHED, ActivityStatus.SIGNUP_OPEN)).doesNotThrowAnyException();
+        assertThatCode(() -> ActivityStatusMachine.requireTransition(
+                ActivityStatus.FINISHED, ActivityStatus.SIGNUP_CLOSED)).doesNotThrowAnyException();
     }
 
     @Test
-    void rejectsTransitionsFromTerminalOrSameState() {
+    void rejectsTransitionsFromCancelledReopenCancelOrSameState() {
         assertStateConflict(ActivityStatus.CANCELLED, ActivityStatus.SIGNUP_OPEN);
+        assertStateConflict(ActivityStatus.CANCELLED, ActivityStatus.FINISHED);
         assertStateConflict(ActivityStatus.CANCELLED, ActivityStatus.CANCELLED);
-        assertStateConflict(ActivityStatus.FINISHED, ActivityStatus.SIGNUP_CLOSED);
+        assertStateConflict(ActivityStatus.FINISHED, ActivityStatus.CANCELLED);
+        assertStateConflict(ActivityStatus.FINISHED, ActivityStatus.FINISHED);
         assertStateConflict(ActivityStatus.SIGNUP_OPEN, ActivityStatus.SIGNUP_OPEN);
-        assertStateConflict(ActivityStatus.SIGNUP_CLOSED, ActivityStatus.SIGNUP_OPEN);
+        assertStateConflict(ActivityStatus.SIGNUP_CLOSED, ActivityStatus.SIGNUP_CLOSED);
     }
 
     @Test

@@ -198,7 +198,7 @@
     entity-label="活动"
     cancel-status="{{3}}"
     cancel-max-length="{{255}}"
-    list-hint="选择「已取消」会打开取消原因表单；已结束与已取消为终态。"
+    list-hint="选择「已取消」会打开取消原因表单；已取消为终态，已结束可重新开放为报名中/报名截止。"
     bind:close="closeStatus"
     bind:change="onStatusChange"
     bind:cancel="onStatusCancel"

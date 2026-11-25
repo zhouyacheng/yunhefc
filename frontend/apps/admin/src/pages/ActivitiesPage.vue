@@ -721,7 +721,7 @@ onBeforeUnmount(() => {
     <div class="page-head">
       <div>
         <h2>活动管理</h2>
-        <p class="muted">组织聚餐、年会等队内活动；已结束与已取消为终态，需要重新组织时用复制。</p>
+        <p class="muted">组织聚餐、年会等队内活动；已结束可在 C 端详情重新开放为报名中/报名截止，已取消为终态，需要重新组织时用复制。</p>
       </div>
       <el-button v-if="canManage" type="primary" @click="openCreate">新建活动</el-button>
     </div>

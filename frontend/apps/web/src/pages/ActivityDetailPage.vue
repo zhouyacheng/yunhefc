@@ -2,7 +2,7 @@
 import { ERROR_CODES, describeError, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import { ACTIVITY_MANAGE_ANY, hasPermission } from '@yunhefc/permissions';
 import type { ActivityDetail, ActivitySignup, ActivityStatus } from '@yunhefc/shared';
-import { activityEditable, formatDateTime, formatDayTimeRange } from '@yunhefc/shared';
+import { activityStatusChangeable, formatDateTime, formatDayTimeRange } from '@yunhefc/shared';
 import {
   Button,
   Checkbox,
@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
 
         <div class="match-hero__actions">
           <select
-            v-if="canChangeStatus && activityEditable(activity.status)"
+            v-if="canChangeStatus && activityStatusChangeable(activity.status)"
             class="status-select"
             data-testid="activity-status-select"
             aria-label="修改活动状态"

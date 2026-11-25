@@ -1441,13 +1441,21 @@ render();
 
     const activityStatusFlow = ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'FINISHED', 'CANCELLED'];
 
-    function activityStatusEditable(item) {
-      return item.status === 'SIGNUP_OPEN' || item.status === 'SIGNUP_CLOSED';
+    // 报名中与报名截止可互转（P-111）；已结束可重新开放为报名中/报名截止（P-110）；已取消为终态。
+    const activityStatusTargets = {
+      SIGNUP_OPEN: ['SIGNUP_CLOSED', 'FINISHED', 'CANCELLED'],
+      SIGNUP_CLOSED: ['SIGNUP_OPEN', 'FINISHED', 'CANCELLED'],
+      FINISHED: ['SIGNUP_OPEN', 'SIGNUP_CLOSED'],
+      CANCELLED: []
+    };
+
+    function activityStatusChangeable(item) {
+      return item.status !== 'CANCELLED';
     }
 
     function activityStatusDisabled(item, next) {
-      if (!activityStatusEditable(item)) return true;
-      return next === 'SIGNUP_OPEN' && item.status === 'SIGNUP_CLOSED';
+      if (next === item.status) return false;
+      return !activityStatusTargets[item.status].includes(next);
     }
 
     function openActivityCancelModal(item) {
@@ -1513,7 +1521,7 @@ render();
                         : '<button class="btn btn-ghost btn-sm" disabled>已截止</button>')
                     : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>${ctaLabel(item)}</button>`}
                 <button class="btn btn-ghost btn-sm" data-share-activity="${item.id}">分享</button>
-                ${Y.hasPermission('activity:manage:any') && activityStatusEditable(item) ? `<select class="input input-sm" data-activity-status="${item.id}" aria-label="修改活动状态">${activityStatusFlow.map((next) => `<option value="${next}"${next === item.status ? ' selected' : ''}${activityStatusDisabled(item, next) ? ' disabled' : ''}>${statusLabels[next]}</option>`).join('')}</select>` : ''}
+                ${Y.hasPermission('activity:manage:any') && activityStatusChangeable(item) ? `<select class="input input-sm" data-activity-status="${item.id}" aria-label="修改活动状态">${activityStatusFlow.map((next) => `<option value="${next}"${next === item.status ? ' selected' : ''}${activityStatusDisabled(item, next) ? ' disabled' : ''}>${statusLabels[next]}</option>`).join('')}</select>` : ''}
                 ${item.familyAllowed && !closed ? `<label class="muted small" style="display:flex;align-items:center;gap:4px"><input type="checkbox" data-family-toggle="${item.id}"${item.family ? ' checked' : ''}> 携带家属</label>` : ''}
               </div>
               ${item.mine && item.family ? '<p class="muted small">已勾选携带家属（原型演示）</p>' : ''}
@@ -1521,7 +1529,7 @@ render();
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均为终态，重新组织走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已结束/已取消为终态。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已取消为终态，重新组织走后台「复制活动」新建；已结束可重新开放为报名中/报名截止；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已取消为终态，已结束可重新开放。</p>
         </div>
       </div>`;
 

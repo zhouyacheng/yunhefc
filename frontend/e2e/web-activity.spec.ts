@@ -401,6 +401,22 @@ test('C12 管理员：状态下拉、直接流转与取消原因', async ({ page
   expect(bodies[0]).toEqual({ status: 1, version: 0 });
   expect(keys[0]).toBeTruthy();
 
+  // 报名截止可恢复为报名中（P-111）。
+  await select.selectOption('0');
+  await expect(page.locator('.match-hero__top .van-tag')).toContainText('报名中');
+  expect(bodies[1]).toEqual({ status: 0, version: 1 });
+
+  await select.selectOption('2');
+  await expect(page.locator('.match-hero__top .van-tag')).toContainText('已结束');
+  expect(bodies[2]).toEqual({ status: 2, version: 2 });
+
+  // 已结束可重新开放为报名中/报名截止，但不可取消（P-110）。
+  await expect(select).toBeVisible();
+  await expect(select.locator('option[value="3"]')).toBeDisabled();
+  await select.selectOption('0');
+  await expect(page.locator('.match-hero__top .van-tag')).toContainText('报名中');
+  expect(bodies[3]).toEqual({ status: 0, version: 3 });
+
   await select.selectOption('3');
   await expect(page.getByRole('heading', { name: '取消活动' })).toBeVisible();
   await page.getByRole('button', { name: '确认取消' }).click();
@@ -409,7 +425,7 @@ test('C12 管理员：状态下拉、直接流转与取消原因', async ({ page
   await page.getByRole('button', { name: '确认取消' }).click();
 
   await expect(page.locator('.match-hero__top .van-tag')).toContainText('已取消');
-  expect(bodies[1]).toEqual({ status: 3, version: 1, reason: '场地停业' });
+  expect(bodies[4]).toEqual({ status: 3, version: 4, reason: '场地停业' });
   await expect(page.getByTestId('activity-status-select')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

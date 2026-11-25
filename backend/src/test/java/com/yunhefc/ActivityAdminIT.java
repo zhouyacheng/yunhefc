@@ -357,9 +357,15 @@ class ActivityAdminIT extends ActivityITSupport {
         Long activityId = activityId(createActivity(admin, "状态机活动", futureAt(30, 18), 4));
 
         changeStatus(admin, activityId, 1, 0, null);
-        changeStatus(admin, activityId, 2, 1, null);
-        changeStatus(admin, activityId, 0, 2, null, status().isConflict(), 40917);
-        changeStatus(admin, activityId, 3, 2, "重复取消", status().isConflict(), 40917);
+        // 报名截止可恢复为报名中（P-111）。
+        changeStatus(admin, activityId, 0, 1, null);
+        changeStatus(admin, activityId, 1, 2, null);
+        changeStatus(admin, activityId, 2, 3, null);
+        // 已结束不可取消，但可重新开放为报名中/报名截止（P-110）。
+        changeStatus(admin, activityId, 3, 4, "结束不可取消", status().isConflict(), 40917);
+        changeStatus(admin, activityId, 0, 4, null);
+        changeStatus(admin, activityId, 2, 5, null);
+        changeStatus(admin, activityId, 1, 6, null);
 
         Long cancelId = activityId(createActivity(admin, "取消活动", futureAt(31, 18), 4));
         changeStatus(admin, cancelId, 3, 0, "  场地停业  ");

@@ -22,12 +22,22 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
     /赛季第\d+场（累计\d+场）/,
   );
   await expect(page.getByRole('button', { name: '登录后报名' })).toBeVisible();
+  // P-134：Hero 不再提供「活动」按钮；活动入口位于「最近比赛」区块之后。
+  await expect(
+    page.locator('.home-hero__actions').getByRole('button', { name: '活动' }),
+  ).toHaveCount(0);
+  expect(
+    await page.locator('.home-section, .home-entries').evaluateAll((els) =>
+      els.map((el) => (el.classList.contains('home-entries') ? 'entries' : 'matches')),
+    ),
+  ).toEqual(['matches', 'entries']);
   // 最近比赛取 Hero 之后的 3 场：1001、1003、1005。
   // 排行榜与账本已上线，二期能力只保留占位卡（不含排行榜/账本）。
   await expect(page.locator('.feature-card').filter({ hasText: 'AI 身价' })).toBeVisible();
   await expect(page.locator('.feature-card').filter({ hasText: '排行榜与身价' })).toHaveCount(0);
-  // P-132：访客无 ledger:view:any，不展示账本入口。
-  await expect(page.locator('.home-entry')).toHaveCount(0);
+  // P-134：活动入口访客可见；P-132：访客无 ledger:view:any，不展示账本入口。
+  await expect(page.locator('.home-entry[href="/activities"]')).toBeVisible();
+  await expect(page.locator('.home-entry[href="/ledger"]')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '最近比赛' })).toBeVisible();
   await expect(page.locator('.home-section .match-card')).toHaveCount(3);
   await expect(page.locator('.home-section .match-card-link[href="/matches/1006"]')).toHaveCount(0);
@@ -65,8 +75,10 @@ test('C01 首页：登录球员看到最近一场与报名队列', async ({ page
   // 1002 已在 1006 场报名，CTA 直接进入详情。
   await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
   await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
-  // P-132：正式球员持 ledger:view:any，首页展示账本入口。
-  await expect(page.locator('.home-entry')).toHaveAttribute('href', '/ledger');
+  // P-134 活动入口在上；P-132 正式球员持 ledger:view:any，首页展示账本入口。
+  expect(
+    await page.locator('.home-entry').evaluateAll((els) => els.map((el) => el.getAttribute('href'))),
+  ).toEqual(['/activities', '/ledger']);
 
   expect(errors).toEqual([]);
 });
@@ -187,6 +199,15 @@ test('C01 首页：无比赛显示空态', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByText('暂无比赛')).toBeVisible();
   await expect(page.getByRole('button', { name: '去比赛' })).toBeVisible();
+
+  // P-134：无比赛时活动入口仍展示，且位于空态之后；账本入口对访客不可见。
+  await expect(page.locator('.home-entry[href="/activities"]')).toBeVisible();
+  await expect(page.locator('.home-entry[href="/ledger"]')).toHaveCount(0);
+  expect(
+    await page.locator('.home-empty, .home-entry').evaluateAll((els) =>
+      els.map((el) => (el.classList.contains('home-empty') ? 'empty' : 'entry')),
+    ),
+  ).toEqual(['empty', 'entry']);
 
   expect(errors).toEqual([]);
 });

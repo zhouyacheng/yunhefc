@@ -7,6 +7,8 @@ import { Button, Empty, Loading, Pagination, Tag } from 'vant';
 import { computed, onMounted, ref } from 'vue';
 
 import { api } from '../api/client';
+import MonthRangeFilter from '../components/MonthRangeFilter.vue';
+import type { TimeForm } from '../features/common/time-filter';
 import {
   LEDGER_TYPE_OPTIONS,
   categoryLabelMap,
@@ -19,7 +21,6 @@ import {
 import {
   DEFAULT_LEDGER_PAGE_SIZE,
   LEDGER_PAGE_SIZE_OPTIONS,
-  ledgerRangeError,
   parseLedgerType,
   toLedgerFilter,
   toLedgerRequest,
@@ -31,8 +32,7 @@ const session = useSessionStore();
 
 const typeFilter = ref('');
 const categoryFilter = ref('');
-const fromDate = ref('');
-const toDate = ref('');
+const timeFilter = ref<TimeForm>({ month: '', startDate: '', endDate: '' });
 const page = ref(1);
 const pageSize = ref(DEFAULT_LEDGER_PAGE_SIZE);
 const categories = ref<LedgerCategory[]>([]);
@@ -50,24 +50,19 @@ const allowed = computed(
 const direction = computed(() => parseLedgerType(typeFilter.value));
 const options = computed(() => categoryOptions(categories.value, direction.value));
 const labels = computed(() => categoryLabelMap(categories.value));
-const rangeError = computed(() => ledgerRangeError({ from: fromDate.value, to: toDate.value }));
 const hasEntries = computed(() => entries.value.length > 0);
 
 function filters(): LedgerFilters {
   return {
     type: direction.value,
     categoryId: categoryFilter.value === '' ? null : Number(categoryFilter.value),
-    from: fromDate.value,
-    to: toDate.value,
+    ...timeFilter.value,
   };
 }
 
 async function load(): Promise<void> {
   if (!allowed.value) {
     loading.value = false;
-    return;
-  }
-  if (rangeError.value) {
     return;
   }
   const seq = ++requestSeq;
@@ -132,8 +127,7 @@ function onTypeChange(): void {
 function resetFilters(): void {
   typeFilter.value = '';
   categoryFilter.value = '';
-  fromDate.value = '';
-  toDate.value = '';
+  timeFilter.value = { month: '', startDate: '', endDate: '' };
   reload();
 }
 
@@ -202,8 +196,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <section class="card ledger-filters">
-        <label class="ledger-filter">
+      <section class="schedule-filters">
+        <label class="schedule-filter">
           <span>方向</span>
           <select v-model="typeFilter" aria-label="收支方向" @change="onTypeChange">
             <option value="">全部</option>
@@ -216,7 +210,7 @@ onMounted(() => {
             </option>
           </select>
         </label>
-        <label class="ledger-filter">
+        <label class="schedule-filter">
           <span>分类</span>
           <select v-model="categoryFilter" aria-label="账本分类" @change="reload">
             <option value="">全部</option>
@@ -225,19 +219,13 @@ onMounted(() => {
             </option>
           </select>
         </label>
-        <label class="ledger-filter">
-          <span>开始日期</span>
-          <input v-model="fromDate" type="date" aria-label="开始日期" @change="reload" />
-        </label>
-        <label class="ledger-filter">
-          <span>结束日期</span>
-          <input v-model="toDate" type="date" aria-label="结束日期" @change="reload" />
-        </label>
-        <Button size="small" plain @click="resetFilters">重置筛选</Button>
+        <MonthRangeFilter v-model="timeFilter" @change="reload" />
+        <div class="schedule-filter-actions">
+          <Button size="small" native-type="button" plain @click="resetFilters">重置</Button>
+        </div>
       </section>
 
       <p v-if="categoriesError" class="hint">{{ categoriesError }}</p>
-      <p v-if="rangeError" class="action-error">{{ rangeError }}</p>
 
       <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>
 
@@ -329,36 +317,6 @@ onMounted(() => {
 
 .ledger-summary__value--negative {
   color: var(--yh-red);
-}
-
-.ledger-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  align-items: flex-end;
-  padding: 14px 16px;
-  margin-bottom: 16px;
-}
-
-.ledger-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: var(--yh-muted);
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.ledger-filter select,
-.ledger-filter input {
-  min-width: 130px;
-  min-height: 36px;
-  padding: 6px 9px;
-  color: var(--yh-ink);
-  font-size: 13px;
-  background: var(--yh-surface);
-  border: 1px solid var(--yh-line);
-  border-radius: 9px;
 }
 
 .ledger-list {

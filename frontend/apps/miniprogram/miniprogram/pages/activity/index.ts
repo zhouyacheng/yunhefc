@@ -14,6 +14,7 @@ import {
 } from '../../utils/activity-query';
 import { buildActivityCard, type ActivityCardView } from '../../utils/activity-view';
 import { currentShanghaiMonth } from '../../utils/datetime';
+import { filterDrawerHandlers } from '../../utils/filter-drawer';
 import { subscribe } from '../../utils/invalidation';
 import {
   TIME_FILTER_MAX,
@@ -47,6 +48,8 @@ function emptyTextOf(scope: ActivityFilters['scope']): string {
 }
 
 Page({
+  ...filterDrawerHandlers,
+
   data: {
     feed: emptyPagedFeedState<ActivityCardView>(
       DEFAULT_ACTIVITY_KEY,
@@ -120,14 +123,6 @@ Page({
     unloading = true;
     feed?.reset();
     feed = null;
-  },
-
-  openFilters() {
-    this.setData({ filtersOpen: true });
-  },
-
-  closeFilters() {
-    this.setData({ filtersOpen: false });
   },
 
   selectScope(event: WechatMiniprogram.BaseEvent) {

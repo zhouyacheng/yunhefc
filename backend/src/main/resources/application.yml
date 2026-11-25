@@ -88,7 +88,7 @@ yunhefc:
     consumed-event-days: ${RETENTION_CONSUMED_EVENT_DAYS:7}
   session:
     c-ttl: 7d
-    b-ttl: 2h
+    b-ttl: 12h
     handoff-ttl: 60s
     cookie-domain: ${SESSION_COOKIE_DOMAIN:}
     cookie-secure: ${SESSION_COOKIE_SECURE:false}

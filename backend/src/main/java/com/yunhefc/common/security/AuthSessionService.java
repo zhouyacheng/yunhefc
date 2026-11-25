@@ -17,17 +17,19 @@ public class AuthSessionService {
 
     private final CsrfTokenRepository csrfTokenRepository;
     private final Map<String, Duration> ttlByKey;
+    private final Duration defaultTtl;
 
     public AuthSessionService(CsrfTokenRepository csrfTokenRepository, SessionProperties properties) {
         this.csrfTokenRepository = csrfTokenRepository;
         this.ttlByKey = Map.of(SessionKeys.C_USER_ID, properties.cTtl(), SessionKeys.B_USER_ID, properties.bTtl());
+        this.defaultTtl = properties.bTtl();
     }
 
     public String establish(HttpServletRequest request, HttpServletResponse response,
                             String sessionKey, Long userId) {
         HttpSession session = request.getSession(true);
         session.setAttribute(sessionKey, userId);
-        session.setMaxInactiveInterval((int) ttlByKey.getOrDefault(sessionKey, Duration.ofHours(2)).getSeconds());
+        session.setMaxInactiveInterval((int) ttlByKey.getOrDefault(sessionKey, defaultTtl).getSeconds());
         try {
             request.changeSessionId();
         } catch (IllegalStateException ignored) {

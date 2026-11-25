@@ -40,7 +40,7 @@ class ProdProfileYamlTest {
         assertThat(session.cookieSecure()).isTrue();
         assertThat(session.cookieDomain()).isEmpty();
         assertThat(session.cTtl()).isEqualTo(Duration.ofDays(7));
-        assertThat(session.bTtl()).isEqualTo(Duration.ofHours(2));
+        assertThat(session.bTtl()).isEqualTo(Duration.ofHours(12));
 
         CorsProperties cors = binder.bind("yunhefc.cors", CorsProperties.class).get();
         assertThat(cors.allowedOrigins())
@@ -65,5 +65,19 @@ class ProdProfileYamlTest {
                 .isTrue();
         assertThat(environment.getProperty("springdoc.api-docs.enabled", Boolean.class)).isFalse();
         assertThat(environment.getProperty("springdoc.swagger-ui.enabled", Boolean.class)).isFalse();
+    }
+
+    @Test
+    void bindsBaseSessionTtlsFromApplicationYaml() throws Exception {
+        MockEnvironment environment = new MockEnvironment();
+        for (PropertySource<?> source : new YamlPropertySourceLoader()
+                .load("application", new ClassPathResource("application.yml"))) {
+            environment.getPropertySources().addLast(source);
+        }
+
+        SessionProperties session = Binder.get(environment)
+                .bind("yunhefc.session", SessionProperties.class).get();
+        assertThat(session.cTtl()).isEqualTo(Duration.ofDays(7));
+        assertThat(session.bTtl()).isEqualTo(Duration.ofHours(12));
     }
 }

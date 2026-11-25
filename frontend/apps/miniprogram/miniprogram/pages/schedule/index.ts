@@ -1,4 +1,5 @@
 import { currentShanghaiMonth } from '../../utils/datetime';
+import { filterDrawerHandlers } from '../../utils/filter-drawer';
 import { listMatches } from '../../utils/api-client';
 import {
   TIME_FILTER_MAX,
@@ -54,6 +55,8 @@ function cancelAutoApply(): void {
 }
 
 Page({
+  ...filterDrawerHandlers,
+
   data: {
     feed: emptyPagedFeedState<MatchCardView>('') as PagedFeedState<MatchCardView>,
     form: toScheduleForm(emptyScheduleFilters()) as ScheduleForm,
@@ -124,14 +127,6 @@ Page({
     unloading = true;
     feed?.reset();
     feed = null;
-  },
-
-  openFilters() {
-    this.setData({ filtersOpen: true });
-  },
-
-  closeFilters() {
-    this.setData({ filtersOpen: false });
   },
 
   patchForm(patch: Partial<ScheduleForm>, extra: ScheduleFormExtras = {}) {

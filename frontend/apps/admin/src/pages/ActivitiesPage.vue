@@ -286,30 +286,57 @@ function removeImage(index: number): void {
   activityForm.locationImageKeys.splice(index, 1);
 }
 
+function alertImageError(message: string): Promise<unknown> {
+  return ElMessageBox.alert(message, '无法上传图片', {
+    type: 'warning',
+    confirmButtonText: '知道了',
+  });
+}
+
 async function onImageChange(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const files = Array.from(input.files ?? []);
   input.value = '';
-  if (!file) {
+  if (files.length === 0) {
     return;
   }
   imageError.value = '';
-  if (activityForm.locationImageKeys.length >= ACTIVITY_IMAGE_MAX_COUNT) {
-    imageError.value = ACTIVITY_IMAGE_COUNT_ERROR;
+  const remaining = ACTIVITY_IMAGE_MAX_COUNT - activityForm.locationImageKeys.length;
+  if (files.length > remaining) {
+    await alertImageError(ACTIVITY_IMAGE_COUNT_ERROR);
     return;
   }
-  const invalid = validateActivityImage(file);
-  if (invalid) {
-    imageError.value = invalid;
-    return;
+  for (const file of files) {
+    const invalid = validateActivityImage(file);
+    if (invalid) {
+      await alertImageError(invalid);
+      return;
+    }
   }
 
   const seq = ++imageUploadSeq;
+  imageUploading.value = true;
+  try {
+    for (const file of files) {
+      if (seq !== imageUploadSeq || !(await uploadActivityImage(file, seq))) {
+        return;
+      }
+    }
+  } finally {
+    if (seq === imageUploadSeq) {
+      imageUploading.value = false;
+      imageProgress.value = null;
+      pendingImageIndex.value = null;
+    }
+  }
+}
+
+/** 上传单张并落位预览；失败返回 false 并写入内联错误。 */
+async function uploadActivityImage(file: File, seq: number): Promise<boolean> {
   const localUrl = URL.createObjectURL(file);
   localPreviewUrls.add(localUrl);
   const pendingIndex = imagePreviews.value.length;
   imagePreviews.value.push(localUrl);
-  imageUploading.value = true;
   imageProgress.value = 0;
   pendingImageIndex.value = pendingIndex;
   try {
@@ -323,7 +350,7 @@ async function onImageChange(event: Event): Promise<void> {
       },
     });
     if (seq !== imageUploadSeq) {
-      return;
+      return false;
     }
     activityForm.locationImageKeys.push(uploaded.objectKey);
     if (displayableImageUrl(uploaded.signedUrl)) {
@@ -331,20 +358,16 @@ async function onImageChange(event: Event): Promise<void> {
       localPreviewUrls.delete(localUrl);
       imagePreviews.value[pendingIndex] = uploaded.signedUrl;
     }
+    return true;
   } catch (caught) {
     if (seq !== imageUploadSeq) {
-      return;
+      return false;
     }
     imagePreviews.value.splice(pendingIndex, 1);
     URL.revokeObjectURL(localUrl);
     localPreviewUrls.delete(localUrl);
     imageError.value = describeError(caught, ACTIVITY_IMAGE_UPLOAD_ERROR);
-  } finally {
-    if (seq === imageUploadSeq) {
-      imageUploading.value = false;
-      imageProgress.value = null;
-      pendingImageIndex.value = null;
-    }
+    return false;
   }
 }
 
@@ -1041,6 +1064,7 @@ onBeforeUnmount(() => {
                 ref="imageInput"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
+                multiple
                 hidden
                 @change="onImageChange"
               />

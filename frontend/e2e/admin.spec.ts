@@ -838,6 +838,55 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   await expect(
     dialog.locator('.el-form-item').filter({ hasText: '场地环境' }).locator('.image-upload-slot'),
   ).toHaveCount(10);
+
+  // 超过单张上限走弹窗提示，不进入上传流程。
+  await dialog.locator('input[type=file]').setInputFiles({
+    name: 'oversize.png',
+    mimeType: 'image/png',
+    buffer: Buffer.alloc(5 * 1024 * 1024 + 1),
+  });
+  await expect(page.getByText('图片不能超过 5MB')).toBeVisible();
+  await page.getByRole('button', { name: '知道了' }).click();
+  await expect(page.getByText('图片不能超过 5MB')).toBeHidden();
+
+  // 批量选择超过剩余张数时整批拒绝。
+  await dialog.locator('input[type=file]').setInputFiles(
+    Array.from({ length: 11 }, (_, index) => ({
+      name: `batch-${index}.png`,
+      mimeType: 'image/png',
+      buffer: VALID_PNG,
+    })),
+  );
+  await expect(page.getByText('场地环境图片最多 10 张')).toBeVisible();
+  await page.getByRole('button', { name: '知道了' }).click();
+  await expect(page.getByText('场地环境图片最多 10 张')).toBeHidden();
+
+  // 批量选择合法图片时按顺序逐张上传并各自落位。
+  let uploaded = 0;
+  await page.route('**/api/v1/b/files/activity-image', async (route) => {
+    uploaded += 1;
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'success',
+        data: {
+          objectKey: `activity/1/batch-${uploaded}.jpg`,
+          signedUrl: `data:image/png;base64,${VALID_PNG.toString('base64')}`,
+        },
+        requestId: 'e2e-upload',
+      }),
+    });
+  });
+  await dialog.locator('input[type=file]').setInputFiles([
+    { name: 'batch-a.png', mimeType: 'image/png', buffer: VALID_PNG },
+    { name: 'batch-b.png', mimeType: 'image/png', buffer: VALID_PNG },
+  ]);
+  await expect(dialog.locator('.image-preview')).toHaveCount(2);
+  expect(uploaded).toBe(2);
+  await page.unroute('**/api/v1/b/files/activity-image');
+
   await dialog.getByRole('button', { name: '取消' }).click();
   await expect(dialog).toBeHidden();
 

@@ -33,8 +33,15 @@ describe('activityStatusOptions', () => {
     expect(options[3]?.reason).toBe('已结束的活动不可取消');
   });
 
-  it('已取消为终态，全部禁用', () => {
-    expect(activityStatusOptions(3).every((option) => option.disabled)).toBe(true);
+  it('已取消可恢复为报名中/报名截止，但不可结束', () => {
+    const options = activityStatusOptions(3);
+    expect(options.map((option) => [option.status, option.disabled])).toEqual([
+      [0, false],
+      [1, false],
+      [2, true],
+      [3, false],
+    ]);
+    expect(options[2]?.reason).toBe('已取消的活动不可结束');
   });
 });
 
@@ -48,7 +55,7 @@ describe('activityStatusChoice', () => {
     expect(activityStatusChoice(options, 0, 9)).toEqual({ kind: 'ignore' });
   });
 
-  it('禁用项与终态忽略，报名截止与已结束可回退', () => {
+  it('禁用项忽略，报名截止/已结束/已取消均可回退', () => {
     expect(activityStatusChoice(activityStatusOptions(1), 1, 0)).toEqual({
       kind: 'change',
       status: 0,
@@ -58,7 +65,11 @@ describe('activityStatusChoice', () => {
       kind: 'change',
       status: 0,
     });
-    expect(activityStatusChoice(activityStatusOptions(3), 3, 0)).toEqual({ kind: 'ignore' });
+    expect(activityStatusChoice(activityStatusOptions(3), 3, 2)).toEqual({ kind: 'ignore' });
+    expect(activityStatusChoice(activityStatusOptions(3), 3, 1)).toEqual({
+      kind: 'change',
+      status: 1,
+    });
   });
 });
 

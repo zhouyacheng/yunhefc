@@ -348,7 +348,7 @@ test('C12 活动详情：展示场地环境图片，无图时不展示该区块'
     (route) => fulfill(route, OPEN_ACTIVITY),
   );
   await page.goto('/activities/9001');
-  await expect(page.getByRole('heading', { name: '活动说明' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '活动详情' })).toBeVisible();
   await expect(page.getByRole('heading', { name: '场地环境' })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
@@ -426,6 +426,12 @@ test('C12 管理员：状态下拉、直接流转与取消原因', async ({ page
 
   await expect(page.locator('.match-hero__top .van-tag')).toContainText('已取消');
   expect(bodies[4]).toEqual({ status: 3, version: 4, reason: '场地停业' });
-  await expect(page.getByTestId('activity-status-select')).toHaveCount(0);
+
+  // 已取消可恢复为报名中/报名截止，但不可结束（P-114）。
+  await expect(select).toBeVisible();
+  await expect(select.locator('option[value="2"]')).toBeDisabled();
+  await select.selectOption('0');
+  await expect(page.locator('.match-hero__top .van-tag')).toContainText('报名中');
+  expect(bodies[5]).toEqual({ status: 0, version: 5 });
   expect(errors).toEqual([]);
 });

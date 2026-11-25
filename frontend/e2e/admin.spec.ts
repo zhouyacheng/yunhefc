@@ -869,7 +869,49 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   expect(created.ok()).toBe(true);
 
   await page.reload();
-  await expect(page.locator('.el-table__row').filter({ hasText: title })).toBeVisible();
+  const row = page.locator('.el-table__row').filter({ hasText: title });
+  await expect(row).toBeVisible();
+
+  // 编辑已独立成按钮；状态下拉提供报名中并支持与报名截止互转。
+  await expect(row.getByRole('button', { name: '编辑' })).toBeVisible();
+  await row.getByRole('button', { name: '编辑' }).click();
+  const editDialog = page.locator('.el-dialog').filter({ hasText: '编辑活动' });
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByRole('button', { name: '取消' }).click();
+  await expect(editDialog).toBeHidden();
+
+  await row.getByRole('button', { name: '状态' }).click();
+  await expect(page.getByRole('menuitem', { name: '报名中' })).toBeVisible();
+  await page.getByRole('menuitem', { name: '报名截止' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '报名截止' })).toBeVisible();
+
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '报名中' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '报名中' })).toBeVisible();
+
+  // 已结束仍可编辑（P-113）。
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '已结束' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '已结束' })).toBeVisible();
+  await row.getByRole('button', { name: '编辑' }).click();
+  await expect(editDialog).toBeVisible();
+  await editDialog.getByRole('button', { name: '取消' }).click();
+  await expect(editDialog).toBeHidden();
+
+  // 已取消可恢复为报名中（P-114）。
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '报名中' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '报名中' })).toBeVisible();
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '取消' }).click();
+  const cancelDialog = page.locator('.el-dialog').filter({ hasText: '取消活动' });
+  await expect(cancelDialog).toBeVisible();
+  await cancelDialog.getByPlaceholder('取消原因（将记入审计）').fill('E2E 取消');
+  await cancelDialog.getByRole('button', { name: '确认取消' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '已取消' })).toBeVisible();
+  await row.getByRole('button', { name: '状态' }).click();
+  await page.getByRole('menuitem', { name: '报名中' }).click();
+  await expect(row.locator('.el-tag').filter({ hasText: '报名中' })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

@@ -27,7 +27,6 @@ import {
   ACTIVITY_IMAGE_UPLOAD_ERROR,
   ACTIVITY_STATUS_OPTIONS,
   ACTIVITY_TYPE_OPTIONS,
-  activityEditable,
   activityFormError,
   activityStatusText,
   activityStatusTone,
@@ -73,6 +72,7 @@ interface ActivityImageUploadView {
 }
 
 const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
+const STATUS_OPEN: ActivityStatus = 0;
 const STATUS_CLOSED: ActivityStatus = 1;
 const STATUS_FINISHED: ActivityStatus = 2;
 const STATUS_CANCELLED: ActivityStatus = 3;
@@ -356,11 +356,6 @@ async function openEdit(row: ActivityAdmin): Promise<void> {
   actionBusy.value = `edit:${row.id}`;
   try {
     const detail = await fetchAuthoritative(row.id);
-    if (!activityEditable(detail.status)) {
-      ElMessage.warning('已结束或已取消的活动不可编辑。');
-      await load();
-      return;
-    }
     resetImageState();
     fillForm(detail);
     activityDialog.mode = 'edit';
@@ -484,11 +479,6 @@ async function submitActivity(): Promise<void> {
       return;
     }
     const detail = await fetchAuthoritative(target.id);
-    if (!activityEditable(detail.status)) {
-      activityDialog.error = '已结束或已取消的活动不可编辑。';
-      await load();
-      return;
-    }
     await api.patch<ActivityAdmin>(`/activities/${detail.id}`, buildPayload(detail.version), {
       idempotencyKey: newIdempotencyKey(),
     });
@@ -521,16 +511,21 @@ async function submitActivity(): Promise<void> {
 
 // ---------------------------------------------------------------- status
 
+/** 报名中与报名截止可互转；已结束可重新开放、已取消可恢复（P-110/P-111/P-114）。 */
+function canOpenSignup(row: ActivityAdmin): boolean {
+  return row.status === 1 || row.status === 2 || row.status === 3;
+}
+
 function canCloseSignup(row: ActivityAdmin): boolean {
-  return row.status === 0;
+  return row.status === 0 || row.status === 2 || row.status === 3;
 }
 
 function canFinish(row: ActivityAdmin): boolean {
-  return activityEditable(row.status);
+  return row.status === 0 || row.status === 1;
 }
 
 function canCancel(row: ActivityAdmin): boolean {
-  return activityEditable(row.status);
+  return row.status === 0 || row.status === 1;
 }
 
 async function changeStatus(row: ActivityAdmin, target: ActivityStatus): Promise<void> {
@@ -564,12 +559,12 @@ function openCancel(row: ActivityAdmin): void {
   cancelDialog.visible = true;
 }
 
-type RowAction = 'edit' | 'close' | 'finish' | 'cancel';
+type RowAction = 'open' | 'close' | 'finish' | 'cancel';
 
 function onRowCommand(row: ActivityAdmin, command: RowAction): void {
   switch (command) {
-    case 'edit':
-      void openEdit(row);
+    case 'open':
+      void changeStatus(row, STATUS_OPEN);
       return;
     case 'close':
       void changeStatus(row, STATUS_CLOSED);
@@ -721,7 +716,7 @@ onBeforeUnmount(() => {
     <div class="page-head">
       <div>
         <h2>活动管理</h2>
-        <p class="muted">组织聚餐、年会等队内活动；已结束可在 C 端详情重新开放为报名中/报名截止，已取消为终态，需要重新组织时用复制。</p>
+        <p class="muted">组织聚餐、年会等队内活动；报名中与报名截止可互转，已结束可重新开放、已取消可恢复为报名中/报名截止，需要重新组织时也可用复制。</p>
       </div>
       <el-button v-if="canManage" type="primary" @click="openCreate">新建活动</el-button>
     </div>
@@ -801,7 +796,7 @@ onBeforeUnmount(() => {
           </el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="210" fixed="right">
+      <el-table-column label="操作" width="270" fixed="right">
         <template #default="{ row }">
           <div class="row-actions">
             <el-button link type="primary" size="small" @click="openRoster(row)">名单</el-button>
@@ -815,17 +810,26 @@ onBeforeUnmount(() => {
               >
                 复制
               </el-button>
+              <el-button
+                link
+                type="primary"
+                size="small"
+                :disabled="actionBusy !== null"
+                @click="openEdit(row)"
+              >
+                编辑
+              </el-button>
               <el-dropdown trigger="click" @command="onRowCommand(row, $event)">
                 <el-button link type="primary" size="small" :disabled="actionBusy !== null">
-                  更多
+                  状态
                 </el-button>
                 <template #dropdown>
                   <el-dropdown-menu>
                     <el-dropdown-item
-                      command="edit"
-                      :disabled="actionBusy !== null || !activityEditable(row.status)"
+                      command="open"
+                      :disabled="actionBusy !== null || !canOpenSignup(row)"
                     >
-                      编辑
+                      报名中
                     </el-dropdown-item>
                     <el-dropdown-item
                       command="close"
@@ -991,7 +995,7 @@ onBeforeUnmount(() => {
           </div>
           <p v-if="imageError" class="dialog-error">{{ imageError }}</p>
         </el-form-item>
-        <el-form-item label="活动说明">
+        <el-form-item label="活动详情">
           <el-input
             v-model="activityForm.description"
             type="textarea"
@@ -1029,7 +1033,7 @@ onBeforeUnmount(() => {
         type="warning"
         :closable="false"
         show-icon
-        :title="`确认取消「${cancelDialog.activity?.title ?? '该活动'}」？取消后已报名记录保留但不再有效，且不可恢复。`"
+        :title="`确认取消「${cancelDialog.activity?.title ?? '该活动'}」？取消后已报名记录保留但不再有效，可再恢复为报名中/报名截止。`"
       />
       <el-form label-width="96px">
         <el-form-item label="取消原因">

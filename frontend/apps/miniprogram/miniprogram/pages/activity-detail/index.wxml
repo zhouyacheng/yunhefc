@@ -86,7 +86,7 @@
     <view class="overview-grid">
       <view class="card activity-description">
         <view class="card-head">
-          <text class="card-title">活动说明</text>
+          <text class="card-title">活动详情</text>
         </view>
         <text wx:if="{{activity.description}}" class="description-text">{{activity.description}}</text>
         <text wx:else class="muted">暂无补充说明</text>
@@ -198,7 +198,7 @@
     entity-label="活动"
     cancel-status="{{3}}"
     cancel-max-length="{{255}}"
-    list-hint="选择「已取消」会打开取消原因表单；已取消为终态，已结束可重新开放为报名中/报名截止。"
+    list-hint="选择「已取消」会打开取消原因表单；已结束可重新开放、已取消可恢复为报名中/报名截止。"
     bind:close="closeStatus"
     bind:change="onStatusChange"
     bind:cancel="onStatusCancel"

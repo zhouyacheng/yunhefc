@@ -2,7 +2,7 @@
 import { ERROR_CODES, describeError, isApiError, newIdempotencyKey } from '@yunhefc/api-client';
 import { ACTIVITY_MANAGE_ANY, hasPermission } from '@yunhefc/permissions';
 import type { ActivityDetail, ActivitySignup, ActivityStatus } from '@yunhefc/shared';
-import { activityStatusChangeable, formatDateTime, formatDayTimeRange } from '@yunhefc/shared';
+import { formatDateTime, formatDayTimeRange } from '@yunhefc/shared';
 import {
   Button,
   Checkbox,
@@ -479,7 +479,7 @@ onBeforeUnmount(() => {
 
         <div class="match-hero__actions">
           <select
-            v-if="canChangeStatus && activityStatusChangeable(activity.status)"
+            v-if="canChangeStatus"
             class="status-select"
             data-testid="activity-status-select"
             aria-label="修改活动状态"
@@ -568,7 +568,7 @@ onBeforeUnmount(() => {
       <div class="overview-grid">
         <section class="card activity-description">
           <div class="card-head">
-            <h2>活动说明</h2>
+            <h2>活动详情</h2>
           </div>
           <p v-if="activity.description" class="activity-description__text">
             {{ activity.description }}
@@ -651,7 +651,7 @@ onBeforeUnmount(() => {
           <h2>取消活动</h2>
         </div>
 
-        <p class="muted small">取消后已报名记录保留但不再有效，且不可恢复。</p>
+        <p class="muted small">取消后已报名记录保留但不再有效，可再恢复为报名中/报名截止。</p>
 
         <Field
           v-model="cancelReason"

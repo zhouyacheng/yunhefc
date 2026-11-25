@@ -1441,17 +1441,13 @@ render();
 
     const activityStatusFlow = ['SIGNUP_OPEN', 'SIGNUP_CLOSED', 'FINISHED', 'CANCELLED'];
 
-    // 报名中与报名截止可互转（P-111）；已结束可重新开放为报名中/报名截止（P-110）；已取消为终态。
+    // 报名中与报名截止可互转（P-111）；已结束可重新开放（P-110）、已取消可恢复（P-114）。
     const activityStatusTargets = {
       SIGNUP_OPEN: ['SIGNUP_CLOSED', 'FINISHED', 'CANCELLED'],
       SIGNUP_CLOSED: ['SIGNUP_OPEN', 'FINISHED', 'CANCELLED'],
       FINISHED: ['SIGNUP_OPEN', 'SIGNUP_CLOSED'],
-      CANCELLED: []
+      CANCELLED: ['SIGNUP_OPEN', 'SIGNUP_CLOSED']
     };
-
-    function activityStatusChangeable(item) {
-      return item.status !== 'CANCELLED';
-    }
 
     function activityStatusDisabled(item, next) {
       if (next === item.status) return false;
@@ -1461,7 +1457,7 @@ render();
     function openActivityCancelModal(item) {
       const body = `<form id="activity-cancel-form" class="form-grid">
         <label class="full">取消原因<textarea class="input" name="reason" rows="3" required maxlength="255" placeholder="例如：场地临时关闭"></textarea></label>
-        <p class="muted small full">取消后已报名记录保留但不再有效，且不可恢复。</p>
+        <p class="muted small full">取消后已报名记录保留但不再有效，可再恢复为报名中/报名截止。</p>
       </form>`;
       const modal = Y.openModal('取消活动', body, '<button class="btn btn-danger" id="activity-cancel-submit">确认取消</button><button class="btn btn-ghost" data-close-modal>取消</button>');
       modal.querySelector('#activity-cancel-submit').addEventListener('click', () => {
@@ -1521,7 +1517,7 @@ render();
                         : '<button class="btn btn-ghost btn-sm" disabled>已截止</button>')
                     : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>${ctaLabel(item)}</button>`}
                 <button class="btn btn-ghost btn-sm" data-share-activity="${item.id}">分享</button>
-                ${Y.hasPermission('activity:manage:any') && activityStatusChangeable(item) ? `<select class="input input-sm" data-activity-status="${item.id}" aria-label="修改活动状态">${activityStatusFlow.map((next) => `<option value="${next}"${next === item.status ? ' selected' : ''}${activityStatusDisabled(item, next) ? ' disabled' : ''}>${statusLabels[next]}</option>`).join('')}</select>` : ''}
+                ${Y.hasPermission('activity:manage:any') ? `<select class="input input-sm" data-activity-status="${item.id}" aria-label="修改活动状态">${activityStatusFlow.map((next) => `<option value="${next}"${next === item.status ? ' selected' : ''}${activityStatusDisabled(item, next) ? ' disabled' : ''}>${statusLabels[next]}</option>`).join('')}</select>` : ''}
                 ${item.familyAllowed && !closed ? `<label class="muted small" style="display:flex;align-items:center;gap:4px"><input type="checkbox" data-family-toggle="${item.id}"${item.family ? ' checked' : ''}> 携带家属</label>` : ''}
               </div>
               ${item.mine && item.family ? '<p class="muted small">已勾选携带家属（原型演示）</p>' : ''}
@@ -1529,7 +1525,7 @@ render();
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已取消为终态，重新组织走后台「复制活动」新建；已结束可重新开放为报名中/报名截止；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已取消为终态，已结束可重新开放。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均可恢复为报名中/报名截止，重新组织也可走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已结束与已取消均可恢复为报名中/报名截止。</p>
         </div>
       </div>`;
 

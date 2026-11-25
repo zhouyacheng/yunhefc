@@ -31,16 +31,19 @@ class ActivityDomainTest {
                 ActivityStatus.SIGNUP_OPEN, ActivityStatus.CANCELLED)).doesNotThrowAnyException();
         assertThatCode(() -> ActivityStatusMachine.requireTransition(
                 ActivityStatus.SIGNUP_CLOSED, ActivityStatus.CANCELLED)).doesNotThrowAnyException();
-        // 已结束可重新开放（P-110）。
+        // 已结束可重新开放（P-110），已取消可恢复（P-114）。
         assertThatCode(() -> ActivityStatusMachine.requireTransition(
                 ActivityStatus.FINISHED, ActivityStatus.SIGNUP_OPEN)).doesNotThrowAnyException();
         assertThatCode(() -> ActivityStatusMachine.requireTransition(
                 ActivityStatus.FINISHED, ActivityStatus.SIGNUP_CLOSED)).doesNotThrowAnyException();
+        assertThatCode(() -> ActivityStatusMachine.requireTransition(
+                ActivityStatus.CANCELLED, ActivityStatus.SIGNUP_OPEN)).doesNotThrowAnyException();
+        assertThatCode(() -> ActivityStatusMachine.requireTransition(
+                ActivityStatus.CANCELLED, ActivityStatus.SIGNUP_CLOSED)).doesNotThrowAnyException();
     }
 
     @Test
-    void rejectsTransitionsFromCancelledReopenCancelOrSameState() {
-        assertStateConflict(ActivityStatus.CANCELLED, ActivityStatus.SIGNUP_OPEN);
+    void rejectsIllegalTransitionsAndSameState() {
         assertStateConflict(ActivityStatus.CANCELLED, ActivityStatus.FINISHED);
         assertStateConflict(ActivityStatus.CANCELLED, ActivityStatus.CANCELLED);
         assertStateConflict(ActivityStatus.FINISHED, ActivityStatus.CANCELLED);
@@ -50,16 +53,16 @@ class ActivityDomainTest {
     }
 
     @Test
-    void onlySignupOpenAndClosedAreEditable() {
-        assertThatCode(() -> ActivityStatusMachine.requireEditable(ActivityStatus.SIGNUP_OPEN))
+    void onlySignupOpenAndClosedAllowSignupRemoval() {
+        assertThatCode(() -> ActivityStatusMachine.requireRemovableSignup(ActivityStatus.SIGNUP_OPEN))
                 .doesNotThrowAnyException();
-        assertThatCode(() -> ActivityStatusMachine.requireEditable(ActivityStatus.SIGNUP_CLOSED))
+        assertThatCode(() -> ActivityStatusMachine.requireRemovableSignup(ActivityStatus.SIGNUP_CLOSED))
                 .doesNotThrowAnyException();
-        assertThatThrownBy(() -> ActivityStatusMachine.requireEditable(ActivityStatus.FINISHED))
+        assertThatThrownBy(() -> ActivityStatusMachine.requireRemovableSignup(ActivityStatus.FINISHED))
                 .isInstanceOf(BusinessException.class)
                 .extracting(ex -> ((BusinessException) ex).errorCode())
                 .isEqualTo(ErrorCode.ACTIVITY_STATE_CONFLICT);
-        assertThatThrownBy(() -> ActivityStatusMachine.requireEditable(ActivityStatus.CANCELLED))
+        assertThatThrownBy(() -> ActivityStatusMachine.requireRemovableSignup(ActivityStatus.CANCELLED))
                 .isInstanceOf(BusinessException.class);
     }
 

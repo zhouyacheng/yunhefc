@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ACTIVITY_IMAGE_MAX_BYTES,
-  activityEditable,
   activityFormError,
   activityStatusText,
   activityTypeText,
@@ -80,18 +79,11 @@ describe('validateActivityImage', () => {
   });
 });
 
-describe('活动展示与可编辑状态', () => {
+describe('活动展示文案', () => {
   it('映射中文文案', () => {
     expect(activityTypeText(0)).toBe('聚餐');
     expect(activityTypeText(2)).toBe('其他');
     expect(activityStatusText(0)).toBe('报名中');
     expect(activityStatusText(3)).toBe('已取消');
-  });
-
-  it('仅报名中与报名截止可编辑', () => {
-    expect(activityEditable(0)).toBe(true);
-    expect(activityEditable(1)).toBe(true);
-    expect(activityEditable(2)).toBe(false);
-    expect(activityEditable(3)).toBe(false);
   });
 });

@@ -4,7 +4,9 @@ import {
   fetchMe,
   logoutRequest,
   miniLogin,
+  passwordLogin as passwordLoginRequest,
   sendBindSmsCode,
+  type SessionResult,
 } from './api-client';
 import { hasPermission as hasGrantedPermission } from './permissions';
 import { resetAuth, setCsrf, setUnauthorizedHandler } from './request';
@@ -16,6 +18,18 @@ let bindTicket: string | null = null;
 let sessionPromise: Promise<AuthUser | null> | null = null;
 /** 用户显式退出后禁止静默续登，直到再次主动登录；clearSession 会复位。 */
 let silentLoginSuppressed = false;
+
+/** 登录/绑定成功后的共享会话写入；只有成功建立会话才解除静默登录抑制。 */
+function applySession(result: SessionResult): AuthUser {
+  silentLoginSuppressed = false;
+  setCsrf(result.csrfToken);
+  currentUser = result.user;
+  currentPlayer = result.player ?? null;
+  currentPermissions = result.permissions ?? [];
+  bindTicket = null;
+  sessionPromise = Promise.resolve(result.user);
+  return result.user;
+}
 
 export function getUser(): AuthUser | null {
   return currentUser;
@@ -48,7 +62,7 @@ export function sessionReady(): Promise<AuthUser | null> {
         if (user) {
           return user;
         }
-        const result = await login().catch(() => null);
+        const result = await loginWithWechat().catch(() => null);
         return result && !result.needBindPhone ? result.user : null;
       })
       .catch(() => null);
@@ -58,6 +72,11 @@ export function sessionReady(): Promise<AuthUser | null> {
 
 export function getBindTicket(): string | null {
   return bindTicket;
+}
+
+/** 改走密码登录时放弃当前微信绑定票据。 */
+export function clearBindTicket(): void {
+  bindTicket = null;
 }
 
 export function clearSession(): void {
@@ -108,22 +127,23 @@ export async function restore(): Promise<AuthUser | null> {
   }
 }
 
-export async function login(): Promise<MiniLoginResult> {
-  silentLoginSuppressed = false;
+/** 手机号+密码登录（AUTH-04）：CSRF 由请求层按需获取；会话 Cookie 由请求层持久化。 */
+export async function loginWithPassword(phone: string, password: string): Promise<AuthUser> {
+  const result = await passwordLoginRequest(phone, password);
+  return applySession(result);
+}
+
+/** 微信登录（AUTH-20）：可能返回 needBindPhone，此时只保存临时票据不建立会话。 */
+export async function loginWithWechat(): Promise<MiniLoginResult> {
   const code = await wxLogin();
   const result = await miniLogin(code);
-  if (result.needBindPhone) {
+  if (result.needBindPhone || !result.user) {
     bindTicket = result.bindTicket;
     currentUser = null;
     currentPlayer = null;
     return result;
   }
-  setCsrf(result.csrfToken);
-  currentUser = result.user;
-  currentPlayer = result.player ?? null;
-  currentPermissions = result.permissions ?? [];
-  bindTicket = null;
-  sessionPromise = Promise.resolve(result.user);
+  applySession({ ...result, user: result.user, csrfToken: result.csrfToken ?? '' });
   return result;
 }
 
@@ -132,13 +152,7 @@ export async function bindPhone(payload: BindPhonePayload): Promise<AuthUser> {
     throw new Error('登录已过期，请重新登录');
   }
   const result = await bindPhoneWithTicket(bindTicket, payload);
-  setCsrf(result.csrfToken);
-  currentUser = result.user;
-  currentPlayer = result.player ?? null;
-  currentPermissions = result.permissions ?? [];
-  bindTicket = null;
-  sessionPromise = Promise.resolve(result.user);
-  return result.user;
+  return applySession(result);
 }
 
 export async function sendSmsCode(phone: string): Promise<void> {

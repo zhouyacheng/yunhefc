@@ -68,3 +68,14 @@
 .btn {
   margin-top: 24rpx;
 }
+
+.switch-entry {
+  margin-top: 24rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: var(--yh-muted);
+}
+
+.link {
+  color: var(--yh-green);
+}

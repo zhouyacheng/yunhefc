@@ -56,5 +56,10 @@
 
     <van-button class="btn" type="primary" block loading="{{submitting}}" bind:click="submit">绑定并浏览</van-button>
     <van-button class="btn" block bind:click="skip">先逛逛</van-button>
+
+    <view class="switch-entry">
+      <text>已有账号？</text>
+      <text class="link" bindtap="usePassword">用手机号密码登录</text>
+    </view>
   </view>
 </view>

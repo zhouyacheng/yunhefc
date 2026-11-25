@@ -45,7 +45,7 @@ import type {
 } from '../types/api';
 import { errorMessage } from './api-errors';
 import { newIdempotencyKey } from './idempotency';
-import { ensureCsrf, request, uploadFile } from './request';
+import { ensureCsrf, request, uploadFile, type RequestOptions } from './request';
 import { DEFAULT_PAGE_SIZE, filterQueryString, type ScheduleFilters } from './match-query';
 
 const ROSTER_PAGE_SIZE = 100;
@@ -79,9 +79,10 @@ async function plainWrite<T>(
   method: 'POST' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
+  options?: RequestOptions,
 ): Promise<T> {
   await ensureCsrf();
-  return request<T>(method, path, body);
+  return options ? request<T>(method, path, body, options) : request<T>(method, path, body);
 }
 
 async function fetchAllPages<T>(path: string, query: Record<string, QueryValue>): Promise<T[]> {
@@ -108,13 +109,25 @@ export interface MeView {
   permissions?: string[] | null;
 }
 
-export interface BindPhoneResult extends MeView {
+/** AUTH-04 / AUTH-21 共用：登录或绑定成功后的会话结果。 */
+export interface SessionResult extends MeView {
   csrfToken: string;
 }
 
 /** AUTH-10 当前身份。 */
 export function fetchMe(): Promise<MeView> {
   return request<MeView>('GET', '/me');
+}
+
+/** AUTH-04 手机号+密码登录；与 Web 共用，CSRF 由 ensureCsrf 按需获取。 */
+export function passwordLogin(phone: string, password: string): Promise<SessionResult> {
+  return plainWrite<SessionResult>(
+    'POST',
+    '/auth/login',
+    { phone, password },
+    // 凭证错误的 401 不清掉已有会话。
+    { skipSessionResetOn401: true },
+  );
 }
 
 /** AUTH-20 小程序登录；免 CSRF，登录前不预取 token。 */
@@ -126,8 +139,8 @@ export function miniLogin(code: string): Promise<MiniLoginResult> {
 export function bindPhoneWithTicket(
   bindTicket: string,
   payload: BindPhonePayload,
-): Promise<BindPhoneResult> {
-  return request<BindPhoneResult>('POST', '/auth/mini/bind-phone', { bindTicket, ...payload });
+): Promise<SessionResult> {
+  return request<SessionResult>('POST', '/auth/mini/bind-phone', { bindTicket, ...payload });
 }
 
 /** AUTH-05 退出登录。 */

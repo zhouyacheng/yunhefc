@@ -44,6 +44,7 @@ import {
   logoutRequest,
   markNotificationRead,
   miniLogin,
+  passwordLogin,
   saveMyPlayer,
   sendBindSmsCode,
   signupActivity,
@@ -366,5 +367,26 @@ describe('ledger client', () => {
     mocks.request.mockResolvedValue({ items: [{ id: 1 }] });
     await expect(listLedgerCategories()).resolves.toEqual([{ id: 1 }]);
     expect(mocks.request).toHaveBeenLastCalledWith('GET', '/ledger/categories');
+  });
+});
+
+describe('passwordLogin', () => {
+  it('marks credential rejection so the current session survives', async () => {
+    mocks.request.mockResolvedValue({
+      user: { id: 9 },
+      player: null,
+      permissions: [],
+      csrfToken: 'csrf-1',
+    });
+
+    await passwordLogin('13900000000', 'abc12345');
+
+    expect(mocks.ensureCsrf).toHaveBeenCalledTimes(1);
+    expect(mocks.request).toHaveBeenLastCalledWith(
+      'POST',
+      '/auth/login',
+      { phone: '13900000000', password: 'abc12345' },
+      { skipSessionResetOn401: true },
+    );
   });
 });

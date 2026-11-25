@@ -1,15 +1,10 @@
 import { errorMessage } from '../../utils/api-errors';
+import { PHONE_PATTERN, type ValueEvent } from '../../utils/input';
 import { refreshUnreadBadge } from '../../utils/notifications';
 import { ApiError } from '../../utils/request';
-import { bindPhone, getBindTicket, sendSmsCode } from '../../utils/session';
+import { bindPhone, clearBindTicket, getBindTicket, sendSmsCode } from '../../utils/session';
 
 const POSITION_LABELS = ['门将', '后卫', '中场', '前锋'];
-const PHONE = /^1\d{10}$/;
-
-// 原生 input 的 bindinput 与 picker 的 bindchange 都把值放在 detail.value 上。
-interface ValueEvent {
-  detail: { value: string };
-}
 
 let timer: ReturnType<typeof setInterval> | undefined;
 
@@ -56,7 +51,7 @@ Page({
     if (this.data.sending || this.data.countdown > 0) {
       return;
     }
-    if (!PHONE.test(this.data.phone)) {
+    if (!PHONE_PATTERN.test(this.data.phone)) {
       this.setData({ error: '请输入正确的手机号' });
       return;
     }
@@ -77,7 +72,7 @@ Page({
       return;
     }
     const { phone, code, name, positionIndex } = this.data;
-    if (!PHONE.test(phone)) {
+    if (!PHONE_PATTERN.test(phone)) {
       this.setData({ error: '请输入正确的手机号' });
       return;
     }
@@ -109,6 +104,11 @@ Page({
 
   skip() {
     void wx.switchTab({ url: '/pages/home/index' });
+  },
+
+  usePassword() {
+    clearBindTicket();
+    void wx.redirectTo({ url: '/pages/login/index' });
   },
 });
 

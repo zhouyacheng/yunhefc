@@ -1,7 +1,6 @@
 {
-  "navigationBarTitleText": "微信登录",
-  "usingComponents": {
-    "van-button": "@vant/weapp/button/index",
-    "van-loading": "@vant/weapp/loading/index"
-  }
+  "navigationBarTitleText": "登录",
+  "navigationBarBackgroundColor": "#0b1220",
+  "navigationBarTextStyle": "white",
+  "backgroundColor": "#0b1220"
 }

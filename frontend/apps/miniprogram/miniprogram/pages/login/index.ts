@@ -1,37 +1,86 @@
 import { errorMessage } from '../../utils/api-errors';
+import { PHONE_PATTERN, type ValueEvent } from '../../utils/input';
 import { refreshUnreadBadge } from '../../utils/notifications';
-import { login } from '../../utils/session';
+import { loginWithPassword, loginWithWechat } from '../../utils/session';
+
+interface FieldEvent {
+  currentTarget: { dataset: { field?: string } };
+}
 
 Page({
   data: {
-    status: 'loading' as 'loading' | 'error',
-    message: '',
+    phone: '',
+    password: '',
+    focus: '',
+    submitting: false,
+    wechatLoading: false,
+    error: '',
   },
 
-  onLoad() {
-    void this.start();
+  onPhoneInput(event: ValueEvent) {
+    this.setData({ phone: event.detail.value });
   },
 
-  async start() {
-    this.setData({ status: 'loading', message: '' });
+  onPasswordInput(event: ValueEvent) {
+    this.setData({ password: event.detail.value });
+  },
+
+  onFieldFocus(event: FieldEvent) {
+    this.setData({ focus: String(event.currentTarget.dataset.field ?? '') });
+  },
+
+  onFieldBlur() {
+    this.setData({ focus: '' });
+  },
+
+  async submit() {
+    if (this.data.submitting) {
+      return;
+    }
+    const phone = this.data.phone.trim();
+    const password = this.data.password;
+    if (!PHONE_PATTERN.test(phone)) {
+      this.setData({ error: '请输入正确的手机号' });
+      return;
+    }
+    if (!password) {
+      this.setData({ error: '请输入密码' });
+      return;
+    }
+    this.setData({ submitting: true, error: '' });
     try {
-      const result = await login();
+      await loginWithPassword(phone, password);
+      this.enterHome();
+    } catch (error) {
+      this.setData({ error: errorMessage(error, '登录失败，请检查手机号与密码') });
+    } finally {
+      this.setData({ submitting: false });
+    }
+  },
+
+  async wechatLogin() {
+    if (this.data.wechatLoading || this.data.submitting) {
+      return;
+    }
+    this.setData({ wechatLoading: true, error: '' });
+    try {
+      const result = await loginWithWechat();
       if (result.needBindPhone) {
         void wx.redirectTo({ url: '/pages/phone-bind/index' });
         return;
       }
-      void refreshUnreadBadge();
-      void wx.switchTab({ url: '/pages/home/index' });
+      this.enterHome();
     } catch (error) {
-      this.setData({
-        status: 'error',
-        message: errorMessage(error, '微信登录失败，请重试'),
-      });
+      this.setData({ error: errorMessage(error, '微信登录失败，请重试') });
+    } finally {
+      this.setData({ wechatLoading: false });
     }
   },
 
-  retry() {
-    void this.start();
+  /** 登录成功后的统一收尾。 */
+  enterHome() {
+    void refreshUnreadBadge();
+    void wx.switchTab({ url: '/pages/home/index' });
   },
 
   skip() {

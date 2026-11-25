@@ -395,7 +395,7 @@ export function listActivities(query: ActivityListQuery = {}): Promise<Page<Acti
   );
 }
 
-/** ACT-02 活动详情；不含报名名单。 */
+/** ACT-02 活动详情；不内联报名名单，报名队列另调 ACT-05。 */
 export function fetchActivity(id: number): Promise<ActivityDetail> {
   return request<ActivityDetail>('GET', `/activities/${id}`);
 }
@@ -434,7 +434,7 @@ export function changeActivityStatus(id: number, body: ActivityStatusUpdate): Pr
   return highRiskWrite<void>('POST', `/activities/${id}/status`, body);
 }
 
-/** ACT-05 名单分页；详情页不展示名单，预留给后续只读入口。 */
+/** ACT-05 报名队列分页；C12/MP11 详情页登录后按 activity:view:any 展示。 */
 export function listActivitySignups(
   id: number,
   query: { page: number; pageSize: number },

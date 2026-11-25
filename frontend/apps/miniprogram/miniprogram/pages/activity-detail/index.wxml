@@ -157,6 +157,45 @@
         <text wx:if="{{actionError}}" class="action-error">{{actionError}}</text>
       </view>
     </view>
+
+    <view class="card activity-signup-list">
+      <view class="card-head">
+        <text class="card-title">报名队列</text>
+        <text wx:if="{{canViewSignups && signupTotal !== null}}" class="muted small">{{signupTotal}} 人</text>
+      </view>
+
+      <text wx:if="{{!authenticated}}" class="muted">登录后查看报名队列</text>
+      <text wx:elif="{{!canViewSignups}}" class="muted">报名队列仅正式球员与管理员可见</text>
+      <view wx:elif="{{signupsLoading}}" class="state state--inline">
+        <van-loading size="18px">报名队列加载中…</van-loading>
+      </view>
+      <view wx:elif="{{signupsError}}" class="state state--inline">
+        <text class="muted">{{signupsError}}</text>
+        <view class="btn btn--small btn--outline" bindtap="retrySignups" hover-class="btn--pressed">重试</view>
+      </view>
+
+      <block wx:else>
+        <text wx:if="{{!signups.length}}" class="muted small">暂无报名</text>
+        <view wx:for="{{signups}}" wx:key="id" class="activity-signup-list__row">
+          <text class="activity-signup-list__order">{{index + 1}}</text>
+          <image
+            wx:if="{{item.avatarUrl}}"
+            class="activity-signup-list__avatar"
+            src="{{item.avatarUrl}}"
+            mode="aspectFill"
+          />
+          <text wx:else class="activity-signup-list__avatar activity-signup-list__avatar--empty">{{item.initial}}</text>
+          <view class="activity-signup-list__main">
+            <text class="activity-signup-list__name">
+              {{item.playerName}}<text class="muted small">#{{item.playerNo === null ? '—' : item.playerNo}}</text>
+            </text>
+            <text wx:if="{{item.familyText}}" class="activity-signup-list__family">{{item.familyText}}</text>
+          </view>
+          <text wx:if="{{item.isMine}}" class="activity-signup-list__mine">我</text>
+        </view>
+        <text wx:if="{{signupTotal !== null && signupTotal > signups.length}}" class="hint">仅展示前 {{signups.length}} 位报名球员</text>
+      </block>
+    </view>
   </block>
 
   <van-popup show="{{sheetOpen}}" position="bottom" round bind:close="closeSheet">

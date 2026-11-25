@@ -69,6 +69,43 @@ function pageOf<T>(items: T[]): unknown {
   return { items, total: items.length, page: 1, pageSize: 10, totalPages: 1 };
 }
 
+const SIGNUP_ROWS = [
+  {
+    id: 51,
+    activityId: 9001,
+    playerId: 7,
+    playerName: '李雷',
+    playerNo: null,
+    avatarUrl: null,
+    withFamily: false,
+    familyNote: null,
+    status: 0,
+    statusLabel: 'CONFIRMED',
+    signedUpAt: '2099-11-20T09:00:00+08:00',
+  },
+  {
+    id: 52,
+    activityId: 9001,
+    playerId: 8,
+    playerName: '韩梅梅',
+    playerNo: 11,
+    avatarUrl: null,
+    withFamily: true,
+    familyNote: '1 位家属',
+    status: 0,
+    statusLabel: 'CONFIRMED',
+    signedUpAt: '2099-11-20T09:30:00+08:00',
+  },
+];
+
+async function mockSignups(page: Page, id: number, rows: unknown[] = []): Promise<void> {
+  await page.route(
+    (url) => url.pathname === `/api/v1/c/activities/${id}/signups`,
+    (route) =>
+      route.request().method() === 'GET' ? fulfill(route, pageOf(rows)) : route.fallback(),
+  );
+}
+
 const ME = {
   user: {
     id: 2,
@@ -217,6 +254,33 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
   await page.route(
     (url) => url.pathname === '/api/v1/c/activities/9001/signups',
     async (route) => {
+      if (route.request().method() === 'GET') {
+        // ACT-05 报名队列：报名成功后追加本人行。
+        await fulfill(
+          route,
+          pageOf(
+            signedUp
+              ? [
+                  ...SIGNUP_ROWS,
+                  {
+                    id: 55,
+                    activityId: 9001,
+                    playerId: 2,
+                    playerName: '张伟',
+                    playerNo: 7,
+                    avatarUrl: null,
+                    withFamily: true,
+                    familyNote: '带 1 位家属',
+                    status: 0,
+                    statusLabel: 'CONFIRMED',
+                    signedUpAt: '2099-11-20T10:00:00+08:00',
+                  },
+                ]
+              : SIGNUP_ROWS,
+          ),
+        );
+        return;
+      }
       postBodies.push(JSON.parse(route.request().postData() ?? '{}'));
       postKeys.push(route.request().headers()['idempotency-key']);
       signedUp = true;
@@ -238,6 +302,16 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
   await expect(page.getByText('已报 12 / 20 人（不含家属）')).toBeVisible();
   await expect(page.getByText('人均 ¥120.00')).toBeVisible();
 
+  // P-118：报名队列按报名时间升序，展示家属备注，本人行标记「我」。
+  const signupRows = page.getByTestId('activity-signup-list-row');
+  await expect(page.getByRole('heading', { name: '报名队列' })).toBeVisible();
+  await expect(page.getByTestId('activity-signup-list')).toContainText('2 人');
+  await expect(signupRows).toHaveCount(2);
+  await expect(signupRows.nth(0)).toContainText('李雷');
+  await expect(signupRows.nth(0)).toContainText('#—');
+  await expect(signupRows.nth(1)).toContainText('韩梅梅');
+  await expect(signupRows.nth(1)).toContainText('携带家属（1 位家属）');
+
   await page.getByTestId('activity-signup').click();
   await expect(page.getByRole('heading', { name: '报名活动' })).toBeVisible();
   await page.getByText('携带家属', { exact: true }).click();
@@ -246,7 +320,11 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
 
   await expect(page.getByTestId('activity-message')).toHaveText('报名成功');
   await expect(page.getByTestId('activity-cancel')).toBeVisible();
-  await expect(page.getByText('携带家属（带 1 位家属）')).toBeVisible();
+  await expect(
+    page.getByTestId('activity-signup-card').getByText('携带家属（带 1 位家属）'),
+  ).toBeVisible();
+  await expect(signupRows).toHaveCount(3);
+  await expect(signupRows.filter({ hasText: '张伟' })).toContainText('我');
   expect(postBodies).toEqual([{ withFamily: true, familyNote: '带 1 位家属' }]);
   expect(postKeys[0]).toBeTruthy();
 
@@ -254,6 +332,7 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
   await expect(page.getByTestId('activity-message')).toHaveText('已取消报名');
   await expect(page.getByTestId('activity-signup')).toBeVisible();
   await expect(page.getByTestId('activity-status-select')).toHaveCount(0);
+  await expect(signupRows).toHaveCount(2);
   expect(deleteCalls).toBe(1);
 
   await page.getByRole('button', { name: '复制链接' }).click();
@@ -271,6 +350,7 @@ test('C12 活动详情：不允许携带家属时隐藏家属选项', async ({ p
     (url) => url.pathname === '/api/v1/c/activities/9005',
     (route) => fulfill(route, noFamily),
   );
+  await mockSignups(page, 9005);
 
   await page.goto('/activities/9005');
   await page.getByTestId('activity-signup').click();
@@ -291,6 +371,7 @@ test('C12 活动详情：已取消活动对访客不展示报名按钮', async (
   await page.goto('/activities/9004');
   await expect(page.getByTestId('activity-closed-banner')).toContainText('活动已取消');
   await expect(page.getByTestId('activity-signup')).toHaveCount(0);
+  await expect(page.getByText('登录后查看报名队列')).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -365,6 +446,7 @@ test('C12 管理员：状态下拉、直接流转与取消原因', async ({ page
     ...ME,
     permissions: [...ME.permissions, 'activity:manage:any'],
   });
+  await mockSignups(page, 9001);
 
   let version = 0;
   let status = 0;

@@ -229,6 +229,78 @@
   flex: 1;
 }
 
+/* 报名队列：按报名时间升序，与比赛名单行同一视觉语言。 */
+.activity-signup-list {
+  margin-top: 8rpx;
+}
+
+.activity-signup-list__row {
+  display: flex;
+  gap: 16rpx;
+  align-items: center;
+  min-height: 88rpx;
+  padding: 16rpx 20rpx;
+  background: var(--yh-surface-soft);
+  border-radius: var(--yh-radius-sm);
+}
+
+.activity-signup-list__order {
+  flex: 0 0 auto;
+  min-width: 36rpx;
+  color: var(--yh-muted);
+  font-size: 22rpx;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.activity-signup-list__avatar {
+  flex: 0 0 auto;
+  width: 60rpx;
+  height: 60rpx;
+  border-radius: 50%;
+}
+
+.activity-signup-list__avatar--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--yh-green-ink);
+  font-size: 26rpx;
+  font-weight: 700;
+  background: var(--yh-green-soft);
+}
+
+.activity-signup-list__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4rpx;
+  min-width: 0;
+}
+
+.activity-signup-list__name {
+  display: flex;
+  gap: 12rpx;
+  align-items: baseline;
+  font-size: 26rpx;
+  font-weight: 600;
+}
+
+.activity-signup-list__family {
+  color: var(--yh-muted);
+  font-size: 22rpx;
+}
+
+.activity-signup-list__mine {
+  flex: 0 0 auto;
+  padding: 2rpx 12rpx;
+  color: var(--yh-green-ink);
+  font-size: 20rpx;
+  font-weight: 700;
+  background: var(--yh-green-soft);
+  border-radius: 999rpx;
+}
+
 /* ACT-13 管理员状态修改：状态胶囊可点，底部状态面板复用 status-sheet 组件。 */
 .status-pill--action {
   padding: 6rpx 14rpx;

@@ -406,7 +406,7 @@ export interface AvatarUploadView {
   signedUrl: string;
 }
 
-// ---- M15 队内活动（05 §3.16）：列表与详情均不含报名名单 ----
+// ---- M15 队内活动（05 §3.16）：列表与详情接口不内联名单，报名队列经 ACT-05 单独加载 ----
 
 /** 0-聚餐；1-年会；2-其他。 */
 export type ActivityType = 0 | 1 | 2;

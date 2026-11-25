@@ -505,12 +505,12 @@ onBeforeUnmount(() => {
         </p>
 
         <div class="match-hero__meta muted small">
-          <span>{{ dayTimeText }}</span>
+          <span>📅 {{ dayTimeText }}</span>
           <span>📍 {{ activity.location }}</span>
           <span>⏰ 报名截止 {{ formatDateTime(activity.signupDeadline) }}</span>
-          <span>{{ signupText }}</span>
+          <span>👥 {{ signupText }}</span>
           <span v-if="activity.costPerPerson !== null">
-            人均 {{ formatActivityCost(activity.costPerPerson) }}
+            💰 人均 {{ formatActivityCost(activity.costPerPerson) }}
           </span>
         </div>
 

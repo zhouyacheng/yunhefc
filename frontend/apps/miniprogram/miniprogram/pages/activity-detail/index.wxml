@@ -32,11 +32,11 @@
       <view class="detail-hero__title">{{activity.title}}</view>
 
       <view class="detail-hero__meta">
-        <text>{{timeText}}</text>
+        <text>📅 {{timeText}}</text>
         <text>📍 {{activity.location}}</text>
         <text>⏰ 报名截止 {{deadlineText}}</text>
-        <text>{{countText}}</text>
-        <text wx:if="{{activity.costPerPerson !== null}}">{{costText}}</text>
+        <text>👥 {{countText}}</text>
+        <text wx:if="{{activity.costPerPerson !== null}}">💰 {{costText}}</text>
       </view>
     </view>
 

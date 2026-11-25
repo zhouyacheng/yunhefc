@@ -9,6 +9,7 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
+import com.yunhefc.common.util.DateRanges;
 import com.yunhefc.contracts.event.DerivedScoreSnapshot;
 import com.yunhefc.contracts.event.EventScoreReadPort;
 import com.yunhefc.contracts.messaging.EventTypes;
@@ -95,8 +96,7 @@ public class MatchAdminApplicationService {
         MatchType type = MatchQueryParsing.type(query.type());
         String season = MatchQueryParsing.seasonFilter(query.season());
         String scope = MatchQueryParsing.scope(query.scope());
-        MatchQueryParsing.DateRange dateRange =
-                MatchQueryParsing.dateRange(query.startDate(), query.endDate());
+        DateRanges.Range dateRange = DateRanges.parse(query.startDate(), query.endDate());
         MatchQueryParsing.AdminSort sort = MatchQueryParsing.adminSort(query.sort());
 
         LambdaQueryWrapper<TeamMatch> wrapper = new LambdaQueryWrapper<TeamMatch>()

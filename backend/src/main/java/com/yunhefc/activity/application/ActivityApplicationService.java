@@ -23,6 +23,7 @@ import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.time.ShanghaiTime;
+import com.yunhefc.common.util.DateRanges;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.player.PlayerType;
@@ -38,6 +39,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -82,6 +84,18 @@ public class ActivityApplicationService {
         if (ActivityQueryParsing.SCOPE_FINISHED.equals(scope)) {
             // P-126：已结束活动 = 已结束 + 已取消，按状态而非时间过滤。
             wrapper.in(TeamActivity::getStatus, ActivityStatus.FINISHED, ActivityStatus.CANCELLED);
+        }
+        // P-128：月份与自定义时间范围均按活动开始时间过滤；前端互斥，直接同时提供时按交集处理。
+        YearMonth month = DateRanges.parseMonth(query.time().month());
+        if (month != null) {
+            wrapper.ge(TeamActivity::getStartAt, month.atDay(1).atStartOfDay())
+                    .lt(TeamActivity::getStartAt, month.plusMonths(1).atDay(1).atStartOfDay());
+        }
+        DateRanges.Range dateRange =
+                DateRanges.parse(query.time().startDate(), query.time().endDate());
+        if (dateRange != null) {
+            wrapper.ge(TeamActivity::getStartAt, dateRange.startAt())
+                    .lt(TeamActivity::getStartAt, dateRange.endExclusiveAt());
         }
 
         ActivityQueryParsing.validatePaging(query.page(), query.pageSize());

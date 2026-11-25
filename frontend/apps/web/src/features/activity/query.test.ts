@@ -53,17 +53,70 @@ describe('parseActivityType/Status', () => {
 
 describe('fromActivityForm', () => {
   it('表单字符串转为筛选条件', () => {
-    expect(fromActivityForm({ scope: 'finished', type: '1', status: '0' })).toEqual({
+    expect(
+      fromActivityForm({
+        scope: 'finished',
+        type: '1',
+        status: '0',
+        month: '',
+        startDate: '',
+        endDate: '',
+      }),
+    ).toEqual({
       scope: 'finished',
       type: 1,
       status: 0,
+      month: null,
+      startDate: null,
+      endDate: null,
     });
+  });
+
+  it('月份与日期范围互斥，非法值不下发', () => {
+    expect(
+      fromActivityForm({
+        scope: 'all',
+        type: '',
+        status: '',
+        month: '2026-11',
+        startDate: '2026-11-01',
+        endDate: '2026-11-10',
+      }),
+    ).toEqual({
+      scope: 'all',
+      type: null,
+      status: null,
+      month: null,
+      startDate: '2026-11-01',
+      endDate: '2026-11-10',
+    });
+    expect(
+      fromActivityForm({
+        scope: 'all',
+        type: '',
+        status: '',
+        month: '2026-13',
+        startDate: '2026-02-30',
+        endDate: '2026-03-01',
+      }),
+    ).toMatchObject({ month: null, startDate: null, endDate: null });
   });
 });
 
 describe('toActivityRequest', () => {
   it('全部范围下发分页与筛选', () => {
-    expect(toActivityRequest({ scope: 'all', type: 0, status: 2, page: 2, pageSize: 20 })).toEqual({
+    expect(
+      toActivityRequest({
+        scope: 'all',
+        type: 0,
+        status: 2,
+        month: null,
+        startDate: null,
+        endDate: null,
+        page: 2,
+        pageSize: 20,
+      }),
+    ).toEqual({
       scope: 'all',
       type: 0,
       status: 2,
@@ -72,15 +125,67 @@ describe('toActivityRequest', () => {
     });
   });
 
-  it('不筛选时不带 type/status', () => {
+  it('不筛选时不带 type/status 与时间参数', () => {
     expect(
-      toActivityRequest({ scope: 'finished', type: null, status: null, page: 1, pageSize: 10 }),
+      toActivityRequest({
+        scope: 'finished',
+        type: null,
+        status: null,
+        month: null,
+        startDate: null,
+        endDate: null,
+        page: 1,
+        pageSize: 10,
+      }),
     ).toEqual({ scope: 'finished', page: 1, pageSize: 10 });
+  });
+
+  it('月份与自定义时间范围分别下发，范围优先', () => {
+    expect(
+      toActivityRequest({
+        scope: 'all',
+        type: null,
+        status: null,
+        month: '2026-11',
+        startDate: null,
+        endDate: null,
+        page: 1,
+        pageSize: 10,
+      }),
+    ).toEqual({ scope: 'all', month: '2026-11', page: 1, pageSize: 10 });
+
+    expect(
+      toActivityRequest({
+        scope: 'all',
+        type: null,
+        status: null,
+        month: '2026-11',
+        startDate: '2026-11-01',
+        endDate: '2026-11-10',
+        page: 1,
+        pageSize: 10,
+      }),
+    ).toEqual({
+      scope: 'all',
+      startDate: '2026-11-01',
+      endDate: '2026-11-10',
+      page: 1,
+      pageSize: 10,
+    });
   });
 
   it('最近活动同样下发分页参数', () => {
     expect(
-      toActivityRequest({ scope: 'latest', type: null, status: null, page: 3, pageSize: 20 }),
+      toActivityRequest({
+        scope: 'latest',
+        type: null,
+        status: null,
+        month: null,
+        startDate: null,
+        endDate: null,
+        page: 3,
+        pageSize: 20,
+      }),
     ).toEqual({ scope: 'latest', page: 3, pageSize: 20 });
   });
 });

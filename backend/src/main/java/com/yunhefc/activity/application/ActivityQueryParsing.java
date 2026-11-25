@@ -5,10 +5,7 @@ import com.yunhefc.activity.domain.ActivityType;
 import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
-import com.yunhefc.common.util.DateRanges;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Set;
 
 /**
@@ -80,27 +77,8 @@ final class ActivityQueryParsing {
         return keyword;
     }
 
-    /**
-     * 管理端活动列表的自定义日期范围；按 Asia/Shanghai 自然日左闭右开过滤 start_at。
-     */
-    static DateRange dateRange(String start, String end) {
-        DateRanges.Range range = DateRanges.parse(start, end);
-        return range == null ? null : new DateRange(range.start(), range.end());
-    }
-
     static void validatePaging(long page, long pageSize) {
         PageQuery.of(page, pageSize);
-    }
-
-    record DateRange(LocalDate start, LocalDate end) {
-
-        LocalDateTime startAt() {
-            return start.atStartOfDay();
-        }
-
-        LocalDateTime endExclusiveAt() {
-            return end.plusDays(1).atStartOfDay();
-        }
     }
 
     static String normalize(String value) {

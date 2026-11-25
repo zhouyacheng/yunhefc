@@ -13,6 +13,7 @@ import com.yunhefc.activity.application.ActivityApplicationService;
 import com.yunhefc.activity.dto.ActivityDtos.ActivitySignupRequest;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.infra.lock.RedisLock;
 import jakarta.servlet.http.Cookie;
@@ -25,6 +26,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.Duration;
+import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -119,6 +122,75 @@ class ActivityPublicIT extends ActivityITSupport {
                 .andExpect(status().isBadRequest());
         mockMvc.perform(get("/api/v1/c/activities").param("page", "0"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void listFiltersByMonthAndDateRange() throws Exception {
+        LocalDate base = ShanghaiTime.now().toLocalDate().plusMonths(6).withDayOfMonth(10);
+        LocalDate nextMonth = base.plusMonths(1);
+        Long inMonthId = insertActivity("本月活动", base.atTime(18, 0).toString(), 0, 10,
+                base.atTime(17, 0).toString(), 1);
+        Long finishedInMonthId = insertActivity("本月已结束", base.plusDays(1).atTime(18, 0).toString(), 2, 10,
+                base.plusDays(1).atTime(17, 0).toString(), 1);
+        Long nextMonthId = insertActivity("次月活动", nextMonth.atTime(18, 0).toString(), 0, 10,
+                nextMonth.atTime(17, 0).toString(), 1);
+        String month = YearMonth.from(base).toString();
+
+        mockMvc.perform(get("/api/v1/c/activities").param("month", month))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items[0].id").value(finishedInMonthId))
+                .andExpect(jsonPath("$.data.items[1].id").value(inMonthId));
+
+        mockMvc.perform(get("/api/v1/c/activities")
+                        .param("startDate", base.toString())
+                        .param("endDate", nextMonth.toString()))
+                .andExpect(jsonPath("$.data.total").value(3))
+                .andExpect(jsonPath("$.data.items[0].id").value(nextMonthId));
+
+        // 单日范围按自然日包含当天。
+        mockMvc.perform(get("/api/v1/c/activities")
+                        .param("startDate", base.toString())
+                        .param("endDate", base.toString()))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(inMonthId));
+
+        // 时间条件与 scope/type/status 叠加。
+        mockMvc.perform(get("/api/v1/c/activities").param("month", month)
+                        .param("scope", "latest"))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(inMonthId));
+        mockMvc.perform(get("/api/v1/c/activities").param("month", month)
+                        .param("status", "2"))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(finishedInMonthId));
+        mockMvc.perform(get("/api/v1/c/activities").param("month", month)
+                        .param("type", "1"))
+                .andExpect(jsonPath("$.data.total").value(0));
+
+        // 同时提供月份与日期范围时取交集。
+        mockMvc.perform(get("/api/v1/c/activities").param("month", month)
+                        .param("startDate", nextMonth.toString())
+                        .param("endDate", nextMonth.toString()))
+                .andExpect(jsonPath("$.data.total").value(0));
+        mockMvc.perform(get("/api/v1/c/activities").param("month", month)
+                        .param("startDate", base.toString())
+                        .param("endDate", base.toString()))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(inMonthId));
+
+        for (String invalid : List.of("2026-13", "1999-12", "2101-01")) {
+            mockMvc.perform(get("/api/v1/c/activities").param("month", invalid))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code").value(40001));
+        }
+        mockMvc.perform(get("/api/v1/c/activities").param("startDate", base.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/c/activities")
+                        .param("startDate", nextMonth.toString())
+                        .param("endDate", base.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
     }
 
     @Test

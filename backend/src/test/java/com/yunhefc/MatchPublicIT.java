@@ -197,6 +197,8 @@ class MatchPublicIT extends IntegrationTestSupport {
         expectBadRequest("/api/v1/c/matches", "month", "2099/06");
         expectBadRequest("/api/v1/c/matches", "month", "2099-13");
         expectBadRequest("/api/v1/c/matches", "month", "all");
+        expectBadRequest("/api/v1/c/matches", "month", "1999-12");
+        expectBadRequest("/api/v1/c/matches", "month", "2101-01");
         expectBadRequest("/api/v1/c/matches", "startDate", "2099-06-01");
         expectBadRequest("/api/v1/c/matches", "endDate", "2099-06-01");
         expectBadRequest("/api/v1/c/matches", "startDate", "2099/06/01");

@@ -5,15 +5,51 @@ import {
   ACTIVITY_STATUS_OPTIONS,
   ACTIVITY_TYPE_OPTIONS,
   activityFeedKey,
+  activityFiltersFromState,
   activityListQuery,
   DEFAULT_ACTIVITY_FILTERS,
   DEFAULT_ACTIVITY_KEY,
+  isActivityScope,
   parseActivityFeedKey,
 } from '../miniprogram/utils/activity-query';
 
+const EMPTY_TIME = { month: '', startDate: '', endDate: '' };
+
+describe('控件状态组装', () => {
+  it('控件下标组装为筛选条件', () => {
+    expect(
+      activityFiltersFromState({
+        scope: 'finished',
+        typeIndex: 3,
+        statusIndex: 1,
+        month: '2026-11',
+        startDate: '',
+        endDate: '',
+      }),
+    ).toEqual({
+      scope: 'finished',
+      type: 2,
+      status: 0,
+      month: '2026-11',
+      startDate: '',
+      endDate: '',
+    });
+    expect(
+      activityFiltersFromState({
+        scope: 'all',
+        typeIndex: 99,
+        statusIndex: 99,
+        month: '',
+        startDate: '',
+        endDate: '',
+      }),
+    ).toMatchObject({ scope: 'all', type: '', status: '' });
+  });
+});
+
 describe('活动筛选编码', () => {
   it('默认 key 可往返', () => {
-    expect(DEFAULT_ACTIVITY_KEY).toBe('latest||');
+    expect(DEFAULT_ACTIVITY_KEY).toBe('scope=latest');
     expect(parseActivityFeedKey(DEFAULT_ACTIVITY_KEY)).toEqual(DEFAULT_ACTIVITY_FILTERS);
     expect(activityListQuery(DEFAULT_ACTIVITY_FILTERS)).toEqual({
       scope: 'latest',
@@ -23,17 +59,65 @@ describe('活动筛选编码', () => {
   });
 
   it('筛选 key 与请求参数保持同一口径', () => {
-    const filters = { scope: 'latest' as const, type: 0 as const, status: 1 as const };
-    expect(activityFeedKey(filters)).toBe('latest|0|1');
+    const filters = {
+      scope: 'latest' as const,
+      type: 0 as const,
+      status: 1 as const,
+      ...EMPTY_TIME,
+    };
+    expect(activityFeedKey(filters)).toBe('scope=latest&type=0&status=1');
     expect(parseActivityFeedKey(activityFeedKey(filters))).toEqual(filters);
     expect(activityListQuery(filters)).toEqual({ scope: 'latest', type: 0, status: 1 });
   });
 
+  it('月份与自定义时间范围分别编码，范围优先', () => {
+    expect(activityFeedKey({ ...DEFAULT_ACTIVITY_FILTERS, month: '2026-11' })).toBe(
+      'scope=latest&month=2026-11',
+    );
+    expect(activityListQuery({ ...DEFAULT_ACTIVITY_FILTERS, month: '2026-11' })).toEqual({
+      scope: 'latest',
+      month: '2026-11',
+    });
+
+    const ranged = {
+      ...DEFAULT_ACTIVITY_FILTERS,
+      month: '2026-11',
+      startDate: '2026-11-01',
+      endDate: '2026-11-10',
+    };
+    expect(activityFeedKey(ranged)).toBe('scope=latest&startDate=2026-11-01&endDate=2026-11-10');
+    expect(activityListQuery(ranged)).toEqual({
+      scope: 'latest',
+      startDate: '2026-11-01',
+      endDate: '2026-11-10',
+    });
+  });
+
+  it('非法月份或日期回落为空', () => {
+    expect(parseActivityFeedKey('scope=latest&month=2026-13')).toEqual(DEFAULT_ACTIVITY_FILTERS);
+    expect(parseActivityFeedKey('scope=latest&month=1999-12')).toEqual(DEFAULT_ACTIVITY_FILTERS);
+    expect(parseActivityFeedKey('scope=latest&month=2101-01')).toEqual(DEFAULT_ACTIVITY_FILTERS);
+    expect(parseActivityFeedKey('scope=latest&startDate=2026-02-30&endDate=2026-03-01')).toEqual(
+      DEFAULT_ACTIVITY_FILTERS,
+    );
+    expect(parseActivityFeedKey('scope=latest&startDate=2026-03-02&endDate=2026-03-01')).toEqual(
+      DEFAULT_ACTIVITY_FILTERS,
+    );
+  });
+
+  it('范围白名单校验覆盖全部合法范围', () => {
+    expect(ACTIVITY_SCOPES.every((option) => isActivityScope(option.key))).toBe(true);
+    expect(isActivityScope('history')).toBe(false);
+    expect(isActivityScope('')).toBe(false);
+    expect(isActivityScope(undefined)).toBe(false);
+    expect(isActivityScope(0)).toBe(false);
+  });
+
   it('非法片段回落到默认值', () => {
     expect(parseActivityFeedKey('')).toEqual(DEFAULT_ACTIVITY_FILTERS);
-    expect(parseActivityFeedKey('bogus|9|x')).toEqual(DEFAULT_ACTIVITY_FILTERS);
+    expect(parseActivityFeedKey('bogus&type=9&status=x')).toEqual(DEFAULT_ACTIVITY_FILTERS);
     // P-116：MP10 不再提供历史范围，旧 key 回落缺省最近活动。
-    expect(parseActivityFeedKey('history||')).toEqual(DEFAULT_ACTIVITY_FILTERS);
+    expect(parseActivityFeedKey('scope=history')).toEqual(DEFAULT_ACTIVITY_FILTERS);
   });
 
   it('选项顺序与 02 一致', () => {

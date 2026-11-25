@@ -2,13 +2,9 @@ package com.yunhefc.match.application;
 
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
-import com.yunhefc.common.util.DateRanges;
 import com.yunhefc.match.domain.MatchStatus;
 import com.yunhefc.match.domain.MatchTimeRules;
 import com.yunhefc.match.domain.MatchType;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 /**
  * 比赛列表（MAT-02/09）公共的筛选参数解析。
@@ -109,14 +105,6 @@ final class MatchQueryParsing {
         return season;
     }
 
-    /**
-     * 解析自定义日期范围；按 Asia/Shanghai 自然日左闭右开。
-     */
-    static DateRange dateRange(String start, String end) {
-        DateRanges.Range range = DateRanges.parse(start, end);
-        return range == null ? null : new DateRange(range.start(), range.end());
-    }
-
     enum AdminSortField {
         START_AT,
         END_AT,
@@ -126,17 +114,6 @@ final class MatchQueryParsing {
     }
 
     record AdminSort(AdminSortField field, boolean ascending) {
-    }
-
-    record DateRange(LocalDate start, LocalDate end) {
-
-        LocalDateTime startAt() {
-            return start.atStartOfDay();
-        }
-
-        LocalDateTime endExclusiveAt() {
-            return end.plusDays(1).atStartOfDay();
-        }
     }
 
     static String normalize(String value) {

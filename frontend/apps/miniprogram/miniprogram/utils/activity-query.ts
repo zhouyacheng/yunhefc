@@ -1,8 +1,10 @@
-// MP10 活动筛选的唯一编码口径：范围/类型/状态选项与 feed key 互转集中在此。
+// MP10 活动筛选的唯一编码口径：范围/类型/状态/时间选项与 feed key 互转集中在此。
 import type { ActivityStatus, ActivityType } from '../types/api';
 import type { ActivityScope } from './api-client';
+import { normalizeTimeRange, timeRangeEntries, timeRangeParams } from './time-filter';
+import type { MonthRange } from './time-filter';
 
-export interface ActivityFilters {
+export interface ActivityFilters extends MonthRange {
   scope: ActivityScope;
   type: ActivityType | '';
   status: ActivityStatus | '';
@@ -44,19 +46,66 @@ export const DEFAULT_ACTIVITY_FILTERS: ActivityFilters = {
   scope: 'latest',
   type: '',
   status: '',
+  month: '',
+  startDate: '',
+  endDate: '',
 };
 
-/** key = `scope|type|status`。 */
+/** 有效日期范围优先于月份；两者互斥，非法值回落为空。 */
+function normalizeActivityTime(filters: ActivityFilters): ActivityFilters {
+  const time = normalizeTimeRange(filters);
+  return {
+    ...filters,
+    month: time.month ?? '',
+    startDate: time.startDate ?? '',
+    endDate: time.endDate ?? '',
+  };
+}
+
+/** key = 仅含非空条件的查询串（如 `scope=latest&month=2026-11`），同时用作 PagedFeed 的 key。 */
 export function activityFeedKey(filters: ActivityFilters): string {
-  return `${filters.scope}|${filters.type}|${filters.status}`;
+  const normalized = normalizeActivityTime(filters);
+  const entries = [`scope=${normalized.scope}`];
+  if (normalized.type !== '') {
+    entries.push(`type=${normalized.type}`);
+  }
+  if (normalized.status !== '') {
+    entries.push(`status=${normalized.status}`);
+  }
+  entries.push(...timeRangeEntries(normalized));
+  return entries.join('&');
 }
 
 export const DEFAULT_ACTIVITY_KEY = activityFeedKey(DEFAULT_ACTIVITY_FILTERS);
 
+/** 页面控件状态；typeIndex/statusIndex 对应下拉选项下标。 */
+export interface ActivityFilterState {
+  scope: ActivityScope;
+  typeIndex: number;
+  statusIndex: number;
+  month: string;
+  startDate: string;
+  endDate: string;
+}
+
+export function activityFiltersFromState(state: ActivityFilterState): ActivityFilters {
+  return {
+    scope: state.scope,
+    type: ACTIVITY_TYPE_OPTIONS[state.typeIndex]?.value ?? '',
+    status: ACTIVITY_STATUS_OPTIONS[state.statusIndex]?.value ?? '',
+    month: state.month,
+    startDate: state.startDate,
+    endDate: state.endDate,
+  };
+}
+
+/** 范围选项白名单校验：feed key 解析与页面分段切换共用一个口径。 */
+export function isActivityScope(value: unknown): value is ActivityScope {
+  return typeof value === 'string' && ACTIVITY_SCOPES.some((option) => option.key === value);
+}
+
 function parseScope(value: string): ActivityScope {
-  return ACTIVITY_SCOPES.some((option) => option.key === value)
-    ? (value as ActivityScope)
-    : DEFAULT_ACTIVITY_FILTERS.scope;
+  return isActivityScope(value) ? value : DEFAULT_ACTIVITY_FILTERS.scope;
 }
 
 function parseCode<T extends number>(value: string, options: { value: T | '' }[]): T | '' {
@@ -67,13 +116,27 @@ function parseCode<T extends number>(value: string, options: { value: T | '' }[]
   return options.some((option) => option.value === code) ? (code as T) : '';
 }
 
+function parseParams(key: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  for (const part of key.split('&')) {
+    const index = part.indexOf('=');
+    if (index > 0) {
+      params[part.slice(0, index)] = part.slice(index + 1);
+    }
+  }
+  return params;
+}
+
 export function parseActivityFeedKey(key: string): ActivityFilters {
-  const [scope, type, status] = key.split('|');
-  return {
-    scope: parseScope(scope),
-    type: parseCode(type, ACTIVITY_TYPE_OPTIONS),
-    status: parseCode(status, ACTIVITY_STATUS_OPTIONS),
-  };
+  const params = parseParams(key);
+  return normalizeActivityTime({
+    scope: parseScope(params.scope ?? ''),
+    type: parseCode(params.type ?? '', ACTIVITY_TYPE_OPTIONS),
+    status: parseCode(params.status ?? '', ACTIVITY_STATUS_OPTIONS),
+    month: params.month ?? '',
+    startDate: params.startDate ?? '',
+    endDate: params.endDate ?? '',
+  });
 }
 
 /** ACT-01 参数：空值不下发。 */
@@ -81,10 +144,20 @@ export function activityListQuery(filters: ActivityFilters): {
   scope: ActivityScope;
   type?: ActivityType;
   status?: ActivityStatus;
+  month?: string;
+  startDate?: string;
+  endDate?: string;
 } {
-  return {
-    scope: filters.scope,
-    type: filters.type === '' ? undefined : filters.type,
-    status: filters.status === '' ? undefined : filters.status,
+  const normalized = normalizeActivityTime(filters);
+  const query: ReturnType<typeof activityListQuery> = {
+    scope: normalized.scope,
+    ...timeRangeParams(normalized),
   };
+  if (normalized.type !== '') {
+    query.type = normalized.type;
+  }
+  if (normalized.status !== '') {
+    query.status = normalized.status;
+  }
+  return query;
 }

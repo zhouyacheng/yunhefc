@@ -1,5 +1,12 @@
 import { currentShanghaiMonth } from '../../utils/datetime';
 import { listMatches } from '../../utils/api-client';
+import {
+  TIME_FILTER_MAX,
+  TIME_FILTER_MIN,
+  patchMonth,
+  patchRange,
+  rangeError,
+} from '../../utils/time-filter';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import {
   createPagedFeed,
@@ -26,8 +33,8 @@ type ScheduleFormExtras = Partial<{
   typeIndex: number;
   statusIndex: number;
   monthPickerValue: string;
-  rangeStart: string;
-  rangeEnd: string;
+  rangeDraftStart: string;
+  rangeDraftEnd: string;
   rangeOpen: boolean;
   filtersOpen: boolean;
 }>;
@@ -55,9 +62,12 @@ Page({
     statusOptions: STATUS_OPTIONS,
     typeIndex: 0,
     statusIndex: 0,
+    venueVisible: true,
+    timeFilterMin: TIME_FILTER_MIN,
+    timeFilterMax: TIME_FILTER_MAX,
     monthPickerValue: `${toScheduleForm(emptyScheduleFilters()).month}-01`,
-    rangeStart: '',
-    rangeEnd: '',
+    rangeDraftStart: '',
+    rangeDraftEnd: '',
     rangeOpen: false,
     filtersOpen: false,
   },
@@ -180,10 +190,11 @@ Page({
 
   onMonthChange(event: WechatMiniprogram.PickerChange) {
     const month = String(event.detail.value).slice(0, 7);
-    this.patchForm(
-      { month, startDate: '', endDate: '' },
-      { monthPickerValue: `${month}-01`, rangeStart: '', rangeEnd: '' },
-    );
+    this.patchForm(patchMonth(month), {
+      monthPickerValue: `${month}-01`,
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
+    });
   },
 
   clearMonth() {
@@ -193,15 +204,15 @@ Page({
   /** 清空后原生 picker 默认停在当月，重复确认不会触发 change；提供显式恢复入口。 */
   selectCurrentMonth() {
     const month = currentShanghaiMonth();
-    this.patchForm({ month, startDate: '', endDate: '' }, { monthPickerValue: `${month}-01` });
+    this.patchForm(patchMonth(month), { monthPickerValue: `${month}-01` });
   },
 
   openRange() {
     const form = this.data.form as ScheduleForm;
     this.setData({
       rangeOpen: true,
-      rangeStart: form.startDate,
-      rangeEnd: form.endDate,
+      rangeDraftStart: form.startDate,
+      rangeDraftEnd: form.endDate,
     });
   },
 
@@ -210,30 +221,27 @@ Page({
   },
 
   onRangeStartChange(event: WechatMiniprogram.PickerChange) {
-    this.setData({ rangeStart: String(event.detail.value) });
+    this.setData({ rangeDraftStart: String(event.detail.value) });
   },
 
   onRangeEndChange(event: WechatMiniprogram.PickerChange) {
-    this.setData({ rangeEnd: String(event.detail.value) });
+    this.setData({ rangeDraftEnd: String(event.detail.value) });
   },
 
   confirmRange() {
-    const { rangeStart: startDate, rangeEnd: endDate } = this.data;
-    if (!startDate || !endDate) {
-      wx.showToast({ title: '请选择开始和结束日期', icon: 'none' });
+    const { rangeDraftStart: startDate, rangeDraftEnd: endDate } = this.data;
+    const error = rangeError(startDate, endDate);
+    if (error) {
+      wx.showToast({ title: error, icon: 'none' });
       return;
     }
-    if (startDate > endDate) {
-      wx.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' });
-      return;
-    }
-    this.patchForm({ month: '', startDate, endDate }, { rangeOpen: false });
+    this.patchForm(patchRange(startDate, endDate), { rangeOpen: false });
   },
 
   clearRange() {
     this.patchForm(
       { startDate: '', endDate: '' },
-      { rangeOpen: false, rangeStart: '', rangeEnd: '' },
+      { rangeOpen: false, rangeDraftStart: '', rangeDraftEnd: '' },
     );
   },
 
@@ -248,8 +256,8 @@ Page({
       typeIndex: 0,
       statusIndex: 0,
       monthPickerValue: `${form.month}-01`,
-      rangeStart: '',
-      rangeEnd: '',
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
     });
     void wx.pageScrollTo({ scrollTop: 0 });
     if (!feed) {

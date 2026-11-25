@@ -110,28 +110,6 @@
   margin-bottom: 28rpx;
 }
 
-.segmented {
-  display: inline-flex;
-  padding: 6rpx;
-  background: var(--yh-slate-soft);
-  border-radius: 20rpx;
-}
-
-.segmented__item {
-  padding: 12rpx 16rpx;
-  color: var(--yh-muted);
-  font-size: 26rpx;
-  font-weight: 600;
-  line-height: 1.2;
-  border-radius: 16rpx;
-}
-
-.segmented__item--active {
-  color: var(--yh-ink);
-  background: var(--yh-surface);
-  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.12);
-}
-
 .section__segment {
   margin-bottom: 24rpx;
 }

@@ -389,6 +389,9 @@ export interface ActivityListQuery {
   type?: ActivityType;
   status?: ActivityStatus;
   scope?: ActivityScope;
+  month?: string;
+  startDate?: string;
+  endDate?: string;
   page?: number;
   pageSize?: number;
 }
@@ -399,6 +402,9 @@ export function listActivities(query: ActivityListQuery = {}): Promise<Page<Acti
     type: query.type,
     status: query.status,
     scope: query.scope,
+    month: query.month,
+    startDate: query.startDate,
+    endDate: query.endDate,
   });
   const page = Math.max(1, Math.floor(query.page ?? 1) || 1);
   const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;

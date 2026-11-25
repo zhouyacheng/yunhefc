@@ -1417,6 +1417,10 @@ render();
     let typeFilter = 'ALL';
     let statusFilter = 'ALL';
     let scopeFilter = 'ALL';
+    // P-128：月份与自定义时间按活动开始时间筛选，默认不筛选，二者互斥。
+    let monthFilter = '';
+    let startDateFilter = '';
+    let endDateFilter = '';
 
     function pastDeadline(item) {
       return new Date(item.deadline).getTime() <= Date.now();
@@ -1478,10 +1482,33 @@ render();
       </label>`;
     }
 
+    function dayStart(value) {
+      if (!value) return null;
+      const [year, month, day] = value.split('-').map(Number);
+      return new Date(year, month - 1, day);
+    }
+
     function render() {
-      const filtered = activities.filter((item) => (typeFilter === 'ALL' || item.type === typeFilter)
-        && (statusFilter === 'ALL' || item.status === statusFilter))
-        .sort((a, b) => new Date(b.startAt) - new Date(a.startAt) || b.id - a.id);
+      const rangeStart = dayStart(startDateFilter);
+      const rangeEnd = dayStart(endDateFilter);
+      const filtered = activities.filter((item) => {
+        const start = new Date(item.startAt);
+        if (typeFilter !== 'ALL' && item.type !== typeFilter) return false;
+        if (statusFilter !== 'ALL' && item.status !== statusFilter) return false;
+        if (monthFilter) {
+          const month = `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}`;
+          if (month !== monthFilter) return false;
+        }
+        if (rangeStart && rangeEnd) {
+          const endExclusive = new Date(
+            rangeEnd.getFullYear(),
+            rangeEnd.getMonth(),
+            rangeEnd.getDate() + 1,
+          );
+          if (start < rangeStart || start >= endExclusive) return false;
+        }
+        return true;
+      }).sort((a, b) => new Date(b.startAt) - new Date(a.startAt) || b.id - a.id);
       // P-127：C11 不提供「历史」范围，历史活动经「全部」查看。
       const list = scopeFilter === 'LATEST'
         ? filtered.filter((item) => item.status === 'SIGNUP_OPEN')
@@ -1496,6 +1523,15 @@ render();
           ${filterSelect('activity-scope', '范围', scopeLabels, scopeFilter)}
           ${filterSelect('activity-type', '类型', typeOptions, typeFilter)}
           ${filterSelect('activity-status', '状态', statusOptions, statusFilter)}
+          <label class="muted small" for="activity-month">月份
+            <input class="input input-sm" type="month" id="activity-month" value="${monthFilter}">
+          </label>
+          <label class="muted small" for="activity-start-date">自定义时间（起）
+            <input class="input input-sm" type="date" id="activity-start-date" value="${startDateFilter}">
+          </label>
+          <label class="muted small" for="activity-end-date">自定义时间（止）
+            <input class="input input-sm" type="date" id="activity-end-date" value="${endDateFilter}">
+          </label>
         </div>
         ${list.length ? `<div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));margin-top:12px">
           ${list.map((item) => {
@@ -1538,6 +1574,25 @@ render();
       });
       $('#activity-scope', host).addEventListener('change', (event) => {
         scopeFilter = event.target.value;
+        render();
+      });
+      // 月份与自定义时间互斥：选择任一侧即清空另一侧。
+      $('#activity-month', host).addEventListener('change', (event) => {
+        monthFilter = event.target.value;
+        if (monthFilter) {
+          startDateFilter = '';
+          endDateFilter = '';
+        }
+        render();
+      });
+      $('#activity-start-date', host).addEventListener('change', (event) => {
+        startDateFilter = event.target.value;
+        monthFilter = '';
+        render();
+      });
+      $('#activity-end-date', host).addEventListener('change', (event) => {
+        endDateFilter = event.target.value;
+        monthFilter = '';
         render();
       });
       $$('[data-family-toggle]', host).forEach((input) => {

@@ -32,8 +32,16 @@ public final class ActivityDtos {
             Integer status,
             String scope,
             String sort,
+            ActivityTimeQuery time,
             long page,
             long pageSize) {
+    }
+
+    /** ACT-01 时间筛选；month 与 startDate/endDate 由前端互斥，服务端同时收到时按交集处理。 */
+    public record ActivityTimeQuery(
+            String month,
+            String startDate,
+            String endDate) {
     }
 
     public record ActivityAdminQuery(

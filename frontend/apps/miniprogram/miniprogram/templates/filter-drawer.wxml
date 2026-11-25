@@ -1,0 +1,94 @@
+<template name="filter-trigger">
+  <view class="filter-trigger" bindtap="openFilters" hover-class="card--pressed">
+    <van-icon name="filter-o" size="16px" />
+    <text>筛选</text>
+  </view>
+</template>
+
+<template name="filter-drawer-popup">
+  <van-popup show="{{filtersOpen}}" position="bottom" round custom-style="max-height: 80vh;" bind:close="closeFilters">
+    <scroll-view scroll-y class="filter-drawer">
+      <view class="filter-drawer__head">
+        <text class="filter-drawer__title">筛选</text>
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field__label">类型</text>
+        <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="filter-field__value">{{typeOptions[typeIndex].label}}</view>
+        </picker>
+      </view>
+
+      <view wx:if="{{venueVisible}}" class="filter-field">
+        <text class="filter-field__label">地点</text>
+        <input
+          class="filter-field__input"
+          value="{{venue}}"
+          placeholder="如：聚龙"
+          confirm-type="search"
+          bindinput="onVenueInput"
+          bindconfirm="onVenueConfirm"
+        />
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field__label">状态</text>
+        <picker mode="selector" range="{{statusOptions}}" range-key="label" value="{{statusIndex}}" bindchange="onStatusChange">
+          <view class="filter-field__value">{{statusOptions[statusIndex].label}}</view>
+        </picker>
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field__label">月份</text>
+        <view class="filter-field__control">
+          <picker mode="date" fields="month" start="{{timeFilterMin}}" end="{{timeFilterMax}}" value="{{monthDraft}}" bindchange="onMonthChange">
+            <view class="filter-field__value">{{month || '全部月份'}}</view>
+          </picker>
+          <text wx:if="{{month}}" class="filter-field__clear" bindtap="clearMonth">清除</text>
+          <text wx:else class="filter-field__clear" bindtap="selectCurrentMonth">本月</text>
+        </view>
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field__label">自定义时间</text>
+        <view class="filter-field__control">
+          <view class="filter-field__value" bindtap="openRange">{{startDate && endDate ? startDate + ' 至 ' + endDate : '选择日期范围'}}</view>
+          <text wx:if="{{startDate && endDate}}" class="filter-field__clear" bindtap="clearRange">清除</text>
+        </view>
+      </view>
+
+      <view class="filter-drawer__actions">
+        <view class="btn btn--small btn--outline" bindtap="resetFilters" hover-class="btn--pressed">重置</view>
+      </view>
+    </scroll-view>
+  </van-popup>
+</template>
+
+<template name="time-range-popup">
+  <van-popup show="{{rangeOpen}}" position="bottom" round z-index="{{200}}" bind:close="closeRange">
+    <view class="range-sheet">
+      <view class="filter-drawer__head">
+        <text class="filter-drawer__title">自定义时间</text>
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field__label">开始日期</text>
+        <picker mode="date" value="{{rangeDraftStart}}" start="{{timeFilterMin}}" end="{{timeFilterMax}}" bindchange="onRangeStartChange">
+          <view class="filter-field__value">{{rangeDraftStart || '选择开始日期'}}</view>
+        </picker>
+      </view>
+
+      <view class="filter-field">
+        <text class="filter-field__label">结束日期</text>
+        <picker mode="date" value="{{rangeDraftEnd}}" start="{{timeFilterMin}}" end="{{timeFilterMax}}" bindchange="onRangeEndChange">
+          <view class="filter-field__value">{{rangeDraftEnd || '选择结束日期'}}</view>
+        </picker>
+      </view>
+
+      <view class="filter-drawer__actions range-sheet__actions">
+        <view class="btn btn--small btn--outline" bindtap="clearRange" hover-class="btn--pressed">清除</view>
+        <view class="btn btn--small btn--primary" bindtap="confirmRange" hover-class="btn--pressed">确定</view>
+      </view>
+    </view>
+  </van-popup>
+</template>

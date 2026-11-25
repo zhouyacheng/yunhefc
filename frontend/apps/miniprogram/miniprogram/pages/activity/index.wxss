@@ -95,9 +95,14 @@
 }
 
 .activity-card__line {
-  overflow: hidden;
   color: var(--yh-muted);
   font-size: 24rpx;
+}
+
+.activity-card__line-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }

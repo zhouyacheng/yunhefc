@@ -70,10 +70,19 @@
         <text class="status-pill status-pill--{{item.statusTone}}">{{item.statusText}}</text>
       </view>
       <text class="activity-card__type">{{item.typeText}}</text>
-      <text class="activity-card__line">📅 {{item.timeText}}</text>
-      <text class="activity-card__line">📍 {{item.locationText}}</text>
+      <view class="emoji-row activity-card__line">
+        <view class="emoji-icon">📅</view>
+        <text class="activity-card__line-text">{{item.timeText}}</text>
+      </view>
+      <view class="emoji-row activity-card__line">
+        <view class="emoji-icon">📍</view>
+        <text class="activity-card__line-text">{{item.locationText}}</text>
+      </view>
       <view class="activity-card__foot">
-        <text class="muted">👥 {{item.countText}}</text>
+        <view class="muted emoji-row">
+          <view class="emoji-icon">👥</view>
+          <text>{{item.countText}}</text>
+        </view>
         <text
           wx:if="{{item.actionVisible}}"
           class="activity-card__action {{item.actionDisabled ? 'activity-card__action--disabled' : ''}}"

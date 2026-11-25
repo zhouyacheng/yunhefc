@@ -9,6 +9,7 @@ import com.yunhefc.common.util.DateRanges;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Set;
 
 /**
  * 活动列表（ACT-01/06）公共的筛选参数解析。
@@ -17,7 +18,10 @@ final class ActivityQueryParsing {
 
     static final String SCOPE_ALL = "all";
     static final String SCOPE_LATEST = "latest";
+    static final String SCOPE_FINISHED = "finished";
     static final String SCOPE_HISTORY = "history";
+    private static final Set<String> SCOPES =
+            Set.of(SCOPE_ALL, SCOPE_LATEST, SCOPE_FINISHED, SCOPE_HISTORY);
     private static final String SORT_START_AT_ASC = "startAt:asc";
     private static final String SORT_START_AT_DESC = "startAt:desc";
 
@@ -51,7 +55,7 @@ final class ActivityQueryParsing {
         if (scope == null) {
             return SCOPE_ALL;
         }
-        if (!scope.equals(SCOPE_ALL) && !scope.equals(SCOPE_LATEST) && !scope.equals(SCOPE_HISTORY)) {
+        if (!SCOPES.contains(scope)) {
             throw new BusinessException(ErrorCode.VALIDATION_FAILED, "scope 参数不合法");
         }
         return scope;

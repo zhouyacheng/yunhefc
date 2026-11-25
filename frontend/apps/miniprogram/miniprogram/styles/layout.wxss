@@ -1,4 +1,18 @@
-/* 跨页面共用布局：加载/错误/空态与页头。 */
+/* 跨页面共用布局：加载/错误/空态、页头与 emoji 信息行。 */
+
+/* emoji 信息行：emoji 用 view 承载（<text> 上 transform 不生效），与文本按视觉中线对齐。
+   Apple Color Emoji 墨迹重心比中文低约 1 个 css px，24~26rpx 字号下取 2rpx 校正。 */
+.emoji-row {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+}
+
+.emoji-icon {
+  flex: none;
+  line-height: 1;
+  transform: translateY(-2rpx);
+}
 
 .state {
   display: flex;

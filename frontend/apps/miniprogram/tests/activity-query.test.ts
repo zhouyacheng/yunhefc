@@ -37,7 +37,11 @@ describe('活动筛选编码', () => {
   });
 
   it('选项顺序与 02 一致', () => {
-    expect(ACTIVITY_SCOPES.map((option) => option.label)).toEqual(['最近活动', '全部']);
+    expect(ACTIVITY_SCOPES.map((option) => option.label)).toEqual([
+      '最近活动',
+      '已结束活动',
+      '全部',
+    ]);
     expect(ACTIVITY_TYPE_OPTIONS.map((option) => option.label)).toEqual([
       '全部类型',
       '聚餐',

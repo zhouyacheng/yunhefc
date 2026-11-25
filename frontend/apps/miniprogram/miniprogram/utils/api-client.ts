@@ -382,8 +382,8 @@ export function fetchLeaderboards(query: LeaderboardsQuery = {}): Promise<Leader
 
 // ---- 队内活动 ----
 
-/** 最近活动（所有报名中活动）/历史/全部；缺省由服务端按 all 处理。 */
-export type ActivityScope = 'latest' | 'history' | 'all';
+/** 最近活动（所有报名中活动）/已结束活动（含已取消）/历史/全部；缺省由服务端按 all 处理。 */
+export type ActivityScope = 'latest' | 'finished' | 'history' | 'all';
 
 export interface ActivityListQuery {
   type?: ActivityType;

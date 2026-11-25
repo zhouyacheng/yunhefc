@@ -27,7 +27,13 @@ let lastError = '';
 const activities = subscribe('activities');
 
 function emptyTextOf(scope: ActivityFilters['scope']): string {
-  return scope === 'latest' ? '暂无最近活动' : '暂无活动';
+  if (scope === 'latest') {
+    return '暂无最近活动';
+  }
+  if (scope === 'finished') {
+    return '暂无已结束活动';
+  }
+  return '暂无活动';
 }
 
 Page({

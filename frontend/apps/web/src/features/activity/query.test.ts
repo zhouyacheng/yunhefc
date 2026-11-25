@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACTIVITY_SCOPE_OPTIONS,
   DEFAULT_ACTIVITY_PAGE_SIZE,
   fromActivityForm,
   normalizeActivityPageSize,
@@ -10,11 +11,22 @@ import {
   toActivityRequest,
 } from './query';
 
+describe('ACTIVITY_SCOPE_OPTIONS', () => {
+  it('不提供历史范围，历史活动经全部查看', () => {
+    expect(ACTIVITY_SCOPE_OPTIONS.map((option) => option.label)).toEqual([
+      '最近活动',
+      '已结束活动',
+      '全部',
+    ]);
+  });
+});
+
 describe('parseActivityScope', () => {
-  it('只接受 latest/history/all', () => {
+  it('只接受 latest/finished/all', () => {
     expect(parseActivityScope('latest')).toBe('latest');
-    expect(parseActivityScope('history')).toBe('history');
+    expect(parseActivityScope('finished')).toBe('finished');
     expect(parseActivityScope('all')).toBe('all');
+    expect(parseActivityScope('history')).toBe('all');
     expect(parseActivityScope('')).toBe('all');
     expect(parseActivityScope('career')).toBe('all');
   });
@@ -41,8 +53,8 @@ describe('parseActivityType/Status', () => {
 
 describe('fromActivityForm', () => {
   it('表单字符串转为筛选条件', () => {
-    expect(fromActivityForm({ scope: 'history', type: '1', status: '0' })).toEqual({
-      scope: 'history',
+    expect(fromActivityForm({ scope: 'finished', type: '1', status: '0' })).toEqual({
+      scope: 'finished',
       type: 1,
       status: 0,
     });
@@ -62,8 +74,8 @@ describe('toActivityRequest', () => {
 
   it('不筛选时不带 type/status', () => {
     expect(
-      toActivityRequest({ scope: 'history', type: null, status: null, page: 1, pageSize: 10 }),
-    ).toEqual({ scope: 'history', page: 1, pageSize: 10 });
+      toActivityRequest({ scope: 'finished', type: null, status: null, page: 1, pageSize: 10 }),
+    ).toEqual({ scope: 'finished', page: 1, pageSize: 10 });
   });
 
   it('最近活动同样下发分页参数', () => {

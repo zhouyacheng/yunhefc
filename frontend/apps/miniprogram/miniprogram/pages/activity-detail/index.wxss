@@ -44,17 +44,14 @@
   letter-spacing: -0.02em;
 }
 
+/* 每个字段独占一行，行内 emoji 与文本对齐由 .emoji-row 提供。 */
 .detail-hero__meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 20rpx 44rpx;
+  flex-direction: column;
+  gap: 12rpx;
   color: #cbd5e1;
   font-size: 26rpx;
   line-height: 1.6;
-}
-
-.detail-hero__meta text {
-  white-space: nowrap;
 }
 
 /* 分享按钮：深色 Hero 内的浅色描边胶囊，尺寸贴合文本。 */

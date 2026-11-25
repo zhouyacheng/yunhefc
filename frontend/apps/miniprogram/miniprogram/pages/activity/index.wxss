@@ -95,9 +95,25 @@
 }
 
 .activity-card__line {
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
   color: var(--yh-muted);
   font-size: 24rpx;
+}
+
+/* 与人数行同一口径：emoji 用 view 承载才生效 transform。 */
+.activity-card__line-icon {
+  flex: none;
+  font-size: 24rpx;
+  line-height: 1;
+  transform: translateY(-2rpx);
+}
+
+.activity-card__line-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -109,6 +125,21 @@
   gap: 16rpx;
   padding-top: 20rpx;
   border-top: 1rpx dashed var(--yh-line);
+}
+
+/* emoji 与中文基线不同，拆成两个盒子后按中线对齐。 */
+.activity-card__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+/* Apple Color Emoji 的墨迹重心比中文低约 1px（26rpx 字号下 2rpx），按视觉中线做光学校正。
+   必须是 view：WebView 渲染下 <text> 的行内节点不生效 transform。 */
+.activity-card__count-icon {
+  font-size: 26rpx;
+  line-height: 1;
+  transform: translateY(-2rpx);
 }
 
 /* 与 C 端 .activity-cta 同一口径：绿底白字胶囊。 */

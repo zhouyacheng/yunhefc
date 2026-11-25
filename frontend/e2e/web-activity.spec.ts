@@ -118,7 +118,12 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
     (url) => url.pathname === '/api/v1/c/activities',
     async (route) => {
       const scope = new URL(route.request().url()).searchParams.get('scope');
-      await fulfill(route, pageOf(scope === 'latest' ? [OPEN_ACTIVITY] : LIST_ITEMS));
+      // P-117：最近活动 = 所有报名中（status=0）活动。
+      const items =
+        scope === 'latest'
+          ? LIST_ITEMS.filter((activity) => activity.status === OPEN_ACTIVITY.status)
+          : LIST_ITEMS;
+      await fulfill(route, pageOf(items));
     },
   );
 
@@ -137,7 +142,8 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
   await expect(cancelled.locator('.activity-cta')).toHaveCount(0);
 
   await page.getByLabel('活动范围').selectOption('latest');
-  await expect(cards).toHaveCount(1);
+  await expect(cards).toHaveCount(2);
+  await expect(cards.filter({ hasText: '满员活动' })).toBeVisible();
   await expect(page.locator('.page-footer')).toHaveCount(0);
 
   expect(errors).toEqual([]);

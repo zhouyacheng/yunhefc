@@ -1485,7 +1485,7 @@ render();
         && (statusFilter === 'ALL' || item.status === statusFilter))
         .sort((a, b) => new Date(b.startAt) - new Date(a.startAt) || b.id - a.id);
       const list = scopeFilter === 'LATEST'
-        ? filtered.slice(0, 1)
+        ? filtered.filter((item) => item.status === 'SIGNUP_OPEN')
         : scopeFilter === 'HISTORY'
           ? filtered.filter((item) => new Date(item.startAt).getTime() < Date.now())
           : filtered;
@@ -1525,7 +1525,7 @@ render();
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均可恢复为报名中/报名截止，重新组织也可走后台「复制活动」新建；最近活动在类型/状态筛选后只显示活动时间最大的一条；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已结束与已取消均可恢复为报名中/报名截止。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均可恢复为报名中/报名截止，重新组织也可走后台「复制活动」新建；最近活动只展示报名中的活动（不论是否已过截止或满员），按活动时间倒序；满员直接拒绝、不设候补；详情公开可读但不含报名名单。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已结束与已取消均可恢复为报名中/报名截止。</p>
         </div>
       </div>`;
 

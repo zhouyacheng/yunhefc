@@ -27,10 +27,7 @@ let lastError = '';
 const activities = subscribe('activities');
 
 function emptyTextOf(scope: ActivityFilters['scope']): string {
-  if (scope === 'latest') {
-    return '暂无最近活动';
-  }
-  return scope === 'history' ? '暂无历史活动' : '暂无活动';
+  return scope === 'latest' ? '暂无最近活动' : '暂无活动';
 }
 
 Page({

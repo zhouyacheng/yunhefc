@@ -50,15 +50,23 @@ class ActivityPublicIT extends ActivityITSupport {
         Long cancelledId = insertActivity("更早已取消", pastAt(60, 18), 3, 10, pastAt(60, 17), 1);
         insertActivity("他队活动", futureAt(90, 18), 0, 10, futureAt(90, 17), 2);
 
+        // P-117：最近活动 = 所有报名中活动（含开始时间已过），按开始时间倒序分页。
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.total").value(1))
-                .andExpect(jsonPath("$.data.items.length()").value(1))
-                .andExpect(jsonPath("$.data.items[0].id").value(latestId))
-                .andExpect(jsonPath("$.data.items[0].status").value(2));
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items.length()").value(2))
+                .andExpect(jsonPath("$.data.items[0].id").value(futureId))
+                .andExpect(jsonPath("$.data.items[1].id").value(pastId))
+                .andExpect(jsonPath("$.data.items[0].status").value(0));
 
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest").param("status", "3"))
-                .andExpect(jsonPath("$.data.items[0].id").value(cancelledId));
+                .andExpect(jsonPath("$.data.total").value(0))
+                .andExpect(jsonPath("$.data.items.length()").value(0));
+
+        mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest")
+                        .param("page", "2").param("pageSize", "10"))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items.length()").value(0));
 
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "history"))
                 .andExpect(jsonPath("$.data.total").value(2))
@@ -106,6 +114,7 @@ class ActivityPublicIT extends ActivityITSupport {
         Long newer = insertActivity("同时间B", start, 0, 10, futureAt(30, 17), 1);
 
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "latest"))
+                .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.items[0].id").value(newer));
         mockMvc.perform(get("/api/v1/c/activities"))
                 .andExpect(jsonPath("$.data.items[0].id").value(newer))

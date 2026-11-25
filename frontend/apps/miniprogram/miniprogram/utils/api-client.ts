@@ -369,7 +369,7 @@ export function fetchLeaderboards(query: LeaderboardsQuery = {}): Promise<Leader
 
 // ---- 队内活动 ----
 
-/** 最近活动（start_at 最大一条）/历史/全部；缺省由服务端按 all 处理。 */
+/** 最近活动（所有报名中活动）/历史/全部；缺省由服务端按 all 处理。 */
 export type ActivityScope = 'latest' | 'history' | 'all';
 
 export interface ActivityListQuery {
@@ -380,16 +380,13 @@ export interface ActivityListQuery {
   pageSize?: number;
 }
 
-/** ACT-01 C 端活动列表；登录时含 mySignup。「最近活动」只取一条，不下发分页。 */
+/** ACT-01 C 端活动列表；登录时含 mySignup。「最近活动」为所有报名中活动，正常分页。 */
 export function listActivities(query: ActivityListQuery = {}): Promise<Page<ActivitySummary>> {
   const filters = queryString({
     type: query.type,
     status: query.status,
     scope: query.scope,
   });
-  if (query.scope === 'latest') {
-    return request<Page<ActivitySummary>>('GET', `/activities${filters}`);
-  }
   const page = Math.max(1, Math.floor(query.page ?? 1) || 1);
   const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
   return request<Page<ActivitySummary>>(

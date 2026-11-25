@@ -39,8 +39,7 @@ const now = ref(Date.now());
 const failedImages = ref<number[]>([]);
 let requestSeq = 0;
 
-const isLatest = computed(() => scope.value === 'latest');
-const showPagination = computed(() => !isLatest.value && total.value > pageSize.value);
+const showPagination = computed(() => total.value > pageSize.value);
 
 function currentFilters() {
   return fromActivityForm({

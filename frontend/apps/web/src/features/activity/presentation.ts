@@ -82,6 +82,12 @@ export function activityCta(input: ActivityGateInput, now = Date.now()): Activit
   return { visible: true, label: '报名', disabled: !input.signupOpen };
 }
 
+/** C11 卡片底部动作位：已结束/已取消也以禁用态占位，与报名/已截止保持同一尺寸。 */
+export function activityCardCta(input: ActivityGateInput, now = Date.now()): ActivityCta {
+  const cta = activityCta(input, now);
+  return cta.visible ? cta : { ...cta, visible: true };
+}
+
 /** C12 报名按钮；先按活动状态收敛，再区分未登录与待审核。 */
 export function activitySignupState(
   input: ActivityGateInput & {

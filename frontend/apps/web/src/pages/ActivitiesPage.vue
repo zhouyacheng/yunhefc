@@ -17,7 +17,7 @@ import {
   toActivityRequest,
 } from '../features/activity/query';
 import {
-  activityCta,
+  activityCardCta,
   activitySignupText,
   activityStatusText,
   activityStatusTone,
@@ -102,7 +102,7 @@ function onPageSizeChange(event: Event): void {
 }
 
 function ctaOf(activity: ActivitySummary) {
-  return activityCta(activity, now.value);
+  return activityCardCta(activity, now.value);
 }
 
 function imageSrc(activity: ActivitySummary): string | null {
@@ -218,7 +218,6 @@ onMounted(() => {
           <div class="activity-card__foot">
             <span class="muted small">查看详情 →</span>
             <span
-              v-if="ctaOf(activity).visible"
               class="activity-cta"
               :class="{ 'activity-cta--disabled': ctaOf(activity).disabled }"
             >

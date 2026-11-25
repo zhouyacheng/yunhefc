@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   activityCancelState,
   activityCapacityPercent,
+  activityCardCta,
   activityCta,
   activityFamilyText,
   activitySignupCardText,
@@ -67,6 +68,26 @@ describe('activityCta（列表与详情共用矩阵）', () => {
       visible: true,
       label: '报名',
       disabled: true,
+    });
+  });
+});
+
+describe('activityCardCta（C11 卡片底部动作位）', () => {
+  it('已结束/已取消以禁用态占位，与报名/已截止保持同一尺寸', () => {
+    expect(activityCardCta(gate({ status: 2 }), NOW)).toEqual({
+      visible: true,
+      label: '已结束',
+      disabled: true,
+    });
+    expect(activityCardCta(gate({ status: 3 }), NOW)).toEqual({
+      visible: true,
+      label: '已取消',
+      disabled: true,
+    });
+    expect(activityCardCta(gate(), NOW)).toEqual({
+      visible: true,
+      label: '报名',
+      disabled: false,
     });
   });
 });

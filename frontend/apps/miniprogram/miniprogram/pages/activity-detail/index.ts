@@ -14,6 +14,7 @@ import {
   activityCapacityPercent,
   activityCostText,
   activityCountText,
+  activitySignupCardText,
   activityStatusText,
   activityStatusTone,
   activityTimeText,
@@ -24,7 +25,7 @@ import {
   type ActivityActionView,
   type ActivityStatusTone,
 } from '../../utils/activity-view';
-import { formatDateTime, formatDayStartTime } from '../../utils/datetime';
+import { formatDayStartTime } from '../../utils/datetime';
 import { invalidate } from '../../utils/invalidation';
 import {
   ACTIVITY_MANAGE_ANY,
@@ -72,11 +73,10 @@ Page({
     deadlineText: '',
     costText: '',
     countText: '',
+    signupCardText: '',
     capacityPercent: 0,
     galleryIndex: 0,
     mySignup: null as ActivitySignup | null,
-    familyText: '',
-    signedUpText: '',
     registered: false,
     canCancel: false,
     authenticated: false,
@@ -192,11 +192,10 @@ Page({
       deadlineText: formatDayStartTime(activity.signupDeadline),
       costText: activityCostText(activity),
       countText: activityCountText(activity),
+      signupCardText: activitySignupCardText(activity),
       capacityPercent: activityCapacityPercent(activity),
       galleryIndex: clampGalleryIndex(this.data.galleryIndex, activity.locationImageUrls.length),
       mySignup,
-      familyText: familySummary(activity.mySignup),
-      signedUpText: mySignup ? formatDateTime(mySignup.signedUpAt) : '',
       registered: !!mySignup,
       canCancel: activityCanCancel(activity, now),
       authenticated,
@@ -392,7 +391,7 @@ Page({
       await changeActivityStatus(activity.id, {
         status,
         version: activity.version,
-        reason,
+        ...(reason ? { reason } : {}),
       });
       invalidate('activities');
       this.setData({ statusOpen: false });

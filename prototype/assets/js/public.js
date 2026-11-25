@@ -1456,15 +1456,13 @@ render();
 
     function openActivityCancelModal(item) {
       const body = `<form id="activity-cancel-form" class="form-grid">
-        <label class="full">取消原因<textarea class="input" name="reason" rows="3" required maxlength="255" placeholder="例如：场地临时关闭"></textarea></label>
+        <label class="full">取消原因<textarea class="input" name="reason" rows="3" maxlength="255"></textarea></label>
         <p class="muted small full">取消后已报名记录保留但不再有效，可再恢复为报名中/报名截止。</p>
       </form>`;
       const modal = Y.openModal('取消活动', body, '<button class="btn btn-danger" id="activity-cancel-submit">确认取消</button><button class="btn btn-ghost" data-close-modal>取消</button>');
       modal.querySelector('#activity-cancel-submit').addEventListener('click', () => {
         const form = modal.querySelector('#activity-cancel-form');
         if (!form.reportValidity()) return;
-        const reason = String(new FormData(form).get('reason') || '').trim();
-        if (!reason) { Y.toast('请填写取消原因'); return; }
         item.status = 'CANCELLED';
         Y.closeModal();
         Y.toast('活动已取消');
@@ -1507,7 +1505,7 @@ render();
                 <b>${esc(item.title)}</b><span class="badge">${statusLabels[item.status]}</span>
               </div>
               <p class="muted small">${typeLabels[item.type]} · ${new Date(item.startAt).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · ${esc(item.location)}</p>
-              <p class="muted small">报名截止 ${new Date(item.deadline).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · 已报 ${item.signed}${item.capacity === null ? '' : ` / ${item.capacity}`} 人（不含家属）${item.cost === null ? '' : ` · 人均 ¥${item.cost}`}${item.familyAllowed ? ' · 可携带家属' : ''} · 场地环境图 ${item.imageCount} 张</p>
+              <p class="muted small">报名截止 ${new Date(item.deadline).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })} · 已报 ${item.signed}${item.capacity === null ? '' : ` / ${item.capacity}`} 人${item.cost === null ? '' : ` · 人均 ¥${item.cost}`}${item.familyAllowed ? ' · 可携带家属' : ''} · 场地环境图 ${item.imageCount} 张</p>
               <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
                 ${closed
                   ? ''
@@ -1525,7 +1523,7 @@ render();
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均可恢复为报名中/报名截止，重新组织也可走后台「复制活动」新建；最近活动只展示报名中的活动（不论是否已过截止或满员），按活动时间倒序；满员直接拒绝、不设候补；详情公开可读，报名队列登录后可见（仅正式球员与管理员，按报名时间升序）。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已结束与已取消均可恢复为报名中/报名截止。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均可恢复为报名中/报名截止，重新组织也可走后台「复制活动」新建；最近活动只展示报名中的活动（不论是否已过截止或满员），按活动时间倒序；满员直接拒绝、不设候补；人数上限必填、默认 50，不提供无上限；详情公开可读，报名队列登录后可见（仅正式球员与管理员，按报名时间升序）。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消需填写原因，已结束与已取消均可恢复为报名中/报名截止。</p>
         </div>
       </div>`;
 

@@ -28,6 +28,7 @@ import {
   activityCapacityPercent,
   activityCta,
   activityFamilyText,
+  activitySignupCardText,
   activitySignupState,
   activitySignupText,
   activityStatusText,
@@ -125,6 +126,9 @@ const cancelState = computed(() => {
 const cta = computed(() => (activity.value ? activityCta(activity.value, now.value) : null));
 const signupText = computed(() =>
   activity.value ? activitySignupText(activity.value.signupCount, activity.value.capacity) : '',
+);
+const signupCardText = computed(() =>
+  activity.value ? activitySignupCardText(activity.value.signupCount, activity.value.capacity) : '',
 );
 /** 时间用完整文本承载：日期 + 星期 + 时段。 */
 const dayTimeText = computed(() =>
@@ -637,17 +641,14 @@ onBeforeUnmount(() => {
             </Tag>
           </div>
 
-          <div v-if="activity.capacity !== null" class="signup-capacity">
+          <div class="signup-capacity">
             <div class="signup-capacity__track">
               <div class="signup-capacity__fill" :style="{ width: `${capacityPercent}%` }"></div>
             </div>
           </div>
+          <p class="muted small" data-testid="activity-signup-count">{{ signupCardText }}</p>
 
           <template v-if="isSignedUp">
-            <p class="muted small">
-              报名时间 {{ formatDateTime(mySignup?.signedUpAt) }} ·
-              {{ mySignup ? activityFamilyText(mySignup) : '' }}
-            </p>
             <template v-if="!activityClosed">
               <Button
                 type="primary"
@@ -764,7 +765,7 @@ onBeforeUnmount(() => {
           rows="3"
           maxlength="255"
           show-word-limit
-          placeholder="请填写取消原因（最多 255 字）"
+          placeholder="选填，最多 255 字"
           :disabled="cancelSubmitting"
         />
 
@@ -800,7 +801,6 @@ onBeforeUnmount(() => {
             rows="2"
             maxlength="255"
             show-word-limit
-            placeholder="如：带 1 位家属，儿童餐"
             :disabled="!withFamily"
           />
         </template>

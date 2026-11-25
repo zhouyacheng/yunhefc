@@ -12,6 +12,7 @@ import {
   activityCapacityPercent,
   activityCostText,
   activityCountText,
+  activitySignupCardText,
   activitySignupOpen,
   activityStatusText,
   activityStatusTone,
@@ -139,7 +140,7 @@ describe('activitySignupOpen', () => {
       false,
     );
     expect(activitySignupOpen(activity({ capacity: 3 }), NOW)).toBe(false);
-    expect(activitySignupOpen(activity({ capacity: null, signupCount: 99 }), NOW)).toBe(true);
+    expect(activitySignupOpen(activity({ capacity: 100, signupCount: 99 }), NOW)).toBe(true);
   });
 });
 
@@ -156,11 +157,14 @@ describe('活动展示字段', () => {
     expect(activityStatusText(9 as ActivityStatus)).toBe('—');
   });
 
-  it('人数按上限展示，无上限只显示已报人数', () => {
+  it('人数按上限展示', () => {
     expect(activityCountText(activity())).toBe('3 / 20 人');
-    expect(activityCountText(activity({ capacity: null }))).toBe('3 人报名');
     expect(activityCapacityPercent(activity())).toBe(15);
-    expect(activityCapacityPercent(activity({ capacity: null }))).toBe(0);
+    expect(activityCapacityPercent(activity({ capacity: 0 }))).toBe(0);
+  });
+
+  it('报名卡人数文案明确已报名与上限', () => {
+    expect(activitySignupCardText(activity())).toBe('已报名 3 / 20 人');
   });
 
   it('单张图片失败只移除该张', () => {

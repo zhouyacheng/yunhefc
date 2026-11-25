@@ -24,9 +24,7 @@ const base = {
 describe('activityFormError', () => {
   it('接受合法表单', () => {
     expect(activityFormError(base)).toBeNull();
-    expect(
-      activityFormError({ ...base, endAt: null, capacity: null, costPerPerson: '' }),
-    ).toBeNull();
+    expect(activityFormError({ ...base, endAt: null, costPerPerson: '' })).toBeNull();
   });
 
   it('校验名称、地址与详情', () => {
@@ -50,6 +48,7 @@ describe('activityFormError', () => {
   });
 
   it('校验人数与人均消费', () => {
+    expect(activityFormError({ ...base, capacity: null })).toBe('请输入总人数上限');
     expect(activityFormError({ ...base, capacity: 0 })).toContain('1–65535');
     expect(activityFormError({ ...base, capacity: 1.5 })).toContain('1–65535');
     expect(activityFormError({ ...base, costPerPerson: '-1' })).toBe(

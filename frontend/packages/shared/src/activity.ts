@@ -18,8 +18,8 @@ export interface ActivitySummary {
   startAt: string;
   endAt: string | null;
   signupDeadline: string;
-  /** 只计报名人数，不含家属；null 为不限。 */
-  capacity: number | null;
+  /** 只计报名人数，不含家属；创建未传时默认 50。 */
+  capacity: number;
   /** 活动级开关；关闭时报名不展示家属选项。 */
   familyAllowed: boolean;
   costPerPerson: number | null;

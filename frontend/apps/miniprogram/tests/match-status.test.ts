@@ -215,9 +215,17 @@ describe('buildPostponeSubmission', () => {
 });
 
 describe('buildCancelSubmission', () => {
-  it('trims a valid reason and rejects a blank one', () => {
+  it('trims a valid reason and rejects a blank one when required', () => {
     expect(buildCancelSubmission('  场地原因  ')).toEqual({ ok: true, reason: '场地原因' });
     expect(buildCancelSubmission('   ')).toEqual({ ok: false, error: '请输入取消原因' });
+  });
+
+  it('allows a blank reason when not required', () => {
+    expect(buildCancelSubmission('   ', 255, false)).toEqual({ ok: true, reason: '' });
+    expect(buildCancelSubmission('x'.repeat(256), 255, false)).toEqual({
+      ok: false,
+      error: '取消原因不能超过 255 字',
+    });
   });
 });
 

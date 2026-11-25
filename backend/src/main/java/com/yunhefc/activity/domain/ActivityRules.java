@@ -35,8 +35,14 @@ public final class ActivityRules {
         }
     }
 
+    /** 人数上限必填；创建未传时由应用服务补默认值 50（P-121）。 */
+    public static final int DEFAULT_CAPACITY = 50;
+
     public static void validateCapacity(Integer capacity) {
-        if (capacity != null && capacity < 1) {
+        if (capacity == null) {
+            throw invalid("capacity", "人数上限不能为空");
+        }
+        if (capacity < 1) {
             throw invalid("capacity", "人数上限至少为 1");
         }
     }
@@ -90,10 +96,10 @@ public final class ActivityRules {
         }
     }
 
-    /** 报名硬门禁：报名中、未过截止且未满员；capacity 为 NULL 视为不限。 */
+    /** 报名硬门禁：报名中、未过截止且未满员。 */
     public static boolean signupOpen(TeamActivity activity, int signupCount, LocalDateTime now) {
         return withinSignupWindow(activity, now)
-                && (activity.getCapacity() == null || signupCount < activity.getCapacity());
+                && signupCount < activity.getCapacity();
     }
 
     public static boolean withinSignupWindow(TeamActivity activity, LocalDateTime now) {

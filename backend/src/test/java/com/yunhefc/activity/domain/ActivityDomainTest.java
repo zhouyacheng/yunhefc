@@ -73,6 +73,7 @@ class ActivityDomainTest {
         assertViolation("endAt", () -> ActivityRules.validateSchedule(START, START, START));
         assertViolation("signupDeadline", () -> ActivityRules.validateSchedule(START, null,
                 START.plusMinutes(1)));
+        assertViolation("capacity", () -> ActivityRules.validateCapacity(null));
         assertViolation("capacity", () -> ActivityRules.validateCapacity(0));
         assertViolation("costPerPerson", () -> ActivityRules.validateCost(new BigDecimal("1.234")));
         assertViolation("costPerPerson", () -> ActivityRules.validateCost(new BigDecimal("-0.01")));
@@ -99,9 +100,6 @@ class ActivityDomainTest {
         assertThat(ActivityRules.signupOpen(activity, 2, beforeDeadline)).isFalse();
         assertThat(ActivityRules.signupOpen(activity, 0, START.minusSeconds(1))).isTrue();
         assertThat(ActivityRules.signupOpen(activity, 0, START)).isFalse();
-        activity.setCapacity(null);
-        assertThat(ActivityRules.signupOpen(activity, 100, beforeDeadline)).isTrue();
-        activity.setCapacity(2);
         activity.setStatus(ActivityStatus.SIGNUP_CLOSED);
         assertThat(ActivityRules.signupOpen(activity, 0, beforeDeadline)).isFalse();
     }

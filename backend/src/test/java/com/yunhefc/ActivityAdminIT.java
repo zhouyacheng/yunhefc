@@ -70,6 +70,17 @@ class ActivityAdminIT extends ActivityITSupport {
     }
 
     @Test
+    void createsActivityWithDefaultCapacity() throws Exception {
+        Cookie admin = bAdminLogin("13900002006");
+
+        createActivity(admin, """
+                {"title":"默认人数活动","type":0,"startAt":"%s","signupDeadline":"%s",
+                 "familyAllowed":false,"location":"餐厅"}
+                """.formatted(futureAt(30, 18), futureAt(30, 17)))
+                .andExpect(jsonPath("$.data.capacity").value(50));
+    }
+
+    @Test
     void adminViewReturnsLocationImageKeysForCopyAndEdit() throws Exception {
         Cookie admin = bAdminLogin("13900002005");
         String firstKey = "activity/12/01JABCDEFGHJKMNPQRSTVWXYZ0.png";
@@ -316,15 +327,27 @@ class ActivityAdminIT extends ActivityITSupport {
                         .header("Idempotency-Key", idemKey())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-                                {"title":"  改名活动  ","endAt":null,"capacity":null,
+                                {"title":"  改名活动  ","endAt":null,
                                  "costPerPerson":null,"description":null,"version":0}
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.title").value("改名活动"))
                 .andExpect(jsonPath("$.data.endAt").value((Object) null))
-                .andExpect(jsonPath("$.data.capacity").value((Object) null))
+                .andExpect(jsonPath("$.data.capacity").value(4))
                 .andExpect(jsonPath("$.data.costPerPerson").value((Object) null))
                 .andExpect(jsonPath("$.data.description").value((Object) null))
+                .andExpect(jsonPath("$.data.version").value(1));
+
+        // P-121：人数上限必填，显式 null 被拒绝，原值不变。
+        mockMvc.perform(patch("/api/v1/b/activities/" + activityId).cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"capacity\":null,\"version\":1}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.capacity").exists());
+        mockMvc.perform(get("/api/v1/b/activities/" + activityId).cookie(admin))
+                .andExpect(jsonPath("$.data.capacity").value(4))
                 .andExpect(jsonPath("$.data.version").value(1));
 
         mockMvc.perform(patch("/api/v1/b/activities/" + activityId).cookie(admin).with(csrf())
@@ -404,8 +427,12 @@ class ActivityAdminIT extends ActivityITSupport {
         changeStatus(admin, reopenCancelId, 3, 0, "临时取消");
         changeStatus(admin, reopenCancelId, 0, 1, null);
 
+        // 取消原因可选（P-120）。
         Long noReasonId = activityId(createActivity(admin, "缺原因活动", futureAt(32, 18), 4));
-        changeStatus(admin, noReasonId, 3, 0, "   ", status().isBadRequest(), 40001);
+        changeStatus(admin, noReasonId, 3, 0, "   ");
+        assertThat(jdbc.queryForObject(
+                "SELECT cancel_reason FROM team_activity WHERE id = ?", String.class, noReasonId))
+                .isNull();
 
         Long directFinishId = activityId(createActivity(admin, "直接结束", futureAt(33, 18), 4));
         changeStatus(admin, directFinishId, 2, 0, null);

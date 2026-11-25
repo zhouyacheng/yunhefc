@@ -5,6 +5,7 @@ import {
   activityCapacityPercent,
   activityCta,
   activityFamilyText,
+  activitySignupCardText,
   activitySignupState,
   activitySignupText,
   activityStatusTone,
@@ -58,13 +59,6 @@ describe('activityCta（列表与详情共用矩阵）', () => {
     expect(activityCta(gate({ signupCount: 20 }), NOW)).toMatchObject({
       label: '已满',
       disabled: true,
-    });
-  });
-
-  it('无上限不会因人数禁用', () => {
-    expect(activityCta(gate({ capacity: null, signupCount: 99 }), NOW)).toMatchObject({
-      label: '报名',
-      disabled: false,
     });
   });
 
@@ -221,15 +215,17 @@ describe('activityCancelState', () => {
 });
 
 describe('展示格式化', () => {
-  it('人数文案标注不含家属', () => {
-    expect(activitySignupText(12, 20)).toBe('已报 12 / 20 人（不含家属）');
-    expect(activitySignupText(12, null)).toBe('已报 12 人（不含家属）');
+  it('hero 人数文案只展示人数/上限', () => {
+    expect(activitySignupText(12, 20)).toBe('已报 12 / 20 人');
+  });
+
+  it('报名卡人数文案明确已报名与上限', () => {
+    expect(activitySignupCardText(12, 20)).toBe('已报名 12 / 20 人');
   });
 
   it('人数进度按上限计算并夹在 0–100', () => {
     expect(activityCapacityPercent(12, 20)).toBe(60);
     expect(activityCapacityPercent(30, 20)).toBe(100);
-    expect(activityCapacityPercent(2, null)).toBe(0);
     expect(activityCapacityPercent(2, 0)).toBe(0);
   });
 

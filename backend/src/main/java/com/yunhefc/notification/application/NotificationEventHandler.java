@@ -148,8 +148,11 @@ public class NotificationEventHandler {
         notification.setUserId(userId);
         notification.setType(NotificationType.ACTIVITY_CANCELLED);
         notification.setTitle("活动取消");
-        notification.setBody("「" + payload.get("activityTitle") + "」已取消："
-                + payload.getOrDefault("reason", ""));
+        Object rawReason = payload.get("reason");
+        String reason = rawReason == null ? "" : String.valueOf(rawReason);
+        notification.setBody(reason.isBlank()
+                ? "「" + payload.get("activityTitle") + "」已取消"
+                : "「" + payload.get("activityTitle") + "」已取消：" + reason);
         notification.setRefType("ACTIVITY");
         notification.setRefId(longValue(payload.get("activityId")));
         return notification;

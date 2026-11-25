@@ -168,9 +168,7 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
 
   const cards = page.getByTestId('activity-card');
   await expect(cards).toHaveCount(4);
-  await expect(cards.filter({ hasText: '赛季收官聚餐' })).toContainText(
-    '已报 12 / 20 人（不含家属）',
-  );
+  await expect(cards.filter({ hasText: '赛季收官聚餐' })).toContainText('已报 12 / 20 人');
   await expect(cards.filter({ hasText: '赛季收官聚餐' })).toContainText('报名');
   await expect(cards.filter({ hasText: '满员活动' })).toContainText('已满');
   await expect(cards.filter({ hasText: '已截止活动' })).toContainText('已截止');
@@ -299,8 +297,10 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
   await page.goto('/activities/9001');
 
   await expect(page.getByRole('heading', { name: '赛季收官聚餐' })).toBeVisible();
-  await expect(page.getByText('已报 12 / 20 人（不含家属）')).toBeVisible();
+  await expect(page.getByText('已报 12 / 20 人')).toBeVisible();
   await expect(page.getByText('人均 ¥120.00')).toBeVisible();
+  // 报名卡内同样展示已报名人数/上限（P-119）。
+  await expect(page.getByTestId('activity-signup-count')).toHaveText('已报名 12 / 20 人');
 
   // P-118：报名队列按报名时间升序，展示家属备注，本人行标记「我」。
   const signupRows = page.getByTestId('activity-signup-list-row');
@@ -315,16 +315,14 @@ test('C12 活动详情：报名（含家属）与取消全流程', async ({ page
   await page.getByTestId('activity-signup').click();
   await expect(page.getByRole('heading', { name: '报名活动' })).toBeVisible();
   await page.getByText('携带家属', { exact: true }).click();
-  await page.getByPlaceholder('如：带 1 位家属，儿童餐').fill('带 1 位家属');
+  await page.getByLabel('家属备注').fill('带 1 位家属');
   await page.getByRole('button', { name: '确认报名' }).click();
 
   await expect(page.getByTestId('activity-message')).toHaveText('报名成功');
   await expect(page.getByTestId('activity-cancel')).toBeVisible();
-  await expect(
-    page.getByTestId('activity-signup-card').getByText('携带家属（带 1 位家属）'),
-  ).toBeVisible();
   await expect(signupRows).toHaveCount(3);
   await expect(signupRows.filter({ hasText: '张伟' })).toContainText('我');
+  await expect(signupRows.filter({ hasText: '张伟' })).toContainText('携带家属（带 1 位家属）');
   expect(postBodies).toEqual([{ withFamily: true, familyNote: '带 1 位家属' }]);
   expect(postKeys[0]).toBeTruthy();
 
@@ -356,7 +354,7 @@ test('C12 活动详情：不允许携带家属时隐藏家属选项', async ({ p
   await page.getByTestId('activity-signup').click();
   await expect(page.getByRole('heading', { name: '报名活动' })).toBeVisible();
   await expect(page.getByText('携带家属', { exact: true })).toHaveCount(0);
-  await expect(page.getByPlaceholder('如：带 1 位家属，儿童餐')).toHaveCount(0);
+  await expect(page.getByLabel('家属备注')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -440,7 +438,7 @@ test('C12 活动详情：展示场地环境图片，无图时不展示该区块'
   expect(errors).toEqual([]);
 });
 
-test('C12 管理员：状态下拉、直接流转与取消原因', async ({ page }) => {
+test('C12 管理员：状态下拉、直接流转与取消原因可选', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   await mockSession(page, {
     ...ME,
@@ -508,12 +506,9 @@ test('C12 管理员：状态下拉、直接流转与取消原因', async ({ page
   await select.selectOption('3');
   await expect(page.getByRole('heading', { name: '取消活动' })).toBeVisible();
   await page.getByRole('button', { name: '确认取消' }).click();
-  await expect(page.getByTestId('activity-cancel-error')).toHaveText('请输入取消原因');
-  await page.getByPlaceholder('请填写取消原因（最多 255 字）').fill('场地停业');
-  await page.getByRole('button', { name: '确认取消' }).click();
 
   await expect(page.locator('.match-hero__top .van-tag')).toContainText('已取消');
-  expect(bodies[4]).toEqual({ status: 3, version: 4, reason: '场地停业' });
+  expect(bodies[4]).toEqual({ status: 3, version: 4 });
 
   // 已取消可恢复为报名中/报名截止，但不可结束（P-114）。
   await expect(select).toBeVisible();

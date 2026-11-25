@@ -228,10 +228,10 @@ export function buildPostponeSubmission(fields: PostponeFields): PostponeSubmiss
   );
 }
 
-/** 取消原因校验：非空、不超过 maxLength 字（比赛 200，活动 255）。 */
-export function cancelReasonError(reason: string, maxLength = 200): string | null {
+/** 取消原因校验：比赛必填、活动可选，均不超过 maxLength 字（比赛 200，活动 255）。 */
+export function cancelReasonError(reason: string, maxLength = 200, required = true): string | null {
   const trimmed = reason.trim();
-  if (!trimmed) {
+  if (required && !trimmed) {
     return '请输入取消原因';
   }
   if (trimmed.length > maxLength) {
@@ -243,8 +243,12 @@ export function cancelReasonError(reason: string, maxLength = 200): string | nul
 export type CancelSubmission = { ok: true; reason: string } | { ok: false; error: string };
 
 /** 取消表单 → 提交原因；校验失败返回文案。 */
-export function buildCancelSubmission(reason: string, maxLength = 200): CancelSubmission {
-  const message = cancelReasonError(reason, maxLength);
+export function buildCancelSubmission(
+  reason: string,
+  maxLength = 200,
+  required = true,
+): CancelSubmission {
+  const message = cancelReasonError(reason, maxLength, required);
   if (message) {
     return { ok: false, error: message };
   }

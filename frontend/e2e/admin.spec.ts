@@ -1013,7 +1013,7 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   await page.getByRole('menuitem', { name: '取消' }).click();
   const cancelDialog = page.locator('.el-dialog').filter({ hasText: '取消活动' });
   await expect(cancelDialog).toBeVisible();
-  await cancelDialog.getByPlaceholder('取消原因（将记入审计）').fill('E2E 取消');
+  // 取消原因可选（P-120）。
   await cancelDialog.getByRole('button', { name: '确认取消' }).click();
   await expect(row.locator('.el-tag').filter({ hasText: '已取消' })).toBeVisible();
   // 已取消仍可编辑（P-113）。

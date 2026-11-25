@@ -97,17 +97,16 @@
           <text class="card-title">报名</text>
         </view>
 
-        <view wx:if="{{activity.capacity !== null}}" class="signup-track">
+        <view class="signup-track">
           <view class="signup-fill" style="width: {{capacityPercent}}%"></view>
         </view>
+        <text class="muted small">{{signupCardText}}</text>
 
         <block wx:if="{{action}}">
           <block wx:if="{{!action.visible}}">
             <view wx:if="{{registered}}" class="signup-card__mine">
               <text>你已报名</text>
-              <text class="muted">{{familyText}}</text>
             </view>
-            <text wx:if="{{signedUpText}}" class="muted small">报名时间 {{signedUpText}}</text>
             <text wx:if="{{registered}}" class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，报名记录仅保留。</text>
             <text wx:else class="muted">活动已{{activity.status === 3 ? '取消' : '结束'}}，不再接受报名。</text>
           </block>
@@ -132,9 +131,7 @@
           <block wx:elif="{{registered}}">
             <view class="signup-card__mine">
               <text>你已报名</text>
-              <text class="muted">{{familyText}}</text>
             </view>
-            <text wx:if="{{signedUpText}}" class="muted small">报名时间 {{signedUpText}}</text>
             <view
               wx:if="{{canCancel}}"
               class="btn btn--outline {{cancelBusy ? 'btn--disabled' : ''}}"
@@ -213,7 +210,6 @@
           wx:if="{{withFamily}}"
           value="{{familyNote}}"
           label="家属备注"
-          placeholder="如：带 1 位家属（选填）"
           maxlength="255"
           bind:change="onFamilyNoteChange"
         />
@@ -237,6 +233,7 @@
     entity-label="活动"
     cancel-status="{{3}}"
     cancel-max-length="{{255}}"
+    cancel-reason-required="{{false}}"
     list-hint="选择「已取消」会打开取消原因表单；已结束可重新开放、已取消可恢复为报名中/报名截止。"
     bind:close="closeStatus"
     bind:change="onStatusChange"

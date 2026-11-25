@@ -382,7 +382,7 @@ CREATE TABLE team_activity (
   start_at           DATETIME(3)     NOT NULL COMMENT '活动开始时间',
   end_at             DATETIME(3)     NULL COMMENT '活动结束时间',
   signup_deadline    DATETIME(3)     NOT NULL COMMENT '报名截止时间',
-  capacity           SMALLINT UNSIGNED NULL COMMENT '总人数上限;只计报名人数,不含家属;NULL为不限',
+  capacity           SMALLINT UNSIGNED NOT NULL DEFAULT 50 COMMENT '总人数上限;只计报名人数,不含家属;默认50',
   family_allowed     TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-不允许携带家属;1-允许携带家属',
   cost_per_person    DECIMAL(10,2)   NULL COMMENT '人均消费;单位元;仅展示,不自动摊分',
   location           VARCHAR(128)    NOT NULL COMMENT '活动地址',

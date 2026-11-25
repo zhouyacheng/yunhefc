@@ -78,16 +78,6 @@ export function activityFeedKey(filters: ActivityFilters): string {
 
 export const DEFAULT_ACTIVITY_KEY = activityFeedKey(DEFAULT_ACTIVITY_FILTERS);
 
-/** 范围选项下标 ↔ 值映射集中在此，页面不再硬编码选项顺序。 */
-export function activityScopeAt(index: number): ActivityScope {
-  return ACTIVITY_SCOPES[index]?.key ?? DEFAULT_ACTIVITY_FILTERS.scope;
-}
-
-export function activityScopeIndex(scope: ActivityScope): number {
-  const index = ACTIVITY_SCOPES.findIndex((option) => option.key === scope);
-  return index >= 0 ? index : 0;
-}
-
 /** 页面控件状态；typeIndex/statusIndex 对应下拉选项下标。 */
 export interface ActivityFilterState {
   scope: ActivityScope;
@@ -109,10 +99,13 @@ export function activityFiltersFromState(state: ActivityFilterState): ActivityFi
   };
 }
 
+/** 范围选项白名单校验：feed key 解析与页面分段切换共用一个口径。 */
+export function isActivityScope(value: unknown): value is ActivityScope {
+  return typeof value === 'string' && ACTIVITY_SCOPES.some((option) => option.key === value);
+}
+
 function parseScope(value: string): ActivityScope {
-  return ACTIVITY_SCOPES.some((option) => option.key === value)
-    ? (value as ActivityScope)
-    : DEFAULT_ACTIVITY_FILTERS.scope;
+  return isActivityScope(value) ? value : DEFAULT_ACTIVITY_FILTERS.scope;
 }
 
 function parseCode<T extends number>(value: string, options: { value: T | '' }[]): T | '' {

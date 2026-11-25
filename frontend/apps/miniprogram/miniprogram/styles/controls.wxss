@@ -266,3 +266,29 @@
 .range-sheet__actions {
   justify-content: space-between;
 }
+
+/* 分段切换：我的、活动等页面共用。 */
+.segmented {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  padding: 6rpx;
+  background: var(--yh-slate-soft);
+  border-radius: 20rpx;
+}
+
+.segmented__item {
+  padding: 12rpx 16rpx;
+  color: var(--yh-muted);
+  font-size: 26rpx;
+  font-weight: 600;
+  line-height: 1.2;
+  border-radius: 16rpx;
+  white-space: nowrap;
+}
+
+.segmented__item--active {
+  color: var(--yh-ink);
+  background: var(--yh-surface);
+  box-shadow: 0 2rpx 8rpx rgba(15, 23, 42, 0.12);
+}

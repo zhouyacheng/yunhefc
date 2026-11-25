@@ -6,10 +6,9 @@ import {
   activityFeedKey,
   activityFiltersFromState,
   activityListQuery,
-  activityScopeAt,
-  activityScopeIndex,
   DEFAULT_ACTIVITY_FILTERS,
   DEFAULT_ACTIVITY_KEY,
+  isActivityScope,
   parseActivityFeedKey,
   type ActivityFilters,
 } from '../../utils/activity-query';
@@ -54,7 +53,6 @@ Page({
     ) as PagedFeedState<ActivityCardView>,
     scopeOptions: ACTIVITY_SCOPES,
     scope: DEFAULT_ACTIVITY_FILTERS.scope,
-    scopeIndex: activityScopeIndex(DEFAULT_ACTIVITY_FILTERS.scope),
     typeOptions: ACTIVITY_TYPE_OPTIONS,
     typeIndex: 0,
     statusOptions: ACTIVITY_STATUS_OPTIONS,
@@ -132,27 +130,36 @@ Page({
     this.setData({ filtersOpen: false });
   },
 
-  onScopeChange(event: WechatMiniprogram.PickerChange) {
-    const scopeIndex = Number(event.detail.value);
-    const scope = activityScopeAt(scopeIndex);
-    this.setData({ scopeIndex, scope, emptyText: emptyTextOf(scope) });
+  selectScope(event: WechatMiniprogram.BaseEvent) {
+    const scope = event.currentTarget.dataset.scope;
+    if (!isActivityScope(scope)) {
+      return;
+    }
+    if (scope === this.data.scope) {
+      // 当前范围加载失败时，重复点击分段即重试。
+      if (feed?.state.error) {
+        void feed.load();
+      }
+      return;
+    }
+    this.setData({ scope, emptyText: emptyTextOf(scope) });
     this.applyFilters();
   },
 
+  /** 只清空抽屉内的条件，保留页面顶部分段已选的范围。 */
   resetFilters() {
-    const filters = DEFAULT_ACTIVITY_FILTERS;
-    const scopeIndex = activityScopeIndex(filters.scope);
+    const filters: ActivityFilters = {
+      ...DEFAULT_ACTIVITY_FILTERS,
+      scope: this.data.scope as ActivityFilters['scope'],
+    };
     const key = activityFeedKey(filters);
     this.setData({
-      scope: filters.scope,
-      scopeIndex: scopeIndex >= 0 ? scopeIndex : 0,
       typeIndex: 0,
       statusIndex: 0,
       ...patchMonth(''),
       monthPickerDraft: `${currentShanghaiMonth()}-01`,
       rangeDraftStart: '',
       rangeDraftEnd: '',
-      emptyText: emptyTextOf(filters.scope),
     });
     void wx.pageScrollTo({ scrollTop: 0 });
     if (!feed) {

@@ -7,24 +7,15 @@ import {
   activityFeedKey,
   activityFiltersFromState,
   activityListQuery,
-  activityScopeAt,
-  activityScopeIndex,
   DEFAULT_ACTIVITY_FILTERS,
   DEFAULT_ACTIVITY_KEY,
+  isActivityScope,
   parseActivityFeedKey,
 } from '../miniprogram/utils/activity-query';
 
 const EMPTY_TIME = { month: '', startDate: '', endDate: '' };
 
-describe('范围下标与控件状态', () => {
-  it('范围下标映射可往返，越界回落缺省', () => {
-    expect(activityScopeAt(0)).toBe('latest');
-    expect(activityScopeAt(1)).toBe('finished');
-    expect(activityScopeAt(99)).toBe(DEFAULT_ACTIVITY_FILTERS.scope);
-    expect(activityScopeIndex('finished')).toBe(1);
-    expect(activityScopeIndex('latest')).toBe(0);
-  });
-
+describe('控件状态组装', () => {
   it('控件下标组装为筛选条件', () => {
     expect(
       activityFiltersFromState({
@@ -112,6 +103,14 @@ describe('活动筛选编码', () => {
     expect(parseActivityFeedKey('scope=latest&startDate=2026-03-02&endDate=2026-03-01')).toEqual(
       DEFAULT_ACTIVITY_FILTERS,
     );
+  });
+
+  it('范围白名单校验覆盖全部合法范围', () => {
+    expect(ACTIVITY_SCOPES.every((option) => isActivityScope(option.key))).toBe(true);
+    expect(isActivityScope('history')).toBe(false);
+    expect(isActivityScope('')).toBe(false);
+    expect(isActivityScope(undefined)).toBe(false);
+    expect(isActivityScope(0)).toBe(false);
   });
 
   it('非法片段回落到默认值', () => {

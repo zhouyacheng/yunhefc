@@ -12,13 +12,6 @@
         <text class="filter-drawer__title">筛选</text>
       </view>
 
-      <view wx:if="{{scopeOptions}}" class="filter-field">
-        <text class="filter-field__label">范围</text>
-        <picker mode="selector" range="{{scopeOptions}}" range-key="label" value="{{scopeIndex}}" bindchange="onScopeChange">
-          <view class="filter-field__value">{{scopeOptions[scopeIndex].label}}</view>
-        </picker>
-      </view>
-
       <view class="filter-field">
         <text class="filter-field__label">类型</text>
         <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">

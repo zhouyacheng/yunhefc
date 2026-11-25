@@ -6,7 +6,18 @@
     <view class="page-head__title">活动</view>
   </view>
 
-  <template is="filter-trigger" />
+  <view class="activity-toolbar">
+    <view class="segmented">
+      <view
+        wx:for="{{scopeOptions}}"
+        wx:key="key"
+        class="segmented__item {{scope === item.key ? 'segmented__item--active' : ''}}"
+        data-scope="{{item.key}}"
+        bindtap="selectScope"
+      >{{item.label}}</view>
+    </view>
+    <template is="filter-trigger" />
+  </view>
 
   <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
     <van-loading size="20px">加载中…</van-loading>
@@ -76,7 +87,7 @@
 
 <template
   is="filter-drawer-popup"
-  data="{{filtersOpen: filtersOpen, scopeOptions: scopeOptions, scopeIndex: scopeIndex, typeOptions: typeOptions, typeIndex: typeIndex, venueVisible: venueVisible, statusOptions: statusOptions, statusIndex: statusIndex, month: month, monthDraft: monthPickerDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+  data="{{filtersOpen: filtersOpen, typeOptions: typeOptions, typeIndex: typeIndex, venueVisible: venueVisible, statusOptions: statusOptions, statusIndex: statusIndex, month: month, monthDraft: monthPickerDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
 />
 
 <template

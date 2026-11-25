@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ledgerDayRange,
   ledgerRangeEnd,
-  ledgerRangeError,
   ledgerRangeStart,
   parseLedgerDate,
   parseLedgerType,
@@ -27,22 +27,39 @@ describe('筛选解析', () => {
     expect(ledgerRangeStart('2026-13-01')).toBeNull();
   });
 
-  it('区间倒置给出提示', () => {
-    expect(ledgerRangeError({ from: '2026-11-20', to: '2026-11-19' })).toBe(
-      '开始日期不能晚于结束日期',
-    );
-    expect(ledgerRangeError({ from: '2026-11-19', to: '2026-11-20' })).toBe('');
+  it('自定义日期优先，其次月份，非法值不生效', () => {
+    expect(
+      ledgerDayRange({
+        month: '2026-11',
+        startDate: '2026-11-03',
+        endDate: '2026-11-09',
+      }),
+    ).toEqual({ from: '2026-11-03', to: '2026-11-09' });
+    expect(ledgerDayRange({ month: '2026-02', startDate: '', endDate: '' })).toEqual({
+      from: '2026-02-01',
+      to: '2026-02-28',
+    });
+    expect(ledgerDayRange({ month: '2024-02', startDate: '', endDate: '' })).toEqual({
+      from: '2024-02-01',
+      to: '2024-02-29',
+    });
+    expect(ledgerDayRange({ month: '', startDate: '2026-11-20', endDate: '' })).toBeNull();
+    expect(
+      ledgerDayRange({ month: '', startDate: '2026-11-20', endDate: '2026-11-19' }),
+    ).toBeNull();
+    expect(ledgerDayRange({ month: '1999-12', startDate: '', endDate: '' })).toBeNull();
   });
 });
 
 describe('请求参数', () => {
-  it('只下发已选筛选', () => {
+  it('自定义日期只下发已选筛选', () => {
     expect(
       toLedgerFilter({
         type: 1,
         categoryId: 2,
-        from: '2026-11-01',
-        to: '2026-11-30',
+        month: '',
+        startDate: '2026-11-01',
+        endDate: '2026-11-30',
       }),
     ).toEqual({
       type: 1,
@@ -52,8 +69,25 @@ describe('请求参数', () => {
     });
   });
 
+  it('月份展开为当月首末日', () => {
+    expect(
+      toLedgerFilter({
+        type: null,
+        categoryId: null,
+        month: '2026-11',
+        startDate: '',
+        endDate: '',
+      }),
+    ).toEqual({
+      from: '2026-11-01T00:00:00+08:00',
+      to: '2026-11-30T23:59:59+08:00',
+    });
+  });
+
   it('未筛选时不带多余参数', () => {
-    expect(toLedgerFilter({ type: null, categoryId: null, from: '', to: '' })).toEqual({});
+    expect(
+      toLedgerFilter({ type: null, categoryId: null, month: '', startDate: '', endDate: '' }),
+    ).toEqual({});
   });
 
   it('列表请求追加分页，汇总请求不带分页', () => {
@@ -61,8 +95,9 @@ describe('请求参数', () => {
       toLedgerRequest({
         type: 1,
         categoryId: null,
-        from: '',
-        to: '',
+        month: '',
+        startDate: '',
+        endDate: '',
         page: 2,
         pageSize: 20,
       }),

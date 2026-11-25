@@ -130,7 +130,7 @@ test('C13 账本：汇总、流水与方向筛选', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   await mockSession(page, ['ledger:view:any']);
 
-  const summaryQueries: string[] = [];
+  const summaryQueries: URLSearchParams[] = [];
   await page.route(
     (url) => url.pathname === '/api/v1/c/ledger/categories',
     (route) => fulfill(route, { items: CATEGORIES }),
@@ -146,7 +146,7 @@ test('C13 账本：汇总、流水与方向筛选', async ({ page }) => {
     (url) => url.pathname === '/api/v1/c/ledger/summary',
     async (route) => {
       const url = new URL(route.request().url());
-      summaryQueries.push(url.search);
+      summaryQueries.push(url.searchParams);
       const expenseOnly = url.searchParams.get('type') === '1';
       await fulfill(
         route,
@@ -182,20 +182,39 @@ test('C13 账本：汇总、流水与方向筛选', async ({ page }) => {
   await expect(categorySelect).toContainText('其他');
   await expect(categorySelect).not.toContainText('队费');
 
-  await page.getByLabel('开始日期').fill('2099-11-01');
-  await page.getByLabel('开始日期').dispatchEvent('change');
+  // 月份筛选：确认当月后按当月首末日下发 from/to。
+  await page.getByRole('button', { name: '选择月份' }).click();
+  await page.getByRole('button', { name: '确认', exact: true }).click();
+  const monthText = (await page.getByRole('button', { name: '选择月份' }).textContent()) ?? '';
+  expect(monthText.trim()).toMatch(/^\d{4}-\d{2}$/);
+  const [year, month] = monthText.trim().split('-').map(Number);
+  const lastDay = String(new Date(Date.UTC(year ?? 0, month ?? 1, 0)).getUTCDate()).padStart(
+    2,
+    '0',
+  );
+  const monthStart = `${monthText.trim()}-01T00:00:00+08:00`;
+  const monthEnd = `${monthText.trim()}-${lastDay}T23:59:59+08:00`;
+  await expect.poll(() => summaryQueries.at(-1)?.get('from')).toBe(monthStart);
+  await expect.poll(() => summaryQueries.at(-1)?.get('to')).toBe(monthEnd);
+  await expect(page.getByRole('button', { name: '清除月份', exact: true })).toBeVisible();
+
+  // 清除月份后不再下发时间条件。
+  await page.getByRole('button', { name: '清除月份', exact: true }).click();
+  await expect.poll(() => summaryQueries.at(-1)?.has('from')).toBe(false);
+
+  // 自定义时间与月份互斥：选范围后清空月份，首末日边界都要正确。
+  await page.getByRole('button', { name: '选择自定义时间' }).click();
+  const days = page.locator('.van-calendar__day:not(.van-calendar__day--disabled)');
+  await days.first().click();
+  await days.first().click();
+  await page.locator('.van-calendar__confirm').click();
   await expect
-    .poll(() =>
-      summaryQueries.some((query) => query.includes('from=2099-11-01T00%3A00%3A00%2B08%3A00')),
-    )
-    .toBe(true);
-  await page.getByLabel('结束日期').fill('2099-11-30');
-  await page.getByLabel('结束日期').dispatchEvent('change');
-  await expect
-    .poll(() =>
-      summaryQueries.some((query) => query.includes('to=2099-11-30T23%3A59%3A59%2B08%3A00')),
-    )
-    .toBe(true);
+    .poll(() => summaryQueries.at(-1)?.get('from'))
+    .toMatch(/^\d{4}-\d{2}-\d{2}T00:00:00\+08:00$/);
+  const latest = summaryQueries.at(-1) as URLSearchParams;
+  expect(latest.get('to')).toBe(latest.get('from')?.replace('T00:00:00', 'T23:59:59'));
+  await expect(page.getByRole('button', { name: '清除自定义时间', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('全部月份');
 
   expect(errors).toEqual([]);
 });

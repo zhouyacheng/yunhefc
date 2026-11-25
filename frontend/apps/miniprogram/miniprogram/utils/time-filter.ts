@@ -30,6 +30,21 @@ function parseMonth(value: string | null): string | null {
   return year >= 2000 && year <= 2100 ? value : null;
 }
 
+/** 月份换算为自然日区间（含首末日）；非法月份返回 null。 */
+export function monthDayBounds(month: string): { startDate: string; endDate: string } | null {
+  const parsed = parseMonth(month);
+  if (parsed === null) {
+    return null;
+  }
+  const [year = 0, monthOfYear = 1] = parsed.split('-').map(Number);
+  // 下个月 0 日即本月最后一天，避免闰年与月份天数表。
+  const lastDay = new Date(Date.UTC(year, monthOfYear, 0)).getUTCDate();
+  return {
+    startDate: `${parsed}-01`,
+    endDate: `${parsed}-${String(lastDay).padStart(2, '0')}`,
+  };
+}
+
 /** 严格校验 YYYY-MM-DD，并用 UTC 回读拒绝 2026-02-30 之类的非法日期。 */
 function parseDate(value: string | null): string | null {
   if (!value || !DATE_PATTERN.test(value)) {

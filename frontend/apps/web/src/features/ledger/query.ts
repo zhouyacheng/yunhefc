@@ -1,16 +1,15 @@
 import type { QueryParams } from '@yunhefc/api-client';
 import type { LedgerType } from '@yunhefc/shared';
 
+import { monthDayBounds, normalizeTimeFilter, type TimeForm } from '../common/time-filter';
+
 export const DEFAULT_LEDGER_PAGE_SIZE = 10;
 export const LEDGER_PAGE_SIZE_OPTIONS = [10, 20, 50, 100] as const;
 
-export interface LedgerFilters {
+/** 时间条件与活动列表同口径：月份与自定义日期范围互斥，均未选时不筛选。 */
+export interface LedgerFilters extends TimeForm {
   type: LedgerType | null;
   categoryId: number | null;
-  /** YYYY-MM-DD，含当天 00:00:00。 */
-  from: string;
-  /** YYYY-MM-DD，含当天 23:59:59。 */
-  to: string;
 }
 
 export interface LedgerQuery extends LedgerFilters {
@@ -46,11 +45,16 @@ export function ledgerRangeEnd(date: string): string | null {
   return parseLedgerDate(date) ? `${date}T23:59:59+08:00` : null;
 }
 
-export function ledgerRangeError(filters: Pick<LedgerFilters, 'from' | 'to'>): string {
-  if (filters.from && filters.to && filters.from > filters.to) {
-    return '开始日期不能晚于结束日期';
+/** 生效的时间区间：自定义日期优先，其次月份；倒置或非法一律不生效。 */
+export function ledgerDayRange(
+  filters: Pick<LedgerFilters, 'month' | 'startDate' | 'endDate'>,
+): { from: string; to: string } | null {
+  const normalized = normalizeTimeFilter(filters);
+  if (normalized.startDate !== null && normalized.endDate !== null) {
+    return { from: normalized.startDate, to: normalized.endDate };
   }
-  return '';
+  const bounds = monthDayBounds(normalized.month ?? '');
+  return bounds ? { from: bounds.startDate, to: bounds.endDate } : null;
 }
 
 /** LED-01~03/07 共用的筛选参数；不含分页。 */
@@ -62,13 +66,16 @@ export function toLedgerFilter(query: LedgerFilters): QueryParams {
   if (query.categoryId !== null) {
     params.categoryId = query.categoryId;
   }
-  const from = ledgerRangeStart(query.from);
-  const to = ledgerRangeEnd(query.to);
-  if (from) {
-    params.from = from;
-  }
-  if (to) {
-    params.to = to;
+  const range = ledgerDayRange(query);
+  if (range) {
+    const from = ledgerRangeStart(range.from);
+    const to = ledgerRangeEnd(range.to);
+    if (from) {
+      params.from = from;
+    }
+    if (to) {
+      params.to = to;
+    }
   }
   return params;
 }

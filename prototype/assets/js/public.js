@@ -1669,13 +1669,27 @@ render();
       { at: '2026-11-02T12:00:00+08:00', type: 'INCOME', category: 'SPONSORSHIP', amount: 2000, note: '本地商家赞助', player: null }
     ];
     let typeFilter = 'ALL';
+    let monthFilter = '';
+    let fromDate = '';
+    let toDate = '';
 
     function fmt(at) {
       return new Date(at).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
     }
 
+    /** 月份与自定义日期范围互斥，均未选时不筛选。 */
+    function matchesTime(day) {
+      if (monthFilter) return day.slice(0, 7) === monthFilter;
+      if (fromDate && toDate) return day >= fromDate && day <= toDate;
+      return true;
+    }
+
     function render() {
-      const list = entries.filter((item) => typeFilter === 'ALL' || item.type === typeFilter);
+      const rangeIncomplete = Boolean(fromDate) !== Boolean(toDate);
+      const list = entries.filter((item) => {
+        if (typeFilter !== 'ALL' && item.type !== typeFilter) return false;
+        return matchesTime(item.at.slice(0, 10));
+      });
       const income = list.filter((item) => item.type === 'INCOME').reduce((sum, item) => sum + item.amount, 0);
       const expense = list.filter((item) => item.type === 'EXPENSE').reduce((sum, item) => sum + item.amount, 0);
       host.innerHTML = `<div class="container section">
@@ -1687,7 +1701,7 @@ render();
           <div class="card" style="padding:14px"><p class="muted small">支出</p><p style="font-size:22px"><b>¥${expense.toFixed(2)}</b></p></div>
           <div class="card" style="padding:14px"><p class="muted small">余额</p><p style="font-size:22px"><b>¥${(income - expense).toFixed(2)}</b></p></div>
         </div>
-        <div class="card" style="padding:12px;margin-top:12px">
+        <div class="card" style="padding:12px;margin-top:12px;display:flex;flex-wrap:wrap;gap:12px">
           <label class="muted small" for="ledger-type">方向
             <select id="ledger-type">
               <option value="ALL">全部</option>
@@ -1695,7 +1709,17 @@ render();
               <option value="EXPENSE"${typeFilter === 'EXPENSE' ? ' selected' : ''}>支出</option>
             </select>
           </label>
+          <label class="muted small" for="ledger-month">月份
+            <input type="month" id="ledger-month" value="${monthFilter}">
+          </label>
+          <label class="muted small" for="ledger-from">自定义时间（起）
+            <input type="date" id="ledger-from" value="${fromDate}">
+          </label>
+          <label class="muted small" for="ledger-to">自定义时间（止）
+            <input type="date" id="ledger-to" value="${toDate}">
+          </label>
         </div>
+        ${rangeIncomplete ? '<p class="muted small" style="margin-top:8px">自定义时间需同时选择起止日期；月份与自定义时间互斥。</p>' : ''}
         ${list.length ? `<div class="table-wrap" style="margin-top:12px"><table class="data-table">
           <thead><tr><th>日期</th><th>方向</th><th>分类</th><th>金额</th><th>摘要</th><th>归属球员</th></tr></thead>
           <tbody>${list.map((item) => `<tr>
@@ -1713,6 +1737,22 @@ render();
       </div>`;
       $('#ledger-type', host).addEventListener('change', (event) => {
         typeFilter = event.target.value;
+        render();
+      });
+      $('#ledger-month', host).addEventListener('change', (event) => {
+        monthFilter = event.target.value;
+        fromDate = '';
+        toDate = '';
+        render();
+      });
+      $('#ledger-from', host).addEventListener('change', (event) => {
+        fromDate = event.target.value;
+        monthFilter = '';
+        render();
+      });
+      $('#ledger-to', host).addEventListener('change', (event) => {
+        toDate = event.target.value;
+        monthFilter = '';
         render();
       });
     }

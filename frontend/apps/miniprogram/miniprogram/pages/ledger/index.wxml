@@ -1,3 +1,5 @@
+<import src="../../templates/filter-drawer.wxml" />
+
 <view class="container ledger">
   <view class="page-head">
     <text class="page-head__eyebrow">LEDGER</text>
@@ -42,8 +44,8 @@
     </view>
 
     <view class="filters">
-      <view class="filter-row">
-        <text class="filter-row__label">方向</text>
+      <view class="filter-field">
+        <text class="filter-field__label">方向</text>
         <picker
           mode="selector"
           range="{{typeOptions}}"
@@ -51,11 +53,11 @@
           value="{{typeIndex}}"
           bindchange="onTypeChange"
         >
-          <view class="filter-row__value">{{typeOptions[typeIndex].label}} ▾</view>
+          <view class="filter-field__value">{{typeOptions[typeIndex].label}} ▾</view>
         </picker>
       </view>
-      <view class="filter-row">
-        <text class="filter-row__label">分类</text>
+      <view class="filter-field">
+        <text class="filter-field__label">分类</text>
         <picker
           mode="selector"
           range="{{categoryOptions}}"
@@ -63,22 +65,13 @@
           value="{{categoryIndex}}"
           bindchange="onCategoryChange"
         >
-          <view class="filter-row__value">{{categoryOptions[categoryIndex].label}} ▾</view>
+          <view class="filter-field__value">{{categoryOptions[categoryIndex].label}} ▾</view>
         </picker>
       </view>
-      <view class="filter-row">
-        <text class="filter-row__label">区间</text>
-        <view class="filter-row__range">
-          <picker mode="date" value="{{fromDate}}" start="2000-01-01" end="2100-12-31" bindchange="onFromChange">
-            <view class="range-pick">{{fromDate || '开始日期'}}</view>
-          </picker>
-          <text class="muted">至</text>
-          <picker mode="date" value="{{toDate}}" start="2000-01-01" end="2100-12-31" bindchange="onToChange">
-            <view class="range-pick">{{toDate || '结束日期'}}</view>
-          </picker>
-          <text wx:if="{{fromDate || toDate}}" class="filter-row__clear" bindtap="clearRange">清除</text>
-        </view>
-      </view>
+      <template
+        is="time-filter-fields"
+        data="{{month: month, monthDraft: monthDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+      />
     </view>
 
     <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
@@ -116,3 +109,8 @@
     </view>
   </block>
 </view>
+
+<template
+  is="time-range-popup"
+  data="{{rangeOpen: rangeOpen, rangeDraftStart: rangeDraftStart, rangeDraftEnd: rangeDraftEnd, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+/>

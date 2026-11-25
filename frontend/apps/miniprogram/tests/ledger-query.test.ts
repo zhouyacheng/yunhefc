@@ -13,7 +13,7 @@ import {
 
 describe('账本筛选编码', () => {
   it('默认 key 可往返', () => {
-    expect(DEFAULT_LEDGER_KEY).toBe('|0||');
+    expect(DEFAULT_LEDGER_KEY).toBe('|0|||');
     expect(parseLedgerFilterKey(DEFAULT_LEDGER_KEY)).toEqual(DEFAULT_LEDGER_FILTER);
     expect(ledgerFilterQuery(DEFAULT_LEDGER_FILTER)).toEqual({
       type: undefined,
@@ -23,20 +23,32 @@ describe('账本筛选编码', () => {
     });
   });
 
-  it('key 与请求参数保持同一口径', () => {
+  it('自定义日期与月份互斥，均换算为 ISO 区间', () => {
     const state = {
       type: 1 as const,
       categoryId: 3,
-      fromDate: '2026-11-01',
-      toDate: '2026-11-30',
+      month: '',
+      startDate: '2026-11-01',
+      endDate: '2026-11-30',
     };
-    expect(ledgerFilterKey(state)).toBe('1|3|2026-11-01|2026-11-30');
+    expect(ledgerFilterKey(state)).toBe('1|3||2026-11-01|2026-11-30');
     expect(parseLedgerFilterKey(ledgerFilterKey(state))).toEqual(state);
     expect(ledgerFilterQuery(state)).toEqual({
       type: 1,
       categoryId: 3,
       from: '2026-11-01T00:00:00+08:00',
       to: '2026-11-30T23:59:59+08:00',
+    });
+  });
+
+  it('月份展开为当月首末日', () => {
+    expect(
+      ledgerFilterQuery({ type: '', categoryId: 0, month: '2024-02', startDate: '', endDate: '' }),
+    ).toEqual({
+      type: undefined,
+      categoryId: undefined,
+      from: '2024-02-01T00:00:00+08:00',
+      to: '2024-02-29T23:59:59+08:00',
     });
   });
 

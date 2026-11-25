@@ -38,24 +38,10 @@
         </picker>
       </view>
 
-      <view class="filter-field">
-        <text class="filter-field__label">月份</text>
-        <view class="filter-field__control">
-          <picker mode="date" fields="month" start="{{timeFilterMin}}" end="{{timeFilterMax}}" value="{{monthDraft}}" bindchange="onMonthChange">
-            <view class="filter-field__value">{{month || '全部月份'}}</view>
-          </picker>
-          <text wx:if="{{month}}" class="filter-field__clear" bindtap="clearMonth">清除</text>
-          <text wx:else class="filter-field__clear" bindtap="selectCurrentMonth">本月</text>
-        </view>
-      </view>
-
-      <view class="filter-field">
-        <text class="filter-field__label">自定义时间</text>
-        <view class="filter-field__control">
-          <view class="filter-field__value" bindtap="openRange">{{startDate && endDate ? startDate + ' 至 ' + endDate : '选择日期范围'}}</view>
-          <text wx:if="{{startDate && endDate}}" class="filter-field__clear" bindtap="clearRange">清除</text>
-        </view>
-      </view>
+      <template
+        is="time-filter-fields"
+        data="{{month: month, monthDraft: monthDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+      />
 
       <view class="filter-drawer__actions">
         <view class="btn btn--small btn--outline" bindtap="resetFilters" hover-class="btn--pressed">重置</view>
@@ -91,4 +77,25 @@
       </view>
     </view>
   </van-popup>
+</template>
+
+<template name="time-filter-fields">
+  <view class="filter-field">
+    <text class="filter-field__label">月份</text>
+    <view class="filter-field__control">
+      <picker mode="date" fields="month" start="{{timeFilterMin}}" end="{{timeFilterMax}}" value="{{monthDraft}}" bindchange="onMonthChange">
+        <view class="filter-field__value">{{month || '全部月份'}}</view>
+      </picker>
+      <text wx:if="{{month}}" class="filter-field__clear" bindtap="clearMonth">清除</text>
+      <text wx:else class="filter-field__clear" bindtap="selectCurrentMonth">本月</text>
+    </view>
+  </view>
+
+  <view class="filter-field">
+    <text class="filter-field__label">自定义时间</text>
+    <view class="filter-field__control">
+      <view class="filter-field__value" bindtap="openRange">{{startDate && endDate ? startDate + ' 至 ' + endDate : '选择日期范围'}}</view>
+      <text wx:if="{{startDate && endDate}}" class="filter-field__clear" bindtap="clearRange">清除</text>
+    </view>
+  </view>
 </template>

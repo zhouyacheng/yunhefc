@@ -5,6 +5,7 @@ import {
   listLedgerEntries,
 } from '../../utils/api-client';
 import { errorMessage } from '../../utils/api-errors';
+import { currentShanghaiMonth } from '../../utils/datetime';
 import {
   ALL_CATEGORIES_OPTION,
   categoryOptionsFor,
@@ -28,6 +29,13 @@ import {
   type PagedFeedState,
 } from '../../utils/paged-feed';
 import { getPermissions, getUser, sessionReady } from '../../utils/session';
+import {
+  TIME_FILTER_MAX,
+  TIME_FILTER_MIN,
+  patchMonth,
+  patchRange,
+  rangeError,
+} from '../../utils/time-filter';
 
 const PAGE_SIZE = 10;
 
@@ -55,14 +63,16 @@ function filterStateOf(data: {
   typeIndex: number;
   categoryOptions: { value: number }[];
   categoryIndex: number;
-  fromDate: string;
-  toDate: string;
+  month: string;
+  startDate: string;
+  endDate: string;
 }): LedgerFilterState {
   return {
     type: typeValue(data.typeIndex),
     categoryId: data.categoryOptions[data.categoryIndex]?.value ?? 0,
-    fromDate: data.fromDate,
-    toDate: data.toDate,
+    month: data.month,
+    startDate: data.startDate,
+    endDate: data.endDate,
   };
 }
 
@@ -83,8 +93,15 @@ Page({
     categories: [] as LedgerCategory[],
     categoryOptions: [ALL_CATEGORIES_OPTION],
     categoryIndex: 0,
-    fromDate: '',
-    toDate: '',
+    month: '',
+    startDate: '',
+    endDate: '',
+    timeFilterMin: TIME_FILTER_MIN,
+    timeFilterMax: TIME_FILTER_MAX,
+    monthDraft: `${currentShanghaiMonth()}-01`,
+    rangeDraftStart: '',
+    rangeDraftEnd: '',
+    rangeOpen: false,
   },
 
   onLoad() {
@@ -214,31 +231,69 @@ Page({
     this.applyFilters();
   },
 
-  onFromChange(event: WechatMiniprogram.PickerChange) {
-    const fromDate = String(event.detail.value);
-    if (this.data.toDate && fromDate > this.data.toDate) {
-      wx.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' });
-      return;
-    }
-    this.setData({ fromDate });
+  /** 月份与日期范围互斥：应用月份时清空范围及其草稿。 */
+  applyMonth(month: string) {
+    this.setData({
+      ...patchMonth(month),
+      monthDraft: `${month || currentShanghaiMonth()}-01`,
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
+    });
     this.applyFilters();
   },
 
-  onToChange(event: WechatMiniprogram.PickerChange) {
-    const toDate = String(event.detail.value);
-    if (this.data.fromDate && toDate < this.data.fromDate) {
-      wx.showToast({ title: '结束日期不能早于开始日期', icon: 'none' });
+  onMonthChange(event: WechatMiniprogram.PickerChange) {
+    this.applyMonth(String(event.detail.value).slice(0, 7));
+  },
+
+  clearMonth() {
+    this.applyMonth('');
+  },
+
+  /** 清空后原生 picker 默认停在当月，重复确认不会触发 change；提供显式恢复入口。 */
+  selectCurrentMonth() {
+    this.applyMonth(currentShanghaiMonth());
+  },
+
+  openRange() {
+    this.setData({
+      rangeOpen: true,
+      rangeDraftStart: this.data.startDate,
+      rangeDraftEnd: this.data.endDate,
+    });
+  },
+
+  closeRange() {
+    this.setData({ rangeOpen: false });
+  },
+
+  onRangeStartChange(event: WechatMiniprogram.PickerChange) {
+    this.setData({ rangeDraftStart: String(event.detail.value) });
+  },
+
+  onRangeEndChange(event: WechatMiniprogram.PickerChange) {
+    this.setData({ rangeDraftEnd: String(event.detail.value) });
+  },
+
+  confirmRange() {
+    const { rangeDraftStart: startDate, rangeDraftEnd: endDate } = this.data;
+    const error = rangeError(startDate, endDate);
+    if (error) {
+      wx.showToast({ title: error, icon: 'none' });
       return;
     }
-    this.setData({ toDate });
+    this.setData({ ...patchRange(startDate, endDate), rangeOpen: false });
     this.applyFilters();
   },
 
   clearRange() {
-    if (!this.data.fromDate && !this.data.toDate) {
-      return;
-    }
-    this.setData({ fromDate: '', toDate: '' });
+    this.setData({
+      startDate: '',
+      endDate: '',
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
+      rangeOpen: false,
+    });
     this.applyFilters();
   },
 

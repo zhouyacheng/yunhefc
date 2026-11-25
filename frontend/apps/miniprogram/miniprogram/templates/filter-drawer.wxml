@@ -12,7 +12,21 @@
         <text class="filter-drawer__title">筛选</text>
       </view>
 
-      <view class="filter-field">
+      <view wx:if="{{directionVisible}}" class="filter-field">
+        <text class="filter-field__label">方向</text>
+        <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
+          <view class="filter-field__value">{{typeOptions[typeIndex].label}}</view>
+        </picker>
+      </view>
+
+      <view wx:if="{{categoryVisible}}" class="filter-field">
+        <text class="filter-field__label">分类</text>
+        <picker mode="selector" range="{{categoryOptions}}" range-key="label" value="{{categoryIndex}}" bindchange="onCategoryChange">
+          <view class="filter-field__value">{{categoryOptions[categoryIndex].label}}</view>
+        </picker>
+      </view>
+
+      <view wx:if="{{typeVisible}}" class="filter-field">
         <text class="filter-field__label">类型</text>
         <picker mode="selector" range="{{typeOptions}}" range-key="label" value="{{typeIndex}}" bindchange="onTypeChange">
           <view class="filter-field__value">{{typeOptions[typeIndex].label}}</view>
@@ -31,7 +45,7 @@
         />
       </view>
 
-      <view class="filter-field">
+      <view wx:if="{{statusVisible}}" class="filter-field">
         <text class="filter-field__label">状态</text>
         <picker mode="selector" range="{{statusOptions}}" range-key="label" value="{{statusIndex}}" bindchange="onStatusChange">
           <view class="filter-field__value">{{statusOptions[statusIndex].label}}</view>

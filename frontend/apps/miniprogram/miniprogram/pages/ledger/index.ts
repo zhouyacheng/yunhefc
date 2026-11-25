@@ -6,6 +6,7 @@ import {
 } from '../../utils/api-client';
 import { errorMessage } from '../../utils/api-errors';
 import { currentShanghaiMonth } from '../../utils/datetime';
+import { filterDrawerHandlers } from '../../utils/filter-drawer';
 import {
   ALL_CATEGORIES_OPTION,
   categoryOptionsFor,
@@ -77,6 +78,8 @@ function filterStateOf(data: {
 }
 
 Page({
+  ...filterDrawerHandlers,
+
   data: {
     ready: false,
     authenticated: false,
@@ -102,6 +105,7 @@ Page({
     rangeDraftStart: '',
     rangeDraftEnd: '',
     rangeOpen: false,
+    filtersOpen: false,
   },
 
   onLoad() {
@@ -196,6 +200,33 @@ Page({
         summaryLoading: false,
         summaryError: errorMessage(error, '汇总加载失败，请稍后重试'),
       });
+    }
+  },
+
+  /** 清空全部条件；抽屉保持打开，与活动列表一致。 */
+  resetFilters() {
+    this.setData({
+      typeIndex: 0,
+      categoryOptions: categoryOptionsFor(this.data.categories, ''),
+      categoryIndex: 0,
+      ...patchMonth(''),
+      monthDraft: `${currentShanghaiMonth()}-01`,
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
+    });
+    if (!feed) {
+      return;
+    }
+    const key = ledgerFilterKey(filterStateOf(this.data));
+    void wx.pageScrollTo({ scrollTop: 0 });
+    if (key !== feed.state.key) {
+      feed.setKey(key);
+      this.loadSummary(key);
+      return;
+    }
+    // 条件已是默认值：仅在列表为空或失败时重试，避免重置后停在空态。
+    if (!feed.state.loaded || feed.state.error || feed.state.items.length === 0) {
+      void feed.load();
     }
   },
 

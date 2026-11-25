@@ -87,7 +87,7 @@
 
 <template
   is="filter-drawer-popup"
-  data="{{filtersOpen: filtersOpen, typeOptions: typeOptions, typeIndex: typeIndex, venueVisible: venueVisible, statusOptions: statusOptions, statusIndex: statusIndex, month: month, monthDraft: monthPickerDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+  data="{{filtersOpen: filtersOpen, typeVisible: true, typeOptions: typeOptions, typeIndex: typeIndex, venueVisible: venueVisible, statusVisible: true, statusOptions: statusOptions, statusIndex: statusIndex, month: month, monthDraft: monthPickerDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
 />
 
 <template

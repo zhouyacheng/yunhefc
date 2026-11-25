@@ -35,14 +35,6 @@
   color: var(--yh-red);
 }
 
-.filters {
-  margin-bottom: 24rpx;
-}
-
-.filter-field:last-child {
-  border-bottom: none;
-}
-
 .ledger-list {
   display: flex;
   flex-direction: column;

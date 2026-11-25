@@ -43,36 +43,7 @@
       <view class="btn btn--small btn--outline" bindtap="retrySummary" hover-class="btn--pressed">重试</view>
     </view>
 
-    <view class="filters">
-      <view class="filter-field">
-        <text class="filter-field__label">方向</text>
-        <picker
-          mode="selector"
-          range="{{typeOptions}}"
-          range-key="label"
-          value="{{typeIndex}}"
-          bindchange="onTypeChange"
-        >
-          <view class="filter-field__value">{{typeOptions[typeIndex].label}} ▾</view>
-        </picker>
-      </view>
-      <view class="filter-field">
-        <text class="filter-field__label">分类</text>
-        <picker
-          mode="selector"
-          range="{{categoryOptions}}"
-          range-key="label"
-          value="{{categoryIndex}}"
-          bindchange="onCategoryChange"
-        >
-          <view class="filter-field__value">{{categoryOptions[categoryIndex].label}} ▾</view>
-        </picker>
-      </view>
-      <template
-        is="time-filter-fields"
-        data="{{month: month, monthDraft: monthDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
-      />
-    </view>
+    <template is="filter-trigger" />
 
     <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
       <van-loading size="20px">流水加载中…</van-loading>
@@ -85,6 +56,7 @@
 
     <view wx:elif="{{feed.loaded && feed.items.length === 0}}" class="state">
       <van-empty description="暂无符合条件的流水" />
+      <view class="btn btn--small btn--outline" bindtap="resetFilters" hover-class="btn--pressed">重置筛选</view>
     </view>
 
     <view wx:else class="ledger-list">
@@ -109,6 +81,11 @@
     </view>
   </block>
 </view>
+
+<template
+  is="filter-drawer-popup"
+  data="{{filtersOpen: filtersOpen, directionVisible: true, categoryVisible: true, typeOptions: typeOptions, typeIndex: typeIndex, categoryOptions: categoryOptions, categoryIndex: categoryIndex, month: month, monthDraft: monthDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+/>
 
 <template
   is="time-range-popup"

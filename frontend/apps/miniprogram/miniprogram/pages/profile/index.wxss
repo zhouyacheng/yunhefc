@@ -118,12 +118,11 @@
 }
 
 .segmented__item {
-  min-height: 72rpx;
-  padding: 10rpx 28rpx;
+  padding: 12rpx 16rpx;
   color: var(--yh-muted);
   font-size: 26rpx;
   font-weight: 600;
-  line-height: 52rpx;
+  line-height: 1.2;
   border-radius: 16rpx;
 }
 

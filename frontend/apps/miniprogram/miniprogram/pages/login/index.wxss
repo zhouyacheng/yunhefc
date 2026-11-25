@@ -1,66 +1,218 @@
-.brand {
-  font-size: 40rpx;
-  font-weight: 700;
-  color: var(--yh-green);
-  margin-bottom: 24rpx;
+/* 登录页：夜色球场品牌位 + 覆盖其上的白色表单面板。 */
+
+.login {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--yh-bg);
 }
 
-.form {
+/* 品牌位 */
+
+.pitch {
+  position: relative;
+  overflow: hidden;
+  padding: 40rpx 56rpx 96rpx;
+  background:
+    radial-gradient(circle at 80% 4%, rgba(22, 163, 74, 0.26), transparent 44%),
+    linear-gradient(150deg, var(--yh-navy) 0%, var(--yh-navy-2) 60%, #0f2a24 100%);
+}
+
+/* 中圈与中线：以会徽为圆心，像俯视球场中心点。 */
+.pitch__ring {
+  position: absolute;
+  top: -152rpx;
+  left: 50%;
+  width: 520rpx;
+  height: 520rpx;
+  margin-left: -260rpx;
+  border: 1rpx solid rgba(255, 255, 255, 0.08);
+  border-radius: 50%;
+}
+
+.pitch__axis {
+  position: absolute;
+  top: 108rpx;
+  right: 0;
+  left: 0;
+  height: 1rpx;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.pitch__body {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.crest {
+  box-sizing: border-box;
+  width: 136rpx;
+  height: 136rpx;
+  padding: 10rpx;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2rpx rgba(245, 196, 81, 0.6),
+    0 24rpx 60rpx rgba(0, 0, 0, 0.38);
+}
+
+.crest__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+}
+
+.pitch__eyebrow {
+  margin-top: 24rpx;
+  color: var(--yh-gold);
+  font-size: 20rpx;
+  font-weight: 700;
+  letter-spacing: 0.26em;
+}
+
+.pitch__title {
   margin-top: 8rpx;
+  color: #ffffff;
+  font-size: 52rpx;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* 表单面板 */
+
+.panel {
+  position: relative;
+  flex: 1;
+  padding: 48rpx 40rpx calc(40rpx + env(safe-area-inset-bottom));
+  margin-top: -48rpx;
+  background: var(--yh-surface);
+  border-radius: 40rpx 40rpx 0 0;
+  box-shadow: 0 -18rpx 48rpx rgba(11, 18, 32, 0.12);
+}
+
+.panel__head {
+  display: flex;
+  flex-direction: column;
+  gap: 8rpx;
+  margin-bottom: 32rpx;
+}
+
+.panel__title {
+  color: var(--yh-ink);
+  font-size: 38rpx;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.panel__sub {
+  color: var(--yh-muted);
+  font-size: 24rpx;
 }
 
 .field {
-  margin-top: 24rpx;
+  margin-bottom: 20rpx;
 }
 
-.label {
+.field__label {
   display: block;
-  font-size: 24rpx;
+  margin-bottom: 10rpx;
   color: var(--yh-muted);
-  margin-bottom: 8rpx;
+  font-size: 24rpx;
+  font-weight: 600;
 }
 
-.input {
-  width: 100%;
+.field__input {
   box-sizing: border-box;
+  width: 100%;
+  height: 92rpx;
+  padding: 0 24rpx;
+  color: var(--yh-ink);
+  font-size: 30rpx;
   background: var(--yh-surface-soft);
   border: 1rpx solid var(--yh-line);
   border-radius: var(--yh-radius-sm);
-  padding: 18rpx 20rpx;
-  font-size: 28rpx;
-  min-height: 76rpx;
-  line-height: 40rpx;
 }
 
-.error {
-  margin-top: 20rpx;
+.field--focus .field__input {
+  background: var(--yh-surface);
+  border-color: var(--yh-green-bright);
+  box-shadow: var(--yh-focus-shadow);
+}
+
+.field__placeholder {
+  color: #94a3b8;
+}
+
+.form-error {
+  padding: 18rpx 20rpx;
+  margin: 4rpx 0 20rpx;
   color: var(--yh-red-ink);
+  font-size: 24rpx;
+  line-height: 1.5;
   background: var(--yh-red-soft);
   border-radius: var(--yh-radius-sm);
-  padding: 16rpx;
-  font-size: 24rpx;
 }
 
-.btn {
-  margin-top: 24rpx;
+.submit {
+  height: 96rpx;
+  margin-top: 12rpx;
+  font-size: 30rpx;
+  line-height: 96rpx;
+  border-radius: 14rpx;
 }
 
 .divider {
   display: flex;
   align-items: center;
-  margin-top: 28rpx;
-  color: var(--yh-muted);
-  font-size: 24rpx;
+  gap: 20rpx;
+  margin: 32rpx 0;
 }
 
-.divider::before,
-.divider::after {
-  content: '';
+.divider__line {
   flex: 1;
   height: 1rpx;
   background: var(--yh-line);
 }
 
 .divider__text {
-  padding: 0 20rpx;
+  color: var(--yh-muted);
+  font-size: 24rpx;
+}
+
+.wechat {
+  height: 92rpx;
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 92rpx;
+}
+
+.is-blocked {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.panel__hint {
+  display: block;
+  margin-top: 16rpx;
+  color: var(--yh-muted);
+  font-size: 22rpx;
+  text-align: center;
+}
+
+.skip {
+  padding: 16rpx 0;
+  margin-top: 32rpx;
+  color: var(--yh-green);
+  font-size: 26rpx;
+  font-weight: 600;
+  text-align: center;
+}
+
+.link--pressed {
+  opacity: 0.6;
 }

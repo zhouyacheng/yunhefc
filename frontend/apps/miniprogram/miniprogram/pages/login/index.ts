@@ -3,10 +3,15 @@ import { PHONE_PATTERN, type ValueEvent } from '../../utils/input';
 import { refreshUnreadBadge } from '../../utils/notifications';
 import { loginWithPassword, loginWithWechat } from '../../utils/session';
 
+interface FieldEvent {
+  currentTarget: { dataset: { field?: string } };
+}
+
 Page({
   data: {
     phone: '',
     password: '',
+    focus: '',
     submitting: false,
     wechatLoading: false,
     error: '',
@@ -18,6 +23,14 @@ Page({
 
   onPasswordInput(event: ValueEvent) {
     this.setData({ password: event.detail.value });
+  },
+
+  onFieldFocus(event: FieldEvent) {
+    this.setData({ focus: String(event.currentTarget.dataset.field ?? '') });
+  },
+
+  onFieldBlur() {
+    this.setData({ focus: '' });
   },
 
   async submit() {

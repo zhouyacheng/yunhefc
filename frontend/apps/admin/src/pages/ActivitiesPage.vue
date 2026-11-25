@@ -48,7 +48,7 @@ interface ActivityFormState {
   startAt: Date | null;
   endAt: Date | null;
   signupDeadline: Date | null;
-  capacity: number | null;
+  capacity: number;
   familyAllowed: boolean;
   costPerPerson: string;
   location: string;
@@ -473,7 +473,7 @@ function buildPayload(version?: number): ActivityPayload {
     startAt: startAt.toISOString(),
     endAt: endAt ? endAt.toISOString() : null,
     signupDeadline: signupDeadline.toISOString(),
-    capacity: activityForm.capacity ?? ACTIVITY_DEFAULT_CAPACITY,
+    capacity: activityForm.capacity,
     familyAllowed: activityForm.familyAllowed,
     costPerPerson: cost ? Number(cost) : null,
     location: activityForm.location.trim(),
@@ -972,7 +972,7 @@ onBeforeUnmount(() => {
             v-model="activityForm.capacity"
             :min="1"
             :max="65535"
-            :value-on-clear="null"
+            :value-on-clear="ACTIVITY_DEFAULT_CAPACITY"
             controls-position="right"
             placeholder="50"
           />

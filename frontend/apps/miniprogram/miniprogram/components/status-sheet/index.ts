@@ -144,11 +144,10 @@ Component({
     },
 
     submitCancel(): void {
-      const submission = buildCancelSubmission(
-        this.data.reason,
-        this.data.cancelMaxLength,
-        this.data.cancelReasonRequired,
-      );
+      const submission = buildCancelSubmission(this.data.reason, {
+        maxLength: this.data.cancelMaxLength,
+        required: this.data.cancelReasonRequired,
+      });
       if (!submission.ok) {
         this.setData({ formError: submission.error });
         return;

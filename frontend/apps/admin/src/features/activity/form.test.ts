@@ -48,7 +48,6 @@ describe('activityFormError', () => {
   });
 
   it('校验人数与人均消费', () => {
-    expect(activityFormError({ ...base, capacity: null })).toBe('请输入总人数上限');
     expect(activityFormError({ ...base, capacity: 0 })).toContain('1–65535');
     expect(activityFormError({ ...base, capacity: 1.5 })).toContain('1–65535');
     expect(activityFormError({ ...base, costPerPerson: '-1' })).toBe(

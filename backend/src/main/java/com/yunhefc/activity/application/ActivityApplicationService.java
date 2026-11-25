@@ -145,7 +145,7 @@ public class ActivityApplicationService {
         }
         ActivityRules.validateFamilyAllowed(activity, Boolean.TRUE.equals(request.withFamily()));
         int signupCount = activitySignupMapper.countActive(activityId);
-        if (activity.getCapacity() != null && signupCount >= activity.getCapacity()) {
+        if (signupCount >= activity.getCapacity()) {
             throw new BusinessException(ErrorCode.ACTIVITY_FULL);
         }
         ActivitySignup signup = existing == null

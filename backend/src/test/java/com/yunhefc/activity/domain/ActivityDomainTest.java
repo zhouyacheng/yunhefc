@@ -75,6 +75,7 @@ class ActivityDomainTest {
                 START.plusMinutes(1)));
         assertViolation("capacity", () -> ActivityRules.validateCapacity(null));
         assertViolation("capacity", () -> ActivityRules.validateCapacity(0));
+        assertViolation("capacity", () -> ActivityRules.validateCapacity(65536));
         assertViolation("costPerPerson", () -> ActivityRules.validateCost(new BigDecimal("1.234")));
         assertViolation("costPerPerson", () -> ActivityRules.validateCost(new BigDecimal("-0.01")));
         assertViolation("locationImageKeys", () -> ActivityRules.validateImageKeys(List.of("avatar/1/x.jpg")));

@@ -45,6 +45,9 @@ public final class ActivityRules {
         if (capacity < 1) {
             throw invalid("capacity", "人数上限至少为 1");
         }
+        if (capacity > 65535) {
+            throw invalid("capacity", "人数上限不能超过 65535");
+        }
     }
 
     public static void validateCost(BigDecimal cost) {

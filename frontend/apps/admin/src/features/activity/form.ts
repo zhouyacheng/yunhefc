@@ -42,7 +42,7 @@ export interface ActivityFormValues {
   startAt: Date | null;
   endAt: Date | null;
   signupDeadline: Date | null;
-  capacity: number | null;
+  capacity: number;
   familyAllowed: boolean;
   costPerPerson: string;
   location: string;
@@ -87,9 +87,6 @@ export function activityFormError(form: ActivityFormValues): string | null {
     return '结束时间必须晚于活动时间';
   }
   const capacity = form.capacity;
-  if (capacity === null) {
-    return '请输入总人数上限';
-  }
   if (!Number.isInteger(capacity) || capacity < 1 || capacity > 65535) {
     return '总人数上限必须为 1–65535 的整数';
   }

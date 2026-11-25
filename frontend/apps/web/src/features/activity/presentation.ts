@@ -154,14 +154,18 @@ export function activityCapacityPercent(signupCount: number, capacity: number): 
   return Math.max(0, Math.min(100, Math.round((signupCount / capacity) * 100)));
 }
 
-/** 只计报名人数，不含家属。 */
+function signupCountText(prefix: string, signupCount: number, capacity: number): string {
+  return `${prefix} ${signupCount} / ${capacity} 人`;
+}
+
+/** C11 列表与 C12 hero 的人数文案。 */
 export function activitySignupText(signupCount: number, capacity: number): string {
-  return `已报 ${signupCount} / ${capacity} 人`;
+  return signupCountText('已报', signupCount, capacity);
 }
 
 /** C12 报名卡内的人数文案；与 hero 的短文案区分，明确「已报名」。 */
 export function activitySignupCardText(signupCount: number, capacity: number): string {
-  return `已报名 ${signupCount} / ${capacity} 人`;
+  return signupCountText('已报名', signupCount, capacity);
 }
 
 export function formatActivityCost(value: number | null): string {

@@ -221,8 +221,13 @@ describe('buildCancelSubmission', () => {
   });
 
   it('allows a blank reason when not required', () => {
-    expect(buildCancelSubmission('   ', 255, false)).toEqual({ ok: true, reason: '' });
-    expect(buildCancelSubmission('x'.repeat(256), 255, false)).toEqual({
+    expect(buildCancelSubmission('   ', { maxLength: 255, required: false })).toEqual({
+      ok: true,
+      reason: '',
+    });
+    expect(
+      buildCancelSubmission('x'.repeat(256), { maxLength: 255, required: false }),
+    ).toEqual({
       ok: false,
       error: '取消原因不能超过 255 字',
     });

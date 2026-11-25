@@ -57,7 +57,7 @@
 .detail-hero__meta-row {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  gap: 6rpx;
 }
 
 .detail-hero__meta-icon {

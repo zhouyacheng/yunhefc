@@ -5,13 +5,56 @@ import {
   ACTIVITY_STATUS_OPTIONS,
   ACTIVITY_TYPE_OPTIONS,
   activityFeedKey,
+  activityFiltersFromState,
   activityListQuery,
+  activityScopeAt,
+  activityScopeIndex,
   DEFAULT_ACTIVITY_FILTERS,
   DEFAULT_ACTIVITY_KEY,
   parseActivityFeedKey,
 } from '../miniprogram/utils/activity-query';
 
 const EMPTY_TIME = { month: '', startDate: '', endDate: '' };
+
+describe('范围下标与控件状态', () => {
+  it('范围下标映射可往返，越界回落缺省', () => {
+    expect(activityScopeAt(0)).toBe('latest');
+    expect(activityScopeAt(1)).toBe('finished');
+    expect(activityScopeAt(99)).toBe(DEFAULT_ACTIVITY_FILTERS.scope);
+    expect(activityScopeIndex('finished')).toBe(1);
+    expect(activityScopeIndex('latest')).toBe(0);
+  });
+
+  it('控件下标组装为筛选条件', () => {
+    expect(
+      activityFiltersFromState({
+        scope: 'finished',
+        typeIndex: 3,
+        statusIndex: 1,
+        month: '2026-11',
+        startDate: '',
+        endDate: '',
+      }),
+    ).toEqual({
+      scope: 'finished',
+      type: 2,
+      status: 0,
+      month: '2026-11',
+      startDate: '',
+      endDate: '',
+    });
+    expect(
+      activityFiltersFromState({
+        scope: 'all',
+        typeIndex: 99,
+        statusIndex: 99,
+        month: '',
+        startDate: '',
+        endDate: '',
+      }),
+    ).toMatchObject({ scope: 'all', type: '', status: '' });
+  });
+});
 
 describe('活动筛选编码', () => {
   it('默认 key 可往返', () => {

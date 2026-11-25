@@ -1,56 +1,12 @@
+<import src="../../templates/filter-drawer.wxml" />
+
 <view class="container activities">
   <view class="page-head">
     <text class="page-head__eyebrow">TEAM DAYS</text>
     <view class="page-head__title">活动</view>
   </view>
 
-  <view class="filters">
-    <view class="segmented">
-      <view
-        wx:for="{{scopeOptions}}"
-        wx:key="key"
-        class="segmented__item {{scope === item.key ? 'segmented__item--active' : ''}}"
-        data-scope="{{item.key}}"
-        bindtap="selectScope"
-      >{{item.label}}</view>
-    </view>
-
-    <view class="filters__pickers">
-      <picker
-        mode="selector"
-        range="{{typeOptions}}"
-        range-key="label"
-        value="{{typeIndex}}"
-        bindchange="onTypeChange"
-      >
-        <view class="filter-chip">{{typeOptions[typeIndex].label}} ▾</view>
-      </picker>
-      <picker
-        mode="selector"
-        range="{{statusOptions}}"
-        range-key="label"
-        value="{{statusIndex}}"
-        bindchange="onStatusChange"
-      >
-        <view class="filter-chip">{{statusOptions[statusIndex].label}} ▾</view>
-      </picker>
-      <picker
-        mode="date"
-        fields="month"
-        start="{{timeFilterMin}}"
-        end="{{timeFilterMax}}"
-        value="{{monthPickerDraft}}"
-        bindchange="onMonthChange"
-      >
-        <view class="filter-chip">{{month || '全部月份'}} ▾</view>
-      </picker>
-      <text wx:if="{{month}}" class="filter-chip filter-chip--clear" bindtap="clearMonth">清除</text>
-      <text wx:else class="filter-chip" bindtap="selectCurrentMonth">本月</text>
-      <view class="filter-chip filter-chip--range" bindtap="openRange">
-        {{startDate && endDate ? startDate + ' 至 ' + endDate : '自定义时间'}} ▾
-      </view>
-    </view>
-  </view>
+  <template is="filter-trigger" />
 
   <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
     <van-loading size="20px">加载中…</van-loading>
@@ -63,6 +19,7 @@
 
   <view wx:elif="{{feed.loaded && feed.items.length === 0}}" class="state">
     <van-empty description="{{emptyText}}" />
+    <view class="btn btn--small btn--outline" bindtap="resetFilters" hover-class="btn--pressed">重置筛选</view>
   </view>
 
   <view wx:else class="activity-list">
@@ -117,29 +74,12 @@
   </view>
 </view>
 
-<van-popup show="{{rangeOpen}}" position="bottom" round bind:close="closeRange">
-  <view class="range-sheet">
-    <view class="filter-drawer__head">
-      <text class="filter-drawer__title">自定义时间</text>
-    </view>
+<template
+  is="filter-drawer-popup"
+  data="{{filtersOpen: filtersOpen, scopeOptions: scopeOptions, scopeIndex: scopeIndex, typeOptions: typeOptions, typeIndex: typeIndex, venueVisible: venueVisible, statusOptions: statusOptions, statusIndex: statusIndex, month: month, monthDraft: monthPickerDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+/>
 
-    <view class="filter-field">
-      <text class="filter-field__label">开始日期</text>
-      <picker mode="date" value="{{rangeDraftStart}}" start="{{timeFilterMin}}" end="{{timeFilterMax}}" bindchange="onRangeStartChange">
-        <view class="filter-field__value">{{rangeDraftStart || '选择开始日期'}}</view>
-      </picker>
-    </view>
-
-    <view class="filter-field">
-      <text class="filter-field__label">结束日期</text>
-      <picker mode="date" value="{{rangeDraftEnd}}" start="{{timeFilterMin}}" end="{{timeFilterMax}}" bindchange="onRangeEndChange">
-        <view class="filter-field__value">{{rangeDraftEnd || '选择结束日期'}}</view>
-      </picker>
-    </view>
-
-    <view class="filter-drawer__actions range-sheet__actions">
-      <view class="btn btn--small btn--outline" bindtap="clearRange" hover-class="btn--pressed">清除</view>
-      <view class="btn btn--small btn--primary" bindtap="confirmRange" hover-class="btn--pressed">确定</view>
-    </view>
-  </view>
-</van-popup>
+<template
+  is="time-range-popup"
+  data="{{rangeOpen: rangeOpen, rangeDraftStart: rangeDraftStart, rangeDraftEnd: rangeDraftEnd, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+/>

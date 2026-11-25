@@ -33,8 +33,8 @@ type ScheduleFormExtras = Partial<{
   typeIndex: number;
   statusIndex: number;
   monthPickerValue: string;
-  rangeStart: string;
-  rangeEnd: string;
+  rangeDraftStart: string;
+  rangeDraftEnd: string;
   rangeOpen: boolean;
   filtersOpen: boolean;
 }>;
@@ -62,11 +62,12 @@ Page({
     statusOptions: STATUS_OPTIONS,
     typeIndex: 0,
     statusIndex: 0,
+    venueVisible: true,
     timeFilterMin: TIME_FILTER_MIN,
     timeFilterMax: TIME_FILTER_MAX,
     monthPickerValue: `${toScheduleForm(emptyScheduleFilters()).month}-01`,
-    rangeStart: '',
-    rangeEnd: '',
+    rangeDraftStart: '',
+    rangeDraftEnd: '',
     rangeOpen: false,
     filtersOpen: false,
   },
@@ -191,8 +192,8 @@ Page({
     const month = String(event.detail.value).slice(0, 7);
     this.patchForm(patchMonth(month), {
       monthPickerValue: `${month}-01`,
-      rangeStart: '',
-      rangeEnd: '',
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
     });
   },
 
@@ -210,8 +211,8 @@ Page({
     const form = this.data.form as ScheduleForm;
     this.setData({
       rangeOpen: true,
-      rangeStart: form.startDate,
-      rangeEnd: form.endDate,
+      rangeDraftStart: form.startDate,
+      rangeDraftEnd: form.endDate,
     });
   },
 
@@ -220,15 +221,15 @@ Page({
   },
 
   onRangeStartChange(event: WechatMiniprogram.PickerChange) {
-    this.setData({ rangeStart: String(event.detail.value) });
+    this.setData({ rangeDraftStart: String(event.detail.value) });
   },
 
   onRangeEndChange(event: WechatMiniprogram.PickerChange) {
-    this.setData({ rangeEnd: String(event.detail.value) });
+    this.setData({ rangeDraftEnd: String(event.detail.value) });
   },
 
   confirmRange() {
-    const { rangeStart: startDate, rangeEnd: endDate } = this.data;
+    const { rangeDraftStart: startDate, rangeDraftEnd: endDate } = this.data;
     const error = rangeError(startDate, endDate);
     if (error) {
       wx.showToast({ title: error, icon: 'none' });
@@ -240,7 +241,7 @@ Page({
   clearRange() {
     this.patchForm(
       { startDate: '', endDate: '' },
-      { rangeOpen: false, rangeStart: '', rangeEnd: '' },
+      { rangeOpen: false, rangeDraftStart: '', rangeDraftEnd: '' },
     );
   },
 
@@ -255,8 +256,8 @@ Page({
       typeIndex: 0,
       statusIndex: 0,
       monthPickerValue: `${form.month}-01`,
-      rangeStart: '',
-      rangeEnd: '',
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
     });
     void wx.pageScrollTo({ scrollTop: 0 });
     if (!feed) {

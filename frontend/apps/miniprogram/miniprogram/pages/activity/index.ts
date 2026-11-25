@@ -4,7 +4,10 @@ import {
   ACTIVITY_STATUS_OPTIONS,
   ACTIVITY_TYPE_OPTIONS,
   activityFeedKey,
+  activityFiltersFromState,
   activityListQuery,
+  activityScopeAt,
+  activityScopeIndex,
   DEFAULT_ACTIVITY_FILTERS,
   DEFAULT_ACTIVITY_KEY,
   parseActivityFeedKey,
@@ -51,10 +54,12 @@ Page({
     ) as PagedFeedState<ActivityCardView>,
     scopeOptions: ACTIVITY_SCOPES,
     scope: DEFAULT_ACTIVITY_FILTERS.scope,
+    scopeIndex: activityScopeIndex(DEFAULT_ACTIVITY_FILTERS.scope),
     typeOptions: ACTIVITY_TYPE_OPTIONS,
     typeIndex: 0,
     statusOptions: ACTIVITY_STATUS_OPTIONS,
     statusIndex: 0,
+    venueVisible: false,
     month: '',
     startDate: '',
     endDate: '',
@@ -64,6 +69,7 @@ Page({
     rangeDraftStart: '',
     rangeDraftEnd: '',
     rangeOpen: false,
+    filtersOpen: false,
     emptyText: emptyTextOf(DEFAULT_ACTIVITY_FILTERS.scope),
   },
 
@@ -118,13 +124,47 @@ Page({
     feed = null;
   },
 
-  selectScope(event: WechatMiniprogram.BaseEvent) {
-    const scope = String(event.currentTarget.dataset.scope ?? 'all') as ActivityFilters['scope'];
-    if (scope === this.data.scope) {
+  openFilters() {
+    this.setData({ filtersOpen: true });
+  },
+
+  closeFilters() {
+    this.setData({ filtersOpen: false });
+  },
+
+  onScopeChange(event: WechatMiniprogram.PickerChange) {
+    const scopeIndex = Number(event.detail.value);
+    const scope = activityScopeAt(scopeIndex);
+    this.setData({ scopeIndex, scope, emptyText: emptyTextOf(scope) });
+    this.applyFilters();
+  },
+
+  resetFilters() {
+    const filters = DEFAULT_ACTIVITY_FILTERS;
+    const scopeIndex = activityScopeIndex(filters.scope);
+    const key = activityFeedKey(filters);
+    this.setData({
+      scope: filters.scope,
+      scopeIndex: scopeIndex >= 0 ? scopeIndex : 0,
+      typeIndex: 0,
+      statusIndex: 0,
+      ...patchMonth(''),
+      monthPickerDraft: `${currentShanghaiMonth()}-01`,
+      rangeDraftStart: '',
+      rangeDraftEnd: '',
+      emptyText: emptyTextOf(filters.scope),
+    });
+    void wx.pageScrollTo({ scrollTop: 0 });
+    if (!feed) {
       return;
     }
-    this.setData({ scope, emptyText: emptyTextOf(scope) });
-    this.applyFilters();
+    if (key === feed.state.key) {
+      if (!feed.state.loaded || feed.state.error || feed.state.items.length === 0) {
+        void feed.load();
+      }
+      return;
+    }
+    feed.setKey(key);
   },
 
   onTypeChange(event: WechatMiniprogram.PickerChange) {
@@ -208,14 +248,14 @@ Page({
   },
 
   applyFilters() {
-    const filters: ActivityFilters = {
+    const filters: ActivityFilters = activityFiltersFromState({
       scope: this.data.scope as ActivityFilters['scope'],
-      type: ACTIVITY_TYPE_OPTIONS[this.data.typeIndex]?.value ?? '',
-      status: ACTIVITY_STATUS_OPTIONS[this.data.statusIndex]?.value ?? '',
+      typeIndex: this.data.typeIndex,
+      statusIndex: this.data.statusIndex,
       month: this.data.month,
       startDate: this.data.startDate,
       endDate: this.data.endDate,
-    };
+    });
     const key = activityFeedKey(filters);
     if (key === feed?.state.key) {
       return;

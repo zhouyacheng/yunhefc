@@ -865,6 +865,10 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
   let uploaded = 0;
   await page.route('**/api/v1/b/files/activity-image', async (route) => {
     uploaded += 1;
+    if (uploaded === 1) {
+      // 留出窗口断言上传中的进度覆盖层。
+      await new Promise((resolve) => setTimeout(resolve, 800));
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',
@@ -883,10 +887,62 @@ test('B 端：B12 活动管理页渲染与关键操作可见', async ({ page }) 
     { name: 'batch-a.png', mimeType: 'image/png', buffer: VALID_PNG },
     { name: 'batch-b.png', mimeType: 'image/png', buffer: VALID_PNG },
   ]);
+  await expect(dialog.locator('.image-progress')).toHaveCount(1);
+  await expect(dialog.locator('.image-progress .el-progress')).toBeVisible();
   await expect(dialog.locator('.image-preview')).toHaveCount(2);
+  await expect(dialog.locator('.image-progress')).toHaveCount(0);
   expect(uploaded).toBe(2);
   await page.unroute('**/api/v1/b/files/activity-image');
 
+  // 批量中途失败：保留已成功项、停止后续上传并弹窗。
+  await dialog.getByRole('button', { name: '移除' }).first().click();
+  await dialog.getByRole('button', { name: '移除' }).first().click();
+  await expect(dialog.locator('.image-preview')).toHaveCount(0);
+
+  let attempts = 0;
+  await page.route('**/api/v1/b/files/activity-image', async (route) => {
+    attempts += 1;
+    if (attempts === 2) {
+      // 用 200 + 错误 envelope 模拟服务端失败，避免测试把 500 计入 console error。
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          code: 50001,
+          message: '上传失败，请稍后重试',
+          data: null,
+          requestId: 'e2e-upload-fail',
+        }),
+      });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        code: 0,
+        message: 'success',
+        data: {
+          objectKey: `activity/1/partial-${attempts}.jpg`,
+          signedUrl: `data:image/png;base64,${VALID_PNG.toString('base64')}`,
+        },
+        requestId: 'e2e-upload',
+      }),
+    });
+  });
+  await dialog.locator('input[type=file]').setInputFiles([
+    { name: 'partial-a.png', mimeType: 'image/png', buffer: VALID_PNG },
+    { name: 'partial-b.png', mimeType: 'image/png', buffer: VALID_PNG },
+    { name: 'partial-c.png', mimeType: 'image/png', buffer: VALID_PNG },
+  ]);
+  await expect(page.getByText('上传失败，请稍后重试')).toBeVisible();
+  await page.getByRole('button', { name: '知道了' }).click();
+  await expect(dialog.locator('.image-preview')).toHaveCount(1);
+  expect(attempts).toBe(2);
+  await page.unroute('**/api/v1/b/files/activity-image');
+
+  await dialog.getByRole('button', { name: '移除' }).first().click();
+  await expect(dialog.locator('.image-preview')).toHaveCount(0);
   await dialog.getByRole('button', { name: '取消' }).click();
   await expect(dialog).toBeHidden();
 

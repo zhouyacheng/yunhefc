@@ -95,3 +95,30 @@ export const ACTIVITY_STATUS_TARGETS: Readonly<
   3: [0, 1],
 };
 
+/** ACT-10：当前状态能否流转到目标状态。 */
+export function activityStatusCanTransit(
+  currentStatus: ActivityStatus,
+  targetStatus: ActivityStatus,
+): boolean {
+  return ACTIVITY_STATUS_TARGETS[currentStatus].includes(targetStatus);
+}
+
+/** 状态目标不可选时的原因文案；当前已是目标状态时单独说明。 */
+export function activityStatusDisabledReason(
+  currentStatus: ActivityStatus,
+  targetStatus: ActivityStatus,
+): string | undefined {
+  if (activityStatusCanTransit(currentStatus, targetStatus)) {
+    return undefined;
+  }
+  if (currentStatus === targetStatus) {
+    return '当前已是该状态';
+  }
+  if (currentStatus === 2 && targetStatus === 3) {
+    return '已结束的活动不可取消';
+  }
+  if (currentStatus === 3 && targetStatus === 2) {
+    return '已取消的活动不可结束';
+  }
+  return '当前状态不允许该操作';
+}

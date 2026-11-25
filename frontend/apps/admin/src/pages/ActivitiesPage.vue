@@ -15,7 +15,11 @@ import type {
   ActivityType,
   Page,
 } from '@yunhefc/shared';
-import { ACTIVITY_STATUS_TARGETS, formatDateTime } from '@yunhefc/shared';
+import {
+  activityStatusCanTransit,
+  activityStatusDisabledReason,
+  formatDateTime,
+} from '@yunhefc/shared';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 
@@ -113,7 +117,6 @@ const imagePreviews = ref<string[]>([]);
 const imageUploading = ref(false);
 const imageProgress = ref<number | null>(null);
 const pendingImageIndex = ref<number | null>(null);
-const imageError = ref('');
 const localPreviewUrls = new Set<string>();
 let imageUploadSeq = 0;
 let activitySubmitKey: string | null = null;
@@ -186,7 +189,6 @@ function resetImageState(): void {
   imageUploading.value = false;
   imageProgress.value = null;
   pendingImageIndex.value = null;
-  imageError.value = '';
 }
 
 function fillForm(activity: ActivityAdmin): void {
@@ -290,7 +292,7 @@ function alertImageError(message: string): Promise<unknown> {
   return ElMessageBox.alert(message, '无法上传图片', {
     type: 'warning',
     confirmButtonText: '知道了',
-  });
+  }).catch(() => undefined);
 }
 
 async function onImageChange(event: Event): Promise<void> {
@@ -300,8 +302,8 @@ async function onImageChange(event: Event): Promise<void> {
   if (files.length === 0) {
     return;
   }
-  imageError.value = '';
-  const remaining = ACTIVITY_IMAGE_MAX_COUNT - activityForm.locationImageKeys.length;
+  const used = Math.max(activityForm.locationImageKeys.length, imagePreviews.value.length);
+  const remaining = ACTIVITY_IMAGE_MAX_COUNT - used;
   if (files.length > remaining) {
     await alertImageError(ACTIVITY_IMAGE_COUNT_ERROR);
     return;
@@ -331,7 +333,7 @@ async function onImageChange(event: Event): Promise<void> {
   }
 }
 
-/** 上传单张并落位预览；失败返回 false 并写入内联错误。 */
+/** 上传单张并落位预览；失败返回 false 并弹窗提示，已成功的图片保留。 */
 async function uploadActivityImage(file: File, seq: number): Promise<boolean> {
   const localUrl = URL.createObjectURL(file);
   localPreviewUrls.add(localUrl);
@@ -366,7 +368,7 @@ async function uploadActivityImage(file: File, seq: number): Promise<boolean> {
     imagePreviews.value.splice(pendingIndex, 1);
     URL.revokeObjectURL(localUrl);
     localPreviewUrls.delete(localUrl);
-    imageError.value = describeError(caught, ACTIVITY_IMAGE_UPLOAD_ERROR);
+    await alertImageError(describeError(caught, ACTIVITY_IMAGE_UPLOAD_ERROR));
     return false;
   }
 }
@@ -550,7 +552,7 @@ async function submitActivity(): Promise<void> {
 
 /** 状态动作按 ACT-10 共享合法集判定（P-110/P-111/P-114）。 */
 function canTransit(row: ActivityAdmin, target: ActivityStatus): boolean {
-  return ACTIVITY_STATUS_TARGETS[row.status].includes(target);
+  return activityStatusCanTransit(row.status, target);
 }
 
 function canOpenSignup(row: ActivityAdmin): boolean {
@@ -567,23 +569,6 @@ function canFinish(row: ActivityAdmin): boolean {
 
 function canCancel(row: ActivityAdmin): boolean {
   return canTransit(row, STATUS_CANCELLED);
-}
-
-/** 禁用项的原因文案；模板以 title 展示。 */
-function statusDisabledReason(row: ActivityAdmin, target: ActivityStatus): string | undefined {
-  if (canTransit(row, target)) {
-    return undefined;
-  }
-  if (row.status === target) {
-    return '当前已是该状态';
-  }
-  if (row.status === STATUS_FINISHED && target === STATUS_CANCELLED) {
-    return '已结束的活动不可取消';
-  }
-  if (row.status === STATUS_CANCELLED && target === STATUS_FINISHED) {
-    return '已取消的活动不可结束';
-  }
-  return '当前状态不允许该操作';
 }
 
 async function changeStatus(row: ActivityAdmin, target: ActivityStatus): Promise<void> {
@@ -886,28 +871,28 @@ onBeforeUnmount(() => {
                     <el-dropdown-item
                       command="open"
                       :disabled="actionBusy !== null || !canOpenSignup(row)"
-                      :title="statusDisabledReason(row, STATUS_OPEN)"
+                      :title="activityStatusDisabledReason(row.status,STATUS_OPEN)"
                     >
                       报名中
                     </el-dropdown-item>
                     <el-dropdown-item
                       command="close"
                       :disabled="actionBusy !== null || !canCloseSignup(row)"
-                      :title="statusDisabledReason(row, STATUS_CLOSED)"
+                      :title="activityStatusDisabledReason(row.status,STATUS_CLOSED)"
                     >
                       报名截止
                     </el-dropdown-item>
                     <el-dropdown-item
                       command="finish"
                       :disabled="actionBusy !== null || !canFinish(row)"
-                      :title="statusDisabledReason(row, STATUS_FINISHED)"
+                      :title="activityStatusDisabledReason(row.status,STATUS_FINISHED)"
                     >
                       已结束
                     </el-dropdown-item>
                     <el-dropdown-item
                       command="cancel"
                       :disabled="actionBusy !== null || !canCancel(row)"
-                      :title="statusDisabledReason(row, STATUS_CANCELLED)"
+                      :title="activityStatusDisabledReason(row.status,STATUS_CANCELLED)"
                     >
                       取消
                     </el-dropdown-item>
@@ -1073,9 +1058,8 @@ onBeforeUnmount(() => {
               </span>
             </div>
           </div>
-          <p v-if="imageError" class="dialog-error">{{ imageError }}</p>
         </el-form-item>
-        <el-form-item label="活动说明">
+        <el-form-item label="活动详情">
           <el-input
             v-model="activityForm.description"
             type="textarea"
@@ -1090,7 +1074,7 @@ onBeforeUnmount(() => {
           label="当前状态"
         >
           <span class="muted small">
-            {{ activityStatusText(activityDialog.activity.status) }}；仅报名中与报名截止可编辑。
+            {{ activityStatusText(activityDialog.activity.status) }}；任意状态均可编辑，编辑不改变状态。
           </span>
         </el-form-item>
       </el-form>

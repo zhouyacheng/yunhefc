@@ -29,7 +29,7 @@ describe('activityFormError', () => {
     ).toBeNull();
   });
 
-  it('校验名称、地址与说明', () => {
+  it('校验名称、地址与详情', () => {
     expect(activityFormError({ ...base, title: '  ' })).toBe('请输入活动名称');
     expect(activityFormError({ ...base, location: '' })).toBe('请输入活动地址');
     expect(activityFormError({ ...base, description: 'x'.repeat(1001) })).toContain('1000');

@@ -568,7 +568,7 @@ onBeforeUnmount(() => {
       <div class="overview-grid">
         <section class="card activity-description">
           <div class="card-head">
-            <h2>活动说明</h2>
+            <h2>活动详情</h2>
           </div>
           <p v-if="activity.description" class="activity-description__text">
             {{ activity.description }}

@@ -448,6 +448,34 @@ describe('multipart', () => {
     }
   });
 
+  it('rejects a pre-aborted upload without constructing XHR', async () => {
+    class NeverConstructed {
+      constructor() {
+        throw new Error('XHR should not be constructed');
+      }
+    }
+
+    vi.stubGlobal('XMLHttpRequest', NeverConstructed);
+    try {
+      const { client } = harness(async () => json(envelope(null)));
+      client.setCsrfToken('csrf-1');
+      const controller = new AbortController();
+      controller.abort();
+
+      const error = await client
+        .postForm('/files/activity-image', new FormData(), {
+          signal: controller.signal,
+          onUploadProgress: () => undefined,
+        })
+        .catch((caught: unknown) => caught);
+
+      expect(error).toBeInstanceOf(ApiError);
+      expect(error).toMatchObject({ status: 0, message: '网络连接失败' });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it('unwraps error envelopes for multipart requests', async () => {
     const { client } = harness(async () =>
       json({ code: 40001, message: '参数校验失败', data: null, requestId: 'req-form' }, 400),

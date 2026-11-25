@@ -1,5 +1,9 @@
 import type { ActivityStatus } from '@yunhefc/shared';
-import { ACTIVITY_STATUS_TARGETS, activityStatusText } from '@yunhefc/shared';
+import {
+  activityStatusCanTransit,
+  activityStatusDisabledReason,
+  activityStatusText,
+} from '@yunhefc/shared';
 
 export interface ActivityStatusOption {
   status: ActivityStatus;
@@ -18,21 +22,16 @@ const ALL_STATUSES: ActivityStatus[] = [0, 1, 2, 3];
 export function activityStatusOptions(currentStatus: ActivityStatus): ActivityStatusOption[] {
   return ALL_STATUSES.map((status) => {
     const label = activityStatusText(status);
-    if (status === currentStatus || ACTIVITY_STATUS_TARGETS[currentStatus].includes(status)) {
+    if (status === currentStatus || activityStatusCanTransit(currentStatus, status)) {
       return { status, label, disabled: false };
     }
-    return { status, label, disabled: true, reason: disabledReason(currentStatus, status) };
+    return {
+      status,
+      label,
+      disabled: true,
+      reason: activityStatusDisabledReason(currentStatus, status),
+    };
   });
-}
-
-function disabledReason(currentStatus: ActivityStatus, targetStatus: ActivityStatus): string {
-  if (currentStatus === 2 && targetStatus === 3) {
-    return '已结束的活动不可取消';
-  }
-  if (currentStatus === 3 && targetStatus === 2) {
-    return '已取消的活动不可结束';
-  }
-  return '当前状态不允许该操作';
 }
 
 export type ActivityStatusChoice =

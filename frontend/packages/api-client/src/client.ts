@@ -226,6 +226,10 @@ export class ApiClient {
     headers: Headers,
   ): Promise<Response> {
     return new Promise((resolve, reject) => {
+      if (options.signal?.aborted) {
+        reject(new DOMException('Request aborted', 'AbortError'));
+        return;
+      }
       const xhr = new XMLHttpRequest();
       xhr.open(method, url, true);
       xhr.withCredentials = this.credentials === 'include';

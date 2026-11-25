@@ -825,6 +825,11 @@ onBeforeUnmount(() => {
   white-space: pre-wrap;
 }
 
+/* 报名区固定在活动详情下方，不与详情并排。 */
+.overview-grid {
+  grid-template-columns: 1fr;
+}
+
 .activity-signup {
   display: flex;
   flex-direction: column;

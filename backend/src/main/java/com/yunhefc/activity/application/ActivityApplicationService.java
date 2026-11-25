@@ -79,6 +79,10 @@ public class ActivityApplicationService {
             // P-117：最近活动 = 所有报名中活动（不论是否已过截止或满员），沿用分页与排序。
             wrapper.eq(TeamActivity::getStatus, ActivityStatus.SIGNUP_OPEN);
         }
+        if (ActivityQueryParsing.SCOPE_FINISHED.equals(scope)) {
+            // P-126：已结束活动 = 已结束 + 已取消，按状态而非时间过滤。
+            wrapper.in(TeamActivity::getStatus, ActivityStatus.FINISHED, ActivityStatus.CANCELLED);
+        }
 
         ActivityQueryParsing.validatePaging(query.page(), query.pageSize());
         if (ActivityQueryParsing.ascending(query.sort())) {

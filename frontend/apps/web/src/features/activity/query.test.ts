@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ACTIVITY_SCOPE_OPTIONS,
   DEFAULT_ACTIVITY_PAGE_SIZE,
   fromActivityForm,
   normalizeActivityPageSize,
@@ -10,9 +11,21 @@ import {
   toActivityRequest,
 } from './query';
 
+describe('ACTIVITY_SCOPE_OPTIONS', () => {
+  it('已结束活动紧跟最近活动', () => {
+    expect(ACTIVITY_SCOPE_OPTIONS.map((option) => option.label)).toEqual([
+      '最近活动',
+      '已结束活动',
+      '历史',
+      '全部',
+    ]);
+  });
+});
+
 describe('parseActivityScope', () => {
-  it('只接受 latest/history/all', () => {
+  it('只接受 latest/finished/history/all', () => {
     expect(parseActivityScope('latest')).toBe('latest');
+    expect(parseActivityScope('finished')).toBe('finished');
     expect(parseActivityScope('history')).toBe('history');
     expect(parseActivityScope('all')).toBe('all');
     expect(parseActivityScope('')).toBe('all');

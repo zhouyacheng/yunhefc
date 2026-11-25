@@ -18,9 +18,10 @@ export interface ActivityFilterOption<T> {
   label: string;
 }
 
-/** MP10 只提供最近活动/全部（P-116）；历史活动经「全部」查看，服务端仍支持 scope=history。 */
+/** MP10 不提供「历史」（P-116）；已结束活动=已结束+已取消（P-126），历史活动经「全部」查看。 */
 export const ACTIVITY_SCOPES: ActivityScopeOption[] = [
   { key: 'latest', label: '最近活动' },
+  { key: 'finished', label: '已结束活动' },
   { key: 'all', label: '全部' },
 ];
 

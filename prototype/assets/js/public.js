@@ -1406,7 +1406,7 @@ render();
     if (!host) return;
     const typeLabels = { DINNER: '聚餐', ANNUAL_MEETING: '年会', OTHER: '其他' };
     const statusLabels = { SIGNUP_OPEN: '报名中', SIGNUP_CLOSED: '报名截止', FINISHED: '已结束', CANCELLED: '已取消' };
-    const scopeLabels = { LATEST: '最近活动', HISTORY: '历史', ALL: '全部' };
+    const scopeLabels = { LATEST: '最近活动', FINISHED: '已结束活动', HISTORY: '历史', ALL: '全部' };
     const typeOptions = { ALL: '全部', ...typeLabels };
     const statusOptions = { ALL: '全部', ...statusLabels };
     const activities = [
@@ -1484,9 +1484,11 @@ render();
         .sort((a, b) => new Date(b.startAt) - new Date(a.startAt) || b.id - a.id);
       const list = scopeFilter === 'LATEST'
         ? filtered.filter((item) => item.status === 'SIGNUP_OPEN')
-        : scopeFilter === 'HISTORY'
-          ? filtered.filter((item) => new Date(item.startAt).getTime() < Date.now())
-          : filtered;
+        : scopeFilter === 'FINISHED'
+          ? filtered.filter((item) => item.status === 'FINISHED' || item.status === 'CANCELLED')
+          : scopeFilter === 'HISTORY'
+            ? filtered.filter((item) => new Date(item.startAt).getTime() < Date.now())
+            : filtered;
       host.innerHTML = `<div class="container section">
         <div class="page-head">
           <div><span class="eyebrow">ACTIVITY</span><h1>活动</h1><p class="muted">聚餐、年会与队内其他活动；报名受状态、截止时间与人数上限约束，满员不设候补</p></div>
@@ -1523,7 +1525,7 @@ render();
           }).join('')}
         </div>` : '<div class="empty-state card" style="margin-top:12px"><p>暂无符合条件的活动</p></div>'}
         <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均可恢复为报名中/报名截止，重新组织也可走后台「复制活动」新建；最近活动只展示报名中的活动（不论是否已过截止或满员），按活动时间倒序；满员直接拒绝、不设候补；人数上限必填、默认 50，不提供无上限；详情公开可读，报名队列登录后可见（仅正式球员与管理员，按报名时间升序）。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消原因可选，已结束与已取消均可恢复为报名中/报名截止。</p>
+          <p><b>注：</b>活动为独立实体，不复用比赛；报名截止只作硬门禁，状态由管理员流转；已结束与已取消均可恢复为报名中/报名截止，重新组织也可走后台「复制活动」新建；最近活动只展示报名中的活动（不论是否已过截止或满员），按活动时间倒序；已结束活动展示已结束与已取消（按状态，不论活动时间）；满员直接拒绝、不设候补；人数上限必填、默认 50，不提供无上限；详情公开可读，报名队列登录后可见（仅正式球员与管理员，按报名时间升序）。活动可设置是否允许携带家属，关闭时报名不展示家属选项；场地环境图片最多 10 张、每张不超过 5MB，详情按顺序轮播。管理员（activity:manage:any）可在详情改状态；原型以列表卡片的下拉演示同一合法集，取消原因可选，已结束与已取消均可恢复为报名中/报名截止。</p>
         </div>
       </div>`;
 

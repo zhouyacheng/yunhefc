@@ -68,6 +68,20 @@ class ActivityPublicIT extends ActivityITSupport {
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.items.length()").value(0));
 
+        // P-126：已结束活动 = 已结束 + 已取消，按状态而非时间过滤（未来已结束也包含）。
+        mockMvc.perform(get("/api/v1/c/activities").param("scope", "finished"))
+                .andExpect(jsonPath("$.data.total").value(2))
+                .andExpect(jsonPath("$.data.items[0].id").value(latestId))
+                .andExpect(jsonPath("$.data.items[1].id").value(cancelledId))
+                .andExpect(jsonPath("$.data.items[0].status").value(2))
+                .andExpect(jsonPath("$.data.items[1].status").value(3));
+
+        mockMvc.perform(get("/api/v1/c/activities").param("scope", "finished").param("status", "2"))
+                .andExpect(jsonPath("$.data.total").value(1))
+                .andExpect(jsonPath("$.data.items[0].id").value(latestId));
+        mockMvc.perform(get("/api/v1/c/activities").param("scope", "finished").param("status", "0"))
+                .andExpect(jsonPath("$.data.total").value(0));
+
         mockMvc.perform(get("/api/v1/c/activities").param("scope", "history"))
                 .andExpect(jsonPath("$.data.total").value(2))
                 .andExpect(jsonPath("$.data.items[0].id").value(pastId))

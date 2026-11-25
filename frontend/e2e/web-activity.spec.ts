@@ -51,7 +51,22 @@ const CANCELLED_ACTIVITY = {
   signupCount: 0,
 };
 
-const LIST_ITEMS = [OPEN_ACTIVITY, FULL_ACTIVITY, CLOSED_ACTIVITY, CANCELLED_ACTIVITY];
+const FINISHED_ACTIVITY = {
+  ...OPEN_ACTIVITY,
+  id: 9006,
+  title: '已结束活动',
+  status: 2,
+  statusLabel: 'FINISHED',
+  signupOpen: false,
+};
+
+const LIST_ITEMS = [
+  OPEN_ACTIVITY,
+  FULL_ACTIVITY,
+  CLOSED_ACTIVITY,
+  CANCELLED_ACTIVITY,
+  FINISHED_ACTIVITY,
+];
 
 function envelope(data: unknown): unknown {
   return { code: 0, message: 'success', data, requestId: 'e2e' };
@@ -155,11 +170,17 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
     (url) => url.pathname === '/api/v1/c/activities',
     async (route) => {
       const scope = new URL(route.request().url()).searchParams.get('scope');
-      // P-117：最近活动 = 所有报名中（status=0）活动。
+      // P-117：最近活动 = 所有报名中（status=0）活动；P-126：已结束活动 = 已结束 + 已取消。
       const items =
         scope === 'latest'
           ? LIST_ITEMS.filter((activity) => activity.status === OPEN_ACTIVITY.status)
-          : LIST_ITEMS;
+          : scope === 'finished'
+            ? LIST_ITEMS.filter(
+                (activity) =>
+                  activity.status === FINISHED_ACTIVITY.status ||
+                  activity.status === CANCELLED_ACTIVITY.status,
+              )
+            : LIST_ITEMS;
       await fulfill(route, pageOf(items));
     },
   );
@@ -167,7 +188,7 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
   await page.goto('/activities');
 
   const cards = page.getByTestId('activity-card');
-  await expect(cards).toHaveCount(4);
+  await expect(cards).toHaveCount(5);
   await expect(cards.filter({ hasText: '赛季收官聚餐' })).toContainText('已报 12 / 20 人');
   await expect(cards.filter({ hasText: '赛季收官聚餐' })).toContainText('报名');
   await expect(cards.filter({ hasText: '满员活动' })).toContainText('已满');
@@ -177,10 +198,23 @@ test('C11 活动列表：筛选、最近活动与状态矩阵', async ({ page })
   // 已取消/已结束仍以禁用态占位，与报名中/报名截止的按钮同尺寸。
   await expect(cancelled.locator('.activity-cta--disabled')).toHaveText('已取消');
 
-  await page.getByLabel('活动范围').selectOption('latest');
+  const scopeSelect = page.getByLabel('活动范围');
+  expect(await scopeSelect.locator('option').allTextContents()).toEqual([
+    '最近活动',
+    '已结束活动',
+    '历史',
+    '全部',
+  ]);
+
+  await scopeSelect.selectOption('latest');
   await expect(cards).toHaveCount(2);
   await expect(cards.filter({ hasText: '满员活动' })).toBeVisible();
   await expect(page.locator('.page-footer')).toHaveCount(0);
+
+  await scopeSelect.selectOption('finished');
+  await expect(cards).toHaveCount(2);
+  await expect(cards.filter({ hasText: '已结束活动' })).toBeVisible();
+  await expect(cards.filter({ hasText: '已取消活动' })).toBeVisible();
 
   expect(errors).toEqual([]);
 });

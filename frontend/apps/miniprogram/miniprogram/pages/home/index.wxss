@@ -314,6 +314,11 @@
   box-shadow: var(--yh-shadow-sm);
 }
 
+/* 第二个起紧贴上一个快捷入口，避免与首段间距 64rpx 叠加。 */
+.quick-entry + .quick-entry {
+  margin-top: 20rpx;
+}
+
 .quick-entry__icon {
   width: 68rpx;
   height: 68rpx;

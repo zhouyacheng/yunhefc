@@ -2,7 +2,6 @@
   <view class="page-head">
     <text class="page-head__eyebrow">LEDGER</text>
     <view class="page-head__title">账本</view>
-    <text class="muted">球队收支与汇总 · 只读</text>
   </view>
 
   <view wx:if="{{!ready}}" class="state">

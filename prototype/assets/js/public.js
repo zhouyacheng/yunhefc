@@ -29,8 +29,13 @@
     const next = byStartDesc[0] || null;
     const finished = Y.state.matches.filter((match) => match.status === 'FINISHED');
     const recent = byStartDesc.slice(1, 4);
+    // P-132：账本入口从个人中心移到首页，门禁同原型顶部导航（非访客且非外挂）。
+    const homeUser = Y.currentUser();
+    const ledgerEntry = Boolean(homeUser.id) && Y.userRole(homeUser) !== 'GUEST'
+      ? `<section class="container section"><a class="card between" href="ledger.html" style="text-decoration:none;color:inherit"><span>💰 账本</span><span class="link">查看 →</span></a></section>`
+      : '';
     if (!next) {
-      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看比赛</a></div></section>`;
+      host.innerHTML = `<section class="container section"><div class="empty-state card"><h2>暂无比赛</h2><p class="muted">还没有比赛记录，等管理员排期后这里会显示最近一场。</p><a class="btn btn-primary" href="matches.html">查看比赛</a></div></section>${ledgerEntry}`;
       return;
     }
     const nextConfirmed = Y.confirmed(next, 'PLAYER').length;
@@ -100,6 +105,7 @@
       <div class="section-head"><div><h2>最近比赛</h2><p class="muted">已结束 ${finished.length} 场 · 报名中 ${upcoming.filter((match) => match.status === 'SIGNUP_OPEN').length} 场</p></div><a class="link" href="matches.html">全部比赛 →</a></div>
       <div class="match-grid">${recent.map(Y.renderMatchCard).join('')}</div>
     </section>` : ''}
+    ${ledgerEntry}
     <section class="container section">
       <div class="section-head"><div><h2>球队火力</h2><p class="muted">二期能力占位，首版不展示数据</p></div><a class="link" href="team.html">查看球队 →</a></div>
       <div class="card"><div class="empty-inline">球队火力将在二期上线。</div></div>
@@ -109,7 +115,6 @@
       <div class="feature-grid">
         ${[
           ['📈', 'AI 身价', '基于位置、出场、进球与助攻的身价模型'],
-          ['💰', '球队账本', '收入/支出分类，按月/年统计'],
           ['📸', '动态与相册', '比赛照片、B 站视频、点赞留言'],
           ['🗳️', '投票', '标题、图片选项、多选、截止时间'],
           ['📣', '公众号提醒', '赛事发布与模板消息'],
@@ -1671,7 +1676,7 @@ render();
       const expense = list.filter((item) => item.type === 'EXPENSE').reduce((sum, item) => sum + item.amount, 0);
       host.innerHTML = `<div class="container section">
         <div class="page-head">
-          <div><span class="eyebrow">LEDGER</span><h1>账本</h1><p class="muted">球队收支流水；正式球员只读，管理员维护</p></div>
+          <div><span class="eyebrow">LEDGER</span><h1>账本</h1></div>
         </div>
         <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
           <div class="card" style="padding:14px"><p class="muted small">收入</p><p style="font-size:22px"><b>¥${income.toFixed(2)}</b></p></div>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { LEDGER_VIEW_ANY, hasPermission } from '@yunhefc/permissions';
 import type { Player } from '@yunhefc/shared';
 import { positionText } from '@yunhefc/shared';
 import { Button, Tag, showConfirmDialog } from 'vant';
@@ -28,7 +27,6 @@ const avatarBroken = ref(false);
 const savedHint = ref('');
 
 const pending = computed(() => isPending(session.user?.status ?? 1));
-const canViewLedger = computed(() => hasPermission(session.permissions, LEDGER_VIEW_ANY));
 const roleText = computed(() => {
   const roles = session.user?.roles ?? [];
   return roles.length ? roles.map((role) => ROLE_TEXT[role] ?? role).join(' / ') : '—';
@@ -126,16 +124,6 @@ onMounted(() => {
         <p v-if="savedHint" class="hint profile-saved">{{ savedHint }}</p>
 
         <MyRegistrations class="profile-block" :pending="pending" />
-
-        <section v-if="canViewLedger" class="card profile-security profile-block">
-          <div class="card-head">
-            <h2>球队账本</h2>
-          </div>
-          <p class="muted small">查看球队收支流水与汇总，只读。</p>
-          <RouterLink to="/ledger">
-            <Button type="primary" plain block>查看账本</Button>
-          </RouterLink>
-        </section>
       </div>
 
       <div class="profile-col">

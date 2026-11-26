@@ -20,7 +20,7 @@ export interface AuditLog {
   operatedAt: string | null;
 }
 
-/** 38 个已使用的动作码中文标签；未知码按原值展示。 */
+/** 47 个已使用的动作码中文标签；未知码按原值展示。 */
 export const AUDIT_ACTION_TEXT: Readonly<Record<string, string>> = {
   ACCOUNT_REGISTER: '账号注册',
   PASSWORD_RESET: '重置密码',
@@ -46,6 +46,10 @@ export const AUDIT_ACTION_TEXT: Readonly<Record<string, string>> = {
   MATCH_RESCHEDULE: '重新排期',
   MATCH_CANCEL: '取消比赛',
   MATCH_AUTO_STATUS_CHANGE: '自动流转比赛状态',
+  ACTIVITY_CREATE: '创建活动',
+  ACTIVITY_UPDATE: '编辑活动',
+  ACTIVITY_STATUS_CHANGE: '修改活动状态',
+  ACTIVITY_SIGNUP_REMOVE: '移除活动报名',
   REGISTRATION_REMOVE: '移除报名',
   ATTENDANCE_MARK: '标记考勤',
   ATTENDANCE_TEMP: '补录临时到场',
@@ -59,16 +63,25 @@ export const AUDIT_ACTION_TEXT: Readonly<Record<string, string>> = {
   'grouping.save': '保存分组',
   'grouping.clear': '清除分组',
   PLAYER_UPDATE: '编辑球员',
+  LEDGER_CREATE: '创建账本流水',
+  LEDGER_UPDATE: '编辑账本流水',
+  LEDGER_DELETE: '删除账本流水',
+  LEDGER_CATEGORY_CREATE: '创建账本分类',
+  LEDGER_CATEGORY_UPDATE: '编辑账本分类',
   SETTINGS_UPDATE: '修改系统设置',
 };
 
-/** 11 个对象类型中文标签；未知码按原值展示。 */
+/** 15 个对象类型中文标签；未知码按原值展示。 */
 export const AUDIT_TARGET_TYPE_TEXT: Readonly<Record<string, string>> = {
   USER: '用户',
   ROLE: '角色',
   PLAYER: '球员',
   INVITE: '邀请',
   MATCH: '比赛',
+  ACTIVITY: '活动',
+  ACTIVITY_SIGNUP: '活动报名',
+  LEDGER_ENTRY: '账本流水',
+  LEDGER_CATEGORY: '账本分类',
   REGISTRATION: '报名',
   ATTENDANCE: '考勤',
   EVENT: '事件',

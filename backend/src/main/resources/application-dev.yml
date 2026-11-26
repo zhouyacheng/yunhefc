@@ -1,4 +1,6 @@
-# 本地联调：短信走 mock，关闭 Kafka 消费与 Outbox 中继，减少本地依赖；
+# 本地联调：短信走 mock；Kafka 消费与 Outbox 中继沿用 application.yml 默认（均开启），
+# 无本地 Kafka 时显式设置 KAFKA_LISTENER_ENABLED=false / OUTBOX_ENABLED=false 关闭；
+# 本机 Kafka 地址由 scripts/dev-backend.sh 注入 KAFKA_BOOTSTRAP_SERVERS。
 # OSS 默认连真实私有 Bucket（凭证走环境变量），CI/E2E 需显式 OSS_MODE=mock。
 # 小程序微信登录默认 real：mock 的 openid 由一次性 wx.login code 派生，永远匹配不到已绑定账号；
 # CI/E2E 显式注入 WECHAT_MINI_MODE=mock。
@@ -13,7 +15,3 @@ yunhefc:
     mini:
       enabled: true
       mode: ${WECHAT_MINI_MODE:real}
-  kafka:
-    listener-enabled: ${KAFKA_LISTENER_ENABLED:false}
-  outbox:
-    enabled: ${OUTBOX_ENABLED:false}

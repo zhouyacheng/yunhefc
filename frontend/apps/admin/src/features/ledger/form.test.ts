@@ -7,6 +7,7 @@ import {
   ledgerDirectionText,
   ledgerTypeText,
   validateLedgerAmount,
+  validateLedgerDescription,
 } from './form';
 
 function category(overrides: Partial<LedgerCategory>): LedgerCategory {
@@ -38,6 +39,18 @@ describe('validateLedgerAmount', () => {
     expect(validateLedgerAmount(String(LEDGER_AMOUNT_MAX + 0.01))).toBe(
       '金额不能超过 99,999,999.99',
     );
+  });
+});
+
+describe('validateLedgerDescription', () => {
+  it('允许空白摘要', () => {
+    expect(validateLedgerDescription('')).toBeNull();
+    expect(validateLedgerDescription('   ')).toBeNull();
+  });
+
+  it('限制 255 字', () => {
+    expect(validateLedgerDescription('字'.repeat(255))).toBeNull();
+    expect(validateLedgerDescription('字'.repeat(256))).toBe('摘要不能超过 255 字');
   });
 });
 

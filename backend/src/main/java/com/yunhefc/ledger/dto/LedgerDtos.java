@@ -83,7 +83,7 @@ public final class LedgerDtos {
             @NotNull @Min(1) Long categoryId,
             @NotNull @DecimalMin(value = "0", inclusive = false)
             @Digits(integer = 8, fraction = 2) BigDecimal amount,
-            @NotBlank @Size(max = 255) String description,
+            String description,
             @NotNull LocalDateTime occurredAt,
             @Min(1) Long playerId,
             @Min(1) Long activityId) {
@@ -107,7 +107,6 @@ public final class LedgerDtos {
         @Digits(integer = 8, fraction = 2)
         private BigDecimal amount;
 
-        @Size(max = 255)
         private String description;
 
         private LocalDateTime occurredAt;

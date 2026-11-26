@@ -97,7 +97,7 @@
   --van-pagination-background: transparent;
   --van-pagination-item-width: 64px;
   --van-pagination-height: 44px;
-  --van-pagination-item-default-color: var(--yh-surface-soft);
+  --van-pagination-item-default-color: var(--yh-muted);
 }
 
 @media (max-width: 760px) {

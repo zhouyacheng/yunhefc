@@ -44,10 +44,11 @@ public final class LedgerRules {
         return amount.setScale(2);
     }
 
-    public static String description(String value) {
+    /** 摘要非必填：null/空白归一为空字符串（列 NOT NULL），超 255 字符拒绝。 */
+    public static String descriptionOrEmpty(String value) {
         String normalized = normalize(value);
         if (normalized == null) {
-            throw invalid("description", "摘要不能为空");
+            return "";
         }
         if (normalized.length() > 255) {
             throw invalid("description", "摘要不能超过 255 个字符");

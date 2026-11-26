@@ -13,7 +13,9 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public final class LedgerDtos {
 
@@ -66,6 +68,49 @@ public final class LedgerDtos {
             BigDecimal income,
             BigDecimal expense,
             BigDecimal balance) {
+
+    }
+
+    /** LED-13：按自然日聚合的收支小计。 */
+    public record LedgerDailyTotalView(
+            LocalDate date,
+            BigDecimal income,
+            BigDecimal expense) {
+    }
+
+    /** LED-14 查询参数；period=custom 时使用 from/to（YYYY-MM-DD，闭区间）。 */
+    @Getter
+    @Setter
+    public static class LedgerStatisticsQuery {
+
+        private String period;
+        private String anchor;
+        private String from;
+        private String to;
+    }
+
+    public record LedgerTrendPointView(
+            LocalDate start,
+            BigDecimal income,
+            BigDecimal expense) {
+    }
+
+    public record LedgerStatisticsView(
+            String period,
+            LocalDate from,
+            LocalDate to,
+            LocalDate previousFrom,
+            LocalDate previousTo,
+            BigDecimal income,
+            BigDecimal expense,
+            BigDecimal balance,
+            long incomeCount,
+            long expenseCount,
+            BigDecimal previousIncome,
+            BigDecimal previousExpense,
+            BigDecimal previousBalance,
+            String trendGranularity,
+            List<LedgerTrendPointView> trend) {
     }
 
     public record LedgerCategoryView(

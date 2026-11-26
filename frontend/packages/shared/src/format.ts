@@ -33,6 +33,11 @@ const weekdayFormatter = new Intl.DateTimeFormat('zh-CN', {
   weekday: 'short',
 });
 
+const weekdayLongFormatter = new Intl.DateTimeFormat('zh-CN', {
+  timeZone: 'Asia/Shanghai',
+  weekday: 'long',
+});
+
 const dayKeyFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'Asia/Shanghai',
   year: 'numeric',
@@ -98,6 +103,36 @@ export function formatDayTimeRange(
       ? timeFormatter.format(end)
       : `${monthDayFormatter.format(end)} ${timeFormatter.format(end)}`;
   return `${head}–${endText}`;
+}
+
+/** 日期键：YYYY-MM-DD（Asia/Shanghai），用于流水按日分组。 */
+export function formatDayKey(value: string | null | undefined): string {
+  if (!value) {
+    return '';
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : dayKeyFormatter.format(date);
+}
+
+/** 月日与完整星期：11月26日 星期四。 */
+export function formatMonthDayWeekday(value: string | null | undefined): string {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+  return `${monthDayLongFormatter.format(date)} ${weekdayLongFormatter.format(date)}`;
+}
+
+/** 时刻：08:06（24 小时制）。 */
+export function formatTimeOfDay(value: string | null | undefined): string {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : timeFormatter.format(date);
 }
 
 /** 仅日期：2026/12/02。 */

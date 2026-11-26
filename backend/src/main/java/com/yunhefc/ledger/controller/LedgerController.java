@@ -5,9 +5,12 @@ import com.yunhefc.common.api.ItemsResponse;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.ledger.application.LedgerApplicationService;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerCategoryView;
+import com.yunhefc.ledger.dto.LedgerDtos.LedgerDailyTotalView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerEntryView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerFilterQuery;
+import com.yunhefc.ledger.dto.LedgerDtos.LedgerStatisticsQuery;
+import com.yunhefc.ledger.dto.LedgerDtos.LedgerStatisticsView;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerSummaryQuery;
 import com.yunhefc.ledger.dto.LedgerDtos.LedgerSummaryView;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +43,21 @@ public class LedgerController {
     @PreAuthorize("hasAuthority('ledger:view:any')")
     public ApiResponse<LedgerSummaryView> summary(@ModelAttribute LedgerFilterQuery filter) {
         return ApiResponse.ok(ledgerService.summary(new LedgerSummaryQuery(filter)));
+    }
+
+    @GetMapping("/daily-totals")
+    @PreAuthorize("hasAuthority('ledger:view:any')")
+    public ApiResponse<ItemsResponse<LedgerDailyTotalView>> dailyTotals(
+            @ModelAttribute LedgerFilterQuery filter,
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(ledgerService.dailyTotals(filter, keyword));
+    }
+
+    @GetMapping("/statistics")
+    @PreAuthorize("hasAuthority('ledger:view:any')")
+    public ApiResponse<LedgerStatisticsView> statistics(
+            @ModelAttribute LedgerStatisticsQuery query) {
+        return ApiResponse.ok(ledgerService.statistics(query));
     }
 
     @GetMapping("/categories")

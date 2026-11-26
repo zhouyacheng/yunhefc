@@ -21,26 +21,32 @@
 
   <block wx:else>
     <view class="summary">
-      <view class="summary__head">
-        <text class="summary__label">余额</text>
+      <view class="summary__month">
+        <view class="summary__arrow {{customActive ? 'is-disabled' : ''}}" data-delta="-1" bindtap="shiftMonth">‹</view>
+        <picker mode="date" fields="month" start="{{timeFilterMin}}" end="{{timeFilterMax}}" value="{{month}}" bindchange="onMonthChange">
+          <view class="summary__month-label">
+            <text>{{customActive ? rangeText : monthLabel}}</text>
+            <view class="summary__caret"></view>
+          </view>
+        </picker>
+        <view class="summary__arrow {{customActive ? 'is-disabled' : ''}}" data-delta="1" bindtap="shiftMonth">›</view>
         <text wx:if="{{summaryFiltered}}" class="summary__scope">筛选合计</text>
       </view>
-      <text class="summary__balance summary__balance--{{summary ? summary.balanceTone : 'default'}}">{{summary ? summary.balanceText : '—'}}</text>
-      <view class="summary__flows">
-        <view class="summary__flow">
-          <text class="summary__label">收入</text>
-          <text class="summary__flow-value summary__flow-value--income">{{summary ? summary.incomeText : '—'}}</text>
+
+      <view class="summary__figures">
+        <view class="summary__figure">
+          <text class="summary__label">支出(元)</text>
+          <text class="summary__value">{{summary ? summary.expenseText : '—'}}</text>
         </view>
-        <view class="summary__flow summary__flow--end">
-          <text class="summary__label">支出</text>
-          <text class="summary__flow-value summary__flow-value--expense">{{summary ? summary.expenseText : '—'}}</text>
+        <view class="summary__figure summary__figure--end">
+          <text class="summary__label">收入(元)</text>
+          <text class="summary__value">{{summary ? summary.incomeText : '—'}}</text>
         </view>
       </view>
-      <view wx:if="{{summary && summary.ratioPercent !== null}}" class="summary__ratio">
-        <view class="summary__bar">
-          <view class="summary__bar-fill" style="width: {{summary.ratioPercent}}%"></view>
-        </view>
-        <text class="summary__ratio-label">{{summary.ratioLabel}}</text>
+
+      <view class="summary__balance-line">
+        <text>{{customActive ? '区间' : monthLabel}}结余</text>
+        <text class="summary__balance-value {{summary && summary.balanceTone === 'negative' ? 'is-negative' : ''}}"><text class="summary__balance-sign">{{summary ? summary.balanceSign : ''}}</text>{{summary ? summary.balanceText : '—'}}</text>
       </view>
     </view>
 
@@ -52,50 +58,150 @@
       <view class="btn btn--small btn--outline" bindtap="retrySummary" hover-class="btn--pressed">重试</view>
     </view>
 
-    <template is="filter-trigger" />
-
-    <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
-      <van-loading size="20px">流水加载中…</van-loading>
+    <view class="ledger-tabs">
+      <view class="ledger-tabs__item {{tab === 'detail' ? 'is-active' : ''}}" data-tab="detail" bindtap="switchTab">明细</view>
+      <view class="ledger-tabs__item {{tab === 'stats' ? 'is-active' : ''}}" data-tab="stats" bindtap="switchTab">统计</view>
     </view>
 
-    <view wx:elif="{{feed.error && feed.items.length === 0}}" class="state">
-      <text class="muted">{{feed.error}}</text>
-      <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
-    </view>
-
-    <view wx:elif="{{feed.loaded && feed.items.length === 0}}" class="state">
-      <van-empty description="暂无符合条件的流水" />
-      <view class="btn btn--small btn--outline" bindtap="resetFilters" hover-class="btn--pressed">重置筛选</view>
-    </view>
-
-    <view wx:else class="ledger-list">
-      <view class="ledger-row" wx:for="{{feed.items}}" wx:key="id">
-        <view class="ledger-row__main">
-          <text class="ledger-row__title">{{item.title}}</text>
-          <text class="ledger-row__meta">{{item.metaText}}</text>
+    <block wx:if="{{tab === 'detail'}}">
+      <view class="ledger-toolbar">
+        <view class="ledger-search">
+          <van-icon name="search" size="15px" />
+          <input
+            class="ledger-search__input"
+            value="{{keyword}}"
+            placeholder="搜索摘要"
+            maxlength="64"
+            confirm-type="search"
+            bindinput="onKeywordInput"
+            bindconfirm="onKeywordConfirm"
+          />
         </view>
-        <text class="ledger-row__amount ledger-row__amount--{{item.tone}}"><text class="ledger-row__sign">{{item.amountSign}}</text>{{item.amountText}}</text>
+        <template is="filter-trigger" />
       </view>
-    </view>
 
-    <view wx:if="{{feed.items.length > 0}}" class="feed-footer">
-      <van-loading wx:if="{{feed.loadingMore}}" size="18px">加载中…</van-loading>
-      <block wx:elif="{{feed.error}}">
+      <view wx:if="{{feed.loading && feed.items.length === 0}}" class="state">
+        <van-loading size="20px">流水加载中…</van-loading>
+      </view>
+
+      <view wx:elif="{{feed.error && feed.items.length === 0}}" class="state">
         <text class="muted">{{feed.error}}</text>
-        <view class="btn btn--small btn--outline" bindtap="retry" hover-class="btn--pressed">重试加载</view>
+        <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+      </view>
+
+      <view wx:elif="{{feed.loaded && feed.items.length === 0}}" class="state">
+        <van-empty description="暂无符合条件的流水" />
+        <view class="btn btn--small btn--outline" bindtap="resetFilters" hover-class="btn--pressed">重置筛选</view>
+      </view>
+
+      <block wx:else>
+        <view class="ledger-day" wx:for="{{groups}}" wx:key="key">
+          <view class="ledger-day__head">
+            <text class="ledger-day__date">{{item.label}}</text>
+            <view class="ledger-day__totals">
+              <text>支 {{item.expenseText}}</text>
+              <text>收 {{item.incomeText}}</text>
+            </view>
+          </view>
+          <view class="ledger-day__card">
+            <view class="ledger-row" wx:for="{{item.items}}" wx:for-item="entry" wx:key="id">
+              <view class="ledger-row__icon ledger-row__icon--{{entry.tone}}">
+                <van-icon name="{{entry.icon}}" size="18px" />
+              </view>
+              <view class="ledger-row__main">
+                <text class="ledger-row__title">{{entry.title}}</text>
+                <text class="ledger-row__meta">{{entry.metaText}}</text>
+              </view>
+              <text class="ledger-row__amount ledger-row__amount--{{entry.tone}}"><text class="ledger-row__sign">{{entry.amountSign}}</text>{{entry.amountText}}</text>
+            </view>
+          </view>
+        </view>
       </block>
-      <text wx:elif="{{feed.page >= feed.totalPages}}" class="muted">已显示全部</text>
-      <text wx:else class="muted">上拉加载更多</text>
-    </view>
+
+      <view wx:if="{{feed.items.length > 0}}" class="feed-footer">
+        <van-loading wx:if="{{feed.loadingMore}}" size="18px">加载中…</van-loading>
+        <block wx:elif="{{feed.error}}">
+          <text class="muted">{{feed.error}}</text>
+          <view class="btn btn--small btn--outline" bindtap="retry" hover-class="btn--pressed">重试加载</view>
+        </block>
+        <text wx:elif="{{feed.page >= feed.totalPages}}" class="muted">已显示全部</text>
+        <text wx:else class="muted">上拉加载更多</text>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="stats-periods">
+        <view
+          wx:for="{{statsPeriods}}"
+          wx:key="value"
+          class="stats-periods__item {{statsPeriod === item.value ? 'is-active' : ''}}"
+          data-period="{{item.value}}"
+          bindtap="selectStatsPeriod"
+        >{{item.label}}</view>
+      </view>
+
+      <view wx:if="{{statsPeriod === 'custom' && !statsFrom}}" class="state">
+        <van-empty description="请选择自定义统计时间" />
+        <view class="btn btn--small btn--outline" bindtap="openStatsRange" hover-class="btn--pressed">选择时间</view>
+      </view>
+
+      <view wx:elif="{{statsLoading && !stats}}" class="state">
+        <van-loading size="20px">统计加载中…</van-loading>
+      </view>
+
+      <view wx:elif="{{statsError && !stats}}" class="state">
+        <text class="muted">{{statsError}}</text>
+        <view class="btn btn--primary btn--small" bindtap="retryStats" hover-class="btn--pressed">重试</view>
+      </view>
+
+      <block wx:elif="{{stats}}">
+        <view class="stats-card">
+          <view class="stats-nav">
+            <text class="stats-nav__arrow {{statsPeriod === 'custom' ? 'is-disabled' : ''}}" data-delta="-1" bindtap="shiftStats">◀</text>
+            <text class="stats-nav__label" bindtap="openStatsPeriod">{{stats.periodLabel}}</text>
+            <text class="stats-nav__arrow {{statsPeriod === 'custom' ? 'is-disabled' : ''}}" data-delta="1" bindtap="shiftStats">▶</text>
+            <view class="stats-direction">
+              <view
+                wx:for="{{statsDirections}}"
+                wx:key="value"
+                class="stats-direction__item {{statsDirection === item.value ? 'is-active' : ''}}"
+                data-direction="{{item.value}}"
+                bindtap="toggleStatsDirection"
+              >{{item.label}}</view>
+            </view>
+          </view>
+
+          <text class="stats-total">{{stats.totalText}}</text>
+          <text class="stats-line">{{stats.countLine}}</text>
+          <text class="stats-line">{{stats.balanceLine}}</text>
+        </view>
+
+        <view class="stats-trend">
+          <view class="stats-trend__head">
+            <text class="stats-trend__title">收支趋势</text>
+            <text class="stats-trend__direction">{{stats.directionLabel}}</text>
+          </view>
+          <view wx:if="{{!stats.trendEmpty}}" class="trend">
+            <view class="trend__col" wx:for="{{stats.bars}}" wx:key="start">
+              <view class="trend__track">
+                <view wx:if="{{item.value > 0}}" class="trend__bar" style="height: {{item.percent}}%"></view>
+              </view>
+              <text wx:if="{{item.labelVisible}}" class="trend__label">{{item.label}}</text>
+            </view>
+          </view>
+          <van-empty wx:else description="该周期暂无流水" />
+        </view>
+      </block>
+    </block>
   </block>
 </view>
 
 <template
   is="filter-drawer-popup"
-  data="{{filtersOpen: filtersOpen, directionVisible: true, categoryVisible: true, typeOptions: typeOptions, typeIndex: typeIndex, categoryOptions: categoryOptions, categoryIndex: categoryIndex, month: month, monthDraft: monthDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+  data="{{filtersOpen: filtersOpen, directionVisible: true, categoryVisible: true, typeOptions: typeOptions, typeIndex: typeIndex, categoryOptions: categoryOptions, categoryIndex: categoryIndex, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax, hideMonth: true}}"
 />
 
 <template
   is="time-range-popup"
-  data="{{rangeOpen: rangeOpen, rangeDraftStart: rangeDraftStart, rangeDraftEnd: rangeDraftEnd, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+  data="{{rangeOpen: rangeOpen, rangeDraftStart: rangeDraftStart, rangeDraftEnd: rangeDraftEnd, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax, rangeClearVisible: rangeMode === 'stats' && statsFrom && statsTo}}"
 />

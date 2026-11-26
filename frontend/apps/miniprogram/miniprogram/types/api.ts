@@ -501,3 +501,40 @@ export interface LedgerSummary {
   expense: number;
   balance: number;
 }
+
+/** LED-13：按自然日聚合的收支小计；只返回有流水的日期。 */
+export interface LedgerDailyTotal {
+  /** YYYY-MM-DD（Asia/Shanghai）。 */
+  date: string;
+  income: number;
+  expense: number;
+}
+
+export type LedgerPeriod = 'week' | 'month' | 'year' | 'custom';
+
+export type LedgerTrendGranularity = 'day' | 'month';
+
+export interface LedgerTrendPoint {
+  start: string;
+  income: number;
+  expense: number;
+}
+
+/** LED-14：周期统计与上一周期对比。 */
+export interface LedgerStatistics {
+  period: LedgerPeriod;
+  from: string;
+  to: string;
+  previousFrom: string;
+  previousTo: string;
+  income: number;
+  expense: number;
+  balance: number;
+  incomeCount: number;
+  expenseCount: number;
+  previousIncome: number;
+  previousExpense: number;
+  previousBalance: number;
+  trendGranularity: LedgerTrendGranularity;
+  trend: LedgerTrendPoint[];
+}

@@ -1662,125 +1662,356 @@ render();
     if (!host) return;
     const categoryLabels = { MEMBERSHIP_FEE: '队费', VENUE: '场地', EQUIPMENT: '装备', ACTIVITY: '活动', CATERING: '餐饮', SPONSORSHIP: '赞助', OTHER: '其他' };
     const entries = [
+      { at: '2026-11-25T18:20:00+08:00', type: 'EXPENSE', category: 'CATERING', amount: 20.7, note: '赛后简餐', player: null },
+      { at: '2026-11-25T12:50:00+08:00', type: 'EXPENSE', category: 'CATERING', amount: 16.9, note: '训练补给', player: null },
+      { at: '2026-11-25T12:17:00+08:00', type: 'EXPENSE', category: 'EQUIPMENT', amount: 5.6, note: '护腿板', player: null },
+      { at: '2026-11-25T06:09:00+08:00', type: 'INCOME', category: 'SPONSORSHIP', amount: 0.02, note: '赞助利息', player: null },
       { at: '2026-11-20T20:10:00+08:00', type: 'EXPENSE', category: 'VENUE', amount: 800, note: '11 月场地费（4 场）', player: null },
       { at: '2026-11-18T21:00:00+08:00', type: 'INCOME', category: 'MEMBERSHIP_FEE', amount: 300, note: '11 月队费', player: '张伟' },
       { at: '2026-11-12T19:40:00+08:00', type: 'INCOME', category: 'MEMBERSHIP_FEE', amount: 300, note: '11 月队费', player: '李强' },
       { at: '2026-11-08T15:20:00+08:00', type: 'EXPENSE', category: 'EQUIPMENT', amount: 240, note: '比赛用球 2 个', player: null },
-      { at: '2026-11-02T12:00:00+08:00', type: 'INCOME', category: 'SPONSORSHIP', amount: 2000, note: '本地商家赞助', player: null }
+      { at: '2026-11-02T12:00:00+08:00', type: 'INCOME', category: 'SPONSORSHIP', amount: 2000, note: '本地商家赞助', player: null },
+      { at: '2026-10-20T19:00:00+08:00', type: 'EXPENSE', category: 'VENUE', amount: 700, note: '10 月场地费（3 场）', player: null }
     ];
+    const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+    let tab = 'detail';
     let typeFilter = 'ALL';
-    let monthFilter = '';
+    let month = '2026-11';
     let fromDate = '';
     let toDate = '';
+    let keyword = '';
+    let statsPeriod = 'month';
+    let statsDirection = 'expense';
+    let statsAnchor = '2026-11-15';
+    let statsFrom = '';
+    let statsTo = '';
 
-    /** 与 C13 一致：只展示日期 YYYY/MM/DD，不带时分。 */
-    function fmt(at) {
-      return new Date(at).toLocaleDateString('zh-CN', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
+    function pad(n) { return String(n).padStart(2, '0'); }
+    function money(value) { return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function moneyText(value) { return value < 0 ? `−¥${money(Math.abs(value))}` : `¥${money(value)}`; }
+    function parseDay(key) { const [y, m, d] = key.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d)); }
+    function iso(date) { return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`; }
+    function monthBounds(key) {
+      const [y, m] = key.split('-').map(Number);
+      return { from: `${key}-01`, to: `${y}-${pad(m)}-${pad(new Date(Date.UTC(y, m, 0)).getUTCDate())}` };
+    }
+    function monthLabel(key) { const [y, m] = key.split('-'); return `${y}年${Number(m)}月`; }
+    function dayLabel(key) {
+      const date = parseDay(key);
+      return `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${WEEKDAYS[date.getUTCDay()]}`;
+    }
+    function shiftMonthValue(key, delta) {
+      const [y, m] = key.split('-').map(Number);
+      const date = new Date(Date.UTC(y, m - 1 + delta, 1));
+      if (date.getUTCFullYear() < 2000 || date.getUTCFullYear() > 2100) return key;
+      return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}`;
+    }
+    function shiftAnchorValue(anchor, period, delta) {
+      const [year, month] = anchor.split('-').map(Number);
+      if (period === 'week') {
+        const date = parseDay(anchor);
+        date.setUTCDate(date.getUTCDate() + delta * 7);
+        return iso(date);
+      }
+      // 月/年切换固定取 15 日：避免 29–31 日跨月溢出，且切到周时落在目标月内。
+      if (period === 'month') return iso(new Date(Date.UTC(year, month - 1 + delta, 15)));
+      return iso(new Date(Date.UTC(year + delta, month - 1, 15)));
+    }
+    function addDays(key, days) { const date = parseDay(key); date.setUTCDate(date.getUTCDate() + days); return iso(date); }
+    function daySpan(from, to) { return Math.round((parseDay(to) - parseDay(from)) / 86400000) + 1; }
+
+    function activeRange() {
+      if (fromDate && toDate) return { from: fromDate, to: toDate };
+      return monthBounds(month);
+    }
+    function statsRange() {
+      if (statsPeriod === 'custom') {
+        return statsFrom && statsTo ? { from: statsFrom, to: statsTo } : null;
+      }
+      const anchor = parseDay(statsAnchor);
+      if (statsPeriod === 'week') {
+        const offset = anchor.getUTCDay() === 0 ? -6 : 1 - anchor.getUTCDay();
+        const start = new Date(anchor); start.setUTCDate(anchor.getUTCDate() + offset);
+        const end = new Date(start); end.setUTCDate(start.getUTCDate() + 6);
+        return { from: iso(start), to: iso(end) };
+      }
+      if (statsPeriod === 'year') {
+        return { from: `${anchor.getUTCFullYear()}-01-01`, to: `${anchor.getUTCFullYear()}-12-31` };
+      }
+      return monthBounds(`${anchor.getUTCFullYear()}-${pad(anchor.getUTCMonth() + 1)}`);
+    }
+    function previousRange(range, period) {
+      if (period === 'custom') {
+        const span = daySpan(range.from, range.to);
+        return { from: addDays(range.from, -span), to: addDays(range.from, -1) };
+      }
+      if (period === 'week') return { from: addDays(range.from, -7), to: addDays(range.to, -7) };
+      if (period === 'year') {
+        const y = Number(range.from.slice(0, 4));
+        return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` };
+      }
+      const [y, m] = range.from.slice(0, 7).split('-').map(Number);
+      const prevMonth = new Date(Date.UTC(y, m - 2, 1));
+      return monthBounds(`${prevMonth.getUTCFullYear()}-${pad(prevMonth.getUTCMonth() + 1)}`);
+    }
+    function inRange(item, range) {
+      const day = item.at.slice(0, 10);
+      return day >= range.from && day <= range.to;
+    }
+    function sum(list, type) { return list.filter((item) => item.type === type).reduce((total, item) => total + item.amount, 0); }
+    function count(list, type) { return list.filter((item) => item.type === type).length; }
+    function periodLabel(period, range) {
+      if (period === 'month') return monthLabel(range.from.slice(0, 7));
+      if (period === 'year') return `${range.from.slice(0, 4)}年`;
+      const head = dayLabel(range.from).split(' ')[0];
+      const tail = dayLabel(range.to).split(' ')[0];
+      return `${head}–${tail}`;
+    }
+    function comparisonText(period, current, previous) {
+      const noun = { week: '上周', month: '上月', year: '去年', custom: '上期' }[period] || '上期';
+      if (previous === null) return `${noun}无数据`;
+      const delta = current - previous;
+      if (delta === 0) return `与${noun}持平`;
+      return `比${noun}${delta > 0 ? '增加' : '减少'} ${moneyText(Math.abs(delta))}`;
+    }
+    function balanceComparisonText(period, current, previous) {
+      const currentNoun = { week: '本周', month: '本月', year: '本年', custom: '本期' }[period] || '本期';
+      const noun = { week: '上周', month: '上月', year: '去年', custom: '上期' }[period] || '上期';
+      const head = `${currentNoun}结余 ${moneyText(current)}`;
+      if (previous === null) return `${head}，${noun}无数据`;
+      const delta = current - previous;
+      if (delta === 0) return `${head}，与${noun}持平`;
+      return `${head}，相比${noun}${delta > 0 ? '增加' : '减少'} ${moneyText(Math.abs(delta))}`;
+    }
+
+    function summaryHtml() {
+      const range = activeRange();
+      const scoped = entries.filter((item) => inRange(item, range)
+        && (typeFilter === 'ALL' || item.type === typeFilter));
+      const income = sum(scoped, 'INCOME');
+      const expense = sum(scoped, 'EXPENSE');
+      const balance = income - expense;
+      const filtered = typeFilter !== 'ALL' || Boolean(fromDate && toDate);
+      return `<div class="card" style="padding:20px 22px;margin-bottom:14px;background:radial-gradient(circle at 100% 0%, rgba(37,99,235,0.08), transparent 42%), #fff">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:16px">
+          <button id="ledger-prev-month" type="button" aria-label="上一个月" style="width:30px;height:30px;border:0;border-radius:50%;background:#f1f5f9;cursor:pointer">‹</button>
+          <input id="ledger-month" type="month" aria-label="选择月份" value="${month}" style="border:0;background:transparent;font-size:20px;font-weight:700;letter-spacing:-0.02em">
+          <button id="ledger-next-month" type="button" aria-label="下一个月" style="width:30px;height:30px;border:0;border-radius:50%;background:#f1f5f9;cursor:pointer">›</button>
+          ${filtered ? '<span style="margin-left:6px;padding:2px 8px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:11px">筛选合计</span>' : ''}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div><p class="muted small" style="margin:0">支出(元)</p><p style="margin:6px 0 0;font-size:32px;font-weight:700;letter-spacing:-0.02em">${moneyText(expense)}</p></div>
+          <div style="text-align:right;padding-left:16px;border-left:1px solid #e2e8f0"><p class="muted small" style="margin:0">收入(元)</p><p style="margin:6px 0 0;font-size:32px;font-weight:700;letter-spacing:-0.02em">${moneyText(income)}</p></div>
+        </div>
+        <p class="muted small" style="margin:16px 0 0;padding-top:10px;border-top:1px dashed #e2e8f0;display:flex;gap:8px;align-items:baseline">
+          <span>${fromDate && toDate ? '区间' : monthLabel(month)}结余</span>
+          <b style="font-size:14px;color:${balance < 0 ? '#dc2626' : '#475569'}">${moneyText(balance)}</b>
+        </p>
+      </div>`;
+    }
+
+    function detailHtml() {
+      const keywordText = keyword.trim();
+      const range = activeRange();
+      const list = entries.filter((item) => inRange(item, range)
+        && (typeFilter === 'ALL' || item.type === typeFilter)
+        && (!keywordText || item.note.includes(keywordText)));
+      const groups = [];
+      const byKey = new Map();
+      list.forEach((item) => {
+        const key = item.at.slice(0, 10);
+        let group = byKey.get(key);
+        if (!group) {
+          group = { key, items: [] };
+          byKey.set(key, group);
+          groups.push(group);
+        }
+        group.items.push(item);
       });
+      const dayHtml = groups.map((group) => {
+        const dayIncome = sum(group.items, 'INCOME');
+        const dayExpense = sum(group.items, 'EXPENSE');
+        const rows = group.items.map((item, index) => `
+          <div style="display:flex;gap:12px;align-items:center;padding:14px 0${index ? ';border-top:1px solid #e2e8f0' : ''}">
+            <span style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:12px;background:${item.type === 'INCOME' ? '#dcfce7' : '#dbeafe'};color:${item.type === 'INCOME' ? '#166534' : '#1d4ed8'};font-size:17px">${item.category === 'VENUE' ? '🏟' : item.category === 'CATERING' ? '🍜' : item.category === 'EQUIPMENT' ? '🎽' : item.category === 'MEMBERSHIP_FEE' ? '💰' : item.category === 'SPONSORSHIP' ? '🤝' : '🧾'}</span>
+            <div style="flex:1;min-width:0">
+              <p style="margin:0;font-size:15px;font-weight:600;color:#0f172a">${esc(item.note)}</p>
+              <p class="muted small" style="margin:2px 0 0">${item.at.slice(11, 16)} · ${categoryLabels[item.category]}${item.player ? ` · 归属 ${esc(item.player)}` : ''}</p>
+            </div>
+            <b style="flex:none;width:120px;text-align:right;font-variant-numeric:tabular-nums;color:${item.type === 'INCOME' ? '#166534' : '#dc2626'}"><span style="font-size:0.7em">${item.type === 'INCOME' ? '+' : '−'}</span>${money(item.amount)}</b>
+          </div>`).join('');
+        return `<section style="margin-top:18px">
+          <header style="display:flex;justify-content:space-between;align-items:baseline;padding:0 4px 8px">
+            <span style="font-size:13px;font-weight:600;color:#475569">${dayLabel(group.key)}</span>
+            <span class="muted small">支 ${money(dayExpense)}　收 ${money(dayIncome)}</span>
+          </header>
+          <div class="card" style="padding:0 16px">${rows}</div>
+        </section>`;
+      }).join('');
+      return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap">
+        <input id="ledger-keyword" value="${esc(keyword)}" placeholder="搜索摘要" aria-label="搜索流水" style="flex:1;min-width:180px;padding:8px 14px;border:1px solid #e2e8f0;border-radius:999px;background:#f8fafc">
+        <select id="ledger-type" aria-label="收支方向" style="padding:8px 12px;border:1px solid #e2e8f0;border-radius:10px">
+          <option value="ALL">全部方向</option>
+          <option value="INCOME"${typeFilter === 'INCOME' ? ' selected' : ''}>收入</option>
+          <option value="EXPENSE"${typeFilter === 'EXPENSE' ? ' selected' : ''}>支出</option>
+        </select>
+        <label class="muted small">自定义时间
+          <input type="date" id="ledger-from" value="${fromDate}" aria-label="开始日期">
+          <input type="date" id="ledger-to" value="${toDate}" aria-label="结束日期">
+        </label>
+        <button id="ledger-reset" type="button" style="padding:8px 14px;border:1px solid #e2e8f0;border-radius:10px;background:#fff;cursor:pointer">重置</button>
+      </div>
+      ${fromDate && toDate ? `<p class="muted small" style="margin:0 0 8px">自定义区间 ${fromDate} 至 ${toDate}；与月份互斥，点击月份切换即恢复整月。</p>` : ''}
+      ${groups.length ? dayHtml : '<div class="empty-state card" style="margin-top:12px"><p>该筛选下暂无流水</p></div>'}`;
     }
 
-    function money(value) {
-      return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    }
-
-    /** 负数按 `−¥123.00` 展示，与 C13 一致。 */
-    function moneyText(value) {
-      return value < 0 ? `−¥${money(Math.abs(value))}` : `¥${money(value)}`;
-    }
-
-    /** 月份与自定义日期范围互斥，均未选时不筛选。 */
-    function matchesTime(day) {
-      if (monthFilter) return day.slice(0, 7) === monthFilter;
-      if (fromDate && toDate) return day >= fromDate && day <= toDate;
-      return true;
+    function statsHtml() {
+      const range = statsRange();
+      const customRangeHtml = statsPeriod === 'custom'
+        ? `<div class="card" style="margin-bottom:14px;padding:14px 18px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">
+            <b>自定义统计时间</b>
+            <label class="muted small">开始 <input type="date" id="stats-from" value="${statsFrom}"></label>
+            <label class="muted small">结束 <input type="date" id="stats-to" value="${statsTo}"></label>
+          </div>`
+        : '';
+      if (!range) {
+        return `${customRangeHtml}<div class="card" style="padding:20px"><p class="muted">请选择开始与结束日期；统计区间与明细筛选相互独立。</p></div>`;
+      }
+      const current = entries.filter((item) => inRange(item, range));
+      const previousRange = previousRange(range, statsPeriod);
+      const previous = entries.filter((item) => inRange(item, previousRange));
+      const income = sum(current, 'INCOME');
+      const expense = sum(current, 'EXPENSE');
+      const balance = income - expense;
+      const previousIncome = sum(previous, 'INCOME');
+      const previousExpense = sum(previous, 'EXPENSE');
+      const previousBalance = previousIncome - previousExpense;
+      const hasPrevious = previous.length > 0;
+      const value = statsDirection === 'expense' ? expense : income;
+      const previousValue = statsDirection === 'expense' ? previousExpense : previousIncome;
+      const total = statsDirection === 'expense' ? count(current, 'EXPENSE') : count(current, 'INCOME');
+      const label = statsDirection === 'expense' ? '支出' : '收入';
+      const periodLabelText = periodLabel(statsPeriod, range);
+      const granularity = statsPeriod === 'year' || daySpan(range.from, range.to) > 62 ? 'month' : 'day';
+      const buckets = new Map();
+      current.forEach((item) => {
+        const key = granularity === 'month' ? `${item.at.slice(0, 7)}-01` : item.at.slice(0, 10);
+        const bucket = buckets.get(key) || { start: key, income: 0, expense: 0 };
+        if (item.type === 'INCOME') bucket.income += item.amount; else bucket.expense += item.amount;
+        buckets.set(key, bucket);
+      });
+      const bars = [];
+      if (granularity === 'day') {
+        for (let day = range.from; day <= range.to; day = addDays(day, 1)) {
+          const bucket = buckets.get(day) || { start: day, income: 0, expense: 0 };
+          bars.push(bucket);
+        }
+      } else {
+        const [y, m] = range.from.slice(0, 7).split('-').map(Number);
+        const end = range.to.slice(0, 7);
+        let cursor = new Date(Date.UTC(y, m - 1, 1));
+        while (iso(cursor).slice(0, 7) <= end) {
+          const key = iso(cursor);
+          const bucket = buckets.get(key) || { start: key, income: 0, expense: 0 };
+          bars.push(bucket);
+          cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 1, 1));
+        }
+      }
+      const values = bars.map((bucket) => statsDirection === 'expense' ? bucket.expense : bucket.income);
+      const max = Math.max(0, ...values);
+      const trend = values.some((item) => item > 0) ? `<div style="display:flex;align-items:flex-end;gap:3px;height:150px">${bars.map((bucket, index) => {
+        const percent = max > 0 ? Math.max(1, Math.round((values[index] / max) * 100)) : 0;
+        const labelText = granularity === 'month' ? `${Number(bucket.start.slice(5, 7))}月` : `${Number(bucket.start.slice(8, 10))}日`;
+        const showLabel = bars.length <= 12 || index === 0 || index === bars.length - 1 || index % 5 === 0;
+        return `<div style="display:flex;flex:1;flex-direction:column;justify-content:flex-end;gap:6px;height:100%">
+          <div style="display:flex;align-items:flex-end;height:110px;background:linear-gradient(to top,#f8fafc,transparent);border-radius:4px"><i style="display:block;width:100%;height:${values[index] > 0 ? percent : 0}%;background:linear-gradient(to top,#2563eb,#60a5fa);border-radius:4px 4px 0 0"></i></div>
+          ${showLabel ? `<span class="muted" style="font-size:10px;text-align:center">${labelText}</span>` : ''}
+        </div>`;
+      }).join('')}</div>` : '<div class="empty-state"><p>该周期暂无流水</p></div>';
+      return `${customRangeHtml}<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        ${[['week', '按周'], ['month', '按月'], ['year', '按年'], ['custom', '自定义时间']].map(([valueKey, text]) => `<button type="button" class="stats-period" data-period="${valueKey}" style="padding:7px 16px;border-radius:999px;border:1px solid ${statsPeriod === valueKey ? 'transparent' : '#e2e8f0'};background:${statsPeriod === valueKey ? '#dbeafe' : '#fff'};color:${statsPeriod === valueKey ? '#1d4ed8' : '#475569'};cursor:pointer">${text}</button>`).join('')}
+      </div>
+      <div class="card" style="padding:18px 22px;margin-bottom:14px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="stats-prev" type="button" style="border:0;background:transparent;cursor:pointer" ${statsPeriod === 'custom' ? 'disabled' : ''}>◀</button>
+          <span style="font-weight:600">${periodLabelText}</span>
+          <button id="stats-next" type="button" style="border:0;background:transparent;cursor:pointer" ${statsPeriod === 'custom' ? 'disabled' : ''}>▶</button>
+          <div style="display:flex;gap:2px;margin-left:auto;padding:3px;background:#f1f5f9;border-radius:999px">
+            <button type="button" class="stats-direction" data-direction="expense" style="padding:5px 16px;border:0;border-radius:999px;cursor:pointer;background:${statsDirection === 'expense' ? '#fff' : 'transparent'};color:${statsDirection === 'expense' ? '#1d4ed8' : '#64748b'}">支出</button>
+            <button type="button" class="stats-direction" data-direction="income" style="padding:5px 16px;border:0;border-radius:999px;cursor:pointer;background:${statsDirection === 'income' ? '#fff' : 'transparent'};color:${statsDirection === 'income' ? '#1d4ed8' : '#64748b'}">收入</button>
+          </div>
+        </div>
+        <p style="margin:18px 0 12px;font-size:38px;font-weight:700;letter-spacing:-0.02em;color:#1d4ed8">${moneyText(value)}</p>
+        <p class="muted small" style="margin:0">${label}${total}笔，总计 ${moneyText(value)}，${comparisonText(statsPeriod, value, hasPrevious ? previousValue : null)}</p>
+        <p class="muted small" style="margin:2px 0 0">${balanceComparisonText(statsPeriod, balance, hasPrevious ? previousBalance : null)}</p>
+      </div>
+      <div class="card" style="padding:18px 22px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:12px"><b>收支趋势</b><span class="muted small">${label}</span></div>
+        ${trend}
+      </div>`;
     }
 
     function render() {
-      const rangeIncomplete = Boolean(fromDate) !== Boolean(toDate);
-      const list = entries.filter((item) => {
-        if (typeFilter !== 'ALL' && item.type !== typeFilter) return false;
-        return matchesTime(item.at.slice(0, 10));
-      });
-      const income = list.filter((item) => item.type === 'INCOME').reduce((sum, item) => sum + item.amount, 0);
-      const expense = list.filter((item) => item.type === 'EXPENSE').reduce((sum, item) => sum + item.amount, 0);
-      /** 与 C13/MP12 ledgerFlow 同口径：以收入为 100%，无支出时隐藏条形与文案。 */
-      const hasFlow = expense > 0;
-      const ratio = income > 0 ? Math.round((expense / income) * 100) : 100;
-      const ratioLabel = income <= 0 ? '暂无收入' : ratio > 100 ? `支出超过收入 ${ratio - 100}%` : `支出占收入 ${ratio}%`;
-      const balance = income - expense;
-      const filtered = typeFilter !== 'ALL' || Boolean(monthFilter) || Boolean(fromDate && toDate);
       host.innerHTML = `<div class="container section">
         <div class="page-head">
           <div><span class="eyebrow">LEDGER</span><h1>账本</h1></div>
         </div>
-        <div class="card" style="display:grid;gap:20px 32px;grid-template-columns:minmax(180px,0.9fr) minmax(260px,1.6fr);align-items:center;padding:20px">
-          <div>
-            <p class="muted small" style="margin:0;display:flex;align-items:center;gap:8px">余额${filtered ? '<span style="padding:1px 6px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:11px">筛选合计</span>' : ''}</p>
-            <p style="margin:4px 0 0;font-size:30px;letter-spacing:-0.02em;color:${balance < 0 ? '#dc2626' : '#0f172a'}"><b>${moneyText(balance)}</b></p>
-          </div>
-          <div>
-            <div style="display:flex;justify-content:space-between;gap:20px">
-              <div><p class="muted small" style="margin:0">收入</p><p style="margin:4px 0 0;font-size:17px;color:#166534"><b>${moneyText(income)}</b></p></div>
-              <div style="text-align:right"><p class="muted small" style="margin:0">支出</p><p style="margin:4px 0 0;font-size:17px;color:#dc2626"><b>${moneyText(expense)}</b></p></div>
-            </div>
-            ${hasFlow ? `<div style="margin-top:10px"><div style="height:4px;overflow:hidden;background:#f1f5f9;border-radius:999px"><i style="display:block;height:100%;width:${Math.min(100, ratio)}%;background:#dc2626"></i></div><p class="muted small" style="margin:4px 0 0;text-align:right">${ratioLabel}</p></div>` : ''}
-          </div>
-        </div>
-        <div class="card" style="padding:12px;margin-top:12px;display:flex;flex-wrap:wrap;gap:12px">
-          <label class="muted small" for="ledger-type">方向
-            <select id="ledger-type">
-              <option value="ALL">全部</option>
-              <option value="INCOME"${typeFilter === 'INCOME' ? ' selected' : ''}>收入</option>
-              <option value="EXPENSE"${typeFilter === 'EXPENSE' ? ' selected' : ''}>支出</option>
-            </select>
-          </label>
-          <label class="muted small" for="ledger-month">月份
-            <input type="month" id="ledger-month" value="${monthFilter}">
-          </label>
-          <label class="muted small" for="ledger-from">自定义时间（起）
-            <input type="date" id="ledger-from" value="${fromDate}">
-          </label>
-          <label class="muted small" for="ledger-to">自定义时间（止）
-            <input type="date" id="ledger-to" value="${toDate}">
-          </label>
-        </div>
-        ${rangeIncomplete ? '<p class="muted small" style="margin-top:8px">自定义时间需同时选择起止日期；月份与自定义时间互斥。</p>' : ''}
-        ${list.length ? `<div class="card" style="margin-top:12px;padding:0 16px">${list.map((item, index) => `
-          <div style="display:flex;gap:16px;align-items:center;padding:14px 0${index ? ';border-top:1px solid #e2e8f0' : ''}">
-            <div style="flex:1;min-width:0">
-              <p style="margin:0;font-size:15px;font-weight:600;color:#0f172a">${esc(item.note)}</p>
-              <p class="muted small" style="margin:2px 0 0">${categoryLabels[item.category]} · ${fmt(item.at)}${item.player ? ` · 归属 ${esc(item.player)}` : ''}</p>
-            </div>
-            <b style="flex:none;width:128px;text-align:right;font-variant-numeric:tabular-nums;color:${item.type === 'INCOME' ? '#166534' : '#dc2626'}"><span style="font-size:0.7em">${item.type === 'INCOME' ? '+' : '−'}</span>${money(item.amount)}</b>
-          </div>`).join('')}
-        </div>` : '<div class="empty-state card" style="margin-top:12px"><p>该筛选下暂无流水</p></div>'}
-        <div class="muted small" style="margin-top:12px">
-          <p><b>注：</b>金额存正数、方向表达收支；分类为独立实体，管理员可自定义与停用（原型未演示管理入口）；余额 = 收入 − 支出，不设期初余额；不做退款、凭证与自动摊分。原型数据为演示值。</p>
+        ${summaryHtml()}
+        <nav style="display:flex;gap:22px;align-items:center;border-bottom:1px solid #e2e8f0;margin-bottom:14px">
+          <button type="button" class="ledger-tab" data-tab="detail" style="padding:10px 2px;border:0;border-bottom:3px solid ${tab === 'detail' ? '#2563eb' : 'transparent'};background:transparent;color:${tab === 'detail' ? '#0f172a' : '#64748b'};font-size:16px;font-weight:600;cursor:pointer">明细</button>
+          <button type="button" class="ledger-tab" data-tab="stats" style="padding:10px 2px;border:0;border-bottom:3px solid ${tab === 'stats' ? '#2563eb' : 'transparent'};background:transparent;color:${tab === 'stats' ? '#0f172a' : '#64748b'};font-size:16px;font-weight:600;cursor:pointer">统计</button>
+        </nav>
+        ${tab === 'detail' ? detailHtml() : statsHtml()}
+        <div class="muted small" style="margin-top:16px">
+          <p><b>注：</b>金额存正数、方向表达收支；分类为独立实体，管理员可自定义与停用（原型未演示管理入口）；余额 = 收入 − 支出，不设期初余额；统计按周/月/年/自定义周期聚合，不做预算与分类占比。原型数据为演示值。</p>
         </div>
       </div>`;
-      $('#ledger-type', host).addEventListener('change', (event) => {
-        typeFilter = event.target.value;
+
+      $('#ledger-prev-month', host).addEventListener('click', () => { month = shiftMonthValue(month, -1); fromDate = ''; toDate = ''; statsAnchor = `${month}-15`; render(); });
+      $('#ledger-next-month', host).addEventListener('click', () => { month = shiftMonthValue(month, 1); fromDate = ''; toDate = ''; statsAnchor = `${month}-15`; render(); });
+      $('#ledger-month', host).addEventListener('change', (event) => { month = event.target.value || month; fromDate = ''; toDate = ''; statsAnchor = `${month}-15`; render(); });
+      $$('.ledger-tab', host).forEach((button) => button.addEventListener('click', () => { tab = button.dataset.tab; render(); }));
+      const keywordInput = $('#ledger-keyword', host);
+      if (keywordInput) {
+        keywordInput.addEventListener('change', (event) => { keyword = event.target.value; render(); });
+      }
+      const typeSelect = $('#ledger-type', host);
+      if (typeSelect) {
+        typeSelect.addEventListener('change', (event) => { typeFilter = event.target.value; render(); });
+      }
+      const fromInput = $('#ledger-from', host);
+      if (fromInput) {
+        fromInput.addEventListener('change', (event) => { fromDate = event.target.value; render(); });
+      }
+      const toInput = $('#ledger-to', host);
+      if (toInput) {
+        toInput.addEventListener('change', (event) => { toDate = event.target.value; render(); });
+      }
+      const resetButton = $('#ledger-reset', host);
+      if (resetButton) {
+        resetButton.addEventListener('click', () => { typeFilter = 'ALL'; keyword = ''; fromDate = ''; toDate = ''; month = '2026-11'; render(); });
+      }
+      $$('.stats-period', host).forEach((button) => button.addEventListener('click', () => {
+        statsPeriod = button.dataset.period;
         render();
-      });
-      $('#ledger-month', host).addEventListener('change', (event) => {
-        monthFilter = event.target.value;
-        fromDate = '';
-        toDate = '';
-        render();
-      });
-      $('#ledger-from', host).addEventListener('change', (event) => {
-        fromDate = event.target.value;
-        monthFilter = '';
-        render();
-      });
-      $('#ledger-to', host).addEventListener('change', (event) => {
-        toDate = event.target.value;
-        monthFilter = '';
-        render();
-      });
+      }));
+      const statsFromInput = $('#stats-from', host);
+      if (statsFromInput) {
+        statsFromInput.addEventListener('change', (event) => { statsFrom = event.target.value; render(); });
+      }
+      const statsToInput = $('#stats-to', host);
+      if (statsToInput) {
+        statsToInput.addEventListener('change', (event) => { statsTo = event.target.value; render(); });
+      }
+      $$('.stats-direction', host).forEach((button) => button.addEventListener('click', () => { statsDirection = button.dataset.direction; render(); }));
+      const prev = $('#stats-prev', host);
+      if (prev) {
+        prev.addEventListener('click', () => { statsAnchor = shiftAnchorValue(statsAnchor, statsPeriod, -1); render(); });
+      }
+      const next = $('#stats-next', host);
+      if (next) {
+        next.addEventListener('click', () => { statsAnchor = shiftAnchorValue(statsAnchor, statsPeriod, 1); render(); });
+      }
     }
 
     render();

@@ -54,7 +54,7 @@
 
       <template
         is="time-filter-fields"
-        data="{{month: month, monthDraft: monthDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax}}"
+        data="{{month: month, monthDraft: monthDraft, startDate: startDate, endDate: endDate, timeFilterMin: timeFilterMin, timeFilterMax: timeFilterMax, hideMonth: hideMonth}}"
       />
 
       <view class="filter-drawer__actions">
@@ -94,7 +94,7 @@
 </template>
 
 <template name="time-filter-fields">
-  <view class="filter-field">
+  <view wx:if="{{!hideMonth}}" class="filter-field">
     <text class="filter-field__label">月份</text>
     <view class="filter-field__control">
       <picker mode="date" fields="month" start="{{timeFilterMin}}" end="{{timeFilterMax}}" value="{{monthDraft}}" bindchange="onMonthChange">
@@ -109,7 +109,7 @@
     <text class="filter-field__label">自定义时间</text>
     <view class="filter-field__control">
       <view class="filter-field__value" bindtap="openRange">{{startDate && endDate ? startDate + ' 至 ' + endDate : '选择日期范围'}}</view>
-      <text wx:if="{{startDate && endDate}}" class="filter-field__clear" bindtap="clearRange">清除</text>
+      <text wx:if="{{rangeClearVisible || startDate && endDate}}" class="filter-field__clear" bindtap="clearRange">清除</text>
     </view>
   </view>
 </template>

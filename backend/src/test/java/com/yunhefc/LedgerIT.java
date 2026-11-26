@@ -517,6 +517,113 @@ class LedgerIT extends AccountITSupport {
     }
 
     @Test
+    void dailyTotalsAndStatistics() throws Exception {
+        Cookie player = player("13900004055", "统计球员", 905);
+        Long membership = categoryId("队费");
+        Long venue = categoryId("场地");
+
+        insertEntry(0, membership, "300.00", "11 月队费", "2026-11-20 20:10:00", null, null);
+        insertEntry(0, membership, "200.00", "赞助补记", "2026-11-18 21:00:00", null, null);
+        insertEntry(1, venue, "800.00", "11 月场地费", "2026-11-12 19:40:00", null, null);
+        insertEntry(1, venue, "240.00", "比赛用球", "2026-11-08 15:20:00", null, null);
+        insertEntry(1, venue, "100.00", "赛后聚餐", "2026-11-05 12:00:00", null, null);
+        insertEntry(1, venue, "50.00", "上月场地", "2026-10-15 10:00:00", null, null);
+
+        mockMvc.perform(get("/api/v1/c/ledger/daily-totals")
+                        .param("from", "2026-11-01T00:00:00+08:00")
+                        .param("to", "2026-11-30T23:59:59+08:00")
+                        .cookie(player))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(5))
+                .andExpect(jsonPath("$.data.items[0].date").value("2026-11-20"))
+                .andExpect(jsonPath("$.data.items[0].income").value(300.00))
+                .andExpect(jsonPath("$.data.items[0].expense").value(0.00))
+                .andExpect(jsonPath("$.data.items[2].date").value("2026-11-12"))
+                .andExpect(jsonPath("$.data.items[2].expense").value(800.00))
+                .andExpect(jsonPath("$.data.items[4].date").value("2026-11-05"));
+
+        mockMvc.perform(get("/api/v1/c/ledger/daily-totals")
+                        .param("from", "2026-11-01T00:00:00+08:00")
+                        .param("to", "2026-11-30T23:59:59+08:00")
+                        .param("type", "1").param("keyword", "场地").cookie(player))
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.items[0].date").value("2026-11-12"))
+                .andExpect(jsonPath("$.data.items[0].expense").value(800.00));
+
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "month").param("anchor", "2026-11-15").cookie(player))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.period").value("month"))
+                .andExpect(jsonPath("$.data.from").value("2026-11-01"))
+                .andExpect(jsonPath("$.data.to").value("2026-11-30"))
+                .andExpect(jsonPath("$.data.previousFrom").value("2026-10-01"))
+                .andExpect(jsonPath("$.data.previousTo").value("2026-10-31"))
+                .andExpect(jsonPath("$.data.income").value(500.00))
+                .andExpect(jsonPath("$.data.expense").value(1140.00))
+                .andExpect(jsonPath("$.data.balance").value(-640.00))
+                .andExpect(jsonPath("$.data.incomeCount").value(2))
+                .andExpect(jsonPath("$.data.expenseCount").value(3))
+                .andExpect(jsonPath("$.data.previousExpense").value(50.00))
+                .andExpect(jsonPath("$.data.trendGranularity").value("day"))
+                .andExpect(jsonPath("$.data.trend.length()").value(30))
+                .andExpect(jsonPath("$.data.trend[0].start").value("2026-11-01"))
+                .andExpect(jsonPath("$.data.trend[19].start").value("2026-11-20"))
+                .andExpect(jsonPath("$.data.trend[19].income").value(300.00))
+                .andExpect(jsonPath("$.data.trend[19].expense").value(0.00));
+
+        // 周：当前周 11-23 至 11-29 无流水，上一周 11-16 至 11-22 有 500 收入。
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "week").param("anchor", "2026-11-26").cookie(player))
+                .andExpect(jsonPath("$.data.from").value("2026-11-23"))
+                .andExpect(jsonPath("$.data.to").value("2026-11-29"))
+                .andExpect(jsonPath("$.data.income").value(0.00))
+                .andExpect(jsonPath("$.data.previousIncome").value(500.00))
+                .andExpect(jsonPath("$.data.trend.length()").value(7));
+
+        // 年：12 个月分桶。
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "year").param("anchor", "2026-11-26").cookie(player))
+                .andExpect(jsonPath("$.data.from").value("2026-01-01"))
+                .andExpect(jsonPath("$.data.to").value("2026-12-31"))
+                .andExpect(jsonPath("$.data.trendGranularity").value("month"))
+                .andExpect(jsonPath("$.data.trend.length()").value(12))
+                .andExpect(jsonPath("$.data.trend[10].start").value("2026-11-01"))
+                .andExpect(jsonPath("$.data.trend[10].expense").value(1140.00));
+
+        // 自定义区间：上一窗口为紧邻的等长区间。
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "custom")
+                        .param("from", "2026-11-01").param("to", "2026-11-20").cookie(player))
+                .andExpect(jsonPath("$.data.previousFrom").value("2026-10-12"))
+                .andExpect(jsonPath("$.data.previousTo").value("2026-10-31"))
+                .andExpect(jsonPath("$.data.expense").value(1140.00))
+                .andExpect(jsonPath("$.data.trend.length()").value(20));
+
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "quarter").cookie(player))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "custom").cookie(player))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "custom")
+                        .param("from", "2026-11-20").param("to", "2026-11-01").cookie(player))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "month").param("anchor", "2026-13-01").cookie(player))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        // period=custom 忽略 anchor，不因无关参数失败。
+        mockMvc.perform(get("/api/v1/c/ledger/statistics")
+                        .param("period", "custom").param("anchor", "bad")
+                        .param("from", "2026-11-01").param("to", "2026-11-20").cookie(player))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void versionConflictAndIdempotentReplay() throws Exception {
         Cookie admin = bAdminLogin("13900004061");
         Long categoryId = categoryId("队费");
@@ -642,7 +749,8 @@ class LedgerIT extends AccountITSupport {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.code").value(40101));
         for (String path : List.of("/api/v1/c/ledger/entries", "/api/v1/c/ledger/summary",
-                "/api/v1/c/ledger/categories")) {
+                "/api/v1/c/ledger/categories", "/api/v1/c/ledger/daily-totals",
+                "/api/v1/c/ledger/statistics")) {
             mockMvc.perform(get(path).cookie(guest))
                     .andExpect(status().isForbidden())
                     .andExpect(jsonPath("$.code").value(40301));

@@ -6,8 +6,12 @@ import {
   ledgerRangeStart,
   parseLedgerDate,
   parseLedgerType,
+  shiftMonth,
+  shiftStatsAnchor,
+  toDailyTotalRequest,
   toLedgerFilter,
   toLedgerRequest,
+  toStatisticsRequest,
 } from './query';
 
 describe('筛选解析', () => {
@@ -90,7 +94,62 @@ describe('请求参数', () => {
     ).toEqual({});
   });
 
-  it('列表请求追加分页，汇总请求不带分页', () => {
+  it('日小计与列表同口径并追加关键字', () => {
+    expect(
+      toDailyTotalRequest(
+        { type: 1, categoryId: null, month: '2026-11', startDate: '', endDate: '' },
+        '  场地 ',
+      ),
+    ).toEqual({
+      type: 1,
+      from: '2026-11-01T00:00:00+08:00',
+      to: '2026-11-30T23:59:59+08:00',
+      keyword: '场地',
+    });
+    expect(
+      toDailyTotalRequest(
+        { type: null, categoryId: null, month: '', startDate: '', endDate: '' },
+        '   ',
+      ),
+    ).toEqual({});
+  });
+
+  it('月份前后切换跨年并限制在 2000-01 至 2100-12', () => {
+    expect(shiftMonth('2026-11', 1)).toBe('2026-12');
+    expect(shiftMonth('2026-12', 1)).toBe('2027-01');
+    expect(shiftMonth('2026-01', -1)).toBe('2025-12');
+    expect(shiftMonth('2100-12', 1)).toBe('2100-12');
+    expect(shiftMonth('2000-01', -1)).toBe('2000-01');
+  });
+
+  it('统计周期切换不因月末日溢出', () => {
+    expect(shiftStatsAnchor('2026-01-29', 'month', 1)).toBe('2026-02-15');
+    expect(shiftStatsAnchor('2026-03-31', 'month', -1)).toBe('2026-02-15');
+    expect(shiftStatsAnchor('2026-11-15', 'year', 1)).toBe('2027-11-15');
+    expect(shiftStatsAnchor('2026-11-15', 'week', 1)).toBe('2026-11-22');
+    expect(shiftStatsAnchor('2026-11-15', 'custom', 1)).toBe('2026-11-15');
+  });
+
+  it('统计请求按周期选择 anchor 或 from/to', () => {
+    expect(
+      toStatisticsRequest({
+        period: 'month',
+        anchor: '2026-11-26',
+        from: '',
+        to: '',
+      }),
+    ).toEqual({ period: 'month', anchor: '2026-11-26' });
+    expect(
+      toStatisticsRequest({
+        period: 'custom',
+        anchor: '2026-11-26',
+        from: '2026-11-01',
+        to: '2026-11-20',
+      }),
+    ).toEqual({ period: 'custom', from: '2026-11-01', to: '2026-11-20' });
+  });
+
+  it('列表请求追加分页与关键字，汇总请求不带分页', () => {
     expect(
       toLedgerRequest({
         type: 1,
@@ -100,7 +159,8 @@ describe('请求参数', () => {
         endDate: '',
         page: 2,
         pageSize: 20,
+        keyword: ' 场地 ',
       }),
-    ).toEqual({ type: 1, page: 2, pageSize: 20 });
+    ).toEqual({ type: 1, page: 2, pageSize: 20, keyword: '场地' });
   });
 });

@@ -1,23 +1,25 @@
-// MP12 账本展示派生：金额正负、流水行与汇总卡片。
+// MP12 账本展示派生：金额正负、流水行与汇总卡片。与 Web features/ledger/presentation.ts 保持一致。
 import type { LedgerEntry, LedgerSummary } from '../types/api';
-import { formatDateTime } from './datetime';
+import { formatYearDate } from './datetime';
 
 export interface LedgerEntryView {
   id: number;
-  categoryName: string;
-  description: string;
-  timeText: string;
+  title: string;
+  metaText: string;
   amountSign: string;
   amountText: string;
   tone: 'income' | 'expense';
-  metaText: string;
 }
 
 export interface LedgerSummaryView {
   incomeText: string;
   expenseText: string;
   balanceText: string;
-  tone: 'income' | 'expense';
+  /** 余额不是收支方向：正数为常规墨色，负数标红。 */
+  balanceTone: 'default' | 'negative';
+  /** 支出占收入的进度（0–100）；无支出时为 null，隐藏条形。 */
+  ratioPercent: number | null;
+  ratioLabel: string;
 }
 
 /** 负数按 `−¥123.00` 展示，与 Web 一致。 */
@@ -44,15 +46,41 @@ function ledgerRowAmountText(entry: Pick<LedgerEntry, 'amount'>): string {
 }
 
 export function decorateLedgerEntry(entry: LedgerEntry): LedgerEntryView {
+  const description = entry.description.trim();
+  const parts = description ? [entry.categoryName] : [];
+  parts.push(formatYearDate(entry.occurredAt));
+  if (entry.playerName) {
+    parts.push(`归属 ${entry.playerName}`);
+  }
+  if (entry.activityTitle) {
+    parts.push(entry.activityTitle);
+  }
   return {
     id: entry.id,
-    categoryName: entry.categoryName,
-    description: entry.description,
-    timeText: formatDateTime(entry.occurredAt),
+    // 摘要可为空（P-136）：回退分类名，避免行首留白。
+    title: description || entry.categoryName || '—',
+    metaText: parts.join(' · '),
     amountSign: ledgerRowAmountSign(entry),
     amountText: ledgerRowAmountText(entry),
     tone: entry.type === 0 ? 'income' : 'expense',
-    metaText: [entry.playerName, entry.activityTitle].filter(Boolean).join(' · '),
+  };
+}
+
+/** 汇总卡的收支比：以收入为 100%，超过收入时条形填满并改用超出文案。 */
+export function ledgerFlow(
+  summary: Pick<LedgerSummary, 'income' | 'expense'>,
+): Pick<LedgerSummaryView, 'ratioPercent' | 'ratioLabel'> {
+  const { income, expense } = summary;
+  if (expense <= 0) {
+    return { ratioPercent: null, ratioLabel: '' };
+  }
+  if (income <= 0) {
+    return { ratioPercent: 100, ratioLabel: '暂无收入' };
+  }
+  const ratio = Math.round((expense / income) * 100);
+  return {
+    ratioPercent: Math.min(100, ratio),
+    ratioLabel: ratio > 100 ? `支出超过收入 ${ratio - 100}%` : `支出占收入 ${ratio}%`,
   };
 }
 
@@ -61,6 +89,7 @@ export function ledgerSummaryView(summary: LedgerSummary): LedgerSummaryView {
     incomeText: ledgerMoneyText(summary.income),
     expenseText: ledgerMoneyText(summary.expense),
     balanceText: ledgerMoneyText(summary.balance),
-    tone: summary.balance >= 0 ? 'income' : 'expense',
+    balanceTone: summary.balance < 0 ? 'negative' : 'default',
+    ...ledgerFlow(summary),
   };
 }

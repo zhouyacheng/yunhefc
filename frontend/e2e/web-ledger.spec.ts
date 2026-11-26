@@ -160,20 +160,31 @@ test('C13 账本：汇总、流水与方向筛选', async ({ page }) => {
   await page.goto('/ledger');
 
   await expect(page.getByRole('heading', { name: '账本' })).toBeVisible();
+  const summary = page.getByTestId('ledger-summary');
   await expect(page.locator('.ledger-summary__value--income')).toHaveText('¥300.00');
   await expect(page.locator('.ledger-summary__value--expense')).toHaveText('¥800.00');
-  await expect(page.locator('.ledger-summary__value').nth(2)).toHaveText('−¥500.00');
+  await expect(page.locator('.ledger-summary__value--balance')).toHaveText('−¥500.00');
+  await expect(page.locator('.ledger-summary__value--balance')).toHaveClass(
+    /ledger-summary__value--negative/,
+  );
+  await expect(page.locator('.ledger-summary__ratio-label')).toHaveText('支出超过收入 167%');
+  await expect(summary.locator('.ledger-summary__scope')).toHaveCount(0);
 
   await expect(page.getByTestId('ledger-row')).toHaveCount(2);
   await expect(page.getByTestId('ledger-row').first()).toContainText('+300.00');
   await expect(page.getByTestId('ledger-row').first()).toContainText('归属 张伟');
+  await expect(page.getByTestId('ledger-row').first()).toContainText('2099/11/18');
+  await expect(page.getByTestId('ledger-row').first()).not.toContainText('21:00');
+  await expect(page.getByTestId('ledger-row').locator('.status-tag')).toHaveCount(0);
   await expect(page.getByTestId('ledger-row').nth(1)).toContainText('−800.00');
 
   await page.getByLabel('收支方向').selectOption('1');
   await expect(page.getByTestId('ledger-row')).toHaveCount(1);
   await expect(page.getByTestId('ledger-row')).toContainText('−800.00');
   await expect(page.locator('.ledger-summary__value--income')).toHaveText('¥0.00');
-  await expect(page.locator('.ledger-summary__value').nth(2)).toHaveText('−¥800.00');
+  await expect(page.locator('.ledger-summary__value--balance')).toHaveText('−¥800.00');
+  await expect(page.locator('.ledger-summary__ratio-label')).toHaveText('暂无收入');
+  await expect(summary.locator('.ledger-summary__scope')).toHaveText('筛选合计');
 
   // 方向为支出时，分类下拉只保留支出与通用分类。
   const categorySelect = page.getByLabel('账本分类');
@@ -215,6 +226,10 @@ test('C13 账本：汇总、流水与方向筛选', async ({ page }) => {
   expect(latest.get('to')).toBe(latest.get('from')?.replace('T00:00:00', 'T23:59:59'));
   await expect(page.getByRole('button', { name: '清除自定义时间', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: '选择月份' })).toHaveText('全部月份');
+
+  // 重置后汇总回到全量口径，不再标注「筛选合计」。
+  await page.getByRole('button', { name: '重置' }).click();
+  await expect(summary.locator('.ledger-summary__scope')).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.yunhefc.content.infrastructure.ContentAlbumPhotoMapper">
+
+    <select id="selectActiveCounts"
+            resultType="com.yunhefc.content.infrastructure.ContentAlbumPhotoCountRow">
+        SELECT album_id AS albumId, COUNT(*) AS photoCount
+        FROM content_album_photo
+        WHERE is_deleted = 0
+          AND album_id IN
+          <foreach collection="albumIds" item="albumId" open="(" separator="," close=")">
+              #{albumId}
+          </foreach>
+        GROUP BY album_id
+    </select>
+
+    <select id="selectCoverPhotos" resultType="com.yunhefc.content.domain.ContentAlbumPhoto">
+        SELECT p.album_id, p.id, p.object_key, p.uploaded_by, p.created_at,
+               p.updated_at, p.is_deleted
+        FROM content_album a
+        JOIN content_album_photo p ON p.album_id = a.id AND p.is_deleted = 0
+        WHERE a.is_deleted = 0
+          AND a.id IN
+          <foreach collection="albumIds" item="albumId" open="(" separator="," close=")">
+              #{albumId}
+          </foreach>
+          AND p.id = COALESCE(
+              (SELECT c.id FROM content_album_photo c
+               WHERE c.id = a.cover_photo_id AND c.album_id = a.id AND c.is_deleted = 0),
+              (SELECT MIN(m.id) FROM content_album_photo m
+               WHERE m.album_id = a.id AND m.is_deleted = 0))
+    </select>
+
+</mapper>

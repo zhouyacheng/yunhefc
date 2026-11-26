@@ -495,12 +495,16 @@ describe('system settings', () => {
 });
 
 describe('audit labels', () => {
-  it('maps all 38 actions and 11 target types', () => {
-    expect(Object.keys(AUDIT_ACTION_TEXT)).toHaveLength(38);
-    expect(Object.keys(AUDIT_TARGET_TYPE_TEXT)).toHaveLength(11);
+  it('maps all 47 actions and 15 target types', () => {
+    expect(Object.keys(AUDIT_ACTION_TEXT)).toHaveLength(47);
+    expect(Object.keys(AUDIT_TARGET_TYPE_TEXT)).toHaveLength(15);
     expect(auditActionText('SETTINGS_UPDATE')).toBe('修改系统设置');
     expect(auditActionText('grouping.generate')).toBe('生成分组');
+    expect(auditActionText('ACTIVITY_STATUS_CHANGE')).toBe('修改活动状态');
+    expect(auditActionText('LEDGER_CREATE')).toBe('创建账本流水');
     expect(auditTargetTypeText('team_match')).toBe('队内赛');
+    expect(auditTargetTypeText('ACTIVITY')).toBe('活动');
+    expect(auditTargetTypeText('LEDGER_ENTRY')).toBe('账本流水');
     expect(auditTargetTypeText('SETTINGS')).toBe('系统设置');
   });
 

@@ -2,17 +2,8 @@
 // 活动分享沿用稳定详情 URL，不引入邀请 token；封面只使用公开活动信息。
 import type { ActivityDetail } from '../types/api';
 import { formatDateWithYear, formatDateTime, formatTimeRange } from './datetime';
-import {
-  SHARE_COVER_HEIGHT,
-  SHARE_COVER_WIDTH,
-  drawShareBackground,
-  drawShareFooter,
-  drawShareHeader,
-  drawShareMeta,
-  drawShareTitle,
-  exportShareCover,
-  textOr,
-} from './share-cover';
+import { renderShareCoverFrame, textOr } from './share-cover';
+import { ACTIVITY_COVER_PALETTE } from './share-cover-palette';
 
 /** Canvas 生成失败时的静态 5:4 品牌封面。 */
 export const ACTIVITY_SHARE_COVER_FALLBACK = '/assets/share-activity-invite.png';
@@ -60,21 +51,20 @@ export async function renderActivityShareCover(
   canvas: WechatMiniprogram.Canvas,
   data: ActivityShareCoverData,
 ): Promise<string> {
-  canvas.width = SHARE_COVER_WIDTH;
-  canvas.height = SHARE_COVER_HEIGHT;
-  const ctx = canvas.getContext('2d');
-
-  drawShareBackground(ctx);
-  drawShareHeader(ctx, '活动邀请');
-  drawShareTitle(ctx, data.title);
-  drawShareMeta(ctx, {
-    dateText: data.dateText,
-    timeRangeText: data.timeRangeText,
-    placeText: data.locationText,
-    quotaText: `${data.quotaText} · ${data.deadlineText}`,
-    extraText: data.costText,
-  });
-  drawShareFooter(ctx, data.hintText);
-
-  return exportShareCover(canvas);
+  return renderShareCoverFrame(
+    canvas,
+    {
+      headerLabel: '活动邀请',
+      title: data.title,
+      meta: {
+        dateText: data.dateText,
+        timeRangeText: data.timeRangeText,
+        placeText: data.locationText,
+        quotaText: `${data.quotaText} · ${data.deadlineText}`,
+        extraText: data.costText,
+      },
+      hint: data.hintText,
+    },
+    ACTIVITY_COVER_PALETTE,
+  );
 }

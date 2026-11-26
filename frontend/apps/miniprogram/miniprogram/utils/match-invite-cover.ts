@@ -2,17 +2,8 @@
 // 微信分享缩略图只取发起页截图或显式 imageUrl；这里用 canvas 生成，避免分享比赛详情截图。
 import type { InviteCreated, MatchDetail } from '../types/api';
 import { formatDateWithYear, formatDateTime, formatTimeRange } from './datetime';
-import {
-  SHARE_COVER_HEIGHT,
-  SHARE_COVER_WIDTH,
-  drawShareBackground,
-  drawShareFooter,
-  drawShareHeader,
-  drawShareMeta,
-  drawShareTitle,
-  exportShareCover,
-  textOr,
-} from './share-cover';
+import { renderShareCoverFrame, textOr } from './share-cover';
+import { MATCH_COVER_PALETTE } from './share-cover-palette';
 
 /** Canvas 生成失败时的静态 5:4 品牌封面。 */
 export const SHARE_COVER_FALLBACK = '/assets/share-match-invite.png';
@@ -51,21 +42,20 @@ export async function renderShareCover(
   canvas: WechatMiniprogram.Canvas,
   data: ShareCoverData,
 ): Promise<string> {
-  canvas.width = SHARE_COVER_WIDTH;
-  canvas.height = SHARE_COVER_HEIGHT;
-  const ctx = canvas.getContext('2d');
-
-  drawShareBackground(ctx);
-  drawShareHeader(ctx, '比赛邀请');
-  drawShareTitle(ctx, data.title);
-  drawShareMeta(ctx, {
-    dateText: data.dateText,
-    timeRangeText: data.timeRangeText,
-    placeText: `场地 · ${data.venue}`,
-    quotaText: `名额 ${data.quotaText} · 报名截止 ${data.deadlineText}`,
-    extraText: data.expiresText,
-  });
-  drawShareFooter(ctx, '查看比赛详情，报名或加入候补');
-
-  return exportShareCover(canvas);
+  return renderShareCoverFrame(
+    canvas,
+    {
+      headerLabel: '比赛邀请',
+      title: data.title,
+      meta: {
+        dateText: data.dateText,
+        timeRangeText: data.timeRangeText,
+        placeText: `场地 · ${data.venue}`,
+        quotaText: `名额 ${data.quotaText} · 报名截止 ${data.deadlineText}`,
+        extraText: data.expiresText,
+      },
+      hint: '查看比赛详情，报名或加入候补',
+    },
+    MATCH_COVER_PALETTE,
+  );
 }

@@ -96,7 +96,7 @@ describe('renderActivityShareCover', () => {
   });
 
   it('draws the activity facts onto the share cover', async () => {
-    const { drawn } = stubShareCanvas();
+    const { drawn, fills, stops } = stubShareCanvas();
     const path = await generateShareCover(
       '#activity-share-cover',
       (canvas) => renderActivityShareCover(canvas, buildActivityShareCoverData(BASE_ACTIVITY)),
@@ -115,6 +115,19 @@ describe('renderActivityShareCover', () => {
         '已报名 12 / 50 人 · 报名截止 2026/11/27 20:00',
         '人均 ¥50.00',
         '查看活动详情，报名参加',
+      ]),
+    );
+    // 活动封面使用暖金强调，不混入比赛的绿色强调。
+    expect(fills).toEqual(expect.arrayContaining(['#fde68a', '#f5c451', '#fbbf24']));
+    expect(fills).not.toContain('#dcfce7');
+    expect(fills).not.toContain('#16a34a');
+    expect(stops).toEqual(
+      expect.arrayContaining([
+        { kind: 'linear', offset: 0, color: '#0c1712' },
+        { kind: 'linear', offset: 0.58, color: '#173327' },
+        { kind: 'linear', offset: 1, color: '#4a2f14' },
+        { kind: 'radial', offset: 0, color: 'rgba(245, 196, 81, 0.48)' },
+        { kind: 'radial', offset: 1, color: 'rgba(245, 196, 81, 0)' },
       ]),
     );
   });

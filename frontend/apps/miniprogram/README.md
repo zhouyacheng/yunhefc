@@ -11,7 +11,7 @@ frontend/apps/miniprogram/
 └── miniprogram/
     ├── app.ts|json|wxss
     ├── assets/share-match-invite.png  # 5:4 比赛邀请封面兜底图（500×400）
-    ├── assets/share-activity-invite.png  # 5:4 活动分享封面兜底图（500×400）
+    ├── assets/share-activity-invite.png  # 5:4 活动分享封面兜底图（500×400，暖色调）
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片、分享封面画布
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts

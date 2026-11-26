@@ -2,12 +2,13 @@ package com.yunhefc.infra.storage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.yunhefc.content.domain.ContentRules;
 import org.junit.jupiter.api.Test;
 
 class InMemoryOssGatewayTest {
 
     private static final String OBJECT_KEY = "content/12/01J9ZQ8K3M4N5P6Q7R8S9T0VWX.jpg";
-    private static final String PROCESS = "image/resize,m_lfit,w_480/quality,q_80";
+    private static final String PROCESS = ContentRules.THUMBNAIL_PROCESS;
 
     private final InMemoryOssGateway gateway = new InMemoryOssGateway();
 

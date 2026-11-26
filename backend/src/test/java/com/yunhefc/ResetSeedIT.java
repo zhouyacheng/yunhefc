@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class ResetSeedIT extends IntegrationTestSupport {
 
     @Test
-    void resetKeepsActivityAndLedgerSeedData() {
+    void resetKeepsSeedData() {
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM permission", Integer.class)).isEqualTo(37);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM role_permission", Integer.class)).isEqualTo(54);
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM ledger_category WHERE is_deleted = 0", Integer.class))

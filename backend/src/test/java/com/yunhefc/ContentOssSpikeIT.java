@@ -3,6 +3,7 @@ package com.yunhefc;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.yunhefc.common.util.Ulid;
+import com.yunhefc.content.domain.ContentRules;
 import com.yunhefc.infra.storage.AliyunOssGateway;
 import com.yunhefc.infra.storage.OssProperties;
 import org.junit.jupiter.api.Test;
@@ -27,7 +28,7 @@ import java.net.http.HttpResponse;
 @EnabledIfEnvironmentVariable(named = "OSS_SPIKE_ENABLED", matches = "true")
 class ContentOssSpikeIT {
 
-    private static final String PROCESS = "image/resize,m_lfit,w_480/quality,q_80";
+    private static final String PROCESS = ContentRules.THUMBNAIL_PROCESS;
     /** 与真实对象键同构（content/{uploaderUserId}/{ULID}.jpg），用不存在的上传人 ID 避免撞上真实照片。 */
     private static final String OBJECT_KEY = "content/999999/" + Ulid.generate() + ".jpg";
 

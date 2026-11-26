@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.flywaydb.core.Flyway;
 import org.flywaydb.core.api.MigrationVersion;
+import org.flywaydb.core.api.output.MigrateResult;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
@@ -38,7 +39,8 @@ class FlywayContentIT {
         }
 
         migrateTo(null);
-        migrateTo(null);
+        MigrateResult repeat = migrateTo(null);
+        assertThat(repeat.migrationsExecuted).as("重复 migrate 应为空转").isZero();
 
         try (Connection connection = connect()) {
             assertThat(schemaVersion(connection)).isEqualTo("21");
@@ -108,13 +110,13 @@ class FlywayContentIT {
         }
     }
 
-    private void migrateTo(String version) {
+    private MigrateResult migrateTo(String version) {
         var configuration = Flyway.configure()
                 .dataSource(MYSQL.getJdbcUrl(), MYSQL.getUsername(), MYSQL.getPassword());
         if (version != null) {
             configuration.target(MigrationVersion.fromVersion(version));
         }
-        configuration.load().migrate();
+        return configuration.load().migrate();
     }
 
     private Connection connect() throws Exception {

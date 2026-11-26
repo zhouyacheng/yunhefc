@@ -20,7 +20,7 @@ description: MySQL 表结构、命名、枚举、伪删除、索引、约束与 
 1. 数据库对象统一小写 `snake_case`；表名使用单数，例如 `team`、`player`、`team_match`。
 2. 避开 MySQL 保留字；已用 `team_match`、`app_user`、`app_role`、`match_grouping`。
 3. 主键统一 `id BIGINT UNSIGNED AUTO_INCREMENT`；关联字段使用 `{实体}_id`，例如 `team_id`、`player_id`、`match_id`。
-4. 关联表使用复合主键，例如 `user_role(user_id, role_id)`、`role_permission(role_id, permission_id)`。
+4. 关联表使用复合主键，例如 `user_role(user_id, role_id)`、`role_permission(role_id, permission_id)`。例外：`content_post_like` 按 04 §5.36 采用自增 `id` + `uk_content_post_like(post_id, user_id)`，与业务表统一自增主键一致，并支持取消点赞后恢复同一行。
 5. 字段类型准确表达业务含义：
    - 时间：`DATETIME(3)`，统一 Asia/Shanghai（+08:00）墙钟。
    - 布尔：`TINYINT(1)`，0/1，`COMMENT` 写明含义。
@@ -72,7 +72,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 1. 高频查询、分页排序、逻辑关联字段建立索引；索引以实际查询与执行计划为依据。
 2. 列表分页优先使用 `(过滤列, 排序列)` 组合索引，并带稳定 tie-breaker。
 3. 唯一约束由唯一索引实现；不要为同一列重复建普通索引。
-4. 业务表现有 80 条 KEY/UNIQUE 定义（P-74 V13 新增 `uk_user_mp_openid`；V14 排行榜仅加列不建索引；V16 活动与账本新增 12 条后为 72；V18 新增 `idx_activity_image_activity` 后为 73；V15（待批准）删除旧 `openid` 后为 72；P-142 内容 4 表新增 7 条后为 80）；复核未发现完全重复或前缀可覆盖项，不重复建可覆盖索引（P-66 新增 `idx_audit_team_operated`）。
+4. 业务表现有 80 条 KEY/UNIQUE 定义（P-74 V13 新增 `uk_user_mp_openid`；V14 排行榜仅加列不建索引；V16 活动与账本新增 12 条后为 72；V18 新增 `idx_activity_image_activity` 后为 73；V15（待批准）删除旧 `openid` 后为 79；P-142 内容 4 表新增 7 条后为 80）；复核未发现完全重复或前缀可覆盖项，不重复建可覆盖索引（P-66 新增 `idx_audit_team_operated`）。
 5. `is_deleted` 作为通用过滤条件，不单独建低选择性索引；查询在现有索引前缀后附加 `is_deleted=0`。
 6. Quartz 官方索引随框架保留，不做业务索引收敛。
 7. 索引变更通过 Flyway 迁移；不在生产环境手工 `CREATE INDEX`。

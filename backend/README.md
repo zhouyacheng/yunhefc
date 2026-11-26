@@ -7,7 +7,15 @@ Spring Boot 3.5.x / Java 21 单部署单元。当前已实现 M01–M03 接口�
 ```bash
 ./mvnw test          # 单元测试（不起容器）
 ./mvnw verify        # 单元 + 集成测试（推荐）
-SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run   # dev 显式开启短信/微信 mock
+../scripts/dev-backend.sh   # 本机 dev 环境：MySQL 3307 / Redis 6380 / Kafka 19092，凭证来自 ~/.zshrc
+```
+
+`dev-backend.sh` 按本机 Docker 映射端口注入 `DB_URL`、`REDIS_PORT`、`KAFKA_BOOTSTRAP_SERVERS`，并从 `~/.zshrc` 读取 `WECHAT_MINI_APP_ID`、`WECHAT_MINI_APP_SECRET`、`OSS_ACCESS_KEY_ID`、`OSS_ACCESS_KEY_SECRET`（已存在的环境变量优先；`OSS_MODE` / `WECHAT_MINI_MODE` 为 `mock` 时跳过对应凭证）。Kafka 消费与 Outbox 沿用 `application.yml` 默认值（均开启）。
+
+手动启动按 `application.yml` 默认端口（MySQL 3306、Redis 6379、Kafka 9092）连接，并自行注入凭证；没有凭证时用 mock：
+
+```bash
+SPRING_PROFILES_ACTIVE=dev OSS_MODE=mock WECHAT_MINI_MODE=mock ./mvnw spring-boot:run
 ```
 
 默认连接本机 MySQL/Redis/Kafka；可通过环境变量覆盖：
@@ -19,21 +27,26 @@ SPRING_PROFILES_ACTIVE=dev ./mvnw spring-boot:run   # dev 显式开启短信/微
 | `REDIS_HOST` / `REDIS_PORT` | `localhost` / `6379` |
 | `AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS` / `AUTH_LOGIN_RATE_LIMIT_WINDOW` | `50` / `1m`；登录限流（按手机号 + IP） |
 | `AUTH_SMS_IP_RATE_LIMIT_MAX_PER_HOUR` | `10`；短信按 IP 的小时限流（03 §5） |
-| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` |
+| `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092`（`application.yml` 默认）；`dev-backend.sh` 按本机映射注入 `localhost:19092` |
+| `KAFKA_LISTENER_ENABLED` / `OUTBOX_ENABLED` | `true`；dev 与 prod 默认开启 Kafka 消费与 Outbox 中继，CI/E2E 显式注入 `false` |
 | `SERVER_PORT` | `8080` |
 | `SMS_MOCK_ENABLED` | `false`；本地开发需显式设为 `true`。prod 下必须为 `false`，为 `true` 则启动失败；未开启 mock 时必须配置短信凭证，否则启动失败 |
 | `SMS_ENDPOINT` | `https://gyytz.market.alicloudapi.com/sms/smsSend` |
 | `SMS_APPCODE` / `SMS_SIGN_ID` / `SMS_TEMPLATE_ID` | 空；非 mock 模式下必须配置，prod 缺失则启动失败 |
 
-### 查看操作日志（需本地 Kafka）
+### Kafka 消费与操作日志（需本地 Kafka）
 
-dev profile 默认关闭 Outbox 中继与 Kafka 消费（`application-dev.yml`），业务写入只落
-`outbox_event`，不会产生 `audit_log`，B10 操作日志页因此看不到新记录。需要验证操作日志时显式开启：
-
-1. 创建 topic（Kafka 禁止自动建 topic）：
+dev profile 默认开启 Outbox 中继与 Kafka 消费（沿用 `application.yml` 默认值，`application-dev.yml` 不覆盖），
+业务写入经 `outbox_event` 投递到 Kafka，再由消费者落 `audit_log` 与通知。本地 Kafka 未就绪时，显式关闭：
 
 ```bash
-KAFKA_BOOTSTRAP=localhost:19092   # 换成实际映射到宿主机 9092 的端口
+KAFKA_LISTENER_ENABLED=false OUTBOX_ENABLED=false ../scripts/dev-backend.sh
+```
+
+Kafka 禁止自动建 topic，首次使用需预建：
+
+```bash
+KAFKA_BOOTSTRAP=localhost:19092   # dev-backend.sh 注入的本机端口；按实际宿主机映射调整
 for topic in yunhefc.notification.events yunhefc.notification.events.DLT \
              yunhefc.audit.events yunhefc.audit.events.DLT; do
   docker run --rm --network host apache/kafka:3.7.2 \
@@ -42,18 +55,16 @@ for topic in yunhefc.notification.events yunhefc.notification.events.DLT \
 done
 ```
 
-2. 启动时开启链路，缩短中继周期便于排空积压：
+排空积压时缩短中继周期：
 
 ```bash
-SPRING_PROFILES_ACTIVE=dev \
-OUTBOX_ENABLED=true KAFKA_LISTENER_ENABLED=true OUTBOX_RELAY_INTERVAL_MS=5000 \
-./mvnw spring-boot:run
+OUTBOX_RELAY_INTERVAL_MS=5000 ../scripts/dev-backend.sh
 ```
 
 日志为异步落库，正常延迟不超过一个中继周期。首次开启会补投历史 PENDING 事件（每批 20 条），
 积压较多时需要等待排空；期间通知消费者也会同步消费，dev 下短信/微信为 mock，不会外发。
 
-E2E 仍显式注入 `OUTBOX_ENABLED=false` / `KAFKA_LISTENER_ENABLED=false`，不受上述开关影响；
+E2E 仍显式注入 `OUTBOX_ENABLED=false` / `KAFKA_LISTENER_ENABLED=false`，不受上述默认值影响；
 prod 两者默认开启，若线上同样没有日志，先查 `outbox_event` 的 `status` 与 `last_error`。
 
 ## 测试

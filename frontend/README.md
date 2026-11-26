@@ -19,13 +19,16 @@ Vite dev 把 `/api` 代理到 `http://localhost:8080`，并去掉转发请求的
 
 ## 后端 dev profile 与测试数据
 
-后端需先启动 MySQL/Redis。dev profile 打开短信/微信 mock、关闭 Kafka 消费与 Outbox：
+后端需先启动 MySQL/Redis，以及本地 Kafka（dev 默认开启消费与 Outbox，未启动 Kafka 时注入 `KAFKA_LISTENER_ENABLED=false` / `OUTBOX_ENABLED=false` 关闭）。本机联调推荐在仓库根目录执行 `scripts/dev-backend.sh`：按本机容器端口（MySQL 3307 / Redis 6380 / Kafka 19092）启动，并从 `~/.zshrc` 读取微信小程序与 OSS 凭证。
+
+手动启动按默认端口（3306/6379/9092），凭证需自行注入；没有凭证时用 mock：
 
 ```bash
 cd backend
 DB_URL='jdbc:mysql://localhost:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8' \
 REDIS_PORT=6379 \
 AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS=1000 \
+OSS_MODE=mock WECHAT_MINI_MODE=mock \
 SPRING_PROFILES_ACTIVE=dev \
 ./mvnw spring-boot:run
 ```
@@ -39,7 +42,7 @@ mysql -uyunhefc -pyunhefc yunhefc < scripts/sql/test-data.sql
 # 或容器内：docker exec -i <mysql容器> mysql -uyunhefc -pyunhefc yunhefc < scripts/sql/test-data.sql
 ```
 
-若本地容器映射到非默认端口（如 MySQL 3307、Redis 6380），上面的 `DB_URL`/`REDIS_PORT` 按实际端口替换。
+若本地容器映射到非默认端口（如 MySQL 3307、Redis 6380），上面的 `DB_URL`/`REDIS_PORT` 按实际替换，或直接用 `scripts/dev-backend.sh`。
 
 > `test-data.sql` 仅用于测试库；重跑会覆盖 1001/1002 的密码哈希。
 

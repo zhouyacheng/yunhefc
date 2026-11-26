@@ -80,11 +80,77 @@ export function toLedgerFilter(query: LedgerFilters): QueryParams {
   return params;
 }
 
-/** LED-01 列表请求：筛选 + 分页。 */
-export function toLedgerRequest(query: LedgerQuery): QueryParams {
-  return {
-    ...toLedgerFilter(query),
-    page: query.page,
-    pageSize: query.pageSize,
-  };
+/** 关键字非空时追加到请求；列表与日小计共用。 */
+function withKeyword(params: QueryParams, keyword: string | undefined): QueryParams {
+  const trimmed = keyword?.trim();
+  if (trimmed) {
+    params.keyword = trimmed;
+  }
+  return params;
+}
+
+/** LED-01 列表请求：筛选 + 关键字 + 分页。 */
+export function toLedgerRequest(query: LedgerQuery & { keyword?: string }): QueryParams {
+  return withKeyword(
+    {
+      ...toLedgerFilter(query),
+      page: query.page,
+      pageSize: query.pageSize,
+    },
+    query.keyword,
+  );
+}
+
+/** LED-13 日小计请求：与列表同口径，并带关键字。 */
+export function toDailyTotalRequest(query: LedgerFilters, keyword: string): QueryParams {
+  return withKeyword(toLedgerFilter(query), keyword);
+}
+
+/** 月份前后切换；越界返回原值。 */
+export function shiftMonth(month: string, delta: number): string {
+  const [year = 0, monthOfYear = 1] = month.split('-').map(Number);
+  const shifted = new Date(Date.UTC(year, monthOfYear - 1 + delta, 1));
+  const nextYear = shifted.getUTCFullYear();
+  if (nextYear < 2000 || nextYear > 2100) {
+    return month;
+  }
+  return `${nextYear}-${String(shifted.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+export type LedgerStatsPeriod = 'week' | 'month' | 'year' | 'custom';
+
+/**
+ * LED-14 周期前后切换：周按 7 天；月/年固定取 15 日，避免 29–31 日跨月溢出，
+ * 同时保证切到周时落在目标月内。自定义周期不可前后切换，原样返回。
+ */
+export function shiftStatsAnchor(anchor: string, period: LedgerStatsPeriod, delta: number): string {
+  if (period === 'custom') {
+    return anchor;
+  }
+  const [year = 0, month = 1, day = 1] = anchor.split('-').map(Number);
+  let date: Date;
+  if (period === 'week') {
+    date = new Date(Date.UTC(year, month - 1, day));
+    date.setUTCDate(date.getUTCDate() + delta * 7);
+  } else if (period === 'month') {
+    date = new Date(Date.UTC(year, month - 1 + delta, 15));
+  } else {
+    date = new Date(Date.UTC(year + delta, month - 1, 15));
+  }
+  return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, '0')}-${String(
+    date.getUTCDate(),
+  ).padStart(2, '0')}`;
+}
+
+/** LED-14 请求：week/month/year 用 anchor，custom 用 from/to。 */
+export function toStatisticsRequest(query: {
+  period: LedgerStatsPeriod;
+  anchor: string;
+  from: string;
+  to: string;
+}): QueryParams {
+  if (query.period === 'custom') {
+    return { period: 'custom', from: query.from, to: query.to };
+  }
+  return { period: query.period, anchor: query.anchor };
 }

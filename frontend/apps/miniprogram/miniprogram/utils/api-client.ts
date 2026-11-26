@@ -20,7 +20,10 @@ import type {
   Leaderboard,
   LeaderboardScope,
   LedgerCategory,
+  LedgerDailyTotal,
   LedgerEntry,
+  LedgerPeriod,
+  LedgerStatistics,
   LedgerSummary,
   LedgerType,
   LineupView,
@@ -468,6 +471,7 @@ export interface LedgerFilter {
   categoryId?: number;
   from?: string;
   to?: string;
+  keyword?: string;
 }
 
 export interface LedgerEntryQuery extends LedgerFilter {
@@ -486,8 +490,46 @@ export function listLedgerEntries(query: LedgerEntryQuery = {}): Promise<Page<Le
       categoryId: query.categoryId,
       from: query.from,
       to: query.to,
+      keyword: query.keyword,
       page,
       pageSize,
+    })}`,
+  );
+}
+
+/** LED-13 按日小计；筛选口径与 LED-01 一致（含关键字）。 */
+export async function listLedgerDailyTotals(
+  filter: LedgerFilter = {},
+): Promise<LedgerDailyTotal[]> {
+  const { items } = await request<{ items: LedgerDailyTotal[] }>(
+    'GET',
+    `/ledger/daily-totals${queryString({
+      type: filter.type,
+      categoryId: filter.categoryId,
+      from: filter.from,
+      to: filter.to,
+      keyword: filter.keyword,
+    })}`,
+  );
+  return items || [];
+}
+
+export interface LedgerStatisticsQuery {
+  period: LedgerPeriod;
+  anchor?: string;
+  from?: string;
+  to?: string;
+}
+
+/** LED-14 周期统计；自定义时间用 from/to（YYYY-MM-DD）。 */
+export function fetchLedgerStatistics(query: LedgerStatisticsQuery): Promise<LedgerStatistics> {
+  return request<LedgerStatistics>(
+    'GET',
+    `/ledger/statistics${queryString({
+      period: query.period,
+      anchor: query.anchor,
+      from: query.from,
+      to: query.to,
     })}`,
   );
 }

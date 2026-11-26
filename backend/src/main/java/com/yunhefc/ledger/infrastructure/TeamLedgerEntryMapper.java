@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Mapper
 public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntry> {
@@ -22,6 +23,41 @@ public interface TeamLedgerEntryMapper extends BaseMapper<LedgerEntry> {
                                    @Param("categoryId") Long categoryId,
                                    @Param("playerId") Long playerId,
                                    @Param("activityId") Long activityId);
+
+    /**
+     * LED-13：按自然日聚合，筛选口径与 LED-01 一致（含关键字）。
+     */
+    List<LedgerDailyTotalRow> selectDailyTotals(@Param("teamId") Long teamId,
+                                                @Param("incomeCode") int incomeCode,
+                                                @Param("expenseCode") int expenseCode,
+                                                @Param("from") LocalDateTime from,
+                                                @Param("to") LocalDateTime to,
+                                                @Param("type") Integer type,
+                                                @Param("categoryId") Long categoryId,
+                                                @Param("playerId") Long playerId,
+                                                @Param("activityId") Long activityId,
+                                                @Param("keyword") String keyword);
+
+    /**
+     * LED-14：区间收支合计与笔数；区间左闭右开。
+     */
+    LedgerTotalsRow selectTotals(@Param("teamId") Long teamId,
+                                 @Param("incomeCode") int incomeCode,
+                                 @Param("expenseCode") int expenseCode,
+                                 @Param("from") LocalDateTime from,
+                                 @Param("to") LocalDateTime to);
+
+    List<LedgerTrendRow> selectDailyTrend(@Param("teamId") Long teamId,
+                                          @Param("incomeCode") int incomeCode,
+                                          @Param("expenseCode") int expenseCode,
+                                          @Param("from") LocalDateTime from,
+                                          @Param("to") LocalDateTime to);
+
+    List<LedgerTrendRow> selectMonthlyTrend(@Param("teamId") Long teamId,
+                                            @Param("incomeCode") int incomeCode,
+                                            @Param("expenseCode") int expenseCode,
+                                            @Param("from") LocalDateTime from,
+                                            @Param("to") LocalDateTime to);
 
     /**
      * 当前读并锁定流水行：版本冲突时读取最新版本返回给调用方。

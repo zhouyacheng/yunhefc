@@ -1,6 +1,7 @@
 import { SHANGHAI_OFFSET_MS } from './shanghai';
 
 const WEEKDAYS = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+const WEEKDAYS_LONG = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
 
 function pad(value: number): string {
   return String(value).padStart(2, '0');
@@ -59,6 +60,39 @@ export function currentShanghaiMonth(now: number | Date = Date.now()): string {
   const time = typeof now === 'number' ? now : now.getTime();
   const date = new Date(time + SHANGHAI_OFFSET_MS);
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}`;
+}
+
+/** 当前自然日（Asia/Shanghai），输出 `YYYY-MM-DD`。 */
+export function currentShanghaiDate(now: number | Date = Date.now()): string {
+  return `${currentShanghaiMonth(now)}-${pad(
+    new Date((typeof now === 'number' ? now : now.getTime()) + SHANGHAI_OFFSET_MS).getUTCDate(),
+  )}`;
+}
+
+/** 展示文案：`11月26日 星期四`；无效值返回占位符 `—`。 */
+export function formatMonthDayWeekday(value: string | null | undefined): string {
+  const date = shanghaiDate(value);
+  if (!date) {
+    return '—';
+  }
+  return `${date.getUTCMonth() + 1}月${date.getUTCDate()}日 ${WEEKDAYS_LONG[date.getUTCDay()]}`;
+}
+
+/** 月份标题：`2026年11月`。 */
+export function formatMonthLabel(month: string): string {
+  const [year = '', monthOfYear = ''] = month.split('-');
+  return year && monthOfYear ? `${year}年${Number(monthOfYear)}月` : '—';
+}
+
+/** 月份前后切换；越界返回原值，限制在 2000-01 至 2100-12。 */
+export function shiftMonth(month: string, delta: number): string {
+  const [year = 0, monthOfYear = 1] = month.split('-').map(Number);
+  const date = new Date(Date.UTC(year, monthOfYear - 1 + delta, 1));
+  const nextYear = date.getUTCFullYear();
+  if (nextYear < 2000 || nextYear > 2100) {
+    return month;
+  }
+  return `${nextYear}-${pad(date.getUTCMonth() + 1)}`;
 }
 
 /** 展示文案：按 Asia/Shanghai 输出 `YYYY/MM/DD`（不含时分与星期），无效值返回占位符 `—`。 */

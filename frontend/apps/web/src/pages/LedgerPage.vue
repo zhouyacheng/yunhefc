@@ -1,165 +1,75 @@
 <script setup lang="ts">
-import { describeError } from '@yunhefc/api-client';
 import { LEDGER_VIEW_ANY, hasPermission } from '@yunhefc/permissions';
-import type { LedgerCategory, LedgerEntry, LedgerSummary, Page } from '@yunhefc/shared';
-import { Button, Empty, Loading, Pagination } from 'vant';
+import type { LedgerEntry } from '@yunhefc/shared';
+import { formatAmount } from '@yunhefc/shared';
+import { Button, Empty, Icon, Loading, Pagination } from 'vant';
 import { computed, onMounted, ref } from 'vue';
 
-import { api } from '../api/client';
+import LedgerStatsPanel from '../components/LedgerStatsPanel.vue';
+import LedgerSummaryCard from '../components/LedgerSummaryCard.vue';
 import MonthRangeFilter from '../components/MonthRangeFilter.vue';
-import type { TimeForm } from '../features/common/time-filter';
 import {
   LEDGER_TYPE_OPTIONS,
   amountSign,
-  categoryLabelMap,
-  categoryOptions,
+  categoryIcon,
+  entryCategoryLabel,
   entryMetaText,
   entryTitle,
   formatEntryAmount,
-  formatMoney,
-  ledgerFlow,
 } from '../features/ledger/presentation';
-import {
-  DEFAULT_LEDGER_PAGE_SIZE,
-  LEDGER_PAGE_SIZE_OPTIONS,
-  parseLedgerType,
-  toLedgerFilter,
-  toLedgerRequest,
-  type LedgerFilters,
-} from '../features/ledger/query';
+import { LEDGER_PAGE_SIZE_OPTIONS } from '../features/ledger/query';
+import { useLedgerDetail } from '../features/ledger/useLedgerDetail';
 import { useSessionStore } from '../stores/session';
 
 const session = useSessionStore();
 
-const typeFilter = ref('');
-const categoryFilter = ref('');
-const timeFilter = ref<TimeForm>({ month: '', startDate: '', endDate: '' });
-const page = ref(1);
-const pageSize = ref(DEFAULT_LEDGER_PAGE_SIZE);
-const categories = ref<LedgerCategory[]>([]);
-const categoriesError = ref('');
-const entries = ref<LedgerEntry[]>([]);
-const summary = ref<LedgerSummary | null>(null);
-const total = ref(0);
-const loading = ref(true);
-const error = ref('');
-let requestSeq = 0;
+type TabKey = 'detail' | 'stats';
 
 const allowed = computed(
   () => session.isAuthenticated && hasPermission(session.permissions, LEDGER_VIEW_ANY),
 );
-const direction = computed(() => parseLedgerType(typeFilter.value));
-const options = computed(() => categoryOptions(categories.value, direction.value));
-const labels = computed(() => categoryLabelMap(categories.value));
-const hasEntries = computed(() => entries.value.length > 0);
-/** 与汇总结果同步更新，避免重载期间把旧数字标成「筛选合计」。 */
-const summaryFiltered = ref(false);
-const flow = computed(() => ledgerFlow(summary.value ?? { income: 0, expense: 0 }));
+const detail = useLedgerDetail(allowed);
+const {
+  month,
+  monthLabel,
+  custom,
+  customActive,
+  typeFilter,
+  categoryFilter,
+  keyword,
+  options,
+  labels,
+  categoriesError,
+  groups,
+  summary,
+  total,
+  page,
+  pageSize,
+  loading,
+  error,
+  hasEntries,
+  summaryFiltered,
+  load,
+  loadCategories,
+  reload,
+  selectMonth,
+  shiftMonthBy,
+  onCustomChange,
+  onSearchInput,
+  onTypeChange,
+  resetFilters,
+  onPageChange,
+  onPageSizeChange,
+} = detail;
 
-function isFiltered(filter: LedgerFilters): boolean {
-  return (
-    filter.type !== null ||
-    filter.categoryId !== null ||
-    filter.month !== '' ||
-    filter.startDate !== '' ||
-    filter.endDate !== ''
-  );
-}
-
-function filters(): LedgerFilters {
-  return {
-    type: direction.value,
-    categoryId: categoryFilter.value === '' ? null : Number(categoryFilter.value),
-    ...timeFilter.value,
-  };
-}
-
-async function load(): Promise<void> {
-  if (!allowed.value) {
-    loading.value = false;
-    return;
-  }
-  const seq = ++requestSeq;
-  loading.value = true;
-  error.value = '';
-  const filter = filters();
-  try {
-    const [entryPage, summaryView] = await Promise.all([
-      api.get<Page<LedgerEntry>>('/ledger/entries', {
-        query: toLedgerRequest({ ...filter, page: page.value, pageSize: pageSize.value }),
-      }),
-      api.get<LedgerSummary>('/ledger/summary', { query: toLedgerFilter(filter) }),
-    ]);
-    if (seq !== requestSeq) {
-      return;
-    }
-    entries.value = entryPage.items;
-    total.value = entryPage.total;
-    page.value = entryPage.page;
-    summary.value = summaryView;
-    summaryFiltered.value = isFiltered(filter);
-  } catch (caught) {
-    if (seq !== requestSeq) {
-      return;
-    }
-    entries.value = [];
-    total.value = 0;
-    summary.value = null;
-    summaryFiltered.value = false;
-    error.value = describeError(caught, '账本加载失败，请稍后重试');
-  } finally {
-    if (seq === requestSeq) {
-      loading.value = false;
-    }
-  }
-}
-
-async function loadCategories(): Promise<void> {
-  try {
-    const result = await api.get<{ items: LedgerCategory[] }>('/ledger/categories');
-    categories.value = result.items;
-    categoriesError.value = '';
-  } catch (caught) {
-    categories.value = [];
-    categoriesError.value = describeError(caught, '分类加载失败');
-  }
-}
-
-function reload(): void {
-  page.value = 1;
-  void load();
-}
-
-function onTypeChange(): void {
-  if (
-    categoryFilter.value !== '' &&
-    !options.value.some((item) => String(item.id) === categoryFilter.value)
-  ) {
-    categoryFilter.value = '';
-  }
-  reload();
-}
-
-function resetFilters(): void {
-  typeFilter.value = '';
-  categoryFilter.value = '';
-  timeFilter.value = { month: '', startDate: '', endDate: '' };
-  reload();
-}
-
-function onPageChange(next: number): void {
-  page.value = next;
-  void load();
-}
-
-function onPageSizeChange(event: Event): void {
-  pageSize.value = Number((event.target as HTMLSelectElement).value);
-  page.value = 1;
-  void load();
-}
+const activeTab = ref<TabKey>('detail');
 
 function amountTone(entry: LedgerEntry): string {
   return entry.type === 0 ? 'income' : 'expense';
+}
+
+function iconOf(entry: LedgerEntry): string {
+  return categoryIcon(entryCategoryLabel(entry, labels.value));
 }
 
 onMounted(() => {
@@ -188,230 +98,248 @@ onMounted(() => {
     </section>
 
     <template v-else>
-      <section class="card ledger-summary" data-testid="ledger-summary">
-        <div class="ledger-summary__balance">
-          <div class="ledger-summary__balance-head">
-            <span class="ledger-summary__label">余额</span>
-            <span v-if="summaryFiltered" class="ledger-summary__scope">筛选合计</span>
-          </div>
-          <b
-            class="ledger-summary__value ledger-summary__value--balance"
-            :class="{ 'ledger-summary__value--negative': (summary?.balance ?? 0) < 0 }"
-          >
-            {{ formatMoney(summary?.balance ?? 0) }}
-          </b>
+      <LedgerSummaryCard
+        :month="month"
+        :month-label="monthLabel"
+        :custom-active="customActive"
+        :expense="summary?.expense ?? 0"
+        :income="summary?.income ?? 0"
+        :balance="summary?.balance ?? 0"
+        :filtered="summaryFiltered"
+        @prev="shiftMonthBy(-1)"
+        @next="shiftMonthBy(1)"
+        @pick="selectMonth"
+      />
+
+      <nav class="ledger-tabs" role="tablist" aria-label="账本视图">
+        <button
+          type="button"
+          role="tab"
+          class="ledger-tabs__tab"
+          :class="{ 'is-active': activeTab === 'detail' }"
+          :aria-selected="activeTab === 'detail'"
+          @click="activeTab = 'detail'"
+        >
+          明细
+        </button>
+        <button
+          type="button"
+          role="tab"
+          class="ledger-tabs__tab"
+          :class="{ 'is-active': activeTab === 'stats' }"
+          :aria-selected="activeTab === 'stats'"
+          @click="activeTab = 'stats'"
+        >
+          统计
+        </button>
+        <div v-if="activeTab === 'detail'" class="ledger-search">
+          <Icon name="search" class="ledger-search__icon" aria-hidden="true" />
+          <input
+            v-model="keyword"
+            type="search"
+            class="ledger-search__input"
+            placeholder="搜索摘要"
+            aria-label="搜索流水"
+            maxlength="64"
+            @input="onSearchInput"
+          />
         </div>
-        <div class="ledger-summary__flows">
-          <div class="ledger-summary__flow">
-            <span class="ledger-summary__label">收入</span>
-            <b class="ledger-summary__value ledger-summary__value--income">
-              {{ formatMoney(summary?.income ?? 0) }}
-            </b>
-          </div>
-          <div class="ledger-summary__flow ledger-summary__flow--end">
-            <span class="ledger-summary__label">支出</span>
-            <b class="ledger-summary__value ledger-summary__value--expense">
-              {{ formatMoney(summary?.expense ?? 0) }}
-            </b>
-          </div>
-          <div v-if="flow.ratioPercent !== null" class="ledger-summary__ratio">
-            <div class="ledger-summary__bar" aria-hidden="true">
-              <i class="ledger-summary__bar-fill" :style="{ width: `${flow.ratioPercent}%` }"></i>
-            </div>
-            <span class="ledger-summary__ratio-label">{{ flow.ratioLabel }}</span>
-          </div>
-        </div>
-      </section>
+      </nav>
 
-      <section class="schedule-filters">
-        <label class="schedule-filter">
-          <span>方向</span>
-          <select v-model="typeFilter" aria-label="收支方向" @change="onTypeChange">
-            <option value="">全部</option>
-            <option
-              v-for="item in LEDGER_TYPE_OPTIONS"
-              :key="item.value"
-              :value="String(item.value)"
-            >
-              {{ item.label }}
-            </option>
-          </select>
-        </label>
-        <label class="schedule-filter">
-          <span>分类</span>
-          <select v-model="categoryFilter" aria-label="账本分类" @change="reload">
-            <option value="">全部</option>
-            <option v-for="item in options" :key="item.id" :value="String(item.id)">
-              {{ item.name }}
-            </option>
-          </select>
-        </label>
-        <MonthRangeFilter v-model="timeFilter" @change="reload" />
-        <div class="schedule-filter-actions">
-          <Button size="small" native-type="button" plain @click="resetFilters">重置</Button>
-        </div>
-      </section>
-
-      <p v-if="categoriesError" class="hint">{{ categoriesError }}</p>
-
-      <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>
-
-      <div v-else-if="error" class="state">
-        <p class="muted">{{ error }}</p>
-        <Button size="small" type="primary" @click="load()">重试</Button>
-      </div>
-
-      <div v-else-if="!hasEntries" class="state">
-        <Empty description="该筛选下暂无流水" />
-      </div>
-
-      <template v-else>
-        <div class="ledger-list card">
-          <article
-            v-for="entry in entries"
-            :key="entry.id"
-            class="ledger-row"
-            data-testid="ledger-row"
-          >
-            <div class="ledger-row__main">
-              <p class="ledger-row__title">{{ entryTitle(entry, labels) }}</p>
-              <p class="ledger-row__meta">{{ entryMetaText(entry, labels) }}</p>
-            </div>
-            <b class="ledger-row__amount" :class="`ledger-row__amount--${amountTone(entry)}`"
-              ><span class="ledger-row__sign">{{ amountSign(entry) }}</span
-              >{{ formatEntryAmount(entry) }}</b
-            >
-          </article>
-        </div>
-
-        <footer class="page-footer">
-          <label class="page-size">
-            每页
-            <select :value="pageSize" aria-label="每页条数" @change="onPageSizeChange">
-              <option v-for="size in LEDGER_PAGE_SIZE_OPTIONS" :key="size" :value="size">
-                {{ size }}
+      <div v-if="activeTab === 'detail'">
+        <section class="schedule-filters">
+          <label class="schedule-filter">
+            <span>方向</span>
+            <select v-model="typeFilter" aria-label="收支方向" @change="onTypeChange">
+              <option value="">全部</option>
+              <option
+                v-for="item in LEDGER_TYPE_OPTIONS"
+                :key="item.value"
+                :value="String(item.value)"
+              >
+                {{ item.label }}
               </option>
             </select>
-            条
           </label>
-          <Pagination
-            :model-value="page"
-            mode="simple"
-            :total-items="total"
-            :items-per-page="pageSize"
-            @change="onPageChange"
-          />
-        </footer>
-      </template>
+          <label class="schedule-filter">
+            <span>分类</span>
+            <select v-model="categoryFilter" aria-label="账本分类" @change="reload">
+              <option value="">全部</option>
+              <option v-for="item in options" :key="item.id" :value="String(item.id)">
+                {{ item.name }}
+              </option>
+            </select>
+          </label>
+          <MonthRangeFilter v-model="custom" :show-month="false" @change="onCustomChange" />
+          <div class="schedule-filter-actions">
+            <Button size="small" native-type="button" plain @click="resetFilters">重置</Button>
+          </div>
+        </section>
+
+        <p v-if="categoriesError" class="hint">{{ categoriesError }}</p>
+
+        <div v-if="loading" class="state"><Loading size="24">加载中…</Loading></div>
+
+        <div v-else-if="error" class="state">
+          <p class="muted">{{ error }}</p>
+          <Button size="small" type="primary" @click="load()">重试</Button>
+        </div>
+
+        <div v-else-if="!hasEntries" class="state">
+          <Empty description="该筛选下暂无流水" />
+        </div>
+
+        <template v-else>
+          <section
+            v-for="group in groups"
+            :key="group.key"
+            class="ledger-day"
+            data-testid="ledger-day"
+          >
+            <header class="ledger-day__head">
+              <span class="ledger-day__date">{{ group.label }}</span>
+              <span class="ledger-day__totals">
+                支 {{ formatAmount(group.expense) }}
+                <span>收 {{ formatAmount(group.income) }}</span>
+              </span>
+            </header>
+            <div class="ledger-list card">
+              <article
+                v-for="entry in group.entries"
+                :key="entry.id"
+                class="ledger-row"
+                data-testid="ledger-row"
+              >
+                <span class="ledger-row__icon" :class="`ledger-row__icon--${amountTone(entry)}`">
+                  <Icon :name="iconOf(entry)" />
+                </span>
+                <div class="ledger-row__main">
+                  <p class="ledger-row__title">{{ entryTitle(entry, labels) }}</p>
+                  <p class="ledger-row__meta">{{ entryMetaText(entry, labels) }}</p>
+                </div>
+                <b class="ledger-row__amount" :class="`ledger-row__amount--${amountTone(entry)}`">
+                  <span class="ledger-row__sign">{{ amountSign(entry) }}</span
+                  >{{ formatEntryAmount(entry) }}
+                </b>
+              </article>
+            </div>
+          </section>
+
+          <footer class="page-footer">
+            <label class="page-size">
+              每页
+              <select :value="pageSize" aria-label="每页条数" @change="onPageSizeChange">
+                <option v-for="size in LEDGER_PAGE_SIZE_OPTIONS" :key="size" :value="size">
+                  {{ size }}
+                </option>
+              </select>
+              条
+            </label>
+            <Pagination
+              :model-value="page"
+              mode="simple"
+              :total-items="total"
+              :items-per-page="pageSize"
+              @change="onPageChange"
+            />
+          </footer>
+        </template>
+      </div>
+
+      <LedgerStatsPanel
+        v-show="activeTab === 'stats'"
+        :active="activeTab === 'stats'"
+        :page-month="month"
+      />
     </template>
   </section>
 </template>
 
 <style scoped>
-.ledger-summary {
-  display: grid;
-  gap: 20px 32px;
-  grid-template-columns: minmax(200px, 0.9fr) minmax(300px, 1.6fr);
-  align-items: center;
-  margin-bottom: 16px;
-  padding: 20px 22px;
-}
-
-.ledger-summary__balance {
+.ledger-tabs {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.ledger-summary__balance-head {
-  display: flex;
-  gap: 8px;
+  gap: 22px;
   align-items: center;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--yh-line);
 }
 
-.ledger-summary__label {
+.ledger-tabs__tab {
+  position: relative;
+  padding: 10px 2px 12px;
   color: var(--yh-muted);
-  font-size: 12px;
-}
-
-.ledger-summary__scope {
-  padding: 1px 6px;
-  color: var(--yh-slate-ink);
-  background: var(--yh-slate-soft);
-  border-radius: 6px;
-  font-size: 11px;
-}
-
-.ledger-summary__value {
-  font-variant-numeric: tabular-nums;
-}
-
-.ledger-summary__value--balance {
-  color: var(--yh-ink);
-  font-size: 34px;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-}
-
-.ledger-summary__value--income {
-  color: var(--yh-green-ink);
-}
-
-.ledger-summary__value--expense {
-  color: var(--yh-red);
-}
-
-.ledger-summary__value--negative {
-  color: var(--yh-red);
-}
-
-.ledger-summary__flows {
-  display: grid;
-  gap: 10px 20px;
-  grid-template-columns: 1fr 1fr;
-}
-
-.ledger-summary__flow {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.ledger-summary__flow--end {
-  text-align: right;
-}
-
-.ledger-summary__flow .ledger-summary__value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
 }
 
-.ledger-summary__ratio {
+.ledger-tabs__tab.is-active {
+  color: var(--yh-ink);
+}
+
+.ledger-tabs__tab.is-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 3px;
+  background: var(--yh-blue);
+  border-radius: 3px 3px 0 0;
+  content: '';
+}
+
+.ledger-search {
   display: flex;
-  flex-direction: column;
+  flex: 1;
   gap: 6px;
-  grid-column: 1 / -1;
-}
-
-.ledger-summary__bar {
-  overflow: hidden;
-  height: 4px;
+  align-items: center;
+  max-width: 280px;
+  margin-left: auto;
+  padding: 6px 12px;
   background: var(--yh-slate-soft);
   border-radius: 999px;
 }
 
-.ledger-summary__bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--yh-red);
-  border-radius: inherit;
+.ledger-search__icon {
+  color: var(--yh-muted);
+  font-size: 15px;
 }
 
-.ledger-summary__ratio-label {
+.ledger-search__input {
+  width: 100%;
+  color: var(--yh-ink);
+  font-size: 13px;
+  background: transparent;
+  border: 0;
+  outline: none;
+}
+
+.ledger-day + .ledger-day {
+  margin-top: 18px;
+}
+
+.ledger-day__head {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 4px 8px;
+}
+
+.ledger-day__date {
+  color: var(--yh-slate-ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ledger-day__totals {
+  display: flex;
+  gap: 12px;
   color: var(--yh-muted);
-  font-size: 11px;
-  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
 }
 
 .ledger-list {
@@ -420,7 +348,7 @@ onMounted(() => {
 
 .ledger-row {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
   padding: 14px 0;
 }
@@ -429,25 +357,48 @@ onMounted(() => {
   border-top: 1px solid var(--yh-line);
 }
 
+.ledger-row__icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  color: var(--yh-blue-ink);
+  font-size: 19px;
+  background: var(--yh-blue-soft);
+  border-radius: 12px;
+}
+
+.ledger-row__icon--income {
+  color: var(--yh-green-ink);
+  background: var(--yh-green-soft);
+}
+
 .ledger-row__main {
   flex: 1;
   min-width: 0;
 }
 
 .ledger-row__title {
+  overflow: hidden;
   margin: 0;
   color: var(--yh-ink);
   font-size: 15px;
   font-weight: 600;
   line-height: 1.45;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ledger-row__meta {
+  overflow: hidden;
   margin: 2px 0 0;
   color: var(--yh-muted);
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ledger-row__amount {
@@ -472,22 +423,16 @@ onMounted(() => {
 }
 
 @media (max-width: 760px) {
-  .ledger-summary {
-    gap: 16px;
-    grid-template-columns: 1fr;
-    padding: 16px;
-  }
-
-  .ledger-summary__value--balance {
-    font-size: 30px;
-  }
-
   .ledger-row {
-    gap: 12px;
+    gap: 10px;
   }
 
   .ledger-row__amount {
-    width: 108px;
+    width: 104px;
+  }
+
+  .ledger-search {
+    max-width: 150px;
   }
 }
 </style>

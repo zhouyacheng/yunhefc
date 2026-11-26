@@ -12,6 +12,7 @@ import {
 import type { TimeForm } from '../features/common/time-filter';
 
 /** 时间筛选控件：月份与自定义日期范围互斥；变更后由父组件决定是否立即查询。 */
+const props = withDefaults(defineProps<{ showMonth?: boolean }>(), { showMonth: true });
 const emit = defineEmits<{ change: [] }>();
 const time = defineModel<TimeForm>({ required: true });
 
@@ -79,7 +80,7 @@ function clearRange(): void {
 </script>
 
 <template>
-  <div class="schedule-filter">
+  <div v-if="props.showMonth" class="schedule-filter">
     <span>月份</span>
     <div class="schedule-range">
       <button

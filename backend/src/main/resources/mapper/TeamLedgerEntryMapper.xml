@@ -3,6 +3,11 @@
         "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.yunhefc.ledger.infrastructure.TeamLedgerEntryMapper">
 
+    <sql id="amountTotals">
+        COALESCE(SUM(CASE WHEN type = #{incomeCode} THEN amount ELSE 0 END), 0) AS income,
+        COALESCE(SUM(CASE WHEN type = #{expenseCode} THEN amount ELSE 0 END), 0) AS expense
+    </sql>
+
     <select id="selectSummary" resultType="com.yunhefc.ledger.infrastructure.LedgerSummaryRow">
         SELECT COALESCE(SUM(CASE WHEN type = #{incomeCode} THEN amount ELSE 0 END), 0) AS income,
                COALESCE(SUM(CASE WHEN type = #{expenseCode} THEN amount ELSE 0 END), 0) AS expense
@@ -26,6 +31,68 @@
         <if test="activityId != null">
             AND activity_id = #{activityId}
         </if>
+    </select>
+
+    <select id="selectDailyTotals" resultType="com.yunhefc.ledger.infrastructure.LedgerDailyTotalRow">
+        SELECT DATE(occurred_at) AS entry_date,
+               <include refid="amountTotals"/>
+        FROM team_ledger_entry
+        WHERE team_id = #{teamId} AND is_deleted = 0
+        <if test="from != null">
+            AND occurred_at &gt;= #{from}
+        </if>
+        <if test="to != null">
+            AND occurred_at &lt;= #{to}
+        </if>
+        <if test="type != null">
+            AND type = #{type}
+        </if>
+        <if test="categoryId != null">
+            AND category_id = #{categoryId}
+        </if>
+        <if test="playerId != null">
+            AND player_id = #{playerId}
+        </if>
+        <if test="activityId != null">
+            AND activity_id = #{activityId}
+        </if>
+        <if test="keyword != null">
+            AND description LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        GROUP BY DATE(occurred_at)
+        ORDER BY entry_date DESC
+    </select>
+
+    <select id="selectTotals" resultType="com.yunhefc.ledger.infrastructure.LedgerTotalsRow">
+        SELECT <include refid="amountTotals"/>,
+               COALESCE(SUM(CASE WHEN type = #{incomeCode} THEN 1 ELSE 0 END), 0) AS income_count,
+               COALESCE(SUM(CASE WHEN type = #{expenseCode} THEN 1 ELSE 0 END), 0) AS expense_count
+        FROM team_ledger_entry
+        WHERE team_id = #{teamId} AND is_deleted = 0
+          AND occurred_at &gt;= #{from}
+          AND occurred_at &lt; #{to}
+    </select>
+
+    <select id="selectDailyTrend" resultType="com.yunhefc.ledger.infrastructure.LedgerTrendRow">
+        SELECT DATE(occurred_at) AS bucket_start,
+               <include refid="amountTotals"/>
+        FROM team_ledger_entry
+        WHERE team_id = #{teamId} AND is_deleted = 0
+          AND occurred_at &gt;= #{from}
+          AND occurred_at &lt; #{to}
+        GROUP BY DATE(occurred_at)
+        ORDER BY bucket_start
+    </select>
+
+    <select id="selectMonthlyTrend" resultType="com.yunhefc.ledger.infrastructure.LedgerTrendRow">
+        SELECT DATE_SUB(DATE(occurred_at), INTERVAL DAYOFMONTH(occurred_at) - 1 DAY) AS bucket_start,
+               <include refid="amountTotals"/>
+        FROM team_ledger_entry
+        WHERE team_id = #{teamId} AND is_deleted = 0
+          AND occurred_at &gt;= #{from}
+          AND occurred_at &lt; #{to}
+        GROUP BY bucket_start
+        ORDER BY bucket_start
     </select>
 
 </mapper>

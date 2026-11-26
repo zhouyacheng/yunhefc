@@ -123,6 +123,10 @@
   color: var(--yh-red);
 }
 
+.summary__balance-sign {
+  font-size: 0.7em;
+}
+
 .ledger-tabs {
   display: flex;
   flex-direction: row;

@@ -46,7 +46,7 @@
 
       <view class="summary__balance-line">
         <text>{{customActive ? '区间' : monthLabel}}结余</text>
-        <text class="summary__balance-value {{summary && summary.balanceTone === 'negative' ? 'is-negative' : ''}}">{{summary ? summary.balanceText : '—'}}</text>
+        <text class="summary__balance-value {{summary && summary.balanceTone === 'negative' ? 'is-negative' : ''}}"><text class="summary__balance-sign">{{summary ? summary.balanceSign : ''}}</text>{{summary ? summary.balanceText : '—'}}</text>
       </view>
     </view>
 

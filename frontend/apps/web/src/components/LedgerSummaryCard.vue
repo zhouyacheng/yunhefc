@@ -80,7 +80,9 @@ function confirm({ selectedValues }: { selectedValues: string[] }): void {
 
     <p class="ledger-hero__balance">
       <span>{{ customActive ? '区间' : monthLabel }}结余</span>
-      <b :class="{ 'is-negative': balance < 0 }">{{ formatMoney(balance) }}</b>
+      <b :class="{ 'is-negative': balance < 0 }">
+        <span v-if="balance < 0" class="ledger-hero__sign">−</span>{{ formatMoney(Math.abs(balance)) }}
+      </b>
     </p>
 
     <Popup v-model:show="pickerOpen" position="bottom" round>
@@ -220,6 +222,10 @@ function confirm({ selectedValues }: { selectedValues: string[] }): void {
 
 .ledger-hero__balance b.is-negative {
   color: var(--yh-red);
+}
+
+.ledger-hero__sign {
+  font-size: 0.7em;
 }
 
 @media (max-width: 760px) {

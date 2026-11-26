@@ -67,7 +67,8 @@ describe('金额文案', () => {
     expect(ledgerSummaryView({ income: 100, expense: 250, balance: -150 })).toEqual({
       incomeText: '¥100.00',
       expenseText: '¥250.00',
-      balanceText: '−¥150.00',
+      balanceSign: '−',
+      balanceText: '¥150.00',
       balanceTone: 'negative',
     });
   });

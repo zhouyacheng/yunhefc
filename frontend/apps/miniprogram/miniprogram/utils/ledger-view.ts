@@ -62,6 +62,8 @@ export interface LedgerEntryView {
 export interface LedgerSummaryView {
   incomeText: string;
   expenseText: string;
+  /** 负号单独渲染以便缩小字号，金额本身不带符号。 */
+  balanceSign: string;
   balanceText: string;
   /** 余额不是收支方向：正数为常规墨色，负数标红。 */
   balanceTone: 'default' | 'negative';
@@ -99,7 +101,10 @@ export function ledgerSummaryView(summary: LedgerSummary): LedgerSummaryView {
   return {
     incomeText: ledgerMoneyText(summary.income),
     expenseText: ledgerMoneyText(summary.expense),
-    balanceText: ledgerMoneyText(summary.balance),
+    balanceSign: summary.balance < 0 ? '−' : '',
+    balanceText: Number.isFinite(summary.balance)
+      ? ledgerMoneyText(Math.abs(summary.balance))
+      : '—',
     balanceTone: summary.balance < 0 ? 'negative' : 'default',
   };
 }

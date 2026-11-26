@@ -7,6 +7,11 @@ import {
   signupActivity,
 } from '../../utils/api-client';
 import { activityStatusOptions, type ActivityStatusOption } from '../../utils/activity-status';
+import {
+  ACTIVITY_SHARE_COVER_FALLBACK,
+  buildActivityShareCoverData,
+  renderActivityShareCover,
+} from '../../utils/activity-share-cover';
 import { errorMessage, shouldRefreshAfterActivityConflict } from '../../utils/api-errors';
 import {
   activityAction,
@@ -34,6 +39,7 @@ import {
   hasPermission,
 } from '../../utils/permissions';
 import { getPermissions, getPlayer, getUser, sessionReady } from '../../utils/session';
+import { SHARE_COVER_HEIGHT, SHARE_COVER_WIDTH, generateShareCover } from '../../utils/share-cover';
 
 /** 报名队列行：在 ACT-05 返回字段上补展示文案。 */
 interface ActivitySignupRowView extends ActivitySignup {
@@ -99,7 +105,13 @@ Page({
     signupTotal: null as number | null,
     signupsLoading: false,
     signupsError: '',
+    shareCoverPath: ACTIVITY_SHARE_COVER_FALLBACK,
+    shareCoverReady: false,
+    shareCoverStyle: `width:${SHARE_COVER_WIDTH}px;height:${SHARE_COVER_HEIGHT}px;`,
   },
+
+  /** 分享封面生成代次；连续生成时丢弃旧图。 */
+  shareCoverSeq: 0,
 
   onLoad(options: Record<string, string | undefined>) {
     const id = Number(options.id);
@@ -120,14 +132,18 @@ Page({
 
   onUnload() {
     requestSeq += 1;
+    this.shareCoverSeq += 1;
     hasLoaded = false;
   },
 
   onShareAppMessage() {
     const activity = this.data.activity;
     return {
-      title: activity ? `${activity.title} · 云河FC` : '云河FC 活动',
+      title: activity ? `${activity.title} · 活动邀请` : '云河FC 活动',
       path: `/pages/activity-detail/index?id=${this.data.id}`,
+      imageUrl: this.data.shareCoverReady
+        ? this.data.shareCoverPath
+        : ACTIVITY_SHARE_COVER_FALLBACK,
     };
   },
 
@@ -213,6 +229,26 @@ Page({
       error: '',
       actionError: '',
     });
+    void this.prepareShareCover();
+  },
+
+  /** 按当前活动生成 5:4 分享封面；失败回退包内静态品牌图，分享按钮随后恢复可用。 */
+  async prepareShareCover(): Promise<void> {
+    const activity = this.data.activity;
+    if (!activity) {
+      return;
+    }
+    const seq = this.shareCoverSeq + 1;
+    this.shareCoverSeq = seq;
+    const path = await generateShareCover(
+      '#activity-share-cover',
+      (canvas) => renderActivityShareCover(canvas, buildActivityShareCoverData(activity)),
+      ACTIVITY_SHARE_COVER_FALLBACK,
+    );
+    if (seq !== this.shareCoverSeq) {
+      return;
+    }
+    this.setData({ shareCoverPath: path, shareCoverReady: true });
   },
 
   /** ACT-05 报名队列；详情接口不内联名单，登录且持 activity:view:any 时单独加载。 */

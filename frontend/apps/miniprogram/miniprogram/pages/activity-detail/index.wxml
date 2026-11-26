@@ -21,11 +21,13 @@
           >{{statusText}} ▾</view>
           <text wx:else class="status-pill status-pill--{{statusTone}}">{{statusText}}</text>
           <button
+            wx:if="{{shareCoverReady}}"
             class="detail-share"
             size="mini"
             open-type="share"
             hover-class="detail-share--pressed"
           >分享活动</button>
+          <view wx:else class="detail-share detail-share--busy">准备中…</view>
         </view>
       </view>
 
@@ -254,4 +256,11 @@
     bind:change="onStatusChange"
     bind:cancel="onStatusCancel"
   />
+
+  <canvas
+    type="2d"
+    id="activity-share-cover"
+    class="share-cover-canvas"
+    style="{{shareCoverStyle}}"
+  ></canvas>
 </view>

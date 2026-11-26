@@ -17,12 +17,10 @@ import { createGuardedLoads, type GuardedLoads } from '../../utils/guarded-load'
 import { inviteLandingPath, type InvitePayload } from '../../utils/invite';
 import {
   SHARE_COVER_FALLBACK,
-  SHARE_COVER_HEIGHT,
-  SHARE_COVER_WIDTH,
   buildShareCoverData,
-  queryMatchInviteCoverCanvas,
   renderShareCover,
 } from '../../utils/match-invite-cover';
+import { SHARE_COVER_HEIGHT, SHARE_COVER_WIDTH, generateShareCover } from '../../utils/share-cover';
 import { buildLineupBoard, type LineupBoardView } from '../../utils/lineup-view';
 import {
   buildEventRows,
@@ -981,19 +979,15 @@ Page({
       this.setData({ shareCoverPath: SHARE_COVER_FALLBACK, shareCoverReady: true });
       return;
     }
-    try {
-      const canvas = await queryMatchInviteCoverCanvas();
-      const path = await renderShareCover(canvas, buildShareCoverData(detail, created));
-      if (seq !== this.shareCoverSeq) {
-        return;
-      }
-      this.setData({ shareCoverPath: path, shareCoverReady: true });
-    } catch {
-      if (seq !== this.shareCoverSeq) {
-        return;
-      }
-      this.setData({ shareCoverPath: SHARE_COVER_FALLBACK, shareCoverReady: true });
+    const path = await generateShareCover(
+      '#invite-cover',
+      (canvas) => renderShareCover(canvas, buildShareCoverData(detail, created)),
+      SHARE_COVER_FALLBACK,
+    );
+    if (seq !== this.shareCoverSeq) {
+      return;
     }
+    this.setData({ shareCoverPath: path, shareCoverReady: true });
   },
 
   onShareAppMessage(): WechatMiniprogram.Page.ICustomShareContent {

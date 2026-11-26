@@ -4,21 +4,16 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
-import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.security.AuthPrincipal;
-import com.yunhefc.infra.storage.ImageSniffer;
-import com.yunhefc.infra.storage.OssGateway;
-import com.yunhefc.player.domain.AvatarImage;
+import com.yunhefc.infra.storage.ImagePolicy;
+import com.yunhefc.infra.storage.ImageStore;
+import com.yunhefc.infra.storage.StoredImage;
 import com.yunhefc.player.domain.Player;
 import com.yunhefc.player.dto.PlayerDtos.AvatarUploadView;
 import com.yunhefc.player.infrastructure.PlayerMapper;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.io.IOException;
 
 /**
  * 头像只上传到私有 OSS，不修改球员档案；绑定走 PLR-03/PLR-06。
@@ -27,9 +22,10 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class AvatarUploadApplicationService {
 
-    private static final Logger log = LoggerFactory.getLogger(AvatarUploadApplicationService.class);
+    private static final ImagePolicy AVATAR_IMAGE_POLICY =
+            new ImagePolicy("avatar", 5_242_880L, "图片不能超过 5MB");
 
-    private final OssGateway ossGateway;
+    private final ImageStore imageStore;
     private final PlayerMapper playerMapper;
 
     public AvatarUploadView uploadOwn(MultipartFile file) {
@@ -49,27 +45,7 @@ public class AvatarUploadApplicationService {
     }
 
     private AvatarUploadView store(Long userId, MultipartFile file) {
-        byte[] content = read(file);
-        AvatarImage.validateSize(content);
-        ImageSniffer.Format format = ImageSniffer.sniff(content);
-        String objectKey = "avatar/" + userId + "/" + Ulid.generate() + "." + format.extension();
-        try {
-            ossGateway.putObject(objectKey, content, format.contentType());
-        } catch (RuntimeException ex) {
-            log.warn("avatar upload failed, objectKey={}", objectKey, ex);
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        }
-        return new AvatarUploadView(objectKey, ossGateway.signedUrl(objectKey));
-    }
-
-    private byte[] read(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw AvatarImage.invalidFile(AvatarImage.EMPTY_MESSAGE);
-        }
-        try {
-            return file.getBytes();
-        } catch (IOException ex) {
-            throw ImageSniffer.invalidFile(ImageSniffer.CORRUPT_MESSAGE);
-        }
+        StoredImage stored = imageStore.store(file, AVATAR_IMAGE_POLICY, userId);
+        return new AvatarUploadView(stored.objectKey(), stored.signedUrl());
     }
 }

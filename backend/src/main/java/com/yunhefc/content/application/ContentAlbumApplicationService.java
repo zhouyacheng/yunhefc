@@ -8,7 +8,6 @@ import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
-import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.activity.ActivityReadPort;
 import com.yunhefc.contracts.match.MatchSummaryReadPort;
 import com.yunhefc.contracts.player.PlayerReadPort;
@@ -16,7 +15,6 @@ import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.content.domain.ContentAlbum;
 import com.yunhefc.content.domain.ContentAlbumPhoto;
-import com.yunhefc.content.domain.ContentObjectKey;
 import com.yunhefc.content.domain.ContentRules;
 import com.yunhefc.content.dto.ContentDtos.AlbumCreateRequest;
 import com.yunhefc.content.dto.ContentDtos.AlbumDeleteResult;
@@ -29,9 +27,10 @@ import com.yunhefc.content.dto.ContentDtos.AlbumUpdateRequest;
 import com.yunhefc.content.infrastructure.ContentAlbumMapper;
 import com.yunhefc.content.infrastructure.ContentAlbumPhotoMapper;
 import com.yunhefc.content.infrastructure.ContentObjectDeletion;
-import com.yunhefc.infra.storage.ImageSniffer;
+import com.yunhefc.infra.storage.ImagePolicy;
+import com.yunhefc.infra.storage.ImageStore;
 import com.yunhefc.infra.storage.OssGateway;
-import com.yunhefc.infra.storage.UploadLimits;
+import com.yunhefc.infra.storage.StoredImage;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +39,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -56,7 +54,8 @@ public class ContentAlbumApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(ContentAlbumApplicationService.class);
     private static final String PERMISSION_DELETE_ANY = "content:delete:any";
-    private static final String PHOTO_TOO_LARGE = "照片不能超过 5MB";
+    private static final ImagePolicy CONTENT_PHOTO_POLICY =
+            new ImagePolicy("content", 5_242_880L, "照片不能超过 5MB");
     /** CNT-03 照片分页白名单；与相册列表的 10/20/50/100 不同。 */
     private static final Set<Long> PHOTO_PAGE_SIZES = Set.of(30L, 60L, 100L);
 
@@ -67,6 +66,7 @@ public class ContentAlbumApplicationService {
     private final ActivityReadPort activityReadPort;
     private final PlayerReadPort playerReadPort;
     private final OssGateway ossGateway;
+    private final ImageStore imageStore;
     private final ContentObjectDeletion objectDeletion;
     private final TransactionTemplate transactionTemplate;
 
@@ -182,26 +182,14 @@ public class ContentAlbumApplicationService {
         requireAlbum(principal.teamId(), albumId);
         ContentRules.requirePhotoSlot(photoMapper.countActive(albumId));
 
-        byte[] content = read(file);
-        if (content.length > UploadLimits.CONTENT_PHOTO_MAX_BYTES) {
-            throw ImageSniffer.invalidFile(PHOTO_TOO_LARGE);
-        }
-        ImageSniffer.Format format = ImageSniffer.sniff(content);
-        String objectKey = ContentObjectKey.generate(
-                principal.userId(), Ulid.generate(), format.extension());
-        try {
-            ossGateway.putObject(objectKey, content, format.contentType());
-        } catch (RuntimeException ex) {
-            log.warn("content photo upload failed, objectKey={}", objectKey, ex);
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        }
-
+        StoredImage stored = imageStore.store(file, CONTENT_PHOTO_POLICY, principal.userId());
+        String objectKey = stored.objectKey();
         ContentAlbumPhoto saved;
         try {
             saved = transactionTemplate.execute(status -> insertPhoto(albumId, principal, objectKey));
         } catch (RuntimeException ex) {
             // 事务已结束（无活动同步），立即 best-effort 回收刚上传的对象。
-            objectDeletion.deleteAll(List.of(objectKey));
+            stored.discard();
             throw ex;
         }
         int photoCount = photoMapper.countActive(albumId);
@@ -310,14 +298,4 @@ public class ContentAlbumApplicationService {
         return album;
     }
 
-    private byte[] read(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw ImageSniffer.invalidFile(ImageSniffer.EMPTY_MESSAGE);
-        }
-        try {
-            return file.getBytes();
-        } catch (IOException ex) {
-            throw ImageSniffer.invalidFile(ImageSniffer.CORRUPT_MESSAGE);
-        }
-    }
 }

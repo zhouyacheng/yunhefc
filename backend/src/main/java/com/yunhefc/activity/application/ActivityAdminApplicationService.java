@@ -30,13 +30,13 @@ import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.common.util.DateRanges;
 import com.yunhefc.common.util.LikePattern;
-import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.security.AuthPrincipal;
 import com.yunhefc.infra.outbox.OutboxService;
-import com.yunhefc.infra.storage.ImageSniffer;
+import com.yunhefc.infra.storage.ImagePolicy;
+import com.yunhefc.infra.storage.ImageStore;
 import com.yunhefc.infra.storage.OssGateway;
-import com.yunhefc.infra.storage.UploadLimits;
+import com.yunhefc.infra.storage.StoredImage;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,7 +44,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -59,7 +58,8 @@ import java.util.stream.Collectors;
 public class ActivityAdminApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(ActivityAdminApplicationService.class);
-    private static final String ACTIVITY_IMAGE_TOO_LARGE = "图片不能超过 5MB";
+    private static final ImagePolicy ACTIVITY_IMAGE_POLICY =
+            new ImagePolicy("activity", 5_242_880L, "图片不能超过 5MB");
 
     private final TeamActivityMapper teamActivityMapper;
     private final ActivitySignupMapper activitySignupMapper;
@@ -69,6 +69,7 @@ public class ActivityAdminApplicationService {
     private final AuditRecorder auditRecorder;
     private final OutboxService outboxService;
     private final OssGateway ossGateway;
+    private final ImageStore imageStore;
 
     @Transactional(readOnly = true)
     public PageResponse<ActivityAdmin> list(ActivityAdminQuery query) {
@@ -297,20 +298,8 @@ public class ActivityAdminApplicationService {
 
     public ActivityImageUploadView uploadImage(MultipartFile file) {
         AuthPrincipal principal = CurrentUser.principal();
-        byte[] content = read(file);
-        if (content.length > UploadLimits.ACTIVITY_IMAGE_MAX_BYTES) {
-            throw invalidFile(ACTIVITY_IMAGE_TOO_LARGE);
-        }
-        ImageSniffer.Format format = ImageSniffer.sniff(content);
-        String objectKey = "activity/" + principal.userId() + "/" + Ulid.generate()
-                + "." + format.extension();
-        try {
-            ossGateway.putObject(objectKey, content, format.contentType());
-        } catch (RuntimeException ex) {
-            log.warn("activity image upload failed, objectKey={}", objectKey, ex);
-            throw new BusinessException(ErrorCode.INTERNAL_ERROR);
-        }
-        return new ActivityImageUploadView(objectKey, ossGateway.signedUrl(objectKey));
+        StoredImage stored = imageStore.store(file, ACTIVITY_IMAGE_POLICY, principal.userId());
+        return new ActivityImageUploadView(stored.objectKey(), stored.signedUrl());
     }
 
     private void applyChanges(TeamActivity activity, ActivityUpdateRequest request) {
@@ -466,21 +455,5 @@ public class ActivityAdminApplicationService {
     private BusinessException versionConflict(int currentVersion) {
         return new BusinessException(ErrorCode.VERSION_CONFLICT, "活动已被他人修改，请刷新后重试",
                 Map.of("currentVersion", currentVersion));
-    }
-
-    private byte[] read(MultipartFile file) {
-        if (file == null || file.isEmpty()) {
-            throw invalidFile(ImageSniffer.EMPTY_MESSAGE);
-        }
-        try {
-            return file.getBytes();
-        } catch (IOException ex) {
-            throw invalidFile(ImageSniffer.CORRUPT_MESSAGE);
-        }
-    }
-
-    private BusinessException invalidFile(String reason) {
-        return new BusinessException(ErrorCode.VALIDATION_FAILED,
-                ErrorCode.VALIDATION_FAILED.message(), Map.of("details", Map.of("file", reason)));
     }
 }

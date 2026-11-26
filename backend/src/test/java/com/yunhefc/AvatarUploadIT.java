@@ -28,6 +28,7 @@ class AvatarUploadIT extends IntegrationTestSupport {
 
     private static final Pattern OBJECT_KEY =
             Pattern.compile("^avatar/\\d+/[0-9A-HJKMNP-TV-Z]{26}\\.(jpg|png|webp)$");
+    private static final long AVATAR_MAX_BYTES = 5_242_880L;
 
     @Autowired
     private InMemoryOssGateway ossGateway;
@@ -205,7 +206,7 @@ class AvatarUploadIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.code").value(40001))
                 .andExpect(jsonPath("$.data.details.file").value("文件内容损坏"));
 
-        byte[] oversized = new byte[(int) com.yunhefc.player.domain.AvatarImage.MAX_BYTES + 1];
+        byte[] oversized = new byte[(int) AVATAR_MAX_BYTES + 1];
         System.arraycopy(JPEG, 0, oversized, 0, JPEG.length);
         mockMvc.perform(multipart("/api/v1/c/files/avatar")
                         .file(new MockMultipartFile("file", "big.jpg", "image/jpeg", oversized))

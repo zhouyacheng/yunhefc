@@ -19,7 +19,7 @@ import ch.qos.logback.core.read.ListAppender;
 import com.jayway.jsonpath.JsonPath;
 import com.yunhefc.common.util.Ulid;
 import com.yunhefc.content.domain.ContentRules;
-import com.yunhefc.content.infrastructure.ContentObjectDeletion;
+import com.yunhefc.infra.storage.ObjectRemoval;
 import com.yunhefc.infra.storage.InMemoryOssGateway;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,7 @@ class ContentAlbumIT extends ActivityITSupport {
     private static final Pattern PHOTO_KEY =
             Pattern.compile("^content/\\d+/[0-9A-HJKMNP-TV-Z]{26}\\.(jpg|png|webp)$");
     private static final Logger DELETION_LOGGER =
-            (Logger) LoggerFactory.getLogger(ContentObjectDeletion.class);
+            (Logger) LoggerFactory.getLogger(ObjectRemoval.class);
 
     @Autowired
     private InMemoryOssGateway ossGateway;
@@ -286,7 +286,8 @@ class ContentAlbumIT extends ActivityITSupport {
                 .andExpect(status().isOk());
         uploadPhoto(player, albumId, jpegOfSize(PHOTO_MAX + 1), "image/jpeg")
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.code").value(40001));
+                .andExpect(jsonPath("$.code").value(40001))
+                .andExpect(jsonPath("$.data.details.file").value("照片不能超过 5MB"));
     }
 
     @Test

@@ -12,6 +12,7 @@ import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
+import com.yunhefc.infra.storage.ObjectRemoval;
 import com.yunhefc.infra.storage.OssGateway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -24,10 +25,11 @@ import java.util.List;
 
 class ContentObjectDeletionTest {
 
-    private static final Logger LOGGER = (Logger) LoggerFactory.getLogger(ContentObjectDeletion.class);
+    private static final Logger LOGGER = (Logger) LoggerFactory.getLogger(ObjectRemoval.class);
 
     private final OssGateway ossGateway = mock(OssGateway.class);
-    private final ContentObjectDeletion deletion = new ContentObjectDeletion(ossGateway);
+    private final ContentObjectDeletion deletion =
+            new ContentObjectDeletion(new ObjectRemoval(ossGateway));
 
     @AfterEach
     void clearSynchronization() {

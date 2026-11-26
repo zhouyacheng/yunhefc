@@ -25,6 +25,7 @@ class InviteFlowIT extends IntegrationTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"type\":0}"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.token").doesNotExist())
                 .andReturn();
         String url = JsonPath.read(invite.getResponse().getContentAsString(), "$.data.inviteUrl");
         assertThat(url).matches("^.*/invite/[0-9a-f]{32}$");

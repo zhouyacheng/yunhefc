@@ -1,5 +1,6 @@
 import { errorMessage } from '../../utils/api-errors';
 import { PHONE_PATTERN, type ValueEvent } from '../../utils/input';
+import { inviteLoginPath, inviteTokenFromQuery, navigateAfterAuth } from '../../utils/invite';
 import { refreshUnreadBadge } from '../../utils/notifications';
 import { ApiError } from '../../utils/request';
 import { bindPhone, clearBindTicket, getBindTicket, sendSmsCode } from '../../utils/session';
@@ -19,9 +20,15 @@ Page({
     sending: false,
     submitting: false,
     error: '',
+    /** MP13 邀请落地回跳；只接受 token，不提供通用 redirect。 */
+    inviteToken: '',
   },
 
-  onLoad() {
+  onLoad(query: Record<string, string | undefined>) {
+    const inviteToken = inviteTokenFromQuery(query);
+    if (inviteToken) {
+      this.setData({ inviteToken });
+    }
     if (!getBindTicket()) {
       this.setData({ error: '登录已过期，请返回重新登录' });
     }
@@ -85,11 +92,11 @@ Page({
     try {
       await bindPhone({ phone, code, name: name.trim(), position: positionIndex });
       void refreshUnreadBadge();
-      void wx.switchTab({ url: '/pages/home/index' });
+      this.finishBind();
     } catch (error) {
       if (error instanceof ApiError && error.code === 40101) {
         this.setData({ error: '登录已过期，正在重新登录…' });
-        void wx.redirectTo({ url: '/pages/login/index' });
+        void wx.redirectTo({ url: inviteLoginPath(this.data.inviteToken) });
         return;
       }
       const message =
@@ -106,9 +113,14 @@ Page({
     void wx.switchTab({ url: '/pages/home/index' });
   },
 
+  /** 绑定成功后：邀请落地回跳优先，否则回首页。 */
+  finishBind() {
+    navigateAfterAuth(this.data.inviteToken);
+  },
+
   usePassword() {
     clearBindTicket();
-    void wx.redirectTo({ url: '/pages/login/index' });
+    void wx.redirectTo({ url: inviteLoginPath(this.data.inviteToken) });
   },
 });
 

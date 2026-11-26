@@ -225,7 +225,7 @@ onUnmounted(() => {
                 :href="adminEntryUrl"
                 @click="onAdminEntry"
               >
-                <Button plain>管理后台</Button>
+                <Button type="primary">管理后台</Button>
               </a>
             </div>
           </div>

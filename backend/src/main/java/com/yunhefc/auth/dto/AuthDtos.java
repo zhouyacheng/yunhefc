@@ -156,4 +156,11 @@ public final class AuthDtos {
 
     public record InviteCreatedView(String inviteUrl, LocalDateTime expiresAt) {
     }
+
+    /**
+     * INV-03 专用：token 供小程序拼接分享路径，与 inviteUrl 同源，只返回一次。
+     * 与 InviteCreatedView 仅差 token；INV-05 不应向 B 端暴露 token，故独立。命名沿用 AuthDtos 的 *View 约定。
+     */
+    public record MatchInviteCreatedView(String inviteUrl, String token, LocalDateTime expiresAt) {
+    }
 }

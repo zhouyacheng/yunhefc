@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "比赛邀请",
+  "usingComponents": {
+    "van-loading": "@vant/weapp/loading/index"
+  }
+}

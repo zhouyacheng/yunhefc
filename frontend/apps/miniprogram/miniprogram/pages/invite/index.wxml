@@ -1,0 +1,81 @@
+<view class="container invite-page">
+  <view wx:if="{{loading}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
+
+  <view wx:elif="{{notFound}}" class="state">
+    <text class="invite-state__title">邀请已失效</text>
+    <text class="muted">该邀请不存在或已被删除。</text>
+    <view class="btn btn--primary" bindtap="goHome" hover-class="btn--pressed">返回首页</view>
+  </view>
+
+  <view wx:elif="{{error}}" class="state">
+    <text class="muted">{{error}}</text>
+    <view class="btn btn--primary btn--small" bindtap="retry" hover-class="btn--pressed">重试</view>
+  </view>
+
+  <block wx:elif="{{invite}}">
+    <view wx:if="{{!usable}}" class="card invite-card">
+      <view class="invite-card__head">
+        <text class="invite-card__title">{{matchView ? matchView.title : (invite.team ? invite.team.name : '邀请')}}</text>
+        <text class="invite-tag">{{isMatchInvite ? '比赛邀请' : '入队邀请'}}</text>
+      </view>
+      <text class="invite-state__title">邀请已失效</text>
+      <text class="muted">{{invalidText}}</text>
+      <text class="muted">请联系邀请人重新获取邀请。</text>
+      <view class="invite-actions">
+        <view class="btn btn--primary" bindtap="goHome" hover-class="btn--pressed">返回首页</view>
+      </view>
+    </view>
+
+    <view wx:elif="{{!isMatchInvite}}" class="card invite-card">
+      <view class="invite-card__head">
+        <text class="invite-card__title">{{invite.team ? invite.team.name : '云河FC'}}</text>
+        <text class="invite-tag">入队邀请</text>
+      </view>
+      <text class="muted">该邀请类型暂不支持在小程序内打开，请使用浏览器打开邀请链接。</text>
+      <view class="invite-actions">
+        <view class="btn btn--primary" bindtap="goHome" hover-class="btn--pressed">返回首页</view>
+      </view>
+    </view>
+
+    <view wx:else class="card invite-card">
+      <view class="invite-card__head">
+        <text class="invite-card__title">{{matchView.title}}</text>
+        <text class="invite-tag">比赛邀请</text>
+      </view>
+
+      <view class="invite-card__hero">
+        <text class="invite-hero__date">📅 {{matchView.dateText}}</text>
+        <text class="invite-hero__time">🕐 {{matchView.timeRangeText}}</text>
+      </view>
+
+      <view class="invite-facts">
+        <view wx:for="{{matchView.facts}}" wx:key="label" class="invite-fact">
+          <text class="invite-fact__label">{{item.icon}} {{item.label}}</text>
+          <text class="invite-fact__value">{{item.value}}</text>
+        </view>
+      </view>
+
+      <view wx:if="{{matchView.hintText}}" class="invite-hint">⚠ {{matchView.hintText}}</view>
+      <text wx:if="{{pending}}" class="invite-note">账号待审核：可以进入比赛查看，审核通过后才能报名。</text>
+      <text wx:if="{{actionError}}" class="action-error">{{actionError}}</text>
+
+      <view class="invite-actions">
+        <block wx:if="{{accepted}}">
+          <view class="btn btn--primary" bindtap="goHome" hover-class="btn--pressed">返回首页</view>
+        </block>
+        <block wx:elif="{{!authenticated}}">
+          <text class="muted">登录后前往比赛</text>
+          <view class="btn btn--primary" bindtap="goLogin" hover-class="btn--pressed">去登录</view>
+        </block>
+        <view
+          wx:else
+          class="btn btn--primary {{accepting ? 'btn--disabled' : ''}}"
+          bindtap="accept"
+          hover-class="btn--pressed"
+        >{{accepting ? '处理中…' : '去比赛'}}</view>
+      </view>
+    </view>
+  </block>
+</view>

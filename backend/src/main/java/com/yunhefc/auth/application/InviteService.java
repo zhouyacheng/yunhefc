@@ -13,6 +13,7 @@ import com.yunhefc.auth.domain.Team;
 import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.auth.dto.AuthDtos.InviteCreateRequest;
 import com.yunhefc.auth.dto.AuthDtos.InviteCreatedView;
+import com.yunhefc.auth.dto.AuthDtos.MatchInviteCreatedView;
 import com.yunhefc.auth.dto.AuthDtos.InviteView;
 import com.yunhefc.auth.dto.AuthDtos.MatchSummary;
 import com.yunhefc.auth.dto.AuthDtos.TeamView;
@@ -198,15 +199,16 @@ public class InviteService {
     }
 
     @Transactional
-    public InviteCreatedView createMatchInvite(Long inviterUserId, Long matchId, Integer expiresInDays,
-                                               Integer maxUses) {
+    public MatchInviteCreatedView createMatchInvite(Long inviterUserId, Long matchId, Integer expiresInDays,
+                                                    Integer maxUses) {
         MatchSnapshot match = matchReadPort.findById(matchId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOT_FOUND, "比赛不存在"));
         ensureCanCreateMatchInvite(inviterUserId, matchId);
         CreatedInvite created = createInternal(match.teamId(), InviteType.MATCH, matchId,
                 inviterUserId, expiresInDays, maxUses);
         auditCreate(created.invite());
-        return new InviteCreatedView(inviteUrl(created.rawToken()), created.invite().getExpiresAt());
+        return new MatchInviteCreatedView(inviteUrl(created.rawToken()), created.rawToken(),
+                created.invite().getExpiresAt());
     }
 
     private void auditCreate(InviteLink invite) {

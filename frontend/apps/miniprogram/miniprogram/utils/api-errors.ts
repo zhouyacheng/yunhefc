@@ -1,5 +1,7 @@
 import { ApiError } from './request';
 
+export const NOT_FOUND = 40401;
+export const INVITE_UNAVAILABLE = 40910;
 export const VERSION_CONFLICT = 40901;
 export const DUPLICATE_REGISTRATION = 40902;
 export const CAPACITY_FULL = 40903;

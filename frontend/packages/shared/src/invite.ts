@@ -1,8 +1,9 @@
 import type { Invite } from './auth';
 
-/** INV-05 响应；token 只返回一次。 */
+/** INV-03/INV-05 响应；token 只在 INV-03 创建比赛邀请时一次性返回。 */
 export interface InviteCreated {
   inviteUrl: string;
+  token?: string;
   expiresAt: string;
 }
 

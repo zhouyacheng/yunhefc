@@ -17,6 +17,9 @@ import type {
   EventTimeline,
   EventUpdate,
   GroupingView,
+  InviteAcceptResult,
+  InviteCreated,
+  InviteLanding,
   Leaderboard,
   LeaderboardScope,
   LedgerCategory,
@@ -48,6 +51,7 @@ import type {
 } from '../types/api';
 import { errorMessage } from './api-errors';
 import { newIdempotencyKey } from './idempotency';
+import type { InvitePayload } from './invite';
 import { ensureCsrf, request, uploadFile, type RequestOptions } from './request';
 import { DEFAULT_PAGE_SIZE, filterQueryString, type ScheduleFilters } from './match-query';
 
@@ -164,6 +168,23 @@ export interface AdminTicketView {
 /** AUTH-18 C→B 交接票据；60 秒内一次性兑换，无后台权限返回 40301。 */
 export function issueAdminTicket(): Promise<AdminTicketView> {
   return plainWrite<AdminTicketView>('POST', '/auth/admin-ticket');
+}
+
+// ---- 邀请 ----
+
+/** INV-01 邀请落地；公开可读。 */
+export function fetchInvite(token: string): Promise<InviteLanding> {
+  return request<InviteLanding>('GET', `/invites/${encodeURIComponent(token)}`);
+}
+
+/** INV-02 接受邀请；比赛邀请只返回 matchId，不自动报名。 */
+export function acceptInvite(token: string): Promise<InviteAcceptResult> {
+  return plainWrite<InviteAcceptResult>('POST', `/invites/${encodeURIComponent(token)}/accept`);
+}
+
+/** INV-03 创建比赛邀请；token 只返回一次。 */
+export function createMatchInvite(matchId: number, payload: InvitePayload): Promise<InviteCreated> {
+  return highRiskWrite<InviteCreated>('POST', `/matches/${matchId}/invites`, payload);
 }
 
 // ---- 比赛 ----

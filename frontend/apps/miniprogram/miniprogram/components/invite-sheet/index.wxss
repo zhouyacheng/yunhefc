@@ -1,0 +1,98 @@
+.invite-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+  padding: 36rpx 36rpx max(56rpx, env(safe-area-inset-bottom));
+}
+
+.invite-sheet__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.invite-sheet__title {
+  font-size: 36rpx;
+  font-weight: 700;
+}
+
+.invite-sheet__close {
+  color: var(--yh-muted);
+  font-size: 26rpx;
+}
+
+.invite-sheet__notice {
+  padding: 20rpx 24rpx;
+  color: var(--yh-amber-ink);
+  font-size: 26rpx;
+  line-height: 1.5;
+  background: var(--yh-amber-soft);
+  border-radius: 18rpx;
+}
+
+.invite-sheet__expiry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+  font-size: 26rpx;
+}
+
+.invite-sheet__hint {
+  color: var(--yh-muted);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.invite-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24rpx;
+}
+
+.invite-field__label {
+  color: var(--yh-muted);
+  font-size: 26rpx;
+}
+
+.invite-field__input {
+  box-sizing: border-box;
+  flex: 1;
+  min-height: 80rpx;
+  padding: 0 20rpx;
+  color: var(--yh-ink);
+  font-size: 28rpx;
+  background: var(--yh-surface-soft);
+  border: 2rpx solid var(--yh-line);
+  border-radius: var(--yh-radius-sm);
+}
+
+.invite-sheet__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20rpx;
+  margin-top: 8rpx;
+}
+
+.invite-sheet__actions .btn {
+  width: 100%;
+}
+
+/* 原生 button 的默认边框与行高会撑开布局，重置为与 .btn 一致。 */
+.invite-sheet__share {
+  padding: 0;
+  margin: 0;
+  font-size: 28rpx;
+  line-height: 88rpx;
+}
+
+.invite-sheet__share::after {
+  border: none;
+}
+
+.form-error {
+  color: var(--yh-red-ink);
+  font-size: 24rpx;
+  line-height: 1.5;
+}

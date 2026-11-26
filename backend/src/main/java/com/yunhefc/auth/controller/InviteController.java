@@ -4,6 +4,7 @@ import com.yunhefc.auth.application.AuthService;
 import com.yunhefc.auth.application.InviteService;
 import com.yunhefc.auth.dto.AuthDtos.InviteCreateRequest;
 import com.yunhefc.auth.dto.AuthDtos.InviteCreatedView;
+import com.yunhefc.auth.dto.AuthDtos.MatchInviteCreatedView;
 import com.yunhefc.auth.dto.AuthDtos.InviteView;
 import com.yunhefc.auth.dto.AuthDtos.MatchInviteCreateRequest;
 import com.yunhefc.common.api.ApiResponse;
@@ -51,9 +52,9 @@ public class InviteController {
     @PostMapping("/c/matches/{id}/invites")
     @PreAuthorize("hasAuthority('invite:create:match')")
     @Idempotent("INV-03")
-    public ApiResponse<InviteCreatedView> createMatchInvite(@PathVariable Long id,
-                                                            @Valid @RequestBody MatchInviteCreateRequest request) {
-        InviteCreatedView invite = inviteService.createMatchInvite(
+    public ApiResponse<MatchInviteCreatedView> createMatchInvite(@PathVariable Long id,
+                                                                 @Valid @RequestBody MatchInviteCreateRequest request) {
+        MatchInviteCreatedView invite = inviteService.createMatchInvite(
                 CurrentUser.principal().userId(), id, request.expiresInDays(), request.maxUses());
         return ApiResponse.ok(invite);
     }

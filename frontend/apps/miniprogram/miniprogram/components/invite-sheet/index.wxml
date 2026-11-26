@@ -1,0 +1,58 @@
+<van-popup show="{{show}}" position="bottom" round custom-style="max-height: 88vh;" bind:close="close">
+  <view class="invite-sheet">
+    <view class="invite-sheet__head">
+      <text class="invite-sheet__title">分享比赛</text>
+      <text class="invite-sheet__close" bindtap="close">关闭</text>
+    </view>
+
+    <block wx:if="{{created}}">
+      <text class="invite-sheet__notice">邀请链接只展示一次，先分享给好友再关闭。</text>
+      <view class="invite-sheet__expiry">
+        <text class="muted">有效期至</text>
+        <text>{{expiryText}}</text>
+      </view>
+      <text wx:if="{{error}}" class="form-error">{{error}}</text>
+      <view class="invite-sheet__actions">
+        <view class="btn btn--outline" bindtap="copy">{{copied ? '已复制链接' : '复制链接'}}</view>
+        <button
+          class="btn btn--primary invite-sheet__share {{shareReady ? '' : 'btn--disabled'}}"
+          open-type="share"
+          disabled="{{!shareReady}}"
+        >{{shareReady ? '分享给好友' : '生成分享图中…'}}</button>
+      </view>
+    </block>
+
+    <block wx:else>
+      <view class="invite-field">
+        <text class="invite-field__label">有效期（天）</text>
+        <input
+          class="invite-field__input"
+          type="number"
+          value="{{days}}"
+          placeholder="默认 7"
+          bindinput="onDaysInput"
+        />
+      </view>
+      <view class="invite-field">
+        <text class="invite-field__label">使用次数</text>
+        <input
+          class="invite-field__input"
+          type="number"
+          value="{{maxUses}}"
+          placeholder="留空表示不限"
+          bindinput="onMaxUsesInput"
+        />
+      </view>
+      <text class="invite-sheet__hint">默认 7 天有效；次数留空表示不限。邀请链接创建后只展示一次。</text>
+      <text wx:if="{{formError}}" class="form-error">{{formError}}</text>
+      <text wx:if="{{error}}" class="form-error">{{error}}</text>
+      <view class="invite-sheet__actions">
+        <view class="btn btn--outline" bindtap="close">取消</view>
+        <view
+          class="btn btn--primary {{busy ? 'btn--disabled' : ''}}"
+          bindtap="submit"
+        >{{busy ? '创建中…' : '创建邀请'}}</view>
+      </view>
+    </block>
+  </view>
+</van-popup>

@@ -57,6 +57,60 @@ export interface MiniLoginResult {
   csrfToken: string | null;
 }
 
+export interface InviteMatchSummary {
+  id: number;
+  title: string;
+  startAt: string;
+  endAt: string;
+  venue: string;
+  status: number;
+  homeTeamName: string;
+  awayTeamName: string;
+}
+
+export interface InviteTeamRef {
+  id: number;
+  name: string;
+  shortName: string;
+}
+
+export interface InviteInviter {
+  id: number;
+  name: string;
+}
+
+/** INV-01 邀请落地；列表不返回 token。 */
+export interface InviteLanding {
+  id: number;
+  type: number;
+  typeLabel?: string;
+  team: InviteTeamRef | null;
+  matchId: number | null;
+  match: InviteMatchSummary | null;
+  inviter: InviteInviter | null;
+  expiresAt: string;
+  maxUses: number | null;
+  usedCount: number;
+  remainingUses: number | null;
+  status: number;
+  statusLabel?: string;
+  exhausted: boolean;
+  createdAt: string;
+}
+
+/** INV-03 创建比赛邀请响应；token 只返回一次。 */
+export interface InviteCreated {
+  inviteUrl: string;
+  token: string;
+  expiresAt: string;
+}
+
+/** INV-02 响应；比赛邀请只返回 matchId。 */
+export interface InviteAcceptResult {
+  player: PlayerView;
+  matchId: number | null;
+}
+
 /** MAT-03/MAT-12 返回的当前用户报名。 */
 export interface Registration {
   id: number;

@@ -10,9 +10,7 @@ import com.yunhefc.common.error.ErrorCode;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.activity.ActivityReadPort;
-import com.yunhefc.contracts.activity.ActivitySnapshot;
 import com.yunhefc.contracts.match.MatchSummaryReadPort;
-import com.yunhefc.contracts.match.MatchSummarySnapshot;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
 import com.yunhefc.contracts.security.AuthPrincipal;
@@ -29,7 +27,6 @@ import com.yunhefc.content.dto.ContentDtos.AlbumPhotoView;
 import com.yunhefc.content.dto.ContentDtos.AlbumSummary;
 import com.yunhefc.content.dto.ContentDtos.AlbumUpdateRequest;
 import com.yunhefc.content.infrastructure.ContentAlbumMapper;
-import com.yunhefc.content.infrastructure.ContentAlbumPhotoCountRow;
 import com.yunhefc.content.infrastructure.ContentAlbumPhotoMapper;
 import com.yunhefc.content.infrastructure.ContentObjectDeletion;
 import com.yunhefc.infra.storage.ImageSniffer;
@@ -48,7 +45,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -66,6 +62,7 @@ public class ContentAlbumApplicationService {
 
     private final ContentAlbumMapper albumMapper;
     private final ContentAlbumPhotoMapper photoMapper;
+    private final ContentAlbumAssembler albumAssembler;
     private final MatchSummaryReadPort matchSummaryReadPort;
     private final ActivityReadPort activityReadPort;
     private final PlayerReadPort playerReadPort;
@@ -85,26 +82,14 @@ public class ContentAlbumApplicationService {
                         .eq(activityId != null, ContentAlbum::getActivityId, activityId)
                         .orderByDesc(ContentAlbum::getCreatedAt)
                         .orderByDesc(ContentAlbum::getId));
-        return PageResponse.of(summaries(teamId, result.getRecords()),
+        return PageResponse.of(albumAssembler.summaries(teamId, result.getRecords()),
                 result.getTotal(), pageQuery.page(), pageQuery.pageSize());
     }
 
     @Transactional(readOnly = true)
     public AlbumDetail detail(Long albumId) {
         Long teamId = CurrentUser.principal().teamId();
-        ContentAlbum album = requireAlbum(teamId, albumId);
-        ContentAlbumPhoto cover = coverPhotos(List.of(albumId)).get(albumId);
-        return new AlbumDetail(
-                album.getId(),
-                album.getTitle(),
-                album.getMatchId(),
-                album.getActivityId(),
-                ownerName(teamId, album),
-                thumbnailUrl(cover),
-                cover == null ? null : ossGateway.signedUrl(cover.getObjectKey()),
-                photoMapper.countActive(albumId),
-                album.getCreatedBy(),
-                album.getCreatedAt());
+        return albumAssembler.detail(teamId, requireAlbum(teamId, albumId));
     }
 
     @Transactional(readOnly = true)
@@ -255,7 +240,7 @@ public class ContentAlbumApplicationService {
         }
 
         // 有效封面包含「未显式设置时取最早照片」的情形，删除它同样视为封面重置。
-        ContentAlbumPhoto cover = coverPhotos(List.of(albumId)).get(albumId);
+        ContentAlbumPhoto cover = albumAssembler.coverPhoto(albumId);
         boolean coverReset = cover != null && photoId.equals(cover.getId());
         photoMapper.deleteById(photoId);
         if (coverReset) {
@@ -268,78 +253,6 @@ public class ContentAlbumApplicationService {
         log.info("content photo deleted, albumId={}, photoId={}, coverReset={}",
                 albumId, photoId, coverReset);
         return new AlbumPhotoDeleteResult(true, coverReset);
-    }
-
-    private List<AlbumSummary> summaries(Long teamId, List<ContentAlbum> albums) {
-        if (albums.isEmpty()) {
-            return List.of();
-        }
-        List<Long> albumIds = albums.stream().map(ContentAlbum::getId).toList();
-        Map<Long, ContentAlbumPhoto> covers = coverPhotos(albumIds);
-        Map<Long, Integer> counts = photoCounts(albumIds);
-        Map<Long, MatchSummarySnapshot> matches = matchSummaryReadPort.findSummaries(
-                albums.stream().map(ContentAlbum::getMatchId).filter(id -> id != null).collect(Collectors.toSet()),
-                teamId);
-        Map<Long, ActivitySnapshot> activities = activityReadPort.findByIds(teamId,
-                albums.stream().map(ContentAlbum::getActivityId).filter(id -> id != null)
-                        .collect(Collectors.toSet()));
-        return albums.stream()
-                .map(album -> {
-                    ContentAlbumPhoto cover = covers.get(album.getId());
-                    MatchSummarySnapshot match = album.getMatchId() == null
-                            ? null : matches.get(album.getMatchId());
-                    ActivitySnapshot activity = album.getActivityId() == null
-                            ? null : activities.get(album.getActivityId());
-                    return new AlbumSummary(
-                            album.getId(),
-                            album.getTitle(),
-                            album.getMatchId(),
-                            album.getActivityId(),
-                            ownerName(match, activity),
-                            thumbnailUrl(cover),
-                            counts.getOrDefault(album.getId(), 0),
-                            album.getCreatedBy(),
-                            album.getCreatedAt());
-                })
-                .toList();
-    }
-
-    private String ownerName(Long teamId, ContentAlbum album) {
-        MatchSummarySnapshot match = album.getMatchId() == null ? null
-                : matchSummaryReadPort.findSummary(album.getMatchId(), teamId).orElse(null);
-        ActivitySnapshot activity = album.getActivityId() == null ? null
-                : activityReadPort.findById(teamId, album.getActivityId()).orElse(null);
-        return ownerName(match, activity);
-    }
-
-    /** 归属摘要：比赛优先，其次活动；读取失败（对象已删/跨队）时为 null。 */
-    private String ownerName(MatchSummarySnapshot match, ActivitySnapshot activity) {
-        if (match != null) {
-            return match.title();
-        }
-        return activity == null ? null : activity.title();
-    }
-
-    private String thumbnailUrl(ContentAlbumPhoto cover) {
-        return cover == null ? null
-                : ossGateway.signedUrl(cover.getObjectKey(), ContentRules.THUMBNAIL_PROCESS);
-    }
-
-    private Map<Long, ContentAlbumPhoto> coverPhotos(Collection<Long> albumIds) {
-        if (albumIds.isEmpty()) {
-            return Map.of();
-        }
-        return photoMapper.selectCoverPhotos(albumIds).stream()
-                .collect(Collectors.toMap(ContentAlbumPhoto::getAlbumId, Function.identity()));
-    }
-
-    private Map<Long, Integer> photoCounts(Collection<Long> albumIds) {
-        if (albumIds.isEmpty()) {
-            return Map.of();
-        }
-        return photoMapper.selectActiveCounts(albumIds).stream()
-                .collect(Collectors.toMap(ContentAlbumPhotoCountRow::getAlbumId,
-                        ContentAlbumPhotoCountRow::getPhotoCount));
     }
 
     private List<AlbumPhotoView> photoViews(List<ContentAlbumPhoto> photos) {

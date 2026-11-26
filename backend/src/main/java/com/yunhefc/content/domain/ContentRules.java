@@ -16,9 +16,43 @@ public final class ContentRules {
     /** 单相册有效照片上限；第 201 张返回 40920。 */
     public static final int MAX_PHOTOS_PER_ALBUM = 200;
 
+    /** 05 CNT-10：动态正文去除首尾空白后 1–2000 字，允许换行。 */
+    public static final int POST_MAX_LENGTH = 2000;
+
+    /** 05 ContentReportCreate：举报原因可选，≤200 字。 */
+    public static final int REPORT_REASON_MAX_LENGTH = 200;
+
     private static final int TITLE_MAX_LENGTH = 64;
 
     private ContentRules() {
+    }
+
+    /**
+     * 动态正文：去除首尾空白后 1–2000 字，内部换行保留。
+     */
+    public static String requirePostContent(String raw) {
+        String content = raw == null ? null : raw.strip();
+        if (content == null || content.isEmpty()) {
+            throw validationError("content", "动态正文不能为空");
+        }
+        if (content.length() > POST_MAX_LENGTH) {
+            throw validationError("content", "动态正文不能超过 " + POST_MAX_LENGTH + " 个字符");
+        }
+        return content;
+    }
+
+    /**
+     * 举报原因可选：空白归一为 null，超长返回 40001。
+     */
+    public static String normalizeReportReason(String raw) {
+        String reason = raw == null ? null : raw.strip();
+        if (reason == null || reason.isEmpty()) {
+            return null;
+        }
+        if (reason.length() > REPORT_REASON_MAX_LENGTH) {
+            throw validationError("reason", "举报原因不能超过 " + REPORT_REASON_MAX_LENGTH + " 个字符");
+        }
+        return reason;
     }
 
     /**

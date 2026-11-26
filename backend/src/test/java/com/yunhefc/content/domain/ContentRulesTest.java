@@ -39,6 +39,45 @@ class ContentRulesTest {
                         ex -> assertThat(ex.errorCode()).isEqualTo(ErrorCode.CONTENT_ALBUM_FULL));
     }
 
+    @Test
+    void postContentIsTrimmedBoundedAndKeepsLineBreaks() {
+        assertThat(ContentRules.requirePostContent("  今天\n赢球了  ")).isEqualTo("今天\n赢球了");
+        assertThat(ContentRules.requirePostContent("a".repeat(2000))).isEqualTo("a".repeat(2000));
+        assertThatThrownBy(() -> ContentRules.requirePostContent(null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_FAILED);
+        assertThatThrownBy(() -> ContentRules.requirePostContent("  "))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_FAILED);
+        assertThatThrownBy(() -> ContentRules.requirePostContent("a".repeat(2001)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_FAILED);
+    }
+
+    @Test
+    void reportReasonIsOptionalAndBounded() {
+        assertThat(ContentRules.normalizeReportReason(null)).isNull();
+        assertThat(ContentRules.normalizeReportReason("   ")).isNull();
+        assertThat(ContentRules.normalizeReportReason("  含攻击性内容 ")).isEqualTo("含攻击性内容");
+        assertThatThrownBy(() -> ContentRules.normalizeReportReason("a".repeat(201)))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_FAILED);
+    }
+
+    @Test
+    void reportTargetMapsCodesAndRejectsUnknown() {
+        assertThat(ContentReportTarget.of(0)).isEqualTo(ContentReportTarget.POST);
+        assertThat(ContentReportTarget.of(1)).isEqualTo(ContentReportTarget.PHOTO);
+        assertThat(ContentReportTarget.POST.refType()).isEqualTo("CONTENT_POST");
+        assertThat(ContentReportTarget.PHOTO.refType()).isEqualTo("CONTENT_PHOTO");
+        assertThatThrownBy(() -> ContentReportTarget.of(2))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_FAILED);
+        assertThatThrownBy(() -> ContentReportTarget.of(null))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("errorCode", ErrorCode.VALIDATION_FAILED);
+    }
+
     private void assertInvalidTitle(String value, String message) {
         assertThatThrownBy(() -> ContentRules.requireTitle(value))
                 .isInstanceOf(BusinessException.class)

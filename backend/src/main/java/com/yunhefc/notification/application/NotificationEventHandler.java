@@ -31,6 +31,7 @@ public class NotificationEventHandler {
     private static final Logger log = LoggerFactory.getLogger(NotificationEventHandler.class);
     private static final DateTimeFormatter START_AT_FORMAT = DateTimeFormatter.ofPattern("M月d日 HH:mm");
     private static final int ACTIVE_USER = 1;
+    private static final String CONTENT_DELETE_PERMISSION = "content:delete:any";
 
     private final NotificationMapper notificationMapper;
     private final ConsumedEventMapper consumedEventMapper;
@@ -59,6 +60,8 @@ public class NotificationEventHandler {
                 insertForActivitySignups(event, payload);
             } else if (EventTypes.ACTIVITY_CREATED.equals(event.eventType())) {
                 insertForActiveAccounts(payload);
+            } else if (EventTypes.CONTENT_REPORTED.equals(event.eventType())) {
+                insertForContentModerators(event, payload);
             } else {
                 notificationMapper.insert(build(event.eventType(), payload));
             }
@@ -128,6 +131,37 @@ public class NotificationEventHandler {
         if (!notifications.isEmpty()) {
             notificationMapper.insertBatch(notifications);
         }
+    }
+
+    /**
+     * 内容举报只通知持 content:delete:any 的正常账号；ref_type 指向被举报的动态或照片。
+     */
+    private void insertForContentModerators(OutboxMessage event, Map<String, Object> payload) {
+        List<Notification> notifications = userAccountReadPort
+                .findActiveUserIdsByPermission(event.teamId(), CONTENT_DELETE_PERMISSION).stream()
+                .map(userId -> buildContentReported(event, payload, userId))
+                .toList();
+        if (!notifications.isEmpty()) {
+            notificationMapper.insertBatch(notifications);
+        }
+    }
+
+    private Notification buildContentReported(OutboxMessage event, Map<String, Object> payload,
+                                              Long userId) {
+        boolean photo = ((Number) payload.get("targetType")).intValue() == 1;
+        Object rawReason = payload.get("reason");
+        String reason = rawReason == null ? "" : String.valueOf(rawReason);
+        Notification notification = new Notification();
+        notification.setUserId(userId);
+        notification.setType(NotificationType.CONTENT_REPORTED);
+        notification.setTitle("内容举报");
+        notification.setBody((photo ? "有球员举报了一张照片" : "有球员举报了一条动态")
+                + (reason.isBlank() ? "" : "：" + reason));
+        // 事件的聚合类型即 04 §2.4 的 ref_type（CONTENT_POST / CONTENT_PHOTO），由内容域决定；
+        // refId 由内容域给出通知落点（动态 ID 或照片所属相册 ID）。
+        notification.setRefType(event.aggregateType());
+        notification.setRefId(longValue(payload.get("refId")));
+        return notification;
     }
 
     private Notification buildActivityCreated(Map<String, Object> payload, Long userId) {

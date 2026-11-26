@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.yunhefc.common.api.PresenceTrackedRequest;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -130,5 +132,53 @@ public final class ContentDtos {
     }
 
     public record AlbumPhotoDeleteResult(boolean deleted, boolean coverReset) {
+    }
+
+    public record PostAuthor(Long id, String name, String avatarUrl) {
+    }
+
+    /**
+     * 05 的 PostSummary 与 PostDetail 字段一致，列表与发布共用同一响应结构。
+     */
+    public record PostView(
+            Long id,
+            PostAuthor author,
+            String content,
+            AlbumSummary album,
+            int likeCount,
+            boolean likedByMe,
+            LocalDateTime createdAt) {
+    }
+
+    public record PostCreateRequest(
+            @NotBlank @Size(max = 2000) String content,
+            Long albumId) {
+
+        /** 先去除首尾空白再进入 @Size 校验，内部换行保留（05 CNT-10）。 */
+        public PostCreateRequest {
+            content = content == null ? null : content.strip();
+        }
+    }
+
+    public record PostDeleteResult(boolean deleted) {
+    }
+
+    public record PostLikeRequest(@NotNull Boolean liked) {
+    }
+
+    public record PostLikeResult(boolean liked, int likeCount) {
+    }
+
+    public record ContentReportRequest(
+            @NotNull Integer targetType,
+            @NotNull @Positive Long targetId,
+            @Size(max = 200) String reason) {
+
+        public ContentReportRequest {
+            reason = reason == null ? null : reason.strip();
+        }
+    }
+
+    public record ContentReportResult(boolean reported) {
     }
 }

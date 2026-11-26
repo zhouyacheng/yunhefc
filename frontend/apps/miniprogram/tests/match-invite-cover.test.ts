@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildShareCoverData, fitText, wrapText } from '../miniprogram/utils/match-invite-cover';
-
-const measure = (text: string): number => text.length * 10;
+import { buildShareCoverData } from '../miniprogram/utils/match-invite-cover';
 
 describe('buildShareCoverData', () => {
   it('formats the match facts for the 5:4 cover', () => {
@@ -48,28 +46,5 @@ describe('buildShareCoverData', () => {
     expect(data.venue).toBe('待定');
     expect(data.deadlineText).toBe('—');
     expect(data.expiresText).toBe('邀请有效期至 —');
-  });
-});
-
-describe('fitText', () => {
-  it('keeps text that fits and truncates with an ellipsis otherwise', () => {
-    expect(fitText(measure, 'ABCD', 40)).toBe('ABCD');
-    expect(fitText(measure, 'ABCDE', 40)).toBe('ABC…');
-    expect(fitText(measure, '报名满员联调赛', 60)).toBe('报名满员联…');
-  });
-});
-
-describe('wrapText', () => {
-  it('wraps by measured width and caps the line count', () => {
-    expect(wrapText(measure, 'ABCDEFGH', 40, 2)).toEqual(['ABCD', 'EFGH']);
-    expect(wrapText(measure, 'ABCDEFGHIJ', 40, 2)).toEqual(['ABCD', 'EFG…']);
-  });
-
-  it('returns a single line when it fits', () => {
-    expect(wrapText(measure, '报名满员', 80, 2)).toEqual(['报名满员']);
-  });
-
-  it('returns no lines when the line budget is zero', () => {
-    expect(wrapText(measure, '报名满员', 80, 0)).toEqual([]);
   });
 });

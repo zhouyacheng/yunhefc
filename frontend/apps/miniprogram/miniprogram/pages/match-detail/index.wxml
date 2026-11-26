@@ -441,7 +441,7 @@
     <canvas
       type="2d"
       id="invite-cover"
-      class="invite-cover-canvas"
+      class="share-cover-canvas"
       style="{{shareCoverStyle}}"
     ></canvas>
 

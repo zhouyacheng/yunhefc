@@ -45,3 +45,11 @@
   line-height: 1.05;
   letter-spacing: -0.03em;
 }
+
+/* 分享封面画布：必须实际渲染才能导出，移出可视区而不是 display:none；尺寸由页面 style 注入。 */
+.share-cover-canvas {
+  position: fixed;
+  top: 0;
+  left: -2000px;
+  pointer-events: none;
+}

@@ -827,10 +827,10 @@ onMounted(() => {
       <el-table-column label="分类" prop="categoryName" min-width="110">
         <template #default="{ row }">{{ row.categoryName || '—' }}</template>
       </el-table-column>
-      <el-table-column label="金额" width="130" align="right">
+      <el-table-column label="金额" width="130" align="center">
         <template #default="{ row }">
           <span :class="row.type === 0 ? 'amount-income' : 'amount-expense'">
-            {{ row.type === 0 ? '+' : '−' }}¥{{ formatAmount(row.amount) }}
+            <span class="amount-sign">{{ row.type === 0 ? '+' : '−' }}</span>{{ formatAmount(row.amount) }}
           </span>
         </template>
       </el-table-column>
@@ -1136,6 +1136,10 @@ onMounted(() => {
 .amount-expense {
   color: var(--el-color-danger);
   font-variant-numeric: tabular-nums;
+}
+
+.amount-sign {
+  font-size: 0.7em;
 }
 
 .category-head {

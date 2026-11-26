@@ -29,9 +29,12 @@
     const next = byStartDesc[0] || null;
     const finished = Y.state.matches.filter((match) => match.status === 'FINISHED');
     const recent = byStartDesc.slice(1, 4);
-    // P-134：活动入口常驻；P-132：账本入口在其下，门禁同原型顶部导航（非访客且非外挂）。
+    // P-142：动态入口仅正式球员与管理员可见；P-134：活动入口常驻；P-132：账本入口在其下。
     const homeUser = Y.currentUser();
     const homeEntryLinks = [
+      ...(Y.hasPermission('content:view:any')
+        ? [{ icon: '📸', title: '动态与相册', href: 'content.html' }]
+        : []),
       { icon: '🎉', title: '活动', href: 'activity.html' },
       ...(Boolean(homeUser.id) && Y.userRole(homeUser) !== 'GUEST'
         ? [{ icon: '💰', title: '账本', href: 'ledger.html' }]
@@ -119,7 +122,6 @@
       <div class="feature-grid">
         ${[
           ['📈', 'AI 身价', '基于位置、出场、进球与助攻的身价模型'],
-          ['📸', '动态与相册', '比赛照片、B 站视频、点赞留言'],
           ['🗳️', '投票', '标题、图片选项、多选、截止时间'],
           ['📣', '公众号提醒', '赛事发布与模板消息'],
           ['🏆', '资产与荣誉', '器材台账、球队里程碑']
@@ -398,6 +400,7 @@
             <span>📍 ${esc(match.venue)}</span>
           </div>
           <div class="match-hero-actions">
+            ${Y.hasPermission('content:view:any') ? `<a class="btn btn-ghost btn-sm" href="content.html?matchId=${match.id}">照片</a>` : ''}
             ${canInviteTeammate ? '<button class="btn btn-ghost btn-sm" data-action="invite-teammate">邀请队友</button>' : ''}
             ${Y.hasPermission('match:status:any') ? `<select class="input input-sm" data-action="c-status" aria-label="修改比赛状态">${Y.statusOptions(match).map((option) => `<option value="${option.status}" ${match.status === option.status ? 'selected' : ''} ${option.disabled ? `disabled title="${option.reason}"` : ''}>${Y.statusLabel(option.status)}</option>`).join('')}</select>` : ''}
           </div>
@@ -1561,6 +1564,7 @@ render();
                         : '<button class="btn btn-ghost btn-sm" disabled>已截止</button>')
                     : `<button class="btn btn-primary btn-sm" data-signup-activity="${item.id}"${open ? '' : ' disabled'}>${ctaLabel(item)}</button>`}
                 <button class="btn btn-ghost btn-sm" data-share-activity="${item.id}">分享</button>
+                ${Y.hasPermission('content:view:any') ? `<a class="btn btn-ghost btn-sm" href="content.html?activityId=${item.id}">照片</a>` : ''}
                 ${Y.hasPermission('activity:manage:any') ? `<select class="input input-sm" data-activity-status="${item.id}" aria-label="修改活动状态">${activityStatusFlow.map((next) => `<option value="${next}"${next === item.status ? ' selected' : ''}${activityStatusDisabled(item, next) ? ' disabled' : ''}>${statusLabels[next]}</option>`).join('')}</select>` : ''}
                 ${item.familyAllowed && !closed ? `<label class="muted small" style="display:flex;align-items:center;gap:4px"><input type="checkbox" data-family-toggle="${item.id}"${item.family ? ' checked' : ''}> 携带家属</label>` : ''}
               </div>

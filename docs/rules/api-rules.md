@@ -38,10 +38,10 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 2. 服务端必须校验全部输入，不能依赖前端校验；Controller 使用 `@Valid` / `@Validated`。
 3. 对字符串长度、数值范围、枚举值、日期格式、数组大小设置明确限制。
 4. 枚举请求只接受数字 code；`*Label` 是只读派生字段，服务端忽略客户端传值。
-5. 高风险写接口携带 `Idempotency-Key`：报名/取消、事件、比分、比赛状态、阵容、分组、审核/注销、邀请、设置、角色权限等。
+5. 高风险写接口携带 `Idempotency-Key`：报名/取消、事件、比分、比赛状态、阵容、分组、审核/注销、邀请、设置、角色权限、相册创建/编辑/删除、照片删除、动态发布/删除、举报等。multipart 上传端点不使用幂等键（现有切面对 `MultipartFile` 序列化不可靠），由前端防重；点赞等目标状态幂等接口不要求幂等键。
 6. 需要乐观锁的接口携带 `version`：阵容、比赛状态、活动状态、事件修改；版本不匹配返回 `VERSION_CONFLICT`。
 7. 认证写请求携带会话 Cookie，并通过 `X-XSRF-TOKEN` 提交 CSRF token；token 从登录或 `auth/csrf` 响应体获取，不使用 CSRF Cookie。
-8. 文件上传使用 `multipart/form-data`；服务端校验类型与大小（头像上限 5MB；场地环境图单张上限 5MB，每活动最多 10 张），写入阿里云 OSS，业务表只存对象键（不含签名参数）。
+8. 文件上传使用 `multipart/form-data`；服务端校验类型与大小（头像上限 5MB；场地环境图单张上限 5MB，每活动最多 10 张；相册照片单张上限 5MB，每相册最多 200 张），写入阿里云 OSS，业务表只存对象键（不含签名参数）。
 9. 评分/星级等小数值使用 JSON number 传输并明确精度（如星级 1.00–5.00、两位小数），不做字符串化；按固定档位筛选时使用数字 code（如 `skillLevel=1..9`），不在查询参数中接受任意区间。
 
 ---
@@ -125,7 +125,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 
 ## 10 文件、敏感数据与外部依赖
 
-1. 头像上传经后端校验后写 OSS；响应返回 `{objectKey,signedUrl}`，不返回 OSS 密钥；业务表只存 `objectKey`，读响应现签短期 URL。
+1. 头像上传经后端校验后写 OSS；响应返回 `{objectKey,signedUrl}`，不返回 OSS 密钥；业务表只存 `objectKey`，读响应现签短期 URL。相册照片沿用同一链路：列表与网格的签名 URL 带 `x-oss-process` 缩略参数，详情签原图，不额外保存缩略图对象；删除时 best-effort 删除 OSS 对象，失败只记日志。
 2. 手机号只返回脱敏值；不返回 mp_openid（或历史 openid）、passwordHash、邀请 token、会话 ID、CSRF token。唯一例外是 INV-03 创建比赛邀请响应中一次性返回的 `token`（与 `inviteUrl` 同源、只返回一次，供小程序拼接分享路径）；余下的邀请查询/列表/接受响应均不得返回 token。
 3. 日志与错误响应不得包含密码、验证码、token、mp_openid、wx.login code、session_key、手机号明文。
 4. 外部 HTTP 调用设置连接/读取超时与重试上限；失败返回明确业务错误。

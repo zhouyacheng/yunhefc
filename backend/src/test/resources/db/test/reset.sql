@@ -1,4 +1,4 @@
--- 每个集成测试方法前执行：清空可变业务数据，随后由 Flyway V3 重建角色/授权/系统配置，执行 V10 伪删除分组权重，再由 V17 重建活动/账本权限与内置分类。
+-- 每个集成测试方法前执行：清空可变业务数据，随后由 Flyway V3 重建角色/授权/系统配置，执行 V10 伪删除分组权重，再由 V17 重建活动/账本权限与内置分类，V21 重建内容权限。
 -- 不复制种子数据，避免与迁移脚本漂移。
 SET NAMES utf8mb4;
 
@@ -24,6 +24,10 @@ TRUNCATE TABLE activity_image;
 TRUNCATE TABLE team_activity;
 TRUNCATE TABLE team_ledger_entry;
 TRUNCATE TABLE ledger_category;
+TRUNCATE TABLE content_post_like;
+TRUNCATE TABLE content_album_photo;
+TRUNCATE TABLE content_post;
+TRUNCATE TABLE content_album;
 TRUNCATE TABLE player_stats_summary;
 TRUNCATE TABLE notification;
 TRUNCATE TABLE audit_log;

@@ -19,8 +19,11 @@ public class InMemoryOssGateway implements OssGateway {
     }
 
     @Override
-    public String signedUrl(String objectKey) {
-        return "mock://oss/" + objectKey;
+    public String signedUrl(String objectKey, String process) {
+        if (process == null || process.isBlank()) {
+            return "mock://oss/" + objectKey;
+        }
+        return "mock://oss/" + objectKey + "?x-oss-process=" + process;
     }
 
     @Override
@@ -42,6 +45,7 @@ public class InMemoryOssGateway implements OssGateway {
         return object == null ? null : object.contentType();
     }
 
+    @Override
     public void deleteObject(String objectKey) {
         objects.remove(objectKey);
     }

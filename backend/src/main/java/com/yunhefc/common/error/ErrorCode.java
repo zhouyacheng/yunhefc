@@ -32,6 +32,7 @@ public enum ErrorCode {
     ACTIVITY_STATE_CONFLICT(40917, HttpStatus.CONFLICT, "活动状态不允许该操作"),
     ACTIVITY_FULL(40918, HttpStatus.CONFLICT, "活动报名已满"),
     ACTIVITY_SIGNUP_BUSY(40919, HttpStatus.CONFLICT, "报名锁获取超时，可重试"),
+    CONTENT_ALBUM_FULL(40920, HttpStatus.CONFLICT, "相册已达 200 张上限"),
     UNSUPPORTED_MEDIA_TYPE(41501, HttpStatus.UNSUPPORTED_MEDIA_TYPE, "请求媒体类型不支持"),
     BUSINESS_RULE_VIOLATION(42201, HttpStatus.UNPROCESSABLE_ENTITY, "业务规则不满足"),
     CONFIRM_REQUIRED(42202, HttpStatus.UNPROCESSABLE_ENTITY, "需要确认后才能执行"),

@@ -1,6 +1,6 @@
 -- 云河FC 测试数据清理脚本（事故恢复用）
 -- 用途：在误执行 scripts/sql/test-data.sql 的库中，硬删除其插入的测试数据及运行期衍生数据。
--- 前提：生产库由 Flyway V1–V17 初始化（V15 为空号），且不存在需要保留的真实用户/比赛；本脚本保留种子与 id=1 管理员。
+-- 前提：生产库由 Flyway V1–V21 初始化（V15 为空号），且不存在需要保留的真实用户/比赛；本脚本保留种子与 id=1 管理员。
 --
 -- 注意：
 --   1. 本脚本是事故清理，不是业务删除路径。正常业务流程仍按 docs/rules/database-rules.md §4
@@ -276,6 +276,25 @@ WHERE invite_id IN (SELECT id FROM tmp_test_invite)
 
 DELETE FROM invite_link WHERE id IN (SELECT id FROM tmp_test_invite);
 
+-- 内容：先删点赞与照片，再删动态与相册；只删测试账号产生或归属测试账号的记录。
+DELETE FROM content_post_like
+WHERE user_id IN (SELECT id FROM tmp_test_user)
+   OR post_id IN (
+     SELECT id FROM content_post WHERE author_user_id IN (SELECT id FROM tmp_test_user)
+   );
+DELETE FROM content_album_photo
+WHERE uploaded_by IN (SELECT id FROM tmp_test_user)
+   OR album_id IN (
+     SELECT id FROM content_album WHERE created_by IN (SELECT id FROM tmp_test_user)
+   );
+-- 照片被删后封面可能悬空，先清空再删相册（04 §5.33：封面必须属于本相册）。
+UPDATE content_album a
+SET a.cover_photo_id = NULL
+WHERE a.cover_photo_id IS NOT NULL
+  AND NOT EXISTS (SELECT 1 FROM content_album_photo p WHERE p.id = a.cover_photo_id);
+DELETE FROM content_post WHERE author_user_id IN (SELECT id FROM tmp_test_user);
+DELETE FROM content_album WHERE created_by IN (SELECT id FROM tmp_test_user);
+
 -- 通知按三个来源分句删除，避免同一语句重复引用临时表。
 DELETE FROM notification WHERE user_id IN (SELECT id FROM tmp_test_user);
 DELETE FROM notification WHERE ref_type = 'MATCH' AND ref_id IN (SELECT id FROM tmp_test_match);
@@ -348,6 +367,14 @@ SELECT 'after.invite_use_by_invite' AS item, COUNT(*) AS rows_count
 FROM invite_use WHERE invite_id IN (SELECT id FROM tmp_test_invite);
 SELECT 'after.invite_use_by_user' AS item, COUNT(*) AS rows_count
 FROM invite_use WHERE user_id IN (SELECT id FROM tmp_test_user);
+SELECT 'after.content_post' AS item, COUNT(*) AS rows_count
+FROM content_post WHERE author_user_id IN (SELECT id FROM tmp_test_user);
+SELECT 'after.content_album' AS item, COUNT(*) AS rows_count
+FROM content_album WHERE created_by IN (SELECT id FROM tmp_test_user);
+SELECT 'after.content_post_like' AS item, COUNT(*) AS rows_count
+FROM content_post_like WHERE user_id IN (SELECT id FROM tmp_test_user);
+SELECT 'after.content_album_photo' AS item, COUNT(*) AS rows_count
+FROM content_album_photo WHERE uploaded_by IN (SELECT id FROM tmp_test_user);
 SELECT 'after.notification_by_user' AS item, COUNT(*) AS rows_count
 FROM notification WHERE user_id IN (SELECT id FROM tmp_test_user);
 SELECT 'after.notification_by_match' AS item, COUNT(*) AS rows_count

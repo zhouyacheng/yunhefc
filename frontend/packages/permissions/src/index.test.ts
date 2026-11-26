@@ -11,11 +11,12 @@ import {
 } from './index';
 
 describe('permission catalogue', () => {
-  it('exposes the 33 permission codes from 05 §5.1', () => {
-    expect(ALL_PERMISSIONS).toHaveLength(33);
-    expect(new Set(ALL_PERMISSIONS).size).toBe(33);
+  it('exposes the 37 permission codes from 05 §5.1', () => {
+    expect(ALL_PERMISSIONS).toHaveLength(37);
+    expect(new Set(ALL_PERMISSIONS).size).toBe(37);
     expect(ALL_PERMISSIONS).toContain('attendance:checkin:own');
     expect(ALL_PERMISSIONS).toContain('user:approve:any');
+    expect(ALL_PERMISSIONS).toContain('content:manage:any');
   });
 
   it('uses resource:action:scope for every code', () => {
@@ -80,6 +81,8 @@ describe('admin sections', () => {
   it('separates backend permissions from C-only permissions', () => {
     expect(hasBackendPermission(['registration:create:own'])).toBe(false);
     expect(hasBackendPermission(['activity:signup:own'])).toBe(false);
+    expect(hasBackendPermission(['content:create:own'])).toBe(false);
+    expect(hasBackendPermission(['content:view:any'])).toBe(true);
     expect(hasBackendPermission(['activity:view:any'])).toBe(true);
     expect(hasBackendPermission(['match:view:any'])).toBe(true);
     expect(hasBackendPermission([])).toBe(false);

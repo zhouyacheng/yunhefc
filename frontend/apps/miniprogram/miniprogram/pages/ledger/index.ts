@@ -91,6 +91,7 @@ Page({
     summary: null as LedgerSummaryView | null,
     summaryLoading: false,
     summaryError: '',
+    summaryFiltered: false,
     typeOptions: TYPE_OPTIONS,
     typeIndex: 0,
     categories: [] as LedgerCategory[],
@@ -191,7 +192,11 @@ Page({
       if (seq !== summarySeq) {
         return;
       }
-      this.setData({ summaryLoading: false, summary: ledgerSummaryView(summary) });
+      this.setData({
+        summaryLoading: false,
+        summary: ledgerSummaryView(summary),
+        summaryFiltered: key !== DEFAULT_LEDGER_KEY,
+      });
     } catch (error) {
       if (seq !== summarySeq) {
         return;

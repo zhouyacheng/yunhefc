@@ -2,8 +2,7 @@
 import { describeError } from '@yunhefc/api-client';
 import { LEDGER_VIEW_ANY, hasPermission } from '@yunhefc/permissions';
 import type { LedgerCategory, LedgerEntry, LedgerSummary, Page } from '@yunhefc/shared';
-import { formatDateTime } from '@yunhefc/shared';
-import { Button, Empty, Loading, Pagination, Tag } from 'vant';
+import { Button, Empty, Loading, Pagination } from 'vant';
 import { computed, onMounted, ref } from 'vue';
 
 import { api } from '../api/client';
@@ -11,12 +10,14 @@ import MonthRangeFilter from '../components/MonthRangeFilter.vue';
 import type { TimeForm } from '../features/common/time-filter';
 import {
   LEDGER_TYPE_OPTIONS,
+  amountSign,
   categoryLabelMap,
   categoryOptions,
-  entryCategoryLabel,
+  entryMetaText,
+  entryTitle,
+  formatEntryAmount,
   formatMoney,
-  formatSignedAmount,
-  ledgerTypeText,
+  ledgerFlow,
 } from '../features/ledger/presentation';
 import {
   DEFAULT_LEDGER_PAGE_SIZE,
@@ -51,6 +52,19 @@ const direction = computed(() => parseLedgerType(typeFilter.value));
 const options = computed(() => categoryOptions(categories.value, direction.value));
 const labels = computed(() => categoryLabelMap(categories.value));
 const hasEntries = computed(() => entries.value.length > 0);
+/** 与汇总结果同步更新，避免重载期间把旧数字标成「筛选合计」。 */
+const summaryFiltered = ref(false);
+const flow = computed(() => ledgerFlow(summary.value ?? { income: 0, expense: 0 }));
+
+function isFiltered(filter: LedgerFilters): boolean {
+  return (
+    filter.type !== null ||
+    filter.categoryId !== null ||
+    filter.month !== '' ||
+    filter.startDate !== '' ||
+    filter.endDate !== ''
+  );
+}
 
 function filters(): LedgerFilters {
   return {
@@ -83,6 +97,7 @@ async function load(): Promise<void> {
     total.value = entryPage.total;
     page.value = entryPage.page;
     summary.value = summaryView;
+    summaryFiltered.value = isFiltered(filter);
   } catch (caught) {
     if (seq !== requestSeq) {
       return;
@@ -90,6 +105,7 @@ async function load(): Promise<void> {
     entries.value = [];
     total.value = 0;
     summary.value = null;
+    summaryFiltered.value = false;
     error.value = describeError(caught, '账本加载失败，请稍后重试');
   } finally {
     if (seq === requestSeq) {
@@ -172,29 +188,40 @@ onMounted(() => {
     </section>
 
     <template v-else>
-      <div class="ledger-summary">
-        <div class="card ledger-summary__item">
-          <span class="muted small">收入</span>
-          <b class="ledger-summary__value ledger-summary__value--income">
-            {{ formatMoney(summary?.income ?? 0) }}
-          </b>
-        </div>
-        <div class="card ledger-summary__item">
-          <span class="muted small">支出</span>
-          <b class="ledger-summary__value ledger-summary__value--expense">
-            {{ formatMoney(summary?.expense ?? 0) }}
-          </b>
-        </div>
-        <div class="card ledger-summary__item">
-          <span class="muted small">余额</span>
+      <section class="card ledger-summary" data-testid="ledger-summary">
+        <div class="ledger-summary__balance">
+          <div class="ledger-summary__balance-head">
+            <span class="ledger-summary__label">余额</span>
+            <span v-if="summaryFiltered" class="ledger-summary__scope">筛选合计</span>
+          </div>
           <b
-            class="ledger-summary__value"
+            class="ledger-summary__value ledger-summary__value--balance"
             :class="{ 'ledger-summary__value--negative': (summary?.balance ?? 0) < 0 }"
           >
             {{ formatMoney(summary?.balance ?? 0) }}
           </b>
         </div>
-      </div>
+        <div class="ledger-summary__flows">
+          <div class="ledger-summary__flow">
+            <span class="ledger-summary__label">收入</span>
+            <b class="ledger-summary__value ledger-summary__value--income">
+              {{ formatMoney(summary?.income ?? 0) }}
+            </b>
+          </div>
+          <div class="ledger-summary__flow ledger-summary__flow--end">
+            <span class="ledger-summary__label">支出</span>
+            <b class="ledger-summary__value ledger-summary__value--expense">
+              {{ formatMoney(summary?.expense ?? 0) }}
+            </b>
+          </div>
+          <div v-if="flow.ratioPercent !== null" class="ledger-summary__ratio">
+            <div class="ledger-summary__bar" aria-hidden="true">
+              <i class="ledger-summary__bar-fill" :style="{ width: `${flow.ratioPercent}%` }"></i>
+            </div>
+            <span class="ledger-summary__ratio-label">{{ flow.ratioLabel }}</span>
+          </div>
+        </div>
+      </section>
 
       <section class="schedule-filters">
         <label class="schedule-filter">
@@ -246,21 +273,14 @@ onMounted(() => {
             class="ledger-row"
             data-testid="ledger-row"
           >
-            <div class="ledger-row__head">
-              <Tag class="status-tag" :class="`status-tag--${amountTone(entry)}`">
-                {{ ledgerTypeText(entry.type) }}
-              </Tag>
-              <b class="ledger-row__category">{{ entryCategoryLabel(entry, labels) }}</b>
-              <b class="ledger-row__amount" :class="`ledger-row__amount--${amountTone(entry)}`">
-                {{ formatSignedAmount(entry) }}
-              </b>
+            <div class="ledger-row__main">
+              <p class="ledger-row__title">{{ entryTitle(entry, labels) }}</p>
+              <p class="ledger-row__meta">{{ entryMetaText(entry, labels) }}</p>
             </div>
-            <p class="ledger-row__description">{{ entry.description }}</p>
-            <p class="muted small">
-              {{ formatDateTime(entry.occurredAt) }}
-              <template v-if="entry.playerName"> · 归属 {{ entry.playerName }}</template>
-              <template v-if="entry.activityTitle"> · {{ entry.activityTitle }}</template>
-            </p>
+            <b class="ledger-row__amount" :class="`ledger-row__amount--${amountTone(entry)}`"
+              ><span class="ledger-row__sign">{{ amountSign(entry) }}</span
+              >{{ formatEntryAmount(entry) }}</b
+            >
           </article>
         </div>
 
@@ -290,21 +310,48 @@ onMounted(() => {
 <style scoped>
 .ledger-summary {
   display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 20px 32px;
+  grid-template-columns: minmax(200px, 0.9fr) minmax(300px, 1.6fr);
+  align-items: center;
   margin-bottom: 16px;
+  padding: 20px 22px;
 }
 
-.ledger-summary__item {
+.ledger-summary__balance {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 16px;
+}
+
+.ledger-summary__balance-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ledger-summary__label {
+  color: var(--yh-muted);
+  font-size: 12px;
+}
+
+.ledger-summary__scope {
+  padding: 1px 6px;
+  color: var(--yh-slate-ink);
+  background: var(--yh-slate-soft);
+  border-radius: 6px;
+  font-size: 11px;
 }
 
 .ledger-summary__value {
-  font-size: 24px;
   font-variant-numeric: tabular-nums;
+}
+
+.ledger-summary__value--balance {
+  color: var(--yh-ink);
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
 }
 
 .ledger-summary__value--income {
@@ -319,11 +366,62 @@ onMounted(() => {
   color: var(--yh-red);
 }
 
+.ledger-summary__flows {
+  display: grid;
+  gap: 10px 20px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.ledger-summary__flow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ledger-summary__flow--end {
+  text-align: right;
+}
+
+.ledger-summary__flow .ledger-summary__value {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.ledger-summary__ratio {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  grid-column: 1 / -1;
+}
+
+.ledger-summary__bar {
+  overflow: hidden;
+  height: 4px;
+  background: var(--yh-slate-soft);
+  border-radius: 999px;
+}
+
+.ledger-summary__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--yh-red);
+  border-radius: inherit;
+}
+
+.ledger-summary__ratio-label {
+  color: var(--yh-muted);
+  font-size: 11px;
+  text-align: right;
+}
+
 .ledger-list {
-  padding: 4px 16px;
+  padding: 0 16px;
 }
 
 .ledger-row {
+  display: flex;
+  gap: 16px;
+  align-items: center;
   padding: 14px 0;
 }
 
@@ -331,20 +429,38 @@ onMounted(() => {
   border-top: 1px solid var(--yh-line);
 }
 
-.ledger-row__head {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+.ledger-row__main {
+  flex: 1;
+  min-width: 0;
 }
 
-.ledger-row__category {
+.ledger-row__title {
+  margin: 0;
+  color: var(--yh-ink);
   font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.ledger-row__meta {
+  margin: 2px 0 0;
+  color: var(--yh-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
 }
 
 .ledger-row__amount {
-  margin-left: auto;
+  flex: none;
+  width: 128px;
   font-size: 17px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.ledger-row__sign {
+  font-size: 0.7em;
 }
 
 .ledger-row__amount--income {
@@ -355,21 +471,23 @@ onMounted(() => {
   color: var(--yh-red);
 }
 
-.ledger-row p {
-  margin: 4px 0 0;
-}
+@media (max-width: 760px) {
+  .ledger-summary {
+    gap: 16px;
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
 
-.ledger-row__description {
-  font-size: 14px;
-}
+  .ledger-summary__value--balance {
+    font-size: 30px;
+  }
 
-.status-tag--income.van-tag {
-  color: var(--yh-green-ink);
-  background: var(--yh-green-soft);
-}
+  .ledger-row {
+    gap: 12px;
+  }
 
-.status-tag--expense.van-tag {
-  color: var(--yh-red);
-  background: var(--yh-red-soft, #fee2e2);
+  .ledger-row__amount {
+    width: 108px;
+  }
 }
 </style>

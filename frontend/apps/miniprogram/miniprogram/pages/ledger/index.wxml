@@ -21,17 +21,26 @@
 
   <block wx:else>
     <view class="summary">
-      <view class="summary__item">
-        <text class="summary__label">收入</text>
-        <text class="summary__value summary__value--income">{{summary ? summary.incomeText : '—'}}</text>
-      </view>
-      <view class="summary__item">
-        <text class="summary__label">支出</text>
-        <text class="summary__value summary__value--expense">{{summary ? summary.expenseText : '—'}}</text>
-      </view>
-      <view class="summary__item">
+      <view class="summary__head">
         <text class="summary__label">余额</text>
-        <text class="summary__value summary__value--{{summary ? summary.tone : 'income'}}">{{summary ? summary.balanceText : '—'}}</text>
+        <text wx:if="{{summaryFiltered}}" class="summary__scope">筛选合计</text>
+      </view>
+      <text class="summary__balance summary__balance--{{summary ? summary.balanceTone : 'default'}}">{{summary ? summary.balanceText : '—'}}</text>
+      <view class="summary__flows">
+        <view class="summary__flow">
+          <text class="summary__label">收入</text>
+          <text class="summary__flow-value summary__flow-value--income">{{summary ? summary.incomeText : '—'}}</text>
+        </view>
+        <view class="summary__flow summary__flow--end">
+          <text class="summary__label">支出</text>
+          <text class="summary__flow-value summary__flow-value--expense">{{summary ? summary.expenseText : '—'}}</text>
+        </view>
+      </view>
+      <view wx:if="{{summary && summary.ratioPercent !== null}}" class="summary__ratio">
+        <view class="summary__bar">
+          <view class="summary__bar-fill" style="width: {{summary.ratioPercent}}%"></view>
+        </view>
+        <text class="summary__ratio-label">{{summary.ratioLabel}}</text>
       </view>
     </view>
 
@@ -61,12 +70,11 @@
 
     <view wx:else class="ledger-list">
       <view class="ledger-row" wx:for="{{feed.items}}" wx:key="id">
-        <view class="ledger-row__head">
-          <text class="ledger-row__category">{{item.categoryName}}</text>
-          <text class="ledger-row__amount ledger-row__amount--{{item.tone}}">{{item.amountText}}</text>
+        <view class="ledger-row__main">
+          <text class="ledger-row__title">{{item.title}}</text>
+          <text class="ledger-row__meta">{{item.metaText}}</text>
         </view>
-        <text class="ledger-row__desc">{{item.description}}</text>
-        <text class="muted small">{{item.timeText}}<text wx:if="{{item.metaText}}"> · {{item.metaText}}</text></text>
+        <text class="ledger-row__amount ledger-row__amount--{{item.tone}}"><text class="ledger-row__sign">{{item.amountSign}}</text>{{item.amountText}}</text>
       </view>
     </view>
 

@@ -100,6 +100,15 @@ export function formatDayTimeRange(
   return `${head}–${endText}`;
 }
 
+/** 仅日期：2026/12/02。 */
+export function formatYearDate(value: string | null | undefined): string {
+  if (!value) {
+    return '—';
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : yearDateFormatter.format(date);
+}
+
 /** 带年份与星期：2026/12/02 周三。 */
 export function formatDateWithYear(value: string | null | undefined): string {
   if (!value) {

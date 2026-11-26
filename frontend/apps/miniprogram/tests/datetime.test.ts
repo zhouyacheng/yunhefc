@@ -10,6 +10,7 @@ import {
   formatDayTimeRange,
   formatHourMinute,
   formatTimeRange,
+  formatYearDate,
 } from '../miniprogram/utils/datetime';
 
 describe('formatDayStartTime', () => {
@@ -69,6 +70,18 @@ describe('formatTimeRange', () => {
 
   it('非法开始时间返回空串', () => {
     expect(formatTimeRange(null, '2026-12-06T22:00:00+08:00')).toBe('');
+  });
+});
+
+describe('formatYearDate', () => {
+  it('只输出上海日期，不带时分与星期', () => {
+    expect(formatYearDate('2026-12-03T20:00:00+08:00')).toBe('2026/12/03');
+    expect(formatYearDate('2026-12-03T17:00:00Z')).toBe('2026/12/04');
+  });
+
+  it('无效值显示占位符', () => {
+    expect(formatYearDate(null)).toBe('—');
+    expect(formatYearDate('bad')).toBe('—');
   });
 });
 

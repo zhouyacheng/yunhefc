@@ -1673,8 +1673,22 @@ render();
     let fromDate = '';
     let toDate = '';
 
+    /** 与 C13 一致：只展示日期 YYYY/MM/DD，不带时分。 */
     function fmt(at) {
-      return new Date(at).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
+      return new Date(at).toLocaleDateString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      });
+    }
+
+    function money(value) {
+      return value.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    /** 负数按 `−¥123.00` 展示，与 C13 一致。 */
+    function moneyText(value) {
+      return value < 0 ? `−¥${money(Math.abs(value))}` : `¥${money(value)}`;
     }
 
     /** 月份与自定义日期范围互斥，均未选时不筛选。 */
@@ -1692,14 +1706,28 @@ render();
       });
       const income = list.filter((item) => item.type === 'INCOME').reduce((sum, item) => sum + item.amount, 0);
       const expense = list.filter((item) => item.type === 'EXPENSE').reduce((sum, item) => sum + item.amount, 0);
+      /** 与 C13/MP12 ledgerFlow 同口径：以收入为 100%，无支出时隐藏条形与文案。 */
+      const hasFlow = expense > 0;
+      const ratio = income > 0 ? Math.round((expense / income) * 100) : 100;
+      const ratioLabel = income <= 0 ? '暂无收入' : ratio > 100 ? `支出超过收入 ${ratio - 100}%` : `支出占收入 ${ratio}%`;
+      const balance = income - expense;
+      const filtered = typeFilter !== 'ALL' || Boolean(monthFilter) || Boolean(fromDate && toDate);
       host.innerHTML = `<div class="container section">
         <div class="page-head">
           <div><span class="eyebrow">LEDGER</span><h1>账本</h1></div>
         </div>
-        <div style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
-          <div class="card" style="padding:14px"><p class="muted small">收入</p><p style="font-size:22px"><b>¥${income.toFixed(2)}</b></p></div>
-          <div class="card" style="padding:14px"><p class="muted small">支出</p><p style="font-size:22px"><b>¥${expense.toFixed(2)}</b></p></div>
-          <div class="card" style="padding:14px"><p class="muted small">余额</p><p style="font-size:22px"><b>¥${(income - expense).toFixed(2)}</b></p></div>
+        <div class="card" style="display:grid;gap:20px 32px;grid-template-columns:minmax(180px,0.9fr) minmax(260px,1.6fr);align-items:center;padding:20px">
+          <div>
+            <p class="muted small" style="margin:0;display:flex;align-items:center;gap:8px">余额${filtered ? '<span style="padding:1px 6px;border-radius:6px;background:#f1f5f9;color:#475569;font-size:11px">筛选合计</span>' : ''}</p>
+            <p style="margin:4px 0 0;font-size:30px;letter-spacing:-0.02em;color:${balance < 0 ? '#dc2626' : '#0f172a'}"><b>${moneyText(balance)}</b></p>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;gap:20px">
+              <div><p class="muted small" style="margin:0">收入</p><p style="margin:4px 0 0;font-size:17px;color:#166534"><b>${moneyText(income)}</b></p></div>
+              <div style="text-align:right"><p class="muted small" style="margin:0">支出</p><p style="margin:4px 0 0;font-size:17px;color:#dc2626"><b>${moneyText(expense)}</b></p></div>
+            </div>
+            ${hasFlow ? `<div style="margin-top:10px"><div style="height:4px;overflow:hidden;background:#f1f5f9;border-radius:999px"><i style="display:block;height:100%;width:${Math.min(100, ratio)}%;background:#dc2626"></i></div><p class="muted small" style="margin:4px 0 0;text-align:right">${ratioLabel}</p></div>` : ''}
+          </div>
         </div>
         <div class="card" style="padding:12px;margin-top:12px;display:flex;flex-wrap:wrap;gap:12px">
           <label class="muted small" for="ledger-type">方向
@@ -1720,17 +1748,15 @@ render();
           </label>
         </div>
         ${rangeIncomplete ? '<p class="muted small" style="margin-top:8px">自定义时间需同时选择起止日期；月份与自定义时间互斥。</p>' : ''}
-        ${list.length ? `<div class="table-wrap" style="margin-top:12px"><table class="data-table">
-          <thead><tr><th>日期</th><th>方向</th><th>分类</th><th>金额</th><th>摘要</th><th>归属球员</th></tr></thead>
-          <tbody>${list.map((item) => `<tr>
-            <td>${fmt(item.at)}</td>
-            <td>${item.type === 'INCOME' ? '收入' : '支出'}</td>
-            <td>${categoryLabels[item.category]}</td>
-            <td><b>${item.type === 'INCOME' ? '+' : '−'}¥${item.amount.toFixed(2)}</b></td>
-            <td>${esc(item.note)}</td>
-            <td>${item.player ? esc(item.player) : '—'}</td>
-          </tr>`).join('')}</tbody>
-        </table></div>` : '<div class="empty-state card" style="margin-top:12px"><p>该筛选下暂无流水</p></div>'}
+        ${list.length ? `<div class="card" style="margin-top:12px;padding:0 16px">${list.map((item, index) => `
+          <div style="display:flex;gap:16px;align-items:center;padding:14px 0${index ? ';border-top:1px solid #e2e8f0' : ''}">
+            <div style="flex:1;min-width:0">
+              <p style="margin:0;font-size:15px;font-weight:600;color:#0f172a">${esc(item.note)}</p>
+              <p class="muted small" style="margin:2px 0 0">${categoryLabels[item.category]} · ${fmt(item.at)}${item.player ? ` · 归属 ${esc(item.player)}` : ''}</p>
+            </div>
+            <b style="flex:none;width:128px;text-align:right;font-variant-numeric:tabular-nums;color:${item.type === 'INCOME' ? '#166534' : '#dc2626'}"><span style="font-size:0.7em">${item.type === 'INCOME' ? '+' : '−'}</span>${money(item.amount)}</b>
+          </div>`).join('')}
+        </div>` : '<div class="empty-state card" style="margin-top:12px"><p>该筛选下暂无流水</p></div>'}
         <div class="muted small" style="margin-top:12px">
           <p><b>注：</b>金额存正数、方向表达收支；分类为独立实体，管理员可自定义与停用（原型未演示管理入口）；余额 = 收入 − 支出，不设期初余额；不做退款、凭证与自动摊分。原型数据为演示值。</p>
         </div>

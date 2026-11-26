@@ -61,6 +61,15 @@ export function currentShanghaiMonth(now: number | Date = Date.now()): string {
   return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}`;
 }
 
+/** 展示文案：按 Asia/Shanghai 输出 `YYYY/MM/DD`（不含时分与星期），无效值返回占位符 `—`。 */
+export function formatYearDate(value: string | null | undefined): string {
+  const date = shanghaiDate(value);
+  if (!date) {
+    return '—';
+  }
+  return `${date.getUTCFullYear()}/${pad(date.getUTCMonth() + 1)}/${pad(date.getUTCDate())}`;
+}
+
 /** 展示文案：按 Asia/Shanghai 输出 `YYYY/MM/DD 周X`，无效值返回占位符 `—`。 */
 export function formatDateWithYear(value: string | null | undefined): string {
   const date = shanghaiDate(value);

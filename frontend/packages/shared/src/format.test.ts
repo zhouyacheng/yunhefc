@@ -9,6 +9,7 @@ import {
   formatDateWithYear,
   formatMoney,
   formatTimeRange,
+  formatYearDate,
 } from './format';
 
 describe('formatDayStartTime', () => {
@@ -54,6 +55,20 @@ describe('formatDate', () => {
 
   it.each([null, '', 'bad'])('无效值显示占位符：%s', (value) => {
     expect(formatDate(value)).toBe('—');
+  });
+});
+
+describe('formatYearDate', () => {
+  it('只输出上海日期，不带时刻与星期', () => {
+    expect(formatYearDate('2026-11-18T11:30:00Z')).toBe('2026/11/18');
+  });
+
+  it('按上海自然日跨日', () => {
+    expect(formatYearDate('2078-12-01T16:00:00Z')).toBe('2078/12/02');
+  });
+
+  it.each([null, '', 'bad'])('无效值显示占位符：%s', (value) => {
+    expect(formatYearDate(value)).toBe('—');
   });
 });
 

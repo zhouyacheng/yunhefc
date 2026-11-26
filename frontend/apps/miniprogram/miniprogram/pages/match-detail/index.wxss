@@ -59,6 +59,14 @@
   opacity: 0.86;
 }
 
+/* 分享封面画布：必须实际渲染才能导出，移出可视区而不是 display:none；尺寸由 shareCoverStyle 单源注入。 */
+.invite-cover-canvas {
+  position: fixed;
+  top: 0;
+  left: -2000px;
+  pointer-events: none;
+}
+
 .detail-hero__teams {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

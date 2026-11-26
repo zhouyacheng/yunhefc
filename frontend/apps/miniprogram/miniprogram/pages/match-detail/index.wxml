@@ -432,10 +432,18 @@
       show="{{inviteOpen}}"
       busy="{{inviteBusy}}"
       created="{{inviteCreated}}"
+      share-ready="{{shareCoverReady}}"
       error="{{inviteError}}"
       bind:close="closeInvite"
       bind:submit="submitInvite"
     />
+
+    <canvas
+      type="2d"
+      id="invite-cover"
+      class="invite-cover-canvas"
+      style="{{shareCoverStyle}}"
+    ></canvas>
 
     <event-form-sheet
       show="{{eventFormOpen}}"

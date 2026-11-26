@@ -14,7 +14,11 @@
       <text wx:if="{{error}}" class="form-error">{{error}}</text>
       <view class="invite-sheet__actions">
         <view class="btn btn--outline" bindtap="copy">{{copied ? '已复制链接' : '复制链接'}}</view>
-        <button class="btn btn--primary invite-sheet__share" open-type="share">分享给好友</button>
+        <button
+          class="btn btn--primary invite-sheet__share {{shareReady ? '' : 'btn--disabled'}}"
+          open-type="share"
+          disabled="{{!shareReady}}"
+        >{{shareReady ? '分享给好友' : '生成分享图中…'}}</button>
       </view>
     </block>
 

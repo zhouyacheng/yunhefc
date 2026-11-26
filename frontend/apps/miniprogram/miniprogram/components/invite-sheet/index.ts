@@ -21,6 +21,8 @@ Component({
     show: { type: Boolean, value: false },
     busy: { type: Boolean, value: false },
     created: { type: Object },
+    /** 动态封面是否已生成；未就绪时禁用原生分享按钮。 */
+    shareReady: { type: Boolean, value: true },
     error: { type: String, value: '' },
   },
 

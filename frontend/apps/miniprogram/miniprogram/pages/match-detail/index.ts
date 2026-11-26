@@ -15,6 +15,14 @@ import { eventCreateAllowed, eventEditAllowed } from '../../utils/event-form';
 import { buildGroupingBoard, type GroupingBoardView } from '../../utils/grouping-view';
 import { createGuardedLoads, type GuardedLoads } from '../../utils/guarded-load';
 import { inviteLandingPath, type InvitePayload } from '../../utils/invite';
+import {
+  SHARE_COVER_FALLBACK,
+  SHARE_COVER_HEIGHT,
+  SHARE_COVER_WIDTH,
+  buildShareCoverData,
+  queryMatchInviteCoverCanvas,
+  renderShareCover,
+} from '../../utils/match-invite-cover';
 import { buildLineupBoard, type LineupBoardView } from '../../utils/lineup-view';
 import {
   buildEventRows,
@@ -218,6 +226,9 @@ Page({
     inviteBusy: false,
     inviteCreated: null as InviteCreated | null,
     inviteError: '',
+    shareCoverPath: SHARE_COVER_FALLBACK,
+    shareCoverReady: true,
+    shareCoverStyle: `width:${SHARE_COVER_WIDTH}px;height:${SHARE_COVER_HEIGHT}px;`,
     canEditAny: false,
     canViewLineup: false,
     canViewGrouping: false,
@@ -272,6 +283,9 @@ Page({
   /** 四个 loader 共用的代次登记表；懒创建，卸载后连同页面实例一起回收。 */
   loadRegistry: null as GuardedLoads | null,
 
+  /** 分享封面生成代次；连续创建邀请时丢弃旧图。 */
+  shareCoverSeq: 0,
+
   guardedLoads(): GuardedLoads {
     if (!this.loadRegistry) {
       this.loadRegistry = createGuardedLoads((patch) => this.setData(patch));
@@ -307,6 +321,7 @@ Page({
     stopTimer();
     // 递增后迟到的详情响应会被丢弃；loader 的在途请求同时过期，页面已卸载，无需 setData。
     this.data.seq += 1;
+    this.shareCoverSeq += 1;
     this.guardedLoads().invalidateAll();
   },
 
@@ -948,11 +963,36 @@ Page({
     this.setData({ inviteBusy: true, inviteError: '' });
     try {
       const created = await createMatchInvite(this.data.id, payload);
-      this.setData({ inviteCreated: created });
+      this.setData({ inviteCreated: created, shareCoverReady: false });
+      void this.prepareShareCover(created);
     } catch (error) {
       this.setData({ inviteError: errorMessage(error, '创建邀请失败，请稍后重试') });
     } finally {
       this.setData({ inviteBusy: false });
+    }
+  },
+
+  /** 按当前比赛生成 5:4 分享封面；失败回退包内静态品牌图，分享按钮随后恢复可用。 */
+  async prepareShareCover(created: InviteCreated): Promise<void> {
+    const detail = this.data.detail;
+    const seq = this.shareCoverSeq + 1;
+    this.shareCoverSeq = seq;
+    if (!detail) {
+      this.setData({ shareCoverPath: SHARE_COVER_FALLBACK, shareCoverReady: true });
+      return;
+    }
+    try {
+      const canvas = await queryMatchInviteCoverCanvas();
+      const path = await renderShareCover(canvas, buildShareCoverData(detail, created));
+      if (seq !== this.shareCoverSeq) {
+        return;
+      }
+      this.setData({ shareCoverPath: path, shareCoverReady: true });
+    } catch {
+      if (seq !== this.shareCoverSeq) {
+        return;
+      }
+      this.setData({ shareCoverPath: SHARE_COVER_FALLBACK, shareCoverReady: true });
     }
   },
 
@@ -961,6 +1001,7 @@ Page({
     return {
       title: `${this.data.detail?.title ?? '比赛'} · 比赛邀请`,
       path: inviteLandingPath(this.data.inviteCreated?.token ?? ''),
+      imageUrl: this.data.shareCoverReady ? this.data.shareCoverPath : SHARE_COVER_FALLBACK,
     };
   },
 

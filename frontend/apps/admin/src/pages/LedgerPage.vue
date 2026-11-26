@@ -24,6 +24,7 @@ import {
   ledgerDirectionText,
   ledgerTypeText,
   validateLedgerAmount,
+  validateLedgerDescription,
 } from '../features/ledger/form';
 import { useSessionStore } from '../stores/session';
 
@@ -411,12 +412,9 @@ function entryFormError(): string | null {
   if (!entryForm.occurredAt) {
     return '请选择发生时间';
   }
-  const description = entryForm.description.trim();
-  if (!description) {
-    return '请输入摘要';
-  }
-  if (description.length > 255) {
-    return '摘要不能超过 255 字';
+  const descriptionError = validateLedgerDescription(entryForm.description);
+  if (descriptionError) {
+    return descriptionError;
   }
   return null;
 }
@@ -497,7 +495,7 @@ async function deleteEntry(row: LedgerEntry): Promise<void> {
   }
   try {
     await ElMessageBox.confirm(
-      `确认删除「${row.description}」（${ledgerTypeText(row.type)} ¥${formatAmount(row.amount)}）？`,
+      `确认删除「${row.description || '无摘要'}」（${ledgerTypeText(row.type)} ${formatAmount(row.amount)}）？`,
       '删除流水',
       { type: 'warning', confirmButtonText: '删除', cancelButtonText: '返回' },
     );
@@ -697,15 +695,15 @@ onMounted(() => {
     <div v-loading="summaryLoading" class="summary-cards">
       <div class="summary-card income">
         <span>收入</span>
-        <strong>¥{{ formatAmount(summary.income) }}</strong>
+        <strong>{{ formatAmount(summary.income) }}</strong>
       </div>
       <div class="summary-card expense">
         <span>支出</span>
-        <strong>¥{{ formatAmount(summary.expense) }}</strong>
+        <strong>{{ formatAmount(summary.expense) }}</strong>
       </div>
       <div class="summary-card balance">
         <span>余额</span>
-        <strong>¥{{ formatAmount(summary.balance) }}</strong>
+        <strong>{{ formatAmount(summary.balance) }}</strong>
       </div>
     </div>
     <el-alert
@@ -834,7 +832,9 @@ onMounted(() => {
           </span>
         </template>
       </el-table-column>
-      <el-table-column label="摘要" prop="description" min-width="200" />
+      <el-table-column label="摘要" min-width="200">
+        <template #default="{ row }">{{ row.description || '—' }}</template>
+      </el-table-column>
       <el-table-column label="归属球员" min-width="110">
         <template #default="{ row }">{{ row.playerName || '—' }}</template>
       </el-table-column>
@@ -893,10 +893,7 @@ onMounted(() => {
             class="amount-input"
             maxlength="12"
             placeholder="0.00"
-          >
-            <template #prefix>¥</template>
-          </el-input>
-          <span class="muted small">大于 0，最多两位小数。</span>
+          />
         </el-form-item>
         <el-form-item label="发生时间">
           <el-date-picker
@@ -912,7 +909,7 @@ onMounted(() => {
             v-model="entryForm.description"
             maxlength="255"
             show-word-limit
-            placeholder="例如 场地费、队费收入"
+            placeholder="可选，例如 场地费、队费收入"
           />
         </el-form-item>
         <el-form-item label="归属球员">
@@ -1138,7 +1135,7 @@ onMounted(() => {
   font-variant-numeric: tabular-nums;
 }
 
-.amount-sign {
+.amount-expense .amount-sign {
   font-size: 0.7em;
 }
 

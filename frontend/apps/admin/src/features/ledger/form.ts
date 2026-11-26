@@ -33,6 +33,11 @@ export function validateLedgerAmount(value: string): string | null {
   return null;
 }
 
+/** 摘要可选；空白视为无摘要，超 255 字仍拒绝。 */
+export function validateLedgerDescription(value: string): string | null {
+  return value.trim().length > 255 ? '摘要不能超过 255 字' : null;
+}
+
 /** 新建/编辑下拉：仅启用分类，且方向匹配或为通用分类。 */
 export function categoriesForType(
   categories: readonly LedgerCategory[],

@@ -663,6 +663,46 @@ class LedgerIT extends AccountITSupport {
                 .andExpect(status().isForbidden());
     }
 
+    @Test
+    void descriptionIsOptional() throws Exception {
+        Cookie admin = bAdminLogin("13900004091");
+        MvcResult created = createEntry(admin, entryJson(0, categoryId("队费"), "100.00",
+                "原摘要", OCCURRED_AT, null, null), idemKey())
+                .andExpect(status().isOk())
+                .andReturn();
+        Long entryId = JsonPath.<Number>read(
+                created.getResponse().getContentAsString(), "$.data.id").longValue();
+
+        // 省略 description 保持原值。
+        mockMvc.perform(patch("/api/v1/b/ledger/entries/" + entryId)
+                        .cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"amount":120.00,"version":0}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.description").value("原摘要"))
+                .andExpect(jsonPath("$.data.version").value(1));
+
+        // 显式空字符串清空。
+        mockMvc.perform(patch("/api/v1/b/ledger/entries/" + entryId)
+                        .cookie(admin).with(csrf())
+                        .header("Idempotency-Key", idemKey())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"description":"","version":1}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.description").value(""));
+
+        createEntry(admin, """
+                {"type":1,"categoryId":%d,"amount":50.00,"occurredAt":"%s"}
+                """.formatted(categoryId("场地"), OCCURRED_AT), idemKey())
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.description").value(""));
+    }
+
     // ---------- helpers ----------
 
     private Cookie player(String phone, String name, int jersey) throws Exception {

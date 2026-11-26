@@ -38,10 +38,10 @@ class LedgerDomainTest {
 
     @Test
     void validatesDescriptionAndCategoryName() {
-        assertThat(LedgerRules.description("  队费  ")).isEqualTo("队费");
-        assertThatThrownBy(() -> LedgerRules.description("   "))
-                .isInstanceOf(BusinessException.class);
-        assertThatThrownBy(() -> LedgerRules.description("字".repeat(256)))
+        assertThat(LedgerRules.descriptionOrEmpty("  队费  ")).isEqualTo("队费");
+        assertThat(LedgerRules.descriptionOrEmpty(null)).isEmpty();
+        assertThat(LedgerRules.descriptionOrEmpty("   ")).isEmpty();
+        assertThatThrownBy(() -> LedgerRules.descriptionOrEmpty("字".repeat(256)))
                 .isInstanceOf(BusinessException.class);
 
         assertThat(LedgerRules.categoryName(" 球衣 ")).isEqualTo("球衣");

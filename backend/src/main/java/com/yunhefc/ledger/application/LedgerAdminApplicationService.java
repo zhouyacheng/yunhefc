@@ -59,7 +59,7 @@ public class LedgerAdminApplicationService {
         Long teamId = principal.teamId();
         LedgerType type = requireType(request.type());
         BigDecimal amount = LedgerRules.amount(request.amount());
-        String description = LedgerRules.description(request.description());
+        String description = LedgerRules.descriptionOrEmpty(request.description());
         LedgerCategory category = guards.requireActiveCategory(teamId, request.categoryId());
         LedgerRules.requireDirectionMatch(type, category);
         if (request.playerId() != null) {
@@ -117,7 +117,7 @@ public class LedgerAdminApplicationService {
         BigDecimal amount = request.getAmount() == null
                 ? entry.getAmount() : LedgerRules.amount(request.getAmount());
         String description = request.getDescription() == null
-                ? entry.getDescription() : LedgerRules.description(request.getDescription());
+                ? entry.getDescription() : LedgerRules.descriptionOrEmpty(request.getDescription());
         LocalDateTime occurredAt = request.getOccurredAt() == null
                 ? entry.getOccurredAt() : request.getOccurredAt();
 

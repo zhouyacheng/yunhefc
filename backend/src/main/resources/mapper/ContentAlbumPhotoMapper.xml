@@ -16,8 +16,9 @@
     </select>
 
     <select id="selectCoverPhotos" resultType="com.yunhefc.content.domain.ContentAlbumPhoto">
-        SELECT p.album_id, p.id, p.object_key, p.uploaded_by, p.created_at,
-               p.updated_at, p.is_deleted
+        SELECT p.album_id AS albumId, p.id AS id, p.object_key AS objectKey,
+               p.uploaded_by AS uploadedBy, p.created_at AS createdAt,
+               p.updated_at AS updatedAt, p.is_deleted AS isDeleted
         FROM content_album a
         JOIN content_album_photo p ON p.album_id = a.id AND p.is_deleted = 0
         WHERE a.is_deleted = 0

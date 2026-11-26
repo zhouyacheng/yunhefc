@@ -84,6 +84,13 @@ class ContentAlbumIT extends ActivityITSupport {
         mockMvc.perform(get("/api/v1/c/albums/999999").cookie(player))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value(40401));
+
+        // 名称长度按去除首尾空白后计算（05 CNT-04）。
+        postAlbum(player, """
+                {"title":"  %s  "}
+                """.formatted("名".repeat(64)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("名".repeat(64)));
     }
 
     @Test
@@ -131,6 +138,27 @@ class ContentAlbumIT extends ActivityITSupport {
                 """.formatted(activityId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.ownerName").value("主队活动"));
+    }
+
+    @Test
+    void ownerNameIsNullWhenOwnerIsNoLongerVisible() throws Exception {
+        Cookie player = player("13900005020", "归属失效球员");
+        Long matchId = insertMatch(1, "随后软删的比赛");
+        Long albumId = jsonLong(postAlbum(player, """
+                {"title":"归属失效相册","matchId":%d}
+                """.formatted(matchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ownerName").value("随后软删的比赛"))
+                .andReturn(), "$.data.id");
+
+        jdbc.update("UPDATE team_match SET is_deleted = 1 WHERE id = ?", matchId);
+
+        mockMvc.perform(get("/api/v1/c/albums/" + albumId).cookie(player))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.matchId").value(matchId))
+                .andExpect(jsonPath("$.data.ownerName").doesNotExist());
+        mockMvc.perform(get("/api/v1/c/albums").cookie(player))
+                .andExpect(jsonPath("$.data.items[0].ownerName").doesNotExist());
     }
 
     @Test
@@ -190,6 +218,26 @@ class ContentAlbumIT extends ActivityITSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.matchId").doesNotExist())
                 .andExpect(jsonPath("$.data.ownerName").doesNotExist());
+
+        // 切换归属须显式清空另一侧，否则按「至多一个非空」拒绝。
+        Long activityId = insertActivity("编辑用活动", futureAt(6, 10), 0, 50,
+                futureAt(5, 10), 1L);
+        patchAlbum(admin, albumId, """
+                {"activityId":%d}
+                """.formatted(activityId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ownerName").value("编辑用活动"));
+        patchAlbum(admin, albumId, """
+                {"matchId":%d}
+                """.formatted(matchId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value(40001));
+        patchAlbum(admin, albumId, """
+                {"matchId":%d,"activityId":null}
+                """.formatted(matchId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.ownerName").value("编辑用比赛"))
+                .andExpect(jsonPath("$.data.activityId").doesNotExist());
 
         // 非管理员不能编辑相册。
         patchAlbum(player, albumId, """

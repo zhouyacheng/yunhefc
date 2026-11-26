@@ -45,7 +45,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -101,7 +100,7 @@ public class ContentAlbumApplicationService {
                 album.getMatchId(),
                 album.getActivityId(),
                 ownerName(teamId, album),
-                cover == null ? null : ossGateway.signedUrl(cover.getObjectKey(), ContentRules.THUMBNAIL_PROCESS),
+                thumbnailUrl(cover),
                 cover == null ? null : ossGateway.signedUrl(cover.getObjectKey()),
                 photoMapper.countActive(albumId),
                 album.getCreatedBy(),
@@ -142,27 +141,17 @@ public class ContentAlbumApplicationService {
     }
 
     /**
-     * 切换归属时自动清空另一侧：比赛与活动至多一个非空。
+     * 归属按合并后的状态校验：比赛与活动至多一个非空，切换时须显式清空另一侧。
      */
     @Transactional
     public AlbumDetail update(Long albumId, AlbumUpdateRequest request) {
-        rejectUnknownFields(request);
+        request.rejectUnknownFields();
         Long teamId = CurrentUser.principal().teamId();
         ContentAlbum album = requireAlbumForUpdate(teamId, albumId);
 
         String title = request.hasTitle() ? ContentRules.requireTitle(request.getTitle()) : album.getTitle();
-        // 同一次请求同时给出两个归属按 CNT-04 口径拒绝；只给一个时自动清空另一侧。
-        if (request.hasMatchId() && request.getMatchId() != null
-                && request.hasActivityId() && request.getActivityId() != null) {
-            ContentRules.requireAtMostOneOwner(request.getMatchId(), request.getActivityId());
-        }
         Long matchId = request.hasMatchId() ? request.getMatchId() : album.getMatchId();
         Long activityId = request.hasActivityId() ? request.getActivityId() : album.getActivityId();
-        if (request.hasMatchId() && request.getMatchId() != null) {
-            activityId = null;
-        } else if (request.hasActivityId() && request.getActivityId() != null) {
-            matchId = null;
-        }
         ContentRules.requireAtMostOneOwner(matchId, activityId);
         requireOwnersInTeam(teamId, matchId, activityId);
 
@@ -301,16 +290,13 @@ public class ContentAlbumApplicationService {
                             ? null : matches.get(album.getMatchId());
                     ActivitySnapshot activity = album.getActivityId() == null
                             ? null : activities.get(album.getActivityId());
-                    String ownerName = match != null ? match.title()
-                            : activity != null ? activity.title() : null;
                     return new AlbumSummary(
                             album.getId(),
                             album.getTitle(),
                             album.getMatchId(),
                             album.getActivityId(),
-                            ownerName,
-                            cover == null ? null
-                                    : ossGateway.signedUrl(cover.getObjectKey(), ContentRules.THUMBNAIL_PROCESS),
+                            ownerName(match, activity),
+                            thumbnailUrl(cover),
                             counts.getOrDefault(album.getId(), 0),
                             album.getCreatedBy(),
                             album.getCreatedAt());
@@ -319,15 +305,24 @@ public class ContentAlbumApplicationService {
     }
 
     private String ownerName(Long teamId, ContentAlbum album) {
-        if (album.getMatchId() != null) {
-            return matchSummaryReadPort.findSummary(album.getMatchId(), teamId)
-                    .map(MatchSummarySnapshot::title).orElse(null);
+        MatchSummarySnapshot match = album.getMatchId() == null ? null
+                : matchSummaryReadPort.findSummary(album.getMatchId(), teamId).orElse(null);
+        ActivitySnapshot activity = album.getActivityId() == null ? null
+                : activityReadPort.findById(teamId, album.getActivityId()).orElse(null);
+        return ownerName(match, activity);
+    }
+
+    /** 归属摘要：比赛优先，其次活动；读取失败（对象已删/跨队）时为 null。 */
+    private String ownerName(MatchSummarySnapshot match, ActivitySnapshot activity) {
+        if (match != null) {
+            return match.title();
         }
-        if (album.getActivityId() != null) {
-            return activityReadPort.findById(teamId, album.getActivityId())
-                    .map(ActivitySnapshot::title).orElse(null);
-        }
-        return null;
+        return activity == null ? null : activity.title();
+    }
+
+    private String thumbnailUrl(ContentAlbumPhoto cover) {
+        return cover == null ? null
+                : ossGateway.signedUrl(cover.getObjectKey(), ContentRules.THUMBNAIL_PROCESS);
     }
 
     private Map<Long, ContentAlbumPhoto> coverPhotos(Collection<Long> albumIds) {
@@ -400,18 +395,6 @@ public class ContentAlbumApplicationService {
             throw new BusinessException(ErrorCode.NOT_FOUND, "相册不存在");
         }
         return album;
-    }
-
-    private void rejectUnknownFields(AlbumUpdateRequest request) {
-        if (request.getUnknownFields().isEmpty()) {
-            return;
-        }
-        Map<String, String> details = new LinkedHashMap<>();
-        for (String field : request.getUnknownFields()) {
-            details.put(field, "不可修改字段");
-        }
-        throw new BusinessException(ErrorCode.VALIDATION_FAILED,
-                ErrorCode.VALIDATION_FAILED.message(), Map.of("details", details));
     }
 
     private byte[] read(MultipartFile file) {

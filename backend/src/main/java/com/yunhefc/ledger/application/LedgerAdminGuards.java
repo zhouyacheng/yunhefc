@@ -10,9 +10,7 @@ import com.yunhefc.ledger.infrastructure.LedgerCategoryMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * 账本写操作的共享守卫：分类、球员、活动归属与通用错误。
@@ -57,15 +55,4 @@ class LedgerAdminGuards {
                 Map.of("currentVersion", currentVersion));
     }
 
-    void rejectUnknownFields(Set<String> unknownFields) {
-        if (unknownFields.isEmpty()) {
-            return;
-        }
-        Map<String, String> details = new LinkedHashMap<>();
-        for (String field : unknownFields) {
-            details.put(field, "不可修改字段");
-        }
-        throw new BusinessException(ErrorCode.VALIDATION_FAILED,
-                ErrorCode.VALIDATION_FAILED.message(), Map.of("details", details));
-    }
 }

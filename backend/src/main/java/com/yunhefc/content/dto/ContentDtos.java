@@ -1,18 +1,14 @@
 package com.yunhefc.content.dto;
 
-import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
+import com.yunhefc.common.api.PresenceTrackedRequest;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.LinkedHashSet;
-import java.util.Set;
-import java.util.TreeSet;
 
 public final class ContentDtos {
 
@@ -57,14 +53,20 @@ public final class ContentDtos {
             @NotBlank @Size(max = 64) String title,
             Long matchId,
             Long activityId) {
+
+        /** 与 05 CNT-04 一致：长度按去除首尾空白后的名称校验。 */
+        public AlbumCreateRequest {
+            title = title == null ? null : title.strip();
+        }
     }
 
     /**
-     * 部分更新：未出现的字段保持原值；归属显式传 null 表示清空，切换归属时自动清空另一侧。
+     * 部分更新：未出现的字段保持原值；归属显式传 null 表示清空，
+     * 切换归属时须同时把另一侧显式置空，否则按「至多一个非空」返回 40001。
      */
     @Getter
     @Setter
-    public static class AlbumUpdateRequest {
+    public static class AlbumUpdateRequest extends PresenceTrackedRequest {
 
         @Size(max = 64)
         private String title;
@@ -75,67 +77,49 @@ public final class ContentDtos {
 
         private Long activityId;
 
-        @JsonIgnore
-        private final Set<String> presentFields = new LinkedHashSet<>();
-
-        @JsonIgnore
-        private final Set<String> unknownFields = new LinkedHashSet<>();
-
-        /**
-         * 只读幂等指纹：让请求哈希区分「显式 null」与字段缺失及未知字段，同时不暴露可写属性。
-         */
-        @JsonProperty(value = "_presence", access = JsonProperty.Access.READ_ONLY)
-        public String presenceFingerprint() {
-            return new TreeSet<>(presentFields) + "|" + new TreeSet<>(unknownFields);
-        }
-
+        /** 先去除首尾空白再进入 @Size 校验，与 05 CNT-05 的长度口径一致。 */
         @JsonProperty("title")
         public void setTitle(String title) {
-            presentFields.add("title");
-            this.title = title;
+            markPresent("title");
+            this.title = title == null ? null : title.strip();
         }
 
         @JsonProperty("coverPhotoId")
         public void setCoverPhotoId(Long coverPhotoId) {
-            presentFields.add("coverPhotoId");
+            markPresent("coverPhotoId");
             this.coverPhotoId = coverPhotoId;
         }
 
         @JsonProperty("matchId")
         public void setMatchId(Long matchId) {
-            presentFields.add("matchId");
+            markPresent("matchId");
             this.matchId = matchId;
         }
 
         @JsonProperty("activityId")
         public void setActivityId(Long activityId) {
-            presentFields.add("activityId");
+            markPresent("activityId");
             this.activityId = activityId;
-        }
-
-        @JsonAnySetter
-        public void addUnknownField(String field, JsonNode value) {
-            unknownFields.add(field);
         }
 
         @JsonIgnore
         public boolean hasTitle() {
-            return presentFields.contains("title");
+            return getPresentFields().contains("title");
         }
 
         @JsonIgnore
         public boolean hasCoverPhotoId() {
-            return presentFields.contains("coverPhotoId");
+            return getPresentFields().contains("coverPhotoId");
         }
 
         @JsonIgnore
         public boolean hasMatchId() {
-            return presentFields.contains("matchId");
+            return getPresentFields().contains("matchId");
         }
 
         @JsonIgnore
         public boolean hasActivityId() {
-            return presentFields.contains("activityId");
+            return getPresentFields().contains("activityId");
         }
     }
 

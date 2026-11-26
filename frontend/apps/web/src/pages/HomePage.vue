@@ -16,13 +16,13 @@ import { api } from '../api/client';
 import MatchCard from '../components/MatchCard.vue';
 import { adminUrl, openAdmin } from '../features/admin-handoff/admin-handoff';
 import { isPending } from '../features/auth/user-status';
+import { contentVisible } from '../features/content/access';
 import { homeCta, type HomeCtaResult } from '../features/home/cta';
 import { queuePercent, scoreText, statusTone, winnerSide } from '../features/matches/presentation';
 import { useSessionStore } from '../stores/session';
 
 const FEATURES = [
   { icon: '📈', title: 'AI 身价', text: '基于位置、出场、进球与助攻的身价模型' },
-  { icon: '📸', title: '动态与相册', text: '比赛照片、B 站视频、点赞留言' },
   { icon: '🗳️', title: '投票', text: '标题、图片选项、多选、截止时间' },
   { icon: '📣', title: '公众号提醒', text: '赛事发布与模板消息' },
   { icon: '🏆', title: '资产与荣誉', text: '器材台账、球队里程碑' },
@@ -36,13 +36,16 @@ const canEnterAdmin = computed(
   () => session.isAuthenticated && hasBackendPermission(session.permissions),
 );
 const adminEntryUrl = computed(() => adminUrl({ path: '/' }));
+/** 动态入口：仅登录的正式球员与管理员可见，待审核与外挂不展示（P-142）。 */
+const canViewContent = computed(() => contentVisible(session.user, session.permissions));
 /** 账本入口与 MP06 同口径：仅具备 ledger:view:any 且非待审核的账号显示。 */
 const canViewLedger = computed(
   () => !isPending(session.user?.status ?? 1) && hasPermission(session.permissions, LEDGER_VIEW_ANY),
 );
 
-/** 活动入口常驻，账本入口在其下，与 MP06 首页同口径。 */
+/** 最近比赛之后依次为动态、活动、账本入口。 */
 const homeEntries = computed(() => [
+  ...(canViewContent.value ? [{ to: '/posts', icon: '📸', title: '动态' }] : []),
   { to: '/activities', icon: '🎉', title: '活动' },
   ...(canViewLedger.value ? [{ to: '/ledger', icon: '💰', title: '账本' }] : []),
 ]);

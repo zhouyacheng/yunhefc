@@ -204,6 +204,10 @@ async function openNotification(item: Notification): Promise<void> {
     const target = notificationTarget(item);
     if (target.kind === 'match') {
       await router.push(`/matches/${target.id}`);
+    } else if (target.kind === 'post') {
+      await router.push({ path: '/posts', query: { post: String(target.id) } });
+    } else if (target.kind === 'album') {
+      await router.push(`/posts/albums/${target.id}`);
     }
   } finally {
     busyId.value = null;
@@ -240,8 +244,18 @@ async function markAllRead(): Promise<void> {
   }
 }
 
-function isMatchNotification(item: Notification): boolean {
-  return notificationTarget(item).kind === 'match';
+function notificationLinkText(item: Notification): string {
+  const target = notificationTarget(item);
+  if (target.kind === 'match') {
+    return '查看比赛';
+  }
+  if (target.kind === 'post') {
+    return '查看动态';
+  }
+  if (target.kind === 'album') {
+    return '查看相册';
+  }
+  return '';
 }
 
 onMounted(() => {
@@ -320,7 +334,7 @@ onMounted(() => {
             <span class="notification-item__body">{{ item.body }}</span>
             <span class="notification-item__meta">
               {{ formatDateTime(item.createdAt) }}
-              <span v-if="isMatchNotification(item)"> · 查看比赛</span>
+              <span v-if="notificationLinkText(item)"> · {{ notificationLinkText(item) }}</span>
             </span>
           </span>
         </button>

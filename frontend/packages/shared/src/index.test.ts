@@ -218,6 +218,17 @@ describe('notification target', () => {
     });
   });
 
+  it('routes content report notifications to the post or album', () => {
+    expect(notificationTarget({ refType: 'CONTENT_POST', refId: 33 })).toEqual({
+      kind: 'post',
+      id: 33,
+    });
+    expect(notificationTarget({ refType: 'CONTENT_PHOTO', refId: 7001 })).toEqual({
+      kind: 'album',
+      id: 7001,
+    });
+  });
+
   it('treats USER and unknown ref types as read-only', () => {
     expect(notificationTarget({ refType: 'USER', refId: 1002 })).toEqual({ kind: 'none' });
     expect(notificationTarget({ refType: 'OTHER', refId: 1002 })).toEqual({ kind: 'none' });

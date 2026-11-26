@@ -64,10 +64,11 @@ pnpm exec playwright install chromium
 pnpm test:e2e
 ```
 
-覆盖：C 登录 → 赛程真实分页；未登录访问受保护页跳登录并带 `redirect`；B 管理员登录 → 比赛列表；无权限分区侧栏过滤与直访 403。两条登录冒烟额外断言无 console error；redirect/403 用例只断言页面结果（会话探测会产生预期的 401 网络日志）。
+覆盖：C 登录 → 赛程真实分页；未登录访问受保护页跳登录并带 `redirect`；B 管理员登录 → 比赛列表；无权限分区侧栏过滤与直访 403；C14 动态与相册（时间线发布/点赞/举报/删除、相册上传/封面/删除、C03/C12「照片」入口、访客与待审核/外挂门禁；内容接口由 Playwright mock）。两条登录冒烟额外断言无 console error；redirect/403 用例只断言页面结果（会话探测会产生预期的 401 网络日志）。
 
 ## 约定
 
 - 会话与权限由后端 `GET /c/me`、`GET /b/me` 返回，前端只用于导航与渲染；权限码见 `packages/permissions`（05 §5.1）。
 - `api-client` 统一处理 envelope、CSRF（内存 token，缺失时取一次并重试一次）、401 跳登录、403 分区/对象级区分、`Page<T>`、`readLabel`、`Idempotency-Key` 与 40901 归一化。
 - 路由使用 `createWebHistory(import.meta.env.BASE_URL)`；Pinia 存会话；守卫只做导航与 `redirect`。
+- 图片上传先客户端压缩再 multipart：头像长边 1080/JPEG q85，动态照片长边 2048/JPEG q80；常量、校验与压缩在 `@yunhefc/shared`，页面只负责交互与进度。

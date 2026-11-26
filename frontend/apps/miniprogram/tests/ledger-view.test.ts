@@ -31,8 +31,12 @@ describe('金额文案', () => {
   it('收入/支出与负余额使用统一符号', () => {
     expect(ledgerMoneyText(120)).toBe('¥120.00');
     expect(ledgerMoneyText(-123)).toBe('−¥123.00');
-    expect(decorateLedgerEntry(entry()).amountText).toBe('+¥120.00');
-    expect(decorateLedgerEntry(entry({ type: 1, typeLabel: '支出' })).amountText).toBe('−¥120.00');
+    expect(decorateLedgerEntry(entry())).toMatchObject({ amountSign: '+', amountText: '120.00' });
+    expect(decorateLedgerEntry(entry({ type: 1, typeLabel: '支出' }))).toMatchObject({
+      amountSign: '−',
+      amountText: '120.00',
+    });
+    expect(decorateLedgerEntry(entry({ amount: 1234.5 })).amountText).toBe('1,234.50');
     expect(ledgerSummaryView({ income: 100, expense: 250, balance: -150 })).toEqual({
       incomeText: '¥100.00',
       expenseText: '¥250.00',

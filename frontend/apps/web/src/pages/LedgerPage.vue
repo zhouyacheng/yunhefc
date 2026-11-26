@@ -11,11 +11,12 @@ import MonthRangeFilter from '../components/MonthRangeFilter.vue';
 import type { TimeForm } from '../features/common/time-filter';
 import {
   LEDGER_TYPE_OPTIONS,
+  amountSign,
   categoryLabelMap,
   categoryOptions,
   entryCategoryLabel,
+  formatEntryAmount,
   formatMoney,
-  formatSignedAmount,
   ledgerTypeText,
 } from '../features/ledger/presentation';
 import {
@@ -246,21 +247,21 @@ onMounted(() => {
             class="ledger-row"
             data-testid="ledger-row"
           >
-            <div class="ledger-row__head">
-              <Tag class="status-tag" :class="`status-tag--${amountTone(entry)}`">
-                {{ ledgerTypeText(entry.type) }}
-              </Tag>
-              <b class="ledger-row__category">{{ entryCategoryLabel(entry, labels) }}</b>
-              <b class="ledger-row__amount" :class="`ledger-row__amount--${amountTone(entry)}`">
-                {{ formatSignedAmount(entry) }}
-              </b>
+            <div class="ledger-row__main">
+              <div class="ledger-row__head">
+                <Tag class="status-tag" :class="`status-tag--${amountTone(entry)}`">
+                  {{ ledgerTypeText(entry.type) }}
+                </Tag>
+                <b class="ledger-row__category">{{ entryCategoryLabel(entry, labels) }}</b>
+              </div>
+              <p class="ledger-row__description">{{ entry.description }}</p>
+              <p class="muted small">
+                {{ formatDateTime(entry.occurredAt) }}
+                <template v-if="entry.playerName"> · 归属 {{ entry.playerName }}</template>
+                <template v-if="entry.activityTitle"> · {{ entry.activityTitle }}</template>
+              </p>
             </div>
-            <p class="ledger-row__description">{{ entry.description }}</p>
-            <p class="muted small">
-              {{ formatDateTime(entry.occurredAt) }}
-              <template v-if="entry.playerName"> · 归属 {{ entry.playerName }}</template>
-              <template v-if="entry.activityTitle"> · {{ entry.activityTitle }}</template>
-            </p>
+            <b class="ledger-row__amount" :class="`ledger-row__amount--${amountTone(entry)}`"><span class="ledger-row__sign">{{ amountSign(entry) }}</span>{{ formatEntryAmount(entry) }}</b>
           </article>
         </div>
 
@@ -324,11 +325,19 @@ onMounted(() => {
 }
 
 .ledger-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
   padding: 14px 0;
 }
 
 .ledger-row + .ledger-row {
   border-top: 1px solid var(--yh-line);
+}
+
+.ledger-row__main {
+  flex: 1;
+  min-width: 0;
 }
 
 .ledger-row__head {
@@ -342,9 +351,15 @@ onMounted(() => {
 }
 
 .ledger-row__amount {
-  margin-left: auto;
+  flex: none;
+  width: 140px;
   font-size: 17px;
   font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.ledger-row__sign {
+  font-size: 0.7em;
 }
 
 .ledger-row__amount--income {

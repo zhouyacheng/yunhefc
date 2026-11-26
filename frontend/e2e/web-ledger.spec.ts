@@ -165,13 +165,13 @@ test('C13 账本：汇总、流水与方向筛选', async ({ page }) => {
   await expect(page.locator('.ledger-summary__value').nth(2)).toHaveText('−¥500.00');
 
   await expect(page.getByTestId('ledger-row')).toHaveCount(2);
-  await expect(page.getByTestId('ledger-row').first()).toContainText('+¥300.00');
+  await expect(page.getByTestId('ledger-row').first()).toContainText('+300.00');
   await expect(page.getByTestId('ledger-row').first()).toContainText('归属 张伟');
-  await expect(page.getByTestId('ledger-row').nth(1)).toContainText('−¥800.00');
+  await expect(page.getByTestId('ledger-row').nth(1)).toContainText('−800.00');
 
   await page.getByLabel('收支方向').selectOption('1');
   await expect(page.getByTestId('ledger-row')).toHaveCount(1);
-  await expect(page.getByTestId('ledger-row')).toContainText('−¥800.00');
+  await expect(page.getByTestId('ledger-row')).toContainText('−800.00');
   await expect(page.locator('.ledger-summary__value--income')).toHaveText('¥0.00');
   await expect(page.locator('.ledger-summary__value').nth(2)).toHaveText('−¥800.00');
 

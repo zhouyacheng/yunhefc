@@ -61,12 +61,14 @@
 
     <view wx:else class="ledger-list">
       <view class="ledger-row" wx:for="{{feed.items}}" wx:key="id">
-        <view class="ledger-row__head">
-          <text class="ledger-row__category">{{item.categoryName}}</text>
-          <text class="ledger-row__amount ledger-row__amount--{{item.tone}}">{{item.amountText}}</text>
+        <view class="ledger-row__main">
+          <view class="ledger-row__head">
+            <text class="ledger-row__category">{{item.categoryName}}</text>
+          </view>
+          <text class="ledger-row__desc">{{item.description}}</text>
+          <text class="muted small">{{item.timeText}}<text wx:if="{{item.metaText}}"> · {{item.metaText}}</text></text>
         </view>
-        <text class="ledger-row__desc">{{item.description}}</text>
-        <text class="muted small">{{item.timeText}}<text wx:if="{{item.metaText}}"> · {{item.metaText}}</text></text>
+        <text class="ledger-row__amount ledger-row__amount--{{item.tone}}"><text class="ledger-row__sign">{{item.amountSign}}</text>{{item.amountText}}</text>
       </view>
     </view>
 

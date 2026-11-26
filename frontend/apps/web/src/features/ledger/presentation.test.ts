@@ -2,11 +2,12 @@ import type { LedgerCategory } from '@yunhefc/shared';
 import { describe, expect, it } from 'vitest';
 
 import {
+  amountSign,
   categoryLabelMap,
   categoryOptions,
   entryCategoryLabel,
+  formatEntryAmount,
   formatMoney,
-  formatSignedAmount,
   ledgerTypeText,
 } from './presentation';
 
@@ -49,9 +50,11 @@ describe('金额与方向格式化', () => {
     expect(formatMoney(Number.NaN)).toBe('—');
   });
 
-  it('流水金额带方向前缀，负号与余额一致', () => {
-    expect(formatSignedAmount({ type: 0, amount: 300 })).toBe('+¥300.00');
-    expect(formatSignedAmount({ type: 1, amount: 800 })).toBe('−¥800.00');
+  it('流水金额拆分方向符号与数值，均不带货币符号', () => {
+    expect(amountSign({ type: 0 })).toBe('+');
+    expect(amountSign({ type: 1 })).toBe('−');
+    expect(formatEntryAmount({ amount: 300 })).toBe('300.00');
+    expect(formatEntryAmount({ amount: -800 })).toBe('800.00');
   });
 
   it('方向文案', () => {

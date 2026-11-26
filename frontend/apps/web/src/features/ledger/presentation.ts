@@ -1,5 +1,5 @@
 import type { LedgerCategory, LedgerEntry, LedgerType } from '@yunhefc/shared';
-import { LEDGER_TYPE_TEXT, formatMoney, ledgerTypeText } from '@yunhefc/shared';
+import { LEDGER_TYPE_TEXT, formatAmount, formatMoney, ledgerTypeText } from '@yunhefc/shared';
 
 export { LEDGER_TYPE_TEXT, ledgerTypeText };
 
@@ -34,6 +34,12 @@ export function entryCategoryLabel(
 
 export { formatMoney };
 
-export function formatSignedAmount(entry: Pick<LedgerEntry, 'type' | 'amount'>): string {
-  return `${entry.type === 0 ? '+' : '−'}${formatMoney(Math.abs(entry.amount))}`;
+/** 流水行方向符号，单独渲染以便缩小字号。 */
+export function amountSign(entry: Pick<LedgerEntry, 'type'>): string {
+  return entry.type === 0 ? '+' : '−';
+}
+
+/** 流水行金额数值，不带方向与货币符号。 */
+export function formatEntryAmount(entry: Pick<LedgerEntry, 'amount'>): string {
+  return formatAmount(entry.amount);
 }

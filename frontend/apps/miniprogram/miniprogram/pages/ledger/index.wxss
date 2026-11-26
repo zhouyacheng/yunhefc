@@ -43,12 +43,21 @@
 
 .ledger-row {
   display: flex;
-  flex-direction: column;
-  gap: 8rpx;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
   padding: 24rpx;
   background: var(--yh-surface);
   border: 2rpx solid var(--yh-line);
   border-radius: var(--yh-radius);
+}
+
+.ledger-row__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8rpx;
+  min-width: 0;
 }
 
 .ledger-row__head {
@@ -65,9 +74,18 @@
 }
 
 .ledger-row__amount {
+  display: block;
+  flex: none;
+  box-sizing: border-box;
+  width: 260rpx;
   font-size: 30rpx;
   font-weight: 700;
+  text-align: center;
   white-space: nowrap;
+}
+
+.ledger-row__sign {
+  font-size: 0.7em;
 }
 
 .ledger-row__amount--income {

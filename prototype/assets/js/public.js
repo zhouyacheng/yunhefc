@@ -1721,12 +1721,12 @@ render();
         </div>
         ${rangeIncomplete ? '<p class="muted small" style="margin-top:8px">自定义时间需同时选择起止日期；月份与自定义时间互斥。</p>' : ''}
         ${list.length ? `<div class="table-wrap" style="margin-top:12px"><table class="data-table">
-          <thead><tr><th>日期</th><th>方向</th><th>分类</th><th>金额</th><th>摘要</th><th>归属球员</th></tr></thead>
+          <thead><tr><th>日期</th><th>方向</th><th>分类</th><th style="text-align:center">金额</th><th>摘要</th><th>归属球员</th></tr></thead>
           <tbody>${list.map((item) => `<tr>
             <td>${fmt(item.at)}</td>
             <td>${item.type === 'INCOME' ? '收入' : '支出'}</td>
             <td>${categoryLabels[item.category]}</td>
-            <td><b>${item.type === 'INCOME' ? '+' : '−'}¥${item.amount.toFixed(2)}</b></td>
+            <td style="text-align:center"><b>${item.type === 'INCOME' ? '+' : '−'}${item.amount.toFixed(2)}</b></td>
             <td>${esc(item.note)}</td>
             <td>${item.player ? esc(item.player) : '—'}</td>
           </tr>`).join('')}</tbody>

@@ -267,7 +267,8 @@ class AuthHardeningIT extends IntegrationTestSupport {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.inviteUrl").value(matchesPattern("^.*/invite/[0-9a-f]{32}$")));
+                .andExpect(jsonPath("$.data.inviteUrl").value(matchesPattern("^.*/invite/[0-9a-f]{32}$")))
+                .andExpect(jsonPath("$.data.token").value(matchesPattern("^[0-9a-f]{32}$")));
 
         mockMvc.perform(post("/api/v1/c/matches/" + matchId + "/invites")
                         .cookie(admin)

@@ -26,7 +26,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
    - `PATCH`：部分更新资源。
    - `DELETE`：删除或撤销资源。
 4. 路径参数标识资源；查询参数用于筛选、排序、分页；请求体用于创建/更新数据。
-5. 敏感信息（密码、令牌、验证码、openid、wx.login code、session_key）只放请求体或请求头，不放入 URL 查询参数。C→B 交接票据是唯一窄例外：仅放 URL fragment（服务端不可见、不进入 access log/Referer），60 秒有效、一次性、绑定 `userId`、兑换后立即清除，且不得写入日志或错误响应；不得降级为 query 参数。
+5. 敏感信息（密码、令牌、验证码、openid、wx.login code、session_key）只放请求体或请求头，不放入 URL 查询参数。C→B 交接票据是唯一后端例外：仅放 URL fragment（服务端不可见、不进入 access log/Referer），60 秒有效、一次性、绑定 `userId`、兑换后立即清除，且不得写入日志或错误响应；不得降级为 query 参数。小程序前端页面路由是第二个窄例外：邀请落地 `/pages/invite/index?token=…` 与登录/绑定回跳 `?inviteToken=…` 只用于小程序页面导航与分享卡片，token 不进入后端 API 查询参数（INV-01/INV-02 仍走路径参数），页面不得记录日志或向第三方传递该参数。
 6. 破坏性变更通过新版本表达，不直接改变既有接口语义。
 7. API 文档的接口 ID（如 `MAT-12`）与需求 ID（如 `MATCH-12`）是两套编号；以 `05.API接口设计.md` 为准。
 
@@ -126,7 +126,7 @@ description: HTTP API 路径、版本、统一响应、错误码、权限、幂�
 ## 10 文件、敏感数据与外部依赖
 
 1. 头像上传经后端校验后写 OSS；响应返回 `{objectKey,signedUrl}`，不返回 OSS 密钥；业务表只存 `objectKey`，读响应现签短期 URL。
-2. 手机号只返回脱敏值；不返回 mp_openid（或历史 openid）、passwordHash、邀请 token、会话 ID、CSRF token。
+2. 手机号只返回脱敏值；不返回 mp_openid（或历史 openid）、passwordHash、邀请 token、会话 ID、CSRF token。唯一例外是 INV-03 创建比赛邀请响应中一次性返回的 `token`（与 `inviteUrl` 同源、只返回一次，供小程序拼接分享路径）；余下的邀请查询/列表/接受响应均不得返回 token。
 3. 日志与错误响应不得包含密码、验证码、token、mp_openid、wx.login code、session_key、手机号明文。
 4. 外部 HTTP 调用设置连接/读取超时与重试上限；失败返回明确业务错误。
 5. CORS 只允许 `https://www.<domain>` 单一 Origin（B 端同源，不再需要 admin Origin），允许携带凭证；不使用通配符。

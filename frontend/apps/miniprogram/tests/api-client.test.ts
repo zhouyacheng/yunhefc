@@ -17,13 +17,16 @@ vi.mock('../miniprogram/utils/request', () => ({
 }));
 
 import {
+  acceptInvite,
   bindPhoneWithTicket,
   cancelActivitySignup,
   cancelMyRegistration,
   changeMatchStatus,
   checkInMatch,
   createMatchEvent,
+  createMatchInvite,
   fetchActivity,
+  fetchInvite,
   fetchFullRoster,
   fetchLeaderboards,
   fetchLedgerSummary,
@@ -367,6 +370,31 @@ describe('ledger client', () => {
     mocks.request.mockResolvedValue({ items: [{ id: 1 }] });
     await expect(listLedgerCategories()).resolves.toEqual([{ id: 1 }]);
     expect(mocks.request).toHaveBeenLastCalledWith('GET', '/ledger/categories');
+  });
+});
+
+describe('invite client', () => {
+  it('encodes the token for public reads and accepts', async () => {
+    mocks.request.mockResolvedValue({ id: 1 });
+    await fetchInvite('abc/def');
+    expect(mocks.request).toHaveBeenLastCalledWith('GET', '/invites/abc%2Fdef');
+
+    await acceptInvite('abc/def');
+    expect(mocks.ensureCsrf).toHaveBeenCalledTimes(1);
+    expect(mocks.request).toHaveBeenLastCalledWith('POST', '/invites/abc%2Fdef/accept', undefined);
+  });
+
+  it('keys match invite creation with a fresh idempotency key', async () => {
+    mocks.request.mockResolvedValue({ inviteUrl: 'https://x/invite/t', token: 't' });
+    await createMatchInvite(5, { expiresInDays: 7 });
+    await createMatchInvite(5, { expiresInDays: 7, maxUses: 3 });
+
+    expect(mocks.ensureCsrf).toHaveBeenCalledTimes(2);
+    const first = mocks.request.mock.calls[0];
+    const second = mocks.request.mock.calls[1];
+    expect(first?.slice(0, 3)).toEqual(['POST', '/matches/5/invites', { expiresInDays: 7 }]);
+    expect(first?.[3]?.idempotencyKey).toMatch(/^mp-/);
+    expect(second?.[3]?.idempotencyKey).not.toBe(first?.[3]?.idempotencyKey);
   });
 });
 

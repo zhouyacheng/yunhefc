@@ -4,6 +4,7 @@ import type {
   EventCreate,
   EventFormPlayer,
   GroupingView,
+  InviteCreated,
   MatchDetail,
   MatchEvent,
   Registration,
@@ -13,6 +14,7 @@ import { errorMessage } from '../../utils/api-errors';
 import { eventCreateAllowed, eventEditAllowed } from '../../utils/event-form';
 import { buildGroupingBoard, type GroupingBoardView } from '../../utils/grouping-view';
 import { createGuardedLoads, type GuardedLoads } from '../../utils/guarded-load';
+import { inviteLandingPath, type InvitePayload } from '../../utils/invite';
 import { buildLineupBoard, type LineupBoardView } from '../../utils/lineup-view';
 import {
   buildEventRows,
@@ -23,6 +25,7 @@ import {
   type RosterView,
 } from '../../utils/match-detail-view';
 import {
+  createMatchInvite,
   fetchEvents,
   fetchFullRoster,
   fetchGrouping,
@@ -41,6 +44,8 @@ import {
   EVENT_EDIT_ANY,
   EVENT_EDIT_OWN,
   GROUPING_VIEW_ANY,
+  INVITE_CREATE_MATCH,
+  INVITE_MANAGE_ANY,
   LINEUP_VIEW_ANY,
   MATCH_EDIT_ANY,
   MATCH_STATUS_ANY,
@@ -208,6 +213,11 @@ Page({
     showEventCreate: false,
     eventDisabledReason: '',
     canChangeStatus: false,
+    canInvite: false,
+    inviteOpen: false,
+    inviteBusy: false,
+    inviteCreated: null as InviteCreated | null,
+    inviteError: '',
     canEditAny: false,
     canViewLineup: false,
     canViewGrouping: false,
@@ -276,6 +286,8 @@ Page({
       this.setData({ loading: false, notFound: true });
       return;
     }
+    // 只保留页内「分享比赛」入口，不开放右上角转发菜单。
+    wx.hideShareMenu();
     void this.load(false);
   },
 
@@ -566,6 +578,17 @@ Page({
       now,
     });
     const status = registration?.status;
+    // 与 Web C03 的 canInvite 同口径：管理员或本场正式报名球员，取消/延期后不再开放。
+    const permissions = getPermissions();
+    const canInvite =
+      this.data.authenticated &&
+      !this.data.pending &&
+      !closed &&
+      hasPermission(permissions, INVITE_CREATE_MATCH) &&
+      (hasPermission(permissions, INVITE_MANAGE_ANY) ||
+        (getPlayer()?.type === 1 &&
+          registration?.type === 1 &&
+          status === REGISTRATION_STATUS.CONFIRMED));
     const entryOpen = eventEntryOpen(detail.status);
     const playerWindowOpen = eventEditWindowOpen(detail.endAt, now);
     const showEventCreate = !this.data.pending && this.data.canCreatePerm && !closed;
@@ -590,6 +613,7 @@ Page({
         windowState === 'open' &&
         this.data.canCheckInPerm,
       checkInClosed: closed,
+      canInvite,
       checkInHint: checkInHintOf(registration, windowState, closed),
       canCreateEvent,
       showEventCreate,
@@ -902,6 +926,42 @@ Page({
 
   retryRoster() {
     void this.loadRoster();
+  },
+
+  openInvite() {
+    if (!this.data.canInvite) {
+      return;
+    }
+    this.setData({ inviteOpen: true, inviteError: '' });
+  },
+
+  closeInvite() {
+    this.setData({ inviteOpen: false, inviteError: '' });
+  },
+
+  /** 创建比赛邀请；token 只返回一次，保存在页面内供微信分享使用。 */
+  async submitInvite(event: WechatMiniprogram.CustomEvent): Promise<void> {
+    if (this.data.inviteBusy) {
+      return;
+    }
+    const payload = event.detail as InvitePayload;
+    this.setData({ inviteBusy: true, inviteError: '' });
+    try {
+      const created = await createMatchInvite(this.data.id, payload);
+      this.setData({ inviteCreated: created });
+    } catch (error) {
+      this.setData({ inviteError: errorMessage(error, '创建邀请失败，请稍后重试') });
+    } finally {
+      this.setData({ inviteBusy: false });
+    }
+  },
+
+  onShareAppMessage(): WechatMiniprogram.Page.ICustomShareContent {
+    // 页面已隐藏右上角菜单，分享按钮只在创建邀请后出现；无 token 时落到失效页，不分享比赛详情。
+    return {
+      title: `${this.data.detail?.title ?? '比赛'} · 比赛邀请`,
+      path: inviteLandingPath(this.data.inviteCreated?.token ?? ''),
+    };
   },
 
   goLogin() {

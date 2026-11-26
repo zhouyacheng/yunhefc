@@ -8,6 +8,8 @@ export const EVENT_CREATE_OWN = 'event:create:own' as const;
 export const EVENT_EDIT_ANY = 'event:edit:any' as const;
 export const EVENT_EDIT_OWN = 'event:edit:own' as const;
 export const GROUPING_VIEW_ANY = 'grouping:view:any' as const;
+export const INVITE_CREATE_MATCH = 'invite:create:match' as const;
+export const INVITE_MANAGE_ANY = 'invite:manage:any' as const;
 export const LEDGER_VIEW_ANY = 'ledger:view:any' as const;
 export const LINEUP_VIEW_ANY = 'lineup:view:any' as const;
 export const MATCH_EDIT_ANY = 'match:edit:any' as const;
@@ -29,7 +31,7 @@ const C_ONLY_PERMISSIONS: ReadonlySet<string> = new Set([
   EVENT_EDIT_OWN,
   'player:edit:own',
   REGISTRATION_CREATE_OWN,
-  'invite:create:match',
+  INVITE_CREATE_MATCH,
 ]);
 
 /** 含任一后台权限时展示「管理后台」入口；与 C 端 `hasBackendPermission` 同口径。 */

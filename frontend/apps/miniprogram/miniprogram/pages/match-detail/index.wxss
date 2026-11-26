@@ -32,6 +32,33 @@
   font-size: 24rpx;
 }
 
+.detail-hero__tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 12rpx;
+}
+
+/* 分享按钮：深色 Hero 内的浅色描边胶囊，与活动详情同款。 */
+.detail-share {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6rpx 16rpx;
+  color: #ffffff;
+  font-size: 22rpx;
+  font-weight: 600;
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1rpx solid rgba(255, 255, 255, 0.22);
+  border-radius: 999rpx;
+}
+
+.detail-share--pressed {
+  opacity: 0.86;
+}
+
 .detail-hero__teams {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

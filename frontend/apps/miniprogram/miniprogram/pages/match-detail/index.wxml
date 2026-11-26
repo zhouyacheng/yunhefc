@@ -17,11 +17,19 @@
     <view class="detail-hero">
       <view class="detail-hero__top">
         <text class="detail-hero__type">{{header.typeText}}</text>
-        <view
-          class="status-pill status-pill--{{header.statusTone}} {{canChangeStatus ? 'status-pill--action' : ''}}"
-          bindtap="openStatus"
-          hover-class="{{canChangeStatus ? 'status-pill--pressed' : 'none'}}"
-        >{{header.statusText}}{{canChangeStatus ? ' ▾' : ''}}</view>
+        <view class="detail-hero__tools">
+          <view
+            class="status-pill status-pill--{{header.statusTone}} {{canChangeStatus ? 'status-pill--action' : ''}}"
+            bindtap="openStatus"
+            hover-class="{{canChangeStatus ? 'status-pill--pressed' : 'none'}}"
+          >{{header.statusText}}{{canChangeStatus ? ' ▾' : ''}}</view>
+          <view
+            wx:if="{{canInvite}}"
+            class="detail-share"
+            bindtap="openInvite"
+            hover-class="detail-share--pressed"
+          >分享比赛</view>
+        </view>
       </view>
 
       <view class="detail-hero__teams">
@@ -418,6 +426,15 @@
       bind:change="onStatusChange"
       bind:postpone="onStatusPostpone"
       bind:cancel="onStatusCancel"
+    />
+
+    <invite-sheet
+      show="{{inviteOpen}}"
+      busy="{{inviteBusy}}"
+      created="{{inviteCreated}}"
+      error="{{inviteError}}"
+      bind:close="closeInvite"
+      bind:submit="submitInvite"
     />
 
     <event-form-sheet

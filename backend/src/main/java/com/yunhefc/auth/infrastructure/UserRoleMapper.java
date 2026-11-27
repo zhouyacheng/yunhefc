@@ -124,4 +124,20 @@ public interface UserRoleMapper {
               AND u.is_deleted = 0 AND u.status = 1
             """)
     int countActiveUsers(@Param("roleId") Long roleId);
+
+    @Select("""
+            SELECT DISTINCT ur.user_id
+            FROM user_role ur
+            JOIN app_user u ON u.id = ur.user_id
+            JOIN app_role r ON r.id = ur.role_id
+            JOIN role_permission rp ON rp.role_id = r.id
+            JOIN permission p ON p.id = rp.permission_id
+            WHERE r.team_id = #{teamId}
+              AND u.is_deleted = 0 AND u.status = 1
+              AND ur.is_deleted = 0 AND r.is_deleted = 0
+              AND rp.is_deleted = 0 AND p.is_deleted = 0
+              AND p.code = #{permissionCode}
+            """)
+    List<Long> findActiveUserIdsByPermission(@Param("teamId") Long teamId,
+                                             @Param("permissionCode") String permissionCode);
 }

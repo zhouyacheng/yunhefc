@@ -549,11 +549,15 @@
     { code: 'activity:view:any', label: '查看活动报名名单', group: '活动' },
     { code: 'activity:manage:any', label: '管理活动', group: '活动' },
     { code: 'ledger:view:any', label: '查看账本', group: '账本' },
-    { code: 'ledger:manage:any', label: '维护账本', group: '账本' }
+    { code: 'ledger:manage:any', label: '维护账本', group: '账本' },
+    { code: 'content:view:any', label: '浏览动态与相册', group: '动态与相册' },
+    { code: 'content:create:own', label: '发布动态/上传照片/点赞', group: '动态与相册' },
+    { code: 'content:delete:any', label: '删除任意内容', group: '动态与相册' },
+    { code: 'content:manage:any', label: '管理相册', group: '动态与相册' }
   ];
 
   const guestPermissions = ['player:edit:own', 'registration:create:own', 'attendance:checkin:own'];
-  const playerPermissions = guestPermissions.concat(['attendance:view:any', 'lineup:view:any', 'grouping:view:any', 'event:create:own', 'event:edit:own', 'invite:create:match', 'activity:signup:own', 'activity:view:any', 'ledger:view:any']);
+  const playerPermissions = guestPermissions.concat(['attendance:view:any', 'lineup:view:any', 'grouping:view:any', 'event:create:own', 'event:edit:own', 'invite:create:match', 'activity:signup:own', 'activity:view:any', 'ledger:view:any', 'content:view:any', 'content:create:own']);
 
   const roles = [
     { code: 'GUEST', name: '外挂球员', isDefault: true, permissions: guestPermissions },

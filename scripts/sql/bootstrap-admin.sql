@@ -4,7 +4,7 @@
 --   1. 修改 @phone / @name / @position；
 --   2. 用应用同款 BCryptPasswordEncoder 生成哈希，替换 @password_hash 的占位符；
 --      示例：htpasswd -bnBC 10 "" '<pwd>' | tr -d ':\n' | sed 's/^\$2y\$/$2a$/'
---   3. 执行后用 mysql 客户端核对末尾输出的 admin_permissions 是否为 33。
+--   3. 执行后用 mysql 客户端核对末尾输出的 admin_permissions 是否为 37。
 --
 -- 重复执行是安全的：已有账号只恢复 status/is_deleted，不重置密码；
 -- 角色与球员档案按唯一键恢复 is_deleted=0。脚本按 phone 与角色 code 查 ID，不硬编码。

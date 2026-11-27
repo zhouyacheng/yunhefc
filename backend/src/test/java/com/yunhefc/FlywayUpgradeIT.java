@@ -48,11 +48,11 @@ class FlywayUpgradeIT {
         migrateTo(null);
 
         try (Connection connection = connect()) {
-            assertThat(schemaVersion(connection)).isEqualTo("19");
+            assertThat(schemaVersion(connection)).isEqualTo("21");
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM flyway_schema_history
-                    WHERE success = 1 AND version IN ('16', '17', '18', '19')
-                    """)).isEqualTo(4);
+                    WHERE success = 1 AND version IN ('16', '17', '18', '19', '20', '21')
+                    """)).isEqualTo(6);
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM flyway_schema_history WHERE version = '15'
                     """)).isZero();
@@ -68,14 +68,15 @@ class FlywayUpgradeIT {
 
             for (String table : new String[]{
                     "team_activity", "activity_signup", "activity_image",
-                    "ledger_category", "team_ledger_entry"}) {
+                    "ledger_category", "team_ledger_entry",
+                    "content_album", "content_album_photo", "content_post", "content_post_like"}) {
                 assertThat(countOf(connection, """
                         SELECT COUNT(*) FROM information_schema.tables
                         WHERE table_schema = DATABASE() AND table_name = '%s'
                         """.formatted(table))).isEqualTo(1);
             }
 
-            assertThat(countOf(connection, "SELECT COUNT(*) FROM permission")).isEqualTo(33);
+            assertThat(countOf(connection, "SELECT COUNT(*) FROM permission")).isEqualTo(37);
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM permission
                     WHERE code IN ('activity:signup:own', 'activity:view:any',
@@ -94,6 +95,25 @@ class FlywayUpgradeIT {
                     WHERE p.code IN ('activity:signup:own', 'activity:view:any', 'ledger:view:any')
                       AND rp.role_id = (SELECT id FROM app_role WHERE code = 'PLAYER')
                     """)).isEqualTo(3);
+            // V21：内容 4 个权限码，ADMIN 全授、PLAYER 授 view/create、GUEST 不授。
+            assertThat(countOf(connection, """
+                    SELECT COUNT(*) FROM role_permission rp
+                    JOIN permission p ON p.id = rp.permission_id
+                    WHERE p.code LIKE 'content:%'
+                      AND rp.role_id = (SELECT id FROM app_role WHERE code = 'ADMIN')
+                    """)).isEqualTo(4);
+            assertThat(countOf(connection, """
+                    SELECT COUNT(*) FROM role_permission rp
+                    JOIN permission p ON p.id = rp.permission_id
+                    WHERE p.code IN ('content:view:any', 'content:create:own')
+                      AND rp.role_id = (SELECT id FROM app_role WHERE code = 'PLAYER')
+                    """)).isEqualTo(2);
+            assertThat(countOf(connection, """
+                    SELECT COUNT(*) FROM role_permission rp
+                    JOIN permission p ON p.id = rp.permission_id
+                    WHERE p.code LIKE 'content:%'
+                      AND rp.role_id = (SELECT id FROM app_role WHERE code = 'GUEST')
+                    """)).isZero();
             assertThat(countOf(connection, """
                     SELECT COUNT(*) FROM ledger_category WHERE is_deleted = 0
                     """)).isEqualTo(7);
@@ -102,6 +122,7 @@ class FlywayUpgradeIT {
                     WHERE table_schema = DATABASE() AND table_name = 'notification'
                       AND column_name = 'type'
                       AND column_comment LIKE '%12-活动创建%' AND column_comment LIKE '%13-活动取消%'
+                      AND column_comment LIKE '%14-内容举报%'
                     """)).isEqualTo(1);
 
             // V18：存量单图回填为 sort_no=0，单图列删除，family_allowed 默认关闭。

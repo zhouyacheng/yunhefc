@@ -26,4 +26,9 @@ public interface UserAccountReadPort {
      * 管理员指拥有默认 ADMIN 角色或含 role:manage:any 权限的角色。
      */
     Set<Long> findUserIds(Integer status, Boolean admin);
+
+    /**
+     * 球队内持指定权限的正常账号用户 ID，用于按权限广播站内通知。
+     */
+    Set<Long> findActiveUserIdsByPermission(Long teamId, String permissionCode);
 }

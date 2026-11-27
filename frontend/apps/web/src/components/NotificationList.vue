@@ -201,9 +201,9 @@ async function openNotification(item: Notification): Promise<void> {
       }
       // 标记已读失败不阻断 MATCH 跳转，错误已在行内提示。
     }
-    const target = notificationTarget(item);
-    if (target.kind === 'match') {
-      await router.push(`/matches/${target.id}`);
+    const link = notificationLink(item);
+    if (link) {
+      await router.push(link.path);
     }
   } finally {
     busyId.value = null;
@@ -240,8 +240,27 @@ async function markAllRead(): Promise<void> {
   }
 }
 
-function isMatchNotification(item: Notification): boolean {
-  return notificationTarget(item).kind === 'match';
+type NotificationLinkKind = 'match' | 'post' | 'album';
+
+const NOTIFICATION_LINKS: Readonly<
+  Record<NotificationLinkKind, { label: string; path: (id: number) => string }>
+> = {
+  match: { label: '查看比赛', path: (id) => `/matches/${id}` },
+  post: { label: '查看动态', path: (id) => `/posts?post=${id}` },
+  album: { label: '查看相册', path: (id) => `/posts/albums/${id}` },
+};
+
+function notificationLink(item: Notification): { label: string; path: string } | null {
+  const target = notificationTarget(item);
+  if (target.kind === 'none') {
+    return null;
+  }
+  const meta = NOTIFICATION_LINKS[target.kind];
+  return { label: meta.label, path: meta.path(target.id) };
+}
+
+function notificationLinkText(item: Notification): string {
+  return notificationLink(item)?.label ?? '';
 }
 
 onMounted(() => {
@@ -320,7 +339,7 @@ onMounted(() => {
             <span class="notification-item__body">{{ item.body }}</span>
             <span class="notification-item__meta">
               {{ formatDateTime(item.createdAt) }}
-              <span v-if="isMatchNotification(item)"> · 查看比赛</span>
+              <span v-if="notificationLinkText(item)"> · {{ notificationLinkText(item) }}</span>
             </span>
           </span>
         </button>

@@ -72,7 +72,7 @@ public class LedgerCategoryAdminApplicationService {
 
     @Transactional
     public LedgerCategoryView updateCategory(Long categoryId, LedgerCategoryUpdateRequest request) {
-        guards.rejectUnknownFields(request.getUnknownFields());
+        request.rejectUnknownFields();
         Long teamId = CurrentUser.principal().teamId();
         LedgerCategory category = categoryMapper.selectByIdAndTeam(categoryId, teamId);
         if (category == null) {

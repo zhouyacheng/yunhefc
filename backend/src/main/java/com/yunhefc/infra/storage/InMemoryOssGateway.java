@@ -1,6 +1,7 @@
 package com.yunhefc.infra.storage;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -12,6 +13,14 @@ public class InMemoryOssGateway implements OssGateway {
     }
 
     private final Map<String, StoredObject> objects = new ConcurrentHashMap<>();
+    private final Set<String> failingDeletes = ConcurrentHashMap.newKeySet();
+
+    /**
+     * 让下一次删除指定对象抛错，供集成测试验证 best-effort 删除的降级路径。
+     */
+    public void failDeleteOn(String objectKey) {
+        failingDeletes.add(objectKey);
+    }
 
     @Override
     public void putObject(String objectKey, byte[] content, String contentType) {
@@ -19,8 +28,11 @@ public class InMemoryOssGateway implements OssGateway {
     }
 
     @Override
-    public String signedUrl(String objectKey) {
-        return "mock://oss/" + objectKey;
+    public String signedUrl(String objectKey, String process) {
+        if (process == null || process.isBlank()) {
+            return "mock://oss/" + objectKey;
+        }
+        return "mock://oss/" + objectKey + "?x-oss-process=" + process;
     }
 
     @Override
@@ -42,7 +54,11 @@ public class InMemoryOssGateway implements OssGateway {
         return object == null ? null : object.contentType();
     }
 
+    @Override
     public void deleteObject(String objectKey) {
+        if (failingDeletes.remove(objectKey)) {
+            throw new IllegalStateException("mock oss delete failure: " + objectKey);
+        }
         objects.remove(objectKey);
     }
 

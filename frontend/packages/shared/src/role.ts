@@ -11,7 +11,7 @@ export interface PermissionView {
   scope: string;
 }
 
-/** B08 权限勾选的 9 个展示分组，顺序与原型一致。 */
+/** B08 权限勾选的 10 个展示分组，顺序与原型一致。 */
 export const PERMISSION_GROUP_LABELS = [
   '比赛',
   '报名',
@@ -22,12 +22,14 @@ export const PERMISSION_GROUP_LABELS = [
   '邀请',
   '活动',
   '账本',
+  '内容',
 ] as const;
 
 /** 后端 `permission.resource` 到展示分组的映射（02 §6.10）。 */
 const RESOURCE_GROUP_LABELS: Readonly<Record<string, string>> = {
   activity: '活动',
   ledger: '账本',
+  content: '内容',
   match: '比赛',
   registration: '报名',
   attendance: '考勤',

@@ -69,6 +69,16 @@ export const router = createRouter({
           meta: { requiresAuth: true },
         },
         {
+          path: 'posts',
+          name: 'posts',
+          component: () => import('../pages/PostsPage.vue'),
+        },
+        {
+          path: 'posts/albums/:id',
+          name: 'album-detail',
+          component: () => import('../pages/AlbumDetailPage.vue'),
+        },
+        {
           path: 'profile',
           name: 'profile',
           component: () => import('../pages/ProfilePage.vue'),

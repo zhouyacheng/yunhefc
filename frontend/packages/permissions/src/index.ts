@@ -9,6 +9,10 @@ export const ATTENDANCE_CHECKIN_OWN = 'attendance:checkin:own' as const;
 export const ATTENDANCE_MARK_ANY = 'attendance:mark:any' as const;
 export const ATTENDANCE_VIEW_ANY = 'attendance:view:any' as const;
 export const AUDIT_VIEW_ANY = 'audit:view:any' as const;
+export const CONTENT_CREATE_OWN = 'content:create:own' as const;
+export const CONTENT_DELETE_ANY = 'content:delete:any' as const;
+export const CONTENT_MANAGE_ANY = 'content:manage:any' as const;
+export const CONTENT_VIEW_ANY = 'content:view:any' as const;
 export const EVENT_CREATE_OWN = 'event:create:own' as const;
 export const EVENT_DELETE_ANY = 'event:delete:any' as const;
 export const EVENT_EDIT_ANY = 'event:edit:any' as const;
@@ -44,6 +48,10 @@ export const PERMISSIONS = {
   ATTENDANCE_MARK_ANY,
   ATTENDANCE_VIEW_ANY,
   AUDIT_VIEW_ANY,
+  CONTENT_CREATE_OWN,
+  CONTENT_DELETE_ANY,
+  CONTENT_MANAGE_ANY,
+  CONTENT_VIEW_ANY,
   EVENT_CREATE_OWN,
   EVENT_DELETE_ANY,
   EVENT_EDIT_ANY,
@@ -86,6 +94,7 @@ const C_ONLY_PERMISSIONS: ReadonlySet<string> = new Set([
   PLAYER_EDIT_OWN,
   REGISTRATION_CREATE_OWN,
   INVITE_CREATE_MATCH,
+  CONTENT_CREATE_OWN,
 ]);
 
 export const ADMIN_SECTIONS = [

@@ -218,6 +218,17 @@ describe('notification target', () => {
     });
   });
 
+  it('routes content report notifications to the post or album', () => {
+    expect(notificationTarget({ refType: 'CONTENT_POST', refId: 33 })).toEqual({
+      kind: 'post',
+      id: 33,
+    });
+    expect(notificationTarget({ refType: 'CONTENT_PHOTO', refId: 7001 })).toEqual({
+      kind: 'album',
+      id: 7001,
+    });
+  });
+
   it('treats USER and unknown ref types as read-only', () => {
     expect(notificationTarget({ refType: 'USER', refId: 1002 })).toEqual({ kind: 'none' });
     expect(notificationTarget({ refType: 'OTHER', refId: 1002 })).toEqual({ kind: 'none' });
@@ -363,6 +374,10 @@ describe('role permissions', () => {
     'attendance:mark:any',
     'attendance:view:any',
     'audit:view:any',
+    'content:create:own',
+    'content:delete:any',
+    'content:manage:any',
+    'content:view:any',
     'event:create:own',
     'event:delete:any',
     'event:edit:any',
@@ -395,17 +410,18 @@ describe('role permissions', () => {
     return { id: CODES.indexOf(code) + 1, code, name: code, resource, action: '', scope: '' };
   }
 
-  it('maps the 33 permission codes into the 9 B08 groups', () => {
-    expect(CODES).toHaveLength(33);
+  it('maps the 37 permission codes into the 10 B08 groups', () => {
+    expect(CODES).toHaveLength(37);
 
     const groups = groupPermissions(CODES.map((code) => permission(code)));
 
     expect(groups.map((group) => group.label)).toEqual([...PERMISSION_GROUP_LABELS]);
-    expect(groups.reduce((count, group) => count + group.items.length, 0)).toBe(33);
+    expect(groups.reduce((count, group) => count + group.items.length, 0)).toBe(37);
     expect(groups.find((group) => group.label === '比赛')?.items).toHaveLength(4);
     expect(groups.find((group) => group.label === '球员/权限')?.items).toHaveLength(9);
     expect(groups.find((group) => group.label === '活动')?.items).toHaveLength(3);
     expect(groups.find((group) => group.label === '账本')?.items).toHaveLength(2);
+    expect(groups.find((group) => group.label === '内容')?.items).toHaveLength(4);
   });
 
   it('falls back to the resource for unknown permission codes and keeps it last', () => {

@@ -20,6 +20,7 @@ import { useRoute, useRouter } from 'vue-router';
 
 import { api } from '../api/client';
 import { isPending } from '../features/auth/user-status';
+import { usePhotoEntry } from '../features/content/usePhotoEntry';
 import {
   ACTIVITY_CANCELLED,
   ACTIVITY_FINISHED,
@@ -87,6 +88,19 @@ const canChangeStatus = computed(
 );
 const canViewSignups = computed(
   () => session.isAuthenticated && hasPermission(session.permissions, ACTIVITY_VIEW_ANY),
+);
+/** 头部「照片」入口：仅登录的正式球员与管理员可见。 */
+const {
+  canViewContent,
+  busy: photoEntryBusy,
+  openPhotos,
+} = usePhotoEntry(
+  computed(() =>
+    activity.value ? { activityId: activity.value.id, title: activity.value.title } : null,
+  ),
+  (message) => {
+    actionError.value = message;
+  },
 );
 const statusOptionList = computed(() =>
   activity.value ? activityStatusOptions(activity.value.status) : [],
@@ -531,6 +545,16 @@ onBeforeUnmount(() => {
         <h1 class="activity-hero__title">{{ activity.title }}</h1>
 
         <div class="match-hero__actions">
+          <Button
+            v-if="canViewContent"
+            size="small"
+            plain
+            data-testid="activity-photos"
+            :loading="photoEntryBusy"
+            @click="openPhotos"
+          >
+            照片
+          </Button>
           <select
             v-if="canChangeStatus"
             class="status-select"

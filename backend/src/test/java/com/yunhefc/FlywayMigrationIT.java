@@ -46,7 +46,7 @@ class FlywayMigrationIT {
 
     @Test
     void migratesEmptyDatabaseAndSeedsReferenceData() {
-        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(18);
+        assertThat(count("SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1")).isEqualTo(20);
         assertThat(count("""
                 SELECT COUNT(*) FROM team
                 WHERE id = 1 AND ABS(TIMESTAMPDIFF(MINUTE, created_at, NOW())) <= 5
@@ -56,7 +56,7 @@ class FlywayMigrationIT {
                 WHERE table_schema = DATABASE()
                   AND table_name <> 'flyway_schema_history'
                   AND table_name NOT LIKE 'QRTZ\\_%'
-                """)).isEqualTo(32);
+                """)).isEqualTo(36);
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables
                 WHERE table_schema = DATABASE() AND table_name LIKE 'QRTZ_%'
@@ -92,7 +92,7 @@ class FlywayMigrationIT {
                   AND index_name <> 'PRIMARY'
                   AND table_name <> 'flyway_schema_history'
                   AND table_name NOT LIKE 'QRTZ\\_%'
-                """)).isEqualTo(73);
+                """)).isEqualTo(80);
 
         assertThat(count("""
                 SELECT COUNT(*) FROM information_schema.tables
@@ -132,8 +132,8 @@ class FlywayMigrationIT {
 
         assertThat(count("SELECT COUNT(*) FROM team")).isEqualTo(1);
         assertThat(count("SELECT COUNT(*) FROM app_role")).isEqualTo(3);
-        assertThat(count("SELECT COUNT(*) FROM permission")).isEqualTo(33);
-        assertThat(count("SELECT COUNT(*) FROM role_permission")).isEqualTo(48);
+        assertThat(count("SELECT COUNT(*) FROM permission")).isEqualTo(37);
+        assertThat(count("SELECT COUNT(*) FROM role_permission")).isEqualTo(54);
         assertThat(count("SELECT COUNT(*) FROM ledger_category WHERE is_deleted = 0")).isEqualTo(7);
         assertThat(count("""
                 SELECT COUNT(*) FROM ledger_category

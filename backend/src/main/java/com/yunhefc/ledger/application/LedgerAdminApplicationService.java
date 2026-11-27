@@ -89,7 +89,7 @@ public class LedgerAdminApplicationService {
 
     @Transactional
     public LedgerEntryView update(Long entryId, LedgerEntryUpdateRequest request) {
-        guards.rejectUnknownFields(request.getUnknownFields());
+        request.rejectUnknownFields();
         Long teamId = CurrentUser.principal().teamId();
         LedgerEntryKey key = new LedgerEntryKey(entryId, teamId);
         LedgerEntry entry = entryMapper.selectByIdForUpdate(key);

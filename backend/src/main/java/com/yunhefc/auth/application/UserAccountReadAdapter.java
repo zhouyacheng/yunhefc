@@ -63,6 +63,12 @@ public class UserAccountReadAdapter implements UserAccountReadPort {
     }
 
     @Override
+    public Set<Long> findActiveUserIdsByPermission(Long teamId, String permissionCode) {
+        return new LinkedHashSet<>(
+                userRoleMapper.findActiveUserIdsByPermission(teamId, permissionCode));
+    }
+
+    @Override
     public Set<Long> findUserIds(Integer status, Boolean admin) {
         Set<Long> userIds = new LinkedHashSet<>();
         userMapper.selectList(new LambdaQueryWrapper<AppUser>()

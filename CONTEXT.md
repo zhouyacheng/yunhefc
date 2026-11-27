@@ -23,6 +23,10 @@
 
 小程序 `utils/invalidation.ts`：写入方用 `invalidate('my-registrations')` 声明命名资源已失效，订阅方用 `subscribe(...).consume()` 在刷新时机消费一次即复位；资源名是接口的一部分，不再暴露隐藏布尔。
 
+## ImageStore
+
+`infra/storage` 的图片上传 module：接收 `MultipartFile`、`ImagePolicy(prefix, maxBytes, tooLargeMessage)` 与 owner 用户 ID，implementation 内完成读取、体积校验、格式嗅探、对象键 `{prefix}/{ownerUserId}/{ULID}.{ext}`、OSS 写入与 15 分钟签名 URL。callers（头像、活动图片、相册照片）只声明 policy 与后续领域动作；落库失败时调用 `StoredImage.discard()` 经 `ObjectRemoval` best-effort 回收，module 不感知事务。
+
 ## 写操作 outcome
 
 小程序写操作只接收领域输入，返回 `WriteOutcome`（patch/toast/error/reload/refreshEventId）；setData、忙闲标记、确认弹窗与弹层开关由页面负责。报名/取消当前仍由首页、我的、比赛详情三页各自调用；批次 2 票 04 将收拢到 `utils/registration-writes.ts` 供三页共用。签到、状态修改与事件录入仍在 `pages/match-detail/actions.ts`，复用同一类型。
@@ -66,3 +70,15 @@
 ## 账本条目
 
 `ledger` 域的一笔球队收支：金额存正数、方向表达收支；分类是独立实体（内置 7 个，管理员可自定义与停用，只停用不删除），流水方向须与分类方向一致；可挂球员与活动但不自动摊分；余额 = 收入 − 支出，不设期初余额。
+
+## 动态与相册
+
+**动态**：队内时间线上的一条帖子：作者、正文、媒体；可引用 0 或 1 个相册，也可以是没有相册的纯文字帖子。
+_Avoid_: 帖子、朋友圈、feed、内容
+
+**相册**：可被多名正式球员上传照片的集合，可挂 0 或 1 个比赛/活动（同一比赛允许多个相册），无归属即为球队通用相册；只含照片，不含视频。
+_Avoid_: 图集、相片库、影集
+
+**动态媒体**：动态的图片完全由所引用的相册承载，不单独建帖子图片表；纯文字即不引用相册。
+
+**相册归属**：相册的比赛与活动字段至多一个非空，两者皆空为球队通用相册；相册不存独立活动时间，列表按创建时间排序。

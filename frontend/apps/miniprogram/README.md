@@ -1,6 +1,6 @@
 # 云河FC 微信小程序
 
-原生小程序 + Vant Weapp。范围：微信自动登录 / 手机号+密码登录（AUTH-04）、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改、分享比赛邀请，5:4 动态封面并在失败时回退静态品牌图）/ 比赛邀请落地（MP13：C07 同口径比赛信息，登录后接受 INV-02 进入比赛）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）/ 活动（对齐 C11/C12：顶部范围分段（最近活动/已结束活动/全部，默认最近活动）+ 与比赛页一致的单「筛选」按钮与抽屉（类型/状态/月份/自定义时间）、详情报名/取消、家属与备注、分享卡片（5:4 动态封面，失败回退静态品牌图）、活动通知落点）/ 账本（对齐 C13：汇总、流水，与活动页一致的单「筛选」按钮与抽屉（方向/分类/月份/自定义时间），仅正式球员只读）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。首页「最近比赛」下方提供「活动」与「账本」入口（账本仅对具备 `ledger:view:any` 且非待审核的账号显示），对具备后台权限的账号显示「管理后台」，复制带 AUTH-18 一次性票据的链接（60 秒有效）到浏览器打开；个人主体小程序不支持 web-view，不做内嵌。不做通用比赛分享/复制比赛链接、入队邀请、邀请管理、订阅消息、找回密码与 B 端专属操作（活动详情与比赛邀请支持微信分享卡片）。
+原生小程序 + Vant Weapp。范围：微信自动登录 / 手机号+密码登录（AUTH-04）、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改、分享比赛邀请，5:4 动态封面并在失败时回退静态品牌图）/ 比赛邀请落地（MP13：C07 同口径比赛信息，登录后接受 INV-02 进入比赛）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）/ 活动（对齐 C11/C12：顶部范围分段（最近活动/已结束活动/全部，默认最近活动）+ 与比赛页一致的单「筛选」按钮与抽屉（类型/状态/月份/自定义时间）、详情报名/取消、家属与备注、分享卡片（5:4 动态封面，动态与兜底均为活动暖金强调，失败回退静态品牌图）、活动通知落点）/ 账本（对齐 C13：汇总、流水，与活动页一致的单「筛选」按钮与抽屉（方向/分类/月份/自定义时间），仅正式球员只读）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。首页「最近比赛」下方提供「活动」与「账本」入口（账本仅对具备 `ledger:view:any` 且非待审核的账号显示），对具备后台权限的账号显示「管理后台」，复制带 AUTH-18 一次性票据的链接（60 秒有效）到浏览器打开；个人主体小程序不支持 web-view，不做内嵌。不做通用比赛分享/复制比赛链接、入队邀请、邀请管理、订阅消息、找回密码与 B 端专属操作（活动详情与比赛邀请支持微信分享卡片）。
 
 ## 结构
 
@@ -11,12 +11,13 @@ frontend/apps/miniprogram/
 └── miniprogram/
     ├── app.ts|json|wxss
     ├── assets/share-match-invite.png  # 5:4 比赛邀请封面兜底图（500×400）
-    ├── assets/share-activity-invite.png  # 5:4 活动分享封面兜底图（500×400，暖色调）
+    ├── assets/share-activity-invite.png  # 5:4 活动分享封面兜底图（500×400，暖金强调）
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片、分享封面画布
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
     ├── utils/{config,request,api-client,session,input,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view,activity-query,activity-view,ledger-query,ledger-view}.ts
-    │   ├── share-cover.ts      # 5:4 分享封面共用绘制原语（尺寸、折行、背景、导出）
+    │   ├── share-cover.ts      # 5:4 分享封面共用绘制原语（尺寸、折行、版式、背景、整卡渲染/回退/导出）
+    │   ├── share-cover-palette.ts  # 比赛/活动封面色板
     │   ├── match-invite-cover.ts  # 比赛邀请 5:4 分享封面（Canvas 绘制与导出）
     │   ├── activity-share-cover.ts  # 活动分享 5:4 封面（Canvas 绘制与导出）
     │   ├── request.ts      # 传输层：Cookie jar、CSRF、ApiError

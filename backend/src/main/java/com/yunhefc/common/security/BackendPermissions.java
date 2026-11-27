@@ -4,7 +4,7 @@ import java.util.Set;
 
 /**
  * 区分 C 端个人权限与 B 端后台权限。
- * 除自助资料、报名、签到、个人事件与比赛邀请外，其余权限均需进入后台使用。
+ * 除自助资料、报名、签到、个人事件、比赛邀请与内容发布外，其余权限均需进入后台使用。
  */
 public final class BackendPermissions {
 
@@ -15,7 +15,8 @@ public final class BackendPermissions {
             "event:edit:own",
             "player:edit:own",
             "registration:create:own",
-            "invite:create:match");
+            "invite:create:match",
+            "content:create:own");
 
     private BackendPermissions() {
     }

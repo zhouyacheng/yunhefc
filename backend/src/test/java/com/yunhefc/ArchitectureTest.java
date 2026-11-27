@@ -17,7 +17,7 @@ class ArchitectureTest {
     private static final String[] BUSINESS_DOMAINS = {
             "auth", "player", "match", "registration", "attendance", "event", "lineup",
             "grouping", "notification", "audit", "settings", "query", "stats",
-            "activity", "ledger"
+            "activity", "ledger", "content"
     };
 
     @ArchTest

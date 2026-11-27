@@ -1,9 +1,19 @@
 import { vi } from 'vitest';
 
+export interface GradientStop {
+  kind: 'linear' | 'radial';
+  offset: number;
+  color: string;
+}
+
 export interface ShareCanvasStub {
   canvas: WechatMiniprogram.Canvas;
   /** 记录 Canvas 收到的 fillText 文本，便于断言封面内容。 */
   drawn: string[];
+  /** 记录字符串形式的 fillStyle，便于断言活动/比赛的色板分流。 */
+  fills: string[];
+  /** 记录渐变断点，便于断言背景与光晕色板。 */
+  stops: GradientStop[];
 }
 
 export interface ShareCanvasOptions {
@@ -16,6 +26,8 @@ export interface ShareCanvasOptions {
 /** 模拟 wx 的隐藏画布查询与导出；调用方用 afterEach(vi.unstubAllGlobals) 复原。 */
 export function stubShareCanvas(options: ShareCanvasOptions = {}): ShareCanvasStub {
   const drawn: string[] = [];
+  const fills: string[] = [];
+  const stops: GradientStop[] = [];
   const context = new Proxy(
     {},
     {
@@ -29,11 +41,21 @@ export function stubShareCanvas(options: ShareCanvasOptions = {}): ShareCanvasSt
           };
         }
         if (property === 'createLinearGradient' || property === 'createRadialGradient') {
-          return () => ({ addColorStop: () => undefined });
+          const kind = property === 'createLinearGradient' ? 'linear' : 'radial';
+          return () => ({
+            addColorStop: (offset: number, color: string) => {
+              stops.push({ kind, offset, color });
+            },
+          });
         }
         return () => undefined;
       },
-      set: () => true,
+      set: (_target, property, value) => {
+        if (property === 'fillStyle' && typeof value === 'string') {
+          fills.push(value);
+        }
+        return true;
+      },
     },
   );
   const canvas = { width: 0, height: 0, getContext: () => context };
@@ -60,5 +82,5 @@ export function stubShareCanvas(options: ShareCanvasOptions = {}): ShareCanvasSt
     },
   });
 
-  return { canvas: canvas as unknown as WechatMiniprogram.Canvas, drawn };
+  return { canvas: canvas as unknown as WechatMiniprogram.Canvas, drawn, fills, stops };
 }

@@ -35,9 +35,12 @@ public class AliyunOssGateway implements OssGateway {
     }
 
     @Override
-    public String signedUrl(String objectKey) {
+    public String signedUrl(String objectKey, String process) {
         GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, objectKey, HttpMethod.GET);
         request.setExpiration(new Date(System.currentTimeMillis() + SIGNED_URL_TTL_SECONDS * 1000L));
+        if (process != null && !process.isBlank()) {
+            request.setProcess(process);
+        }
         return client.generatePresignedUrl(request).toString();
     }
 
@@ -54,6 +57,11 @@ public class AliyunOssGateway implements OssGateway {
         } catch (IOException ex) {
             throw new UncheckedIOException(ex);
         }
+    }
+
+    @Override
+    public void deleteObject(String objectKey) {
+        client.deleteObject(bucket, objectKey);
     }
 
     public void shutdown() {

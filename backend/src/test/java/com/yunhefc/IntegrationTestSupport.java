@@ -63,7 +63,8 @@ abstract class IntegrationTestSupport {
             new ClassPathResource("db/test/reset.sql"),
             new ClassPathResource("db/migration/V3__seed_team_roles_permissions_settings.sql"),
             new ClassPathResource("db/migration/V10__remove_grouping_weight_settings.sql"),
-            new ClassPathResource("db/migration/V17__seed_activity_ledger.sql"));
+            new ClassPathResource("db/migration/V17__seed_activity_ledger.sql"),
+            new ClassPathResource("db/migration/V21__seed_content_permissions.sql"));
 
     static {
         RESET_DB.setSqlScriptEncoding(StandardCharsets.UTF_8.name());

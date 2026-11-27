@@ -77,6 +77,7 @@ import { api } from '../api/client';
 import SkillStars from '../components/SkillStars.vue';
 import { adminUrl, openAdmin } from '../features/admin-handoff/admin-handoff';
 import { isPending } from '../features/auth/user-status';
+import { usePhotoEntry } from '../features/content/usePhotoEntry';
 import InviteDialog from '../features/match-detail/InviteDialog.vue';
 import { type MatchInvitePayload } from '../features/match-detail/invite';
 import { cancelState, promotionText, signupState } from '../features/match-detail/registration';
@@ -201,6 +202,17 @@ const canManageRegistrations = computed(() =>
 );
 const canChangeStatus = computed(
   () => session.isAuthenticated && hasPermission(session.permissions, MATCH_STATUS_ANY),
+);
+/** 头部「照片」入口：仅登录的正式球员与管理员可见。 */
+const {
+  canViewContent,
+  busy: photoEntryBusy,
+  openPhotos,
+} = usePhotoEntry(
+  computed(() => (match.value ? { matchId: match.value.id, title: match.value.title } : null)),
+  (message) => {
+    actionError.value = message;
+  },
 );
 const removalAllowed = computed(() => {
   const status = match.value?.status;
@@ -1394,6 +1406,16 @@ onBeforeUnmount(() => {
         </p>
 
         <div class="match-hero__actions">
+          <Button
+            v-if="canViewContent"
+            size="small"
+            plain
+            data-testid="match-photos"
+            :loading="photoEntryBusy"
+            @click="openPhotos"
+          >
+            照片
+          </Button>
           <Button
             v-if="canInvite"
             size="small"

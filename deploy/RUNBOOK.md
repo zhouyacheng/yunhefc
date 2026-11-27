@@ -47,8 +47,8 @@ compose_current() {
 
 env_value() { sed -n "s/^$1=//p" /opt/yunhefc/.env | tail -1; }
 
-# 必须带 --default-character-set=utf8mb4：容器 locale 为 C/POSIX，mysql 客户端会把会话
-# 字符集推断成 latin1，中文显示为 `?`，且该会话内的写操作会以 `?` 落库、不可逆。
+# 容器内客户端默认字符集由挂载的 mysql/conf.d/utf8mb4.cnf 固定为 utf8mb4；这里仍显式传参，
+# 兼容未挂载该配置的容器（locale 为 C/POSIX 时会推断成 latin1，中文落库即不可逆）。
 mysql_current() {
   compose_current exec -T -e MYSQL_PWD="$(env_value DB_PASSWORD)" \
     mysql mysql -u "$(env_value DB_USERNAME)" --default-character-set=utf8mb4 yunhefc "$@"
@@ -69,8 +69,9 @@ mysql_root() {
 1. 使用宿主已预置的官方镜像 `mysql:8.4`，Compose 服务 `mysql`；不发布 3306，仅 `app` 网络可达，数据落命名卷 `mysql-data`。
 2. 首次启动由容器环境变量初始化：库 `yunhefc`（utf8mb4 / utf8mb4_0900_ai_ci）、账号 `yunhefc`（`DB_USERNAME`/`DB_PASSWORD` 取 `.env`；口令只写 `.env`、不入库）、root 口令取 `.env` 的 `MYSQL_ROOT_PASSWORD`（随机生成）。迁移与应用共用 `yunhefc` 账号（该账号对 `yunhefc.*` 有 DDL 权限）。账号口令只在数据卷首次初始化时生效；之后修改 `.env` 的 `DB_PASSWORD` 需同步执行 `ALTER USER 'yunhefc'@'%' IDENTIFIED BY '<新口令>';`。
 3. 时区：容器 `TZ=Asia/Shanghai` 使 `system_time_zone=CST`；`--default-time-zone=+08:00` 使全局/会话 `time_zone=+08:00`。
-4. 资源：`mem_limit=512m`、`innodb_buffer_pool_size=192M`、`max_connections=50`，关闭 `performance_schema` 与 X Plugin（`mysqlx`）。
-5. 校验（首次发布后）：
+4. 字符集：服务端 `--character-set-server=utf8mb4`；容器内客户端默认字符集由只读挂载的 `mysql/conf.d/utf8mb4.cnf`（`[client] default-character-set=utf8mb4`）固定，否则 locale 为 C/POSIX 时客户端会推断成 latin1。挂载生效需重建 `mysql` 容器（`compose_current up -d mysql`，会重启 MySQL）。
+5. 资源：`mem_limit=512m`、`innodb_buffer_pool_size=192M`、`max_connections=50`，关闭 `performance_schema` 与 X Plugin（`mysqlx`）。
+6. 校验（首次发布后）：
 
 ```bash
 mysql_current -e "SELECT @@system_time_zone, @@global.time_zone, @@session.time_zone;

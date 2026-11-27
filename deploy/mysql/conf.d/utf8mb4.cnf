@@ -1,0 +1,5 @@
+# 容器 locale 为 C/POSIX，mysql 客户端会把会话字符集推断成 latin1（中文显示为 `?`，
+# 会话内写操作会以 `?` 落库）。客户端默认字符集在此固定为 utf8mb4。
+# 服务端字符集仍由 docker-compose.yml 的 --character-set-server 控制；mysqld 不读 [client] 组。
+[client]
+default-character-set = utf8mb4

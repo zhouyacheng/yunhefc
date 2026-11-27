@@ -1,4 +1,4 @@
-# 生产环境：RDS 私网 + Redis 密码 + 关闭 Flyway；不安全配置由 ProdStartupValidator 启动失败。
+# 生产环境：Compose 内 MySQL 8.4 + Redis 密码 + 关闭 Flyway；不安全配置由 ProdStartupValidator 启动失败。
 spring:
   datasource:
     url: ${DB_URL}
@@ -7,7 +7,7 @@ spring:
     hikari:
       maximum-pool-size: 10
       connection-timeout: 5000
-      # 低于 RDS wait_timeout，避免连接被服务端先行回收。
+      # 30 分钟低于 MySQL 默认 wait_timeout（28800 秒），避免连接被服务端先行回收。
       max-lifetime: 1800000
   flyway:
     enabled: false

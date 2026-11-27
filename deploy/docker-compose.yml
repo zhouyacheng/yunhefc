@@ -1,4 +1,4 @@
-# 生产服务编排：MySQL 使用阿里云 RDS，不在 Compose 内。
+# 生产服务编排：MySQL 8.4 使用宿主已预置的官方镜像，在 Compose 内自建（仅内网，不发布 3306）。
 # 与 docker-compose.prod.yml 一起使用，镜像 tag 由 release.sh 通过环境变量注入。
 x-logging: &default-logging
   driver: json-file
@@ -7,6 +7,40 @@ x-logging: &default-logging
     max-file: "5"
 
 services:
+  mysql:
+    # 宿主预置镜像，不经 ACR；发布链路不访问 Docker Hub。
+    image: mysql:8.4
+    environment:
+      # TZ=Asia/Shanghai 使 system_time_zone 为 CST。
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD 未设置}
+      MYSQL_DATABASE: yunhefc
+      MYSQL_USER: ${DB_USERNAME:?DB_USERNAME 未设置}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD 未设置}
+    command:
+      # 会话默认时区 +08:00；字符集与 04 约定一致。
+      - --default-time-zone=+08:00
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      # 2C2G 宿主：压缩后台缓存与 X Plugin 占用。
+      - --innodb-buffer-pool-size=192M
+      - --performance-schema=OFF
+      - --mysqlx=OFF
+      - --max-connections=50
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # 认证查询而非 mysqladmin ping：后者在口令错误时仍返回成功。
+      test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysql -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 90s
+    logging: *default-logging
+    restart: unless-stopped
+    networks:
+      - app
+
   backend:
     image: ${IMAGE_REGISTRY:?IMAGE_REGISTRY 未设置}/yunhefc-backend:${IMAGE_TAG:?IMAGE_TAG 未设置}
     environment:
@@ -15,6 +49,8 @@ services:
     volumes:
       - backend-logs:/app/logs
     depends_on:
+      mysql:
+        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -75,6 +111,7 @@ services:
 volumes:
   backend-logs:
   redis-data:
+  mysql-data:
 
 networks:
   app:

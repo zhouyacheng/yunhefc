@@ -8,11 +8,10 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * 生产启动自检：Cookie、CORS 与 DB/Redis 口令不安全时立即失败。
+ * 生产启动自检：Cookie、CORS 与 DB/Redis 口令缺失时立即失败。
  */
 public class ProdStartupValidator {
 
-    private static final String DEFAULT_DB_PASSWORD = "yunhefc";
     private static final String CORS_RULE =
             "生产环境 CORS_ALLOWED_ORIGINS 必须恰为一个与 PUBLIC_BASE_URL 相同的 https://www.<domain> 单源"
                     + "（拒绝空值、多源、localhost、通配符、admin./api. 子域）";
@@ -103,9 +102,8 @@ public class ProdStartupValidator {
     }
 
     private void validateDbPassword() {
-        String password = environment.getProperty("spring.datasource.password");
-        if (!StringUtils.hasText(password) || DEFAULT_DB_PASSWORD.equals(password.trim())) {
-            throw new IllegalStateException("生产环境 DB_PASSWORD 不得为空或使用默认值 yunhefc");
+        if (!StringUtils.hasText(environment.getProperty("spring.datasource.password"))) {
+            throw new IllegalStateException("生产环境 DB_PASSWORD 不得为空");
         }
     }
 

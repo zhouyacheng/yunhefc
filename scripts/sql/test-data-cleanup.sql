@@ -5,12 +5,11 @@
 -- 注意：
 --   1. 本脚本是事故清理，不是业务删除路径。正常业务流程仍按 docs/rules/database-rules.md §4
 --      使用状态或 is_deleted 伪删除；审计日志仍永久保留（仅删除 test-data 自带的 6001–6003）。
---   2. 执行前必须完成 RDS 备份或确认 PITR 时间点；建议停 backend 或维护窗口执行，避免 Outbox/消费者并发写入。
---   3. 使用具备 CREATE TEMPORARY TABLES 与业务表 DELETE 权限的账号（yunhefc_migrator 或 DBA），
---      不要使用仅有 DML 权限的 yunhefc_app。
+--   2. 执行前必须完成手工 mysqldump 留底（生产无自动备份，P-168）；建议停 backend 或维护窗口执行，避免 Outbox/消费者并发写入。
+--   3. 使用 Compose 内的 yunhefc 账号（具备 CREATE TEMPORARY TABLES 与业务表 DELETE 权限）。
 --   4. 不删除：team id=1、app_role、permission、role_permission、system_setting、V4 预置阵型模板、id=1 管理员。
 --   5. 不重置 AUTO_INCREMENT；清理后新 id 从当前自增位继续（不回收已删除 id），功能无影响。
---   6. 执行命令：mysql -h <rds-host> -u <dba> -p yunhefc < scripts/sql/test-data-cleanup.sql
+--   6. 执行命令：mysql_current < scripts/sql/test-data-cleanup.sql（见 deploy/RUNBOOK.md §0）
 --   7. 预检未通过时脚本会在删除前报错退出（错误含 __yunhefc_preflight_failed_abort__），
 --      此时未删除任何数据；请核对 precheck.* 输出后人工处理。
 --

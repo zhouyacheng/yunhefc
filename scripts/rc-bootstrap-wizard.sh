@@ -194,7 +194,6 @@ SCP_OPTS=(-o ConnectTimeout=10 -o BatchMode=yes)
 
 remote() { ssh "${SSH_OPTS[@]}" "$ECS_SSH" "$@"; }
 remote_write() { ssh "${SSH_OPTS[@]}" "$ECS_SSH" "umask 077; cat > '$1'"; }
-sql_quote() { printf '%s' "${1//\'/\'\'}"; }
 
 banner "云河FC 生产 RC 引导"
 
@@ -300,38 +299,26 @@ for image in yunhefc-backend yunhefc-nginx; do
 done
 
 # ── Stage 5 ───────────────────────────────────────────────────────────────
-stage "RDS：建库与账号分离"
-ask RDS_HOST "RDS 主机："
-ask RDS_PORT "RDS 端口 [3306]："
-RDS_PORT="${RDS_PORT:-3306}"
-ask RDS_ADMIN_USER "RDS 管理账号："
-ask_secret RDS_ADMIN_PASSWORD "RDS 管理密码："
-ask_secret RDS_MIGRATOR_PASSWORD "迁移账号新密码："
-ask_secret RDS_APP_PASSWORD "应用账号新密码："
-step "将创建 yunhefc 库，并把两个账号密码重置为本次输入。"
-if confirm "确认执行（幂等，但会重置账号密码）？"; then
-  printf 'MYSQL_PWD=%s\n' "$RDS_ADMIN_PASSWORD" | remote "umask 077; cat > /tmp/.rdsenv"
-  sql=$(cat <<'SQL'
-CREATE DATABASE IF NOT EXISTS yunhefc DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-CREATE USER IF NOT EXISTS 'yunhefc_migrator'@'%' IDENTIFIED BY '__MIGRATOR_PWD__';
-ALTER USER 'yunhefc_migrator'@'%' IDENTIFIED BY '__MIGRATOR_PWD__';
-CREATE USER IF NOT EXISTS 'yunhefc_app'@'%' IDENTIFIED BY '__APP_PWD__';
-ALTER USER 'yunhefc_app'@'%' IDENTIFIED BY '__APP_PWD__';
-GRANT ALL PRIVILEGES ON yunhefc.* TO 'yunhefc_migrator'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON yunhefc.* TO 'yunhefc_app'@'%';
-FLUSH PRIVILEGES;
-SQL
-)
-  sql=${sql//__MIGRATOR_PWD__/$(sql_quote "$RDS_MIGRATOR_PASSWORD")}
-  sql=${sql//__APP_PWD__/$(sql_quote "$RDS_APP_PASSWORD")}
-  if printf '%s\n' "$sql" | remote "docker run --rm -i --network host --env-file /tmp/.rdsenv mysql:8.4 mysql -h '$RDS_HOST' -P '$RDS_PORT' -u '$RDS_ADMIN_USER'" 2>/dev/null; then
-    say "  ${GREEN}✓${RESET} RDS 库与账号已就绪"
-  else
-    warn "RDS 初始化失败"; SKIPPED+=("RDS 建库/账号")
-  fi
-  remote 'rm -f /tmp/.rdsenv'
+stage "自建 MySQL：镜像与时区"
+say "MySQL 8.4 在 Compose 内自建，仅内网可达、不发布 3306；首次发布时由容器初始化 yunhefc 库与 yunhefc 账号（口令由本向导写入 .env，不入库）。"
+if remote "docker image inspect mysql:8.4" >/dev/null 2>&1; then
+  say "  ${GREEN}✓${RESET} 宿主已有 mysql:8.4 镜像"
 else
-  SKIPPED+=("RDS 建库/账号（未确认）")
+  warn "宿主缺少 mysql:8.4 镜像；生产发布链路不访问 Docker Hub，请先离线导入"
+  SKIPPED+=("mysql:8.4 镜像预置")
+fi
+step "容器固定 TZ=Asia/Shanghai（system_time_zone=CST）与 --default-time-zone=+08:00（time_zone=+08:00）。"
+ask_secret MYSQL_ROOT_PASSWORD "MySQL root 口令（留空自动生成）："
+if [[ -z "$MYSQL_ROOT_PASSWORD" ]]; then
+  MYSQL_ROOT_PASSWORD=$(openssl rand -hex 16)
+  say "  ${DIM}已生成随机 root 口令${RESET}"
+fi
+# 本地留存：容器只在首次初始化时设置 root 口令，重跑必须沿用同一值。
+write_env MYSQL_ROOT_PASSWORD "$MYSQL_ROOT_PASSWORD"
+ask_secret DB_PASSWORD "数据库账号 yunhefc 口令（必填）："
+if [[ -z "$DB_PASSWORD" ]]; then
+  warn "数据库账号口令不能为空"
+  exit 1
 fi
 
 # ── Stage 6 ───────────────────────────────────────────────────────────────
@@ -355,9 +342,10 @@ ask_secret OSS_ACCESS_KEY_SECRET "OSS AccessKeySecret："
   printf 'SESSION_COOKIE_SECURE=true\n'
   printf 'SESSION_COOKIE_DOMAIN=\n'
   printf 'CORS_ALLOWED_ORIGINS=https://www.%s\n' "$RC_DOMAIN"
-  printf 'DB_URL=jdbc:mysql://%s:%s/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8\n' "$RDS_HOST" "$RDS_PORT"
-  printf 'DB_USERNAME=yunhefc_app\n'
-  printf 'DB_PASSWORD=%s\n' "$RDS_APP_PASSWORD"
+  printf 'MYSQL_ROOT_PASSWORD=%s\n' "$MYSQL_ROOT_PASSWORD"
+  printf 'DB_URL=jdbc:mysql://mysql:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8\n'
+  printf 'DB_USERNAME=yunhefc\n'
+  printf 'DB_PASSWORD=%s\n' "$DB_PASSWORD"
   printf 'REDIS_HOST=redis\n'
   printf 'REDIS_PORT=6379\n'
   printf 'REDIS_PASSWORD=%s\n' "$REDIS_PASSWORD"
@@ -390,7 +378,7 @@ fi
 say ""
 say "下一步（迁移 + 首发）："
 note "1. 在目标 commit 检出中复制 backend/src/main/resources/db/migration/*.sql 到 /opt/yunhefc/migrations/"
-note "2. 用迁移账号执行 flyway migrate（RUNBOOK §1.3）"
+note "2. 在 Compose 网络内执行 flyway migrate（RUNBOOK §1.3）"
 note "3. 准备 /opt/yunhefc/releases/$SHA7/ 的 compose 快照与 release.env"
 note "4. /opt/yunhefc/releases/$SHA7/bin/release.sh --sha $SHA7"
 finish

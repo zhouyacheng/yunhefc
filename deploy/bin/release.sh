@@ -129,8 +129,8 @@ CORS_ORIGIN_COUNT="$(printf '%s\n' "$CORS_ORIGINS_VALUE" \
 [[ -z "$(env_value "$ENV_FILE" SESSION_COOKIE_DOMAIN)" ]] \
     || die "$ENV_FILE 的 SESSION_COOKIE_DOMAIN 必须为空（host-only Cookie）"
 DB_PASSWORD_VALUE="$(env_value "$ENV_FILE" DB_PASSWORD)"
-[[ -n "$DB_PASSWORD_VALUE" && "$DB_PASSWORD_VALUE" != "yunhefc" ]] \
-    || die "$ENV_FILE 的 DB_PASSWORD 不得为空或使用默认值 yunhefc"
+[[ -n "$DB_PASSWORD_VALUE" ]] \
+    || die "$ENV_FILE 的 DB_PASSWORD 不得为空"
 [[ -n "$(env_value "$ENV_FILE" REDIS_PASSWORD)" ]] \
     || die "$ENV_FILE 的 REDIS_PASSWORD 不得为空"
 
@@ -181,6 +181,14 @@ compose() {
         "$@"
 }
 
+# 是否含某服务按目标快照 YAML 判断：P-168 之前的旧快照没有 mysql 服务。
+# 不用 compose config，避免其因缺变量失败被误判为“无服务”而漏起、漏等 MySQL。
+has_service() { grep -q "^  $1:" "$release_dir/docker-compose.yml"; }
+if has_service mysql; then
+    [[ -n "$(env_value "$ENV_FILE" MYSQL_ROOT_PASSWORD)" ]] \
+        || die "$ENV_FILE 的 MYSQL_ROOT_PASSWORD 不得为空（追加方式见 RUNBOOK §1.1.1）"
+fi
+
 image_exists() {
     local image="$1"
     docker manifest inspect "$image" >/dev/null 2>&1 \
@@ -198,6 +206,13 @@ verify_images() {
     image="$IMAGE_REGISTRY/yunhefc-infra-redis:6.2.24"
     image_exists "$image" || die "基础设施镜像不存在: $image"
     log "镜像可用: $image"
+    # MySQL 使用宿主预置的官方镜像，发布链路不访问 Docker Hub。
+    # P-168 之前的旧快照没有 mysql 服务，回滚时不要求该镜像。
+    if has_service mysql; then
+        docker image inspect mysql:8.4 >/dev/null 2>&1 \
+            || die "宿主缺少 mysql:8.4 镜像（生产不访问 Docker Hub，需提前预置）"
+        log "镜像可用: mysql:8.4"
+    fi
 }
 
 wait_ready() {
@@ -341,10 +356,30 @@ else
     log "current -> ${release_dir}（state/previous 保持不变）"
 fi
 
-# 首次部署时 Redis 尚未运行；正常发布不重启 redis，保持 --no-deps 语义。
-if ! compose ps --status running --services 2>/dev/null | grep -qx redis; then
-    log "基础设施未运行，启动 redis"
-    compose up -d redis
+# 首次部署时 MySQL/Redis 尚未运行；正常发布不重启，保持 --no-deps 语义。
+# P-168 之前的旧快照没有 mysql 服务，按快照实际服务启动，避免回滚失败。
+for infra in mysql redis; do
+    has_service "$infra" || continue
+    if ! compose ps --status running --services 2>/dev/null | grep -qx "$infra"; then
+        log "基础设施未运行，启动 $infra"
+        compose up -d "$infra"
+    fi
+done
+
+# 首次初始化或重启期间等 MySQL healthy，避免 backend 在 Quartz 建表时连不上库而 crash-loop。
+# 240s 覆盖 2C2G 冷启动首次初始化（healthcheck start_period 90s + retries）。
+if has_service mysql; then
+    mysql_id="$(compose ps -q mysql 2>/dev/null || true)"
+    if [[ -n "$mysql_id" ]]; then
+        deadline=$((SECONDS + 240))
+        mysql_health=""
+        while ((SECONDS < deadline)); do
+            mysql_health="$(docker inspect -f '{{.State.Health.Status}}' "$mysql_id" 2>/dev/null || true)"
+            [[ "$mysql_health" == "healthy" ]] && break
+            sleep 5
+        done
+        [[ "$mysql_health" == "healthy" ]] || die "MySQL 在 240s 内未 healthy"
+    fi
 fi
 
 log "启动 backend 与 nginx"

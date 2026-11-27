@@ -1,6 +1,10 @@
 # 生产覆盖层：资源上限、运行时环境文件、JVM 参数与证书挂载。
 # 与 docker-compose.yml 一起使用；release.sh 会传入两份快照。
 services:
+  mysql:
+    # 2C2G 宿主：MySQL 固定 512m，buffer pool 192M + performance_schema/X Plugin 关闭。
+    mem_limit: 512m
+
   backend:
     env_file:
       - ${YUNHEFC_ENV_FILE:-/opt/yunhefc/.env}
@@ -8,6 +12,8 @@ services:
     # 给 Spring graceful shutdown（30s）留出余量；Docker 默认 10s 会提前 SIGKILL。
     stop_grace_period: 40s
     environment:
+      # env_file 是整文件注入；显式清空 root 口令，避免泄漏到非 MySQL 容器。
+      MYSQL_ROOT_PASSWORD: ""
       JAVA_TOOL_OPTIONS: >-
         -Xms256m -Xmx448m
         -XX:MaxMetaspaceSize=128m
@@ -19,6 +25,9 @@ services:
   redis:
     env_file:
       - ${YUNHEFC_ENV_FILE:-/opt/yunhefc/.env}
+    environment:
+      # 同上：不向 Redis 暴露 MySQL root 口令。
+      MYSQL_ROOT_PASSWORD: ""
     mem_limit: 192m
 
   nginx:

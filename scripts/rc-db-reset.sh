@@ -40,10 +40,10 @@ printf '\n%s生产库重建（Flyway V1–V21 + 首位管理员）%s\n\n' "$DIM"
 say "目标主机：$ECS_SSH"
 remote 'echo ok' >/dev/null 2>&1 || die "SSH 不可用"
 
-read -r -p '  迁移账号（需 DDL 权限）：' MIG_USER
-[[ -n "$MIG_USER" ]] || die "迁移账号不能为空"
-read -rs -p '  迁移账号密码：' MIG_PASS; printf '\n'
-[[ -n "$MIG_PASS" ]] || die "密码不能为空"
+read -r -p '  数据库账号（需 DDL 权限，默认 yunhefc）：' DB_USER
+DB_USER="${DB_USER:-yunhefc}"
+read -rs -p '  数据库账号密码：' DB_PASS; printf '\n'
+[[ -n "$DB_PASS" ]] || die "密码不能为空"
 
 read -r -p '  管理员手机号（11 位）：' ADMIN_PHONE
 [[ "$ADMIN_PHONE" =~ ^1[0-9]{10}$ ]] || die "手机号格式不正确"
@@ -99,9 +99,9 @@ say "  目标库：$DB_DB @ $DB_HOST:$DB_PORT"
 
 # ── 3. 凭据文件（600，仅经 stdin 写入）────────────────────────────────────
 {
-  printf 'MYSQL_PWD=%s\n' "$MIG_PASS"
-  printf 'FLYWAY_USER=%s\n' "$MIG_USER"
-  printf 'FLYWAY_PASSWORD=%s\n' "$MIG_PASS"
+  printf 'MYSQL_PWD=%s\n' "$DB_PASS"
+  printf 'FLYWAY_USER=%s\n' "$DB_USER"
+  printf 'FLYWAY_PASSWORD=%s\n' "$DB_PASS"
 } | remote "umask 077; cat > '$REMOTE_ENV'"
 ok "凭据已写入临时文件（会话结束删除）"
 
@@ -131,13 +131,14 @@ ok "backend 已停止"
 
 # ── 5. 库存在性 / 建库 / Flyway ──────────────────────────────────────────
 run_sql() {
-  remote "umask 077; docker run --rm -i --network host --env-file '$REMOTE_ENV' \
-    mysql:8.4 mysql --default-character-set=utf8mb4 -N -h '$DB_HOST' -P '$DB_PORT' -u '$MIG_USER' -e \"$1\""
+  # DB 在 Compose 内网，按服务名 mysql 连接（项目名固定 yunhefc）。
+  remote "umask 077; docker run --rm -i --network yunhefc_app --env-file '$REMOTE_ENV' \
+    mysql:8.4 mysql --default-character-set=utf8mb4 -N -h '$DB_HOST' -P '$DB_PORT' -u '$DB_USER' -e \"$1\""
 }
 # 连接失败不能被当成“库不存在”，否则会在错误实例上建库。
 if ! db_list=$(run_sql "SHOW DATABASES LIKE '$DB_DB'" 2>/tmp/rc-db-probe.log); then
   tail -3 /tmp/rc-db-probe.log | sed 's/^/    /'
-  die "无法连接 $DB_HOST:${DB_PORT}，请检查网络/迁移账号（未做任何变更）"
+  die "无法连接 $DB_HOST:${DB_PORT}，请检查网络/数据库账号（未做任何变更）"
 fi
 if [[ -n "$(printf '%s' "$db_list" | tr -d '\r')" ]]; then
   say "  库 $DB_DB 已存在，clean 后重建"
@@ -147,14 +148,14 @@ else
   if run_sql "CREATE DATABASE IF NOT EXISTS $DB_DB DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci" >/dev/null 2>&1; then
     ok "已创建 ${DB_DB}（utf8mb4_0900_ai_ci）"
   else
-    die "迁移账号无权建库，请手工执行 RUNBOOK §1.1 的 CREATE DATABASE 后重跑"
+    die "库 $DB_DB 不存在，请先启动 mysql 容器（Compose 首次初始化会建库）后重跑"
   fi
   FLYWAY_CMDS="migrate"
 fi
 
 read -r DB_URL_ONLY < <(remote "grep -m1 '^DB_URL=' /opt/yunhefc/.env | cut -d= -f2-")
 say "  执行 flyway $FLYWAY_CMDS …"
-if remote "docker run --rm --network host --env-file '$REMOTE_ENV' \
+if remote "docker run --rm --network yunhefc_app --env-file '$REMOTE_ENV' \
       -v /opt/yunhefc/migrations:/flyway/sql:ro \
       -e FLYWAY_URL='$DB_URL_ONLY' \
       flyway/flyway:11.7.2 -connectRetries=10 $FLYWAY_CMDS" >/tmp/rc-flyway.log 2>&1; then
@@ -184,12 +185,12 @@ sed \
   -e "s|^SET @position = .*|SET @position = $ADMIN_POS;|" \
   scripts/sql/bootstrap-admin.sql > "$LOCAL_ADMIN"
 
-ADMIN_OUT=$(remote "umask 077; docker run --rm -i --network host --env-file '$REMOTE_ENV' \
-    mysql:8.4 mysql --default-character-set=utf8mb4 -N -h '$DB_HOST' -P '$DB_PORT' -u '$MIG_USER' '$DB_DB'" < "$LOCAL_ADMIN")
+ADMIN_OUT=$(remote "umask 077; docker run --rm -i --network yunhefc_app --env-file '$REMOTE_ENV' \
+    mysql:8.4 mysql --default-character-set=utf8mb4 -N -h '$DB_HOST' -P '$DB_PORT' -u '$DB_USER' '$DB_DB'" < "$LOCAL_ADMIN")
 printf '%s\n' "$ADMIN_OUT" | sed 's/^/    /'
 PERMS=$(printf '%s\n' "$ADMIN_OUT" | awk 'END{print $1}')
-[[ "$PERMS" == "33" ]] || die "ADMIN 权限数为 ${PERMS:-未知}，期望 33"
-ok "首位管理员已创建（权限 33）"
+[[ "$PERMS" == "37" ]] || die "ADMIN 权限数为 ${PERMS:-未知}，期望 37"
+ok "首位管理员已创建（权限 37）"
 
 # ── 7. 启 backend 并校验 ──────────────────────────────────────────────────
 compose up -d --no-deps backend >/dev/null
@@ -206,8 +207,8 @@ done
 (( ready )) || die "readiness 未通过（${HEALTH_URL}），查看 docker logs yunhefc-backend-1"
 ok "backend 就绪"
 
-remote "umask 077; docker run --rm --network host --env-file '$REMOTE_ENV' \
-    mysql:8.4 mysql -h '$DB_HOST' -P '$DB_PORT' -u '$MIG_USER' '$DB_DB' -N -e \
+remote "umask 077; docker run --rm --network yunhefc_app --env-file '$REMOTE_ENV' \
+    mysql:8.4 mysql -h '$DB_HOST' -P '$DB_PORT' -u '$DB_USER' '$DB_DB' -N -e \
     'SELECT version, success FROM flyway_schema_history ORDER BY installed_rank;'" \
   | sed 's/^/    /'
 

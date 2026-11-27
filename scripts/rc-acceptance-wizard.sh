@@ -236,18 +236,9 @@ while :; do
   RC_DOMAIN=""
 done
 ask ECS_SSH "ECS SSH 目标（user@host）："
-ask RDS_HOST "RDS 主机（私网域名）："
-ask RDS_PORT "RDS 端口 [3306]："
-RDS_PORT="${RDS_PORT:-3306}"
-ask RDS_MIGRATION_USER "迁移账号："
-ask RDS_APP_USER "应用账号："
 ask ACR_REGISTRY "ACR 仓库地址（仅记录）："
 write_env RC_DOMAIN "$RC_DOMAIN"
 write_env ECS_SSH "$ECS_SSH"
-write_env RDS_HOST "$RDS_HOST"
-write_env RDS_PORT "$RDS_PORT"
-write_env RDS_MIGRATION_USER "$RDS_MIGRATION_USER"
-write_env RDS_APP_USER "$RDS_APP_USER"
 write_env ACR_REGISTRY "$ACR_REGISTRY"
 chmod 600 "$ENV_FILE"
 
@@ -422,19 +413,25 @@ for base in "$WEB"; do
   done
 done
 say "在 ECS 上执行 flyway info（密码用占位符，手工替换；不要写进脚本）："
-note "docker run --rm --network host -v /opt/yunhefc/migrations:/flyway/sql:ro flyway/flyway:11.7.2 -url='jdbc:mysql://$RDS_HOST:$RDS_PORT/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8' -user=$RDS_MIGRATION_USER -password='<迁移账号密码>' info"
+note "docker run --rm --network yunhefc_app -v /opt/yunhefc/migrations:/flyway/sql:ro flyway/flyway:11.7.2 -url='jdbc:mysql://mysql:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8' -user=yunhefc -password='<数据库密码>' info"
 if confirm "flyway info 无 pending/failed，flyway_schema_history 为 V1–V21（V15 为空号）？"; then
   record "§5.1/§6.7 flyway info" "PASS"
 else
   record "§5.1/§6.7 flyway info" "FAIL"
 fi
-say "应用账号权限检查（在 ECS 上执行）："
-note "mysql -h $RDS_HOST -P $RDS_PORT -u $RDS_APP_USER -p -e 'SHOW GRANTS FOR CURRENT_USER();'"
-step "应只看到 SELECT/INSERT/UPDATE/DELETE，无 CREATE/ALTER/DROP/INDEX。"
-if confirm "应用账号无 DDL 权限？"; then
-  record "§6.7 应用账号无 DDL" "PASS"
+say "数据库暴露面检查（在 ECS 上执行）：3306 不得映射到宿主，仅 Compose 内网可达。"
+db_listen=$(ssh "${SSH_OPTS[@]}" "$ECS_SSH" "ss -ltn 2>/dev/null | grep -E '[:.]3306[[:space:]]' | head -n1" 2>/dev/null || true)
+if [[ -z "$db_listen" ]]; then
+  say "  ${GREEN}✓${RESET} 宿主未监听 3306"; record "§6.7 数据库未暴露" "PASS"
 else
-  record "§6.7 应用账号无 DDL" "FAIL"
+  warn "检测到宿主 3306 监听：$db_listen"; record "§6.7 数据库未暴露" "FAIL"
+fi
+say "数据库时区（在 ECS 上执行，期望 CST / +08:00 / +08:00）："
+note "compose_current exec -T mysql mysql -uyunhefc -p -e 'SELECT @@system_time_zone, @@global.time_zone, @@session.time_zone;'"
+if confirm "system_time_zone=CST，global/session time_zone 均为 +08:00？"; then
+  record "§6.7 数据库时区" "PASS"
+else
+  record "§6.7 数据库时区" "FAIL"
 fi
 backend_env=$(ssh "${SSH_OPTS[@]}" "$ECS_SSH" "docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' \$(docker ps -qf name=backend | head -n1)" 2>/dev/null || true)
 if printf '%s' "$backend_env" | grep -q '^SPRING_PROFILES_ACTIVE=prod$'; then
@@ -518,14 +515,10 @@ else
 fi
 
 # ── Stage 10 ──────────────────────────────────────────────────────────────
-stage "§5.6 RDS 备份 / §6.11 端到端"
-open_url "https://rds.console.aliyun.com/"
-step "实例 → 备份恢复：自动备份开启、保留 7 天；binlog 开启且 PITR 可恢复到时间点。"
-if confirm "RDS 自动备份、7 天保留与 PITR 时间点均可见？（风险接受项，未开启记 SKIP，不阻断）"; then
-  record "§5.6 RDS 备份/PITR" "PASS"
-else
-  record "§5.6 RDS 备份/PITR" "SKIP（§10 #18 风险接受）"
-fi
+stage "§5.6 数据库备份（风险接受） / §6.11 端到端"
+step "生产自建 MySQL 无自动备份与 PITR（P-168 风险接受），本项不计入硬门槛。"
+step "如需留底：在 ECS 上手工 mysqldump，恢复口径见 RUNBOOK §3.1。"
+record "§5.6 数据库备份" "SKIP（P-168 风险接受，无自动备份）"
 open_url "$WEB"
 open_url "$ADMIN/"
 step "HTTPS 下 C/B 登录无重定向循环。"

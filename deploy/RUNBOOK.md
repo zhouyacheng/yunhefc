@@ -80,6 +80,8 @@ mysql_current -e "SELECT @@system_time_zone, @@global.time_zone, @@session.time_
 ### 1.1.1 从 RDS 迁移存量数据（一次性 cutover）
 
 > 生产自 RDS 切到自建 MySQL 时执行一次；后续环境从空库跑 V1–V21 即可。全程保留 RDS 实例与旧 `.env` 至少 7 天用于回退。
+>
+> **前置条件**：包含 `mysql` 服务的 P-168 版本已发布（`release.sh` 会启动容器并等待 healthy），`yunhefc` 为空库，backend 仍连 RDS；`.env` 已写入 `MYSQL_ROOT_PASSWORD`（600）。未满足时不要开始停 backend。
 
 1. 确认宿主已预置 `mysql:8.4`；在 `.env` 增加 `MYSQL_ROOT_PASSWORD`（随机，600 文件），`DB_URL` 暂时保持原 RDS：
 
@@ -89,7 +91,7 @@ mysql_current -e "SELECT @@system_time_zone, @@global.time_zone, @@session.time_
    ```
 
    发布包含 `mysql` 服务的版本，`release.sh` 会启动容器并等待 healthy（backend 此刻仍连 RDS）。`release.sh` 缺少 `MYSQL_ROOT_PASSWORD` 会直接拒绝发布。
-2. 停 backend，冻结 RDS 写入：`compose_current stop backend`。
+2. 停 backend，冻结 RDS 写入：`compose_current stop backend`。**判定以 `yunhefc` 48 张表的 `CHECKSUM TABLE` 10 秒不变为准**；`SHOW GLOBAL STATUS` 的 DML 计数是整实例的，若 RDS 还有其它 schema 在写会变化，只作告警。
 3. 在 ECS 上导出 RDS（迁移账号有 `SELECT`）：
 
 ```bash
@@ -104,7 +106,7 @@ mysqldump -h <rds-host> -P 3306 -u yunhefc_migrator -p \
 mysql_root --default-character-set=utf8mb4 yunhefc < /opt/yunhefc/cutover-<date>.sql
 ```
 
-5. 创建应用账号。容器首次初始化按**当时** `.env` 的 `DB_USERNAME` 建号（cutover 阶段仍是 RDS 的 `yunhefc_app`），不会自动建 `yunhefc`；必须在切换前显式创建并授权。下面 `<DB_PASSWORD>` 替换为第 7 步写入 `.env` 的口令，不要把口令写进文档或仓库：
+5. 创建应用账号。容器首次初始化按**当时** `.env` 的 `DB_USERNAME` 建号（cutover 阶段通常是 RDS 的 `yunhefc_app`，不会自动建 `yunhefc`；若 `.env` 的 `DB_USERNAME` 已经是 `yunhefc`，初始化账号就是目标账号，本步只改口令，第 8 步无需删除）。下面 `<DB_PASSWORD>` 替换为第 7 步写入 `.env` 的口令，不要把口令写进文档或仓库：
 
 ```bash
 mysql_root -e "
@@ -127,6 +129,8 @@ mysql_root yunhefc \
 
 预期 `flyway_max = 21`、行数与 RDS 侧一致；时区按 §1.1 第 5 步校验。
 
+> **本生产 RDS 为 MySQL 8.4.7，server 默认字符集 `utf8mb3`、`lower_case_table_names=1`。** 字符集以业务表 collation 为准（业务表 utf8mb4；Quartz/flyway 历史表允许 utf8mb3）；Quartz 表在 RDS 上存为 `qrtz_*`，导入 `lctn=0` 的容器后必须重命名为 `QRTZ_*` 并校验 5 个 FK，否则 Quartz 启动失败。向导 Stage 8 已包含该归一化；手工执行时不要跳过。若导入后某表 `auto_increment` 低于 RDS（`mysqldump` 常见回落），按 RDS `information_schema.tables.auto_increment` 执行 `ALTER TABLE ... AUTO_INCREMENT=N` 抬回，避免复用已删除/回滚的 ID。
+
 7. 切换 `.env`：先备份原文件，再把三行改为下方值。
 
 ```bash
@@ -141,8 +145,16 @@ DB_PASSWORD=<数据库口令>
 
 > 口令与第 5 步一致，只写 `.env`（600），不写进文档、仓库或发布包。
 
-8. 重建 backend 并验收：`/opt/yunhefc/current/bin/release.sh --sha <当前sha7>` → readiness 通过 → §1.6 冒烟。
-9. 稳定 7 天后释放 RDS；期间回退 = 恢复 `.env.rds-<date>` 并重建 backend。
+8. 重建 backend 并验收：`/opt/yunhefc/current/bin/release.sh --sha <当前sha7>` → readiness 通过 → §1.6 冒烟。验收通过后删除容器初始化残留账号（避免保留 RDS 应用口令）。**初始化账号名取自第 7 步备份的旧 `.env`**；若它已经是 `yunhefc`，不要删除，否则会删掉应用账号：
+
+   ```bash
+   init_user=$(sed -n 's/^DB_USERNAME=//p' /opt/yunhefc/.env.rds-<date> | tail -1)
+   if [[ -n "$init_user" && "$init_user" != "yunhefc" ]]; then
+     mysql_root -e "DROP USER IF EXISTS '$init_user'@'%'; DROP USER IF EXISTS '$init_user'@'localhost';"
+   fi
+   ```
+
+9. 稳定 7 天后释放 RDS；期间回退 = 恢复 `.env.rds-<date>` 并重建 backend。**切换后新库一旦产生写入，回退 RDS 会丢失这些写入（无双向同步/PITR）；默认向前修复，回退仅用于切换后尚无新写入的窗口。**
 
 ### 1.2 DNS / 证书 / 环境文件 / ACR
 

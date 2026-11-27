@@ -123,6 +123,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 4. 不做逆向迁移；回滚优先回滚代码，不兼容变更人工修复或从手工 `mysqldump` 恢复（生产无自动备份、无 PITR，P-168）。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。
 6. 迁移脚本不得包含 `DROP DATABASE`、`USE`、生产凭证或环境相关硬编码。
+   - **例外（P-168 一次性 cutover）**：生产 RDS→Compose 的 RUNBOOK §1.1.1/一次性向导允许 `DROP DATABASE`/`CREATE DATABASE` 重建空库，以及 Quartz `qrtz_*→QRTZ_*` 重命名；schema 仍由 Flyway 管理，导入保留 `flyway_schema_history`。见 06 §192。
 
 ---
 

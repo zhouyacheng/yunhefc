@@ -1,0 +1,15 @@
+<view class="consent">
+  <view
+    class="consent__box {{checked ? 'consent__box--checked' : ''}}"
+    bindtap="onToggle"
+    hover-class="consent__box--pressed"
+  >
+    <text wx:if="{{checked}}" class="consent__tick">✓</text>
+  </view>
+  <view class="consent__text">
+    <text>我已阅读并同意</text>
+    <text class="consent__link" catchtap="showTerms">《用户服务协议》</text>
+    <text>和</text>
+    <text class="consent__link" catchtap="showPrivacy">《隐私政策》</text>
+  </view>
+</view>

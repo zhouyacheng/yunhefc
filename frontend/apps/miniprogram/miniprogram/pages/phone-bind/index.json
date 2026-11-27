@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "绑定手机号",
   "usingComponents": {
-    "van-button": "@vant/weapp/button/index"
+    "van-button": "@vant/weapp/button/index",
+    "agreement-consent": "../../components/agreement-consent/index"
   }
 }

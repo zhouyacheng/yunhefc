@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { AuthUser, MatchDetail, MatchSummary, PlayerView } from '../miniprogram/types/api';
-import { buildHero, HOME_FEATURES } from '../miniprogram/utils/home-view';
+import { buildHero } from '../miniprogram/utils/home-view';
 import { buildMatchCard, queuesOf } from '../miniprogram/utils/match-view';
 
 function summary(overrides: Partial<MatchSummary> = {}): MatchSummary {
@@ -158,15 +158,6 @@ describe('home view', () => {
     expect(recent.typeText).toBe('队内赛');
     expect(recent.statusText).toBe('已结束');
     expect(recent.queues.map((queue) => queue.label)).toEqual(['正式', '外挂', '候补']);
-  });
-
-  it('keeps the phase-2 feature titles in sync with C01', () => {
-    expect(HOME_FEATURES.map((feature) => feature.title)).toEqual([
-      'AI 身价',
-      '投票',
-      '公众号提醒',
-      '资产与荣誉',
-    ]);
   });
 
   it('labels queue rows in formal, guest, waitlist order', () => {

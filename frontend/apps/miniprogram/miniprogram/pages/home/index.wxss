@@ -240,12 +240,6 @@
   margin-bottom: 32rpx;
 }
 
-.section-head--column {
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6rpx;
-}
-
 .section-head__title {
   color: var(--yh-ink);
   font-size: 34rpx;
@@ -253,54 +247,7 @@
   letter-spacing: -0.01em;
 }
 
-.section-head__sub {
-  color: var(--yh-muted);
-  font-size: 26rpx;
-}
-
 /* Recent matches: 卡片结构样式见 styles/match-card.wxss。 */
-
-/* Phase-2 features */
-
-.features {
-  display: flex;
-  flex-direction: column;
-  gap: 28rpx;
-}
-
-.feature-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 16rpx;
-  padding: 32rpx;
-  background: var(--yh-surface);
-  border: 2rpx solid var(--yh-line);
-  border-radius: var(--yh-radius);
-  box-shadow: var(--yh-shadow-sm);
-}
-
-.feature-card__icon {
-  width: 76rpx;
-  height: 76rpx;
-  font-size: 36rpx;
-  line-height: 76rpx;
-  text-align: center;
-  background: var(--yh-surface-soft);
-  border-radius: var(--yh-radius-sm);
-}
-
-.feature-card__title {
-  color: var(--yh-ink);
-  font-size: 32rpx;
-  font-weight: 700;
-}
-
-.feature-card__text {
-  color: var(--yh-muted);
-  font-size: 26rpx;
-  line-height: 1.5;
-}
 
 .quick-entry {
   display: flex;

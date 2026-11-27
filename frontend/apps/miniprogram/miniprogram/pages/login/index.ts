@@ -1,3 +1,10 @@
+import {
+  applyAgreementChange,
+  hasAgreedToAgreements,
+  recordAgreementConsent,
+  requireAgreement,
+  type AgreementChangeEvent,
+} from '../../utils/agreement';
 import { errorMessage } from '../../utils/api-errors';
 import { PHONE_PATTERN, type ValueEvent } from '../../utils/input';
 import { inviteBindPath, inviteTokenFromQuery, navigateAfterAuth } from '../../utils/invite';
@@ -16,6 +23,8 @@ Page({
     submitting: false,
     wechatLoading: false,
     error: '',
+    /** 是否已勾选《用户服务协议》与《隐私政策》。 */
+    agreed: false,
     /** MP13 邀请落地回跳；只接受 token，不提供通用 redirect。 */
     inviteToken: '',
   },
@@ -25,6 +34,8 @@ Page({
     if (inviteToken) {
       this.setData({ inviteToken });
     }
+    // 已同意过当前版本的用户默认勾选；协议版本更新后重新要求勾选。
+    this.setData({ agreed: hasAgreedToAgreements() });
   },
 
   onPhoneInput(event: ValueEvent) {
@@ -43,8 +54,15 @@ Page({
     this.setData({ focus: '' });
   },
 
+  onAgreementChange(event: AgreementChangeEvent) {
+    applyAgreementChange(this, event);
+  },
+
   async submit() {
     if (this.data.submitting) {
+      return;
+    }
+    if (!requireAgreement(this)) {
       return;
     }
     const phone = this.data.phone.trim();
@@ -58,6 +76,7 @@ Page({
       return;
     }
     this.setData({ submitting: true, error: '' });
+    recordAgreementConsent();
     try {
       await loginWithPassword(phone, password);
       this.finishLogin();
@@ -72,7 +91,11 @@ Page({
     if (this.data.wechatLoading || this.data.submitting) {
       return;
     }
+    if (!requireAgreement(this)) {
+      return;
+    }
     this.setData({ wechatLoading: true, error: '' });
+    recordAgreementConsent();
     try {
       const result = await loginWithWechat();
       if (result.needBindPhone) {

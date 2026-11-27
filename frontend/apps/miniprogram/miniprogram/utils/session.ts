@@ -8,6 +8,7 @@ import {
   sendBindSmsCode,
   type SessionResult,
 } from './api-client';
+import { hasAgreedToAgreements } from './agreement';
 import { hasPermission as hasGrantedPermission } from './permissions';
 import { resetAuth, setCsrf, setUnauthorizedHandler } from './request';
 
@@ -51,23 +52,42 @@ export function setPlayer(player: PlayerView | null): void {
   currentPlayer = player;
 }
 
-/** 启动探测与等待共用：先 restore，未登录再静默 wx.login；并发只执行一次，永不 reject。 */
+/** 未同意当前协议版本时清除本地凭据并返回 false，避免拉取个人信息。 */
+function agreementGate(): boolean {
+  if (hasAgreedToAgreements()) {
+    return true;
+  }
+  clearSession();
+  return false;
+}
+
+/** 启动探测与等待共用：先校验同意，再 restore，未登录再静默 wx.login；并发只执行一次，永不 reject。 */
 export function sessionReady(): Promise<AuthUser | null> {
   if (silentLoginSuppressed) {
     return Promise.resolve(null);
   }
   if (!sessionPromise) {
-    sessionPromise = restore()
-      .then(async (user) => {
-        if (user) {
-          return user;
-        }
-        const result = await loginWithWechat().catch(() => null);
-        return result && !result.needBindPhone ? result.user : null;
-      })
-      .catch(() => null);
+    sessionPromise = (async () => {
+      if (!agreementGate()) {
+        return null;
+      }
+      const user = await restore();
+      if (user) {
+        return user;
+      }
+      const result = await loginWithWechat().catch(() => null);
+      return result && !result.needBindPhone ? result.user : null;
+    })().catch(() => null);
   }
   return sessionPromise;
+}
+
+/** 刷新已有会话；未同意协议时不访问 /me。 */
+export async function restoreIfAgreed(): Promise<AuthUser | null> {
+  if (!agreementGate()) {
+    return null;
+  }
+  return restore();
 }
 
 export function getBindTicket(): string | null {

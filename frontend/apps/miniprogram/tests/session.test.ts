@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { LEGAL_VERSION } from '../miniprogram/utils/legal';
 import { ApiError, request } from '../miniprogram/utils/request';
 import {
   bindPhone,
@@ -13,6 +14,7 @@ import {
   loginWithWechat,
   logout,
   restore,
+  restoreIfAgreed,
   sendSmsCode,
   sessionReady,
 } from '../miniprogram/utils/session';
@@ -29,13 +31,16 @@ type WxOptions = {
 let responder: (options: WxOptions) => void;
 let calls: WxOptions[];
 let loginCalls: number;
+let storedConsent: unknown;
 
 beforeEach(() => {
   clearSession();
   calls = [];
   loginCalls = 0;
   responder = () => undefined;
+  storedConsent = { version: LEGAL_VERSION, agreedAt: '2026-11-27T00:00:00.000Z' };
   (globalThis as unknown as { wx: unknown }).wx = {
+    getStorageSync: () => storedConsent,
     login: (options: { success: (res: { code: string }) => void }) => {
       loginCalls += 1;
       options.success({ code: 'c1' });
@@ -201,6 +206,61 @@ describe('session', () => {
     clearBindTicket();
 
     expect(getBindTicket()).toBeNull();
+  });
+
+  it('skips silent wechat login before the user agrees to the agreements', async () => {
+    storedConsent = '';
+    responder = (options) => {
+      options.success({
+        statusCode: 401,
+        data: { code: 40101, message: '未登录' },
+        header: {},
+      });
+    };
+
+    expect(await sessionReady()).toBeNull();
+    expect(loginCalls).toBe(0);
+  });
+
+  it('does not restore or login when the agreement version changed', async () => {
+    storedConsent = { version: '2026-01-01', agreedAt: '2026-01-01T00:00:00.000Z' };
+    responder = respond({
+      code: 0,
+      data: {
+        user: { id: 7, name: '球员' },
+        player: { id: 1, type: 1 },
+        roles: [],
+        permissions: [],
+        unreadCount: 0,
+      },
+    });
+
+    expect(await sessionReady()).toBeNull();
+    expect(getUser()).toBeNull();
+    expect(loginCalls).toBe(0);
+    expect(calls.some((call) => call.url.endsWith('/me'))).toBe(false);
+  });
+
+  it('skips /me via restoreIfAgreed when consent is missing', async () => {
+    storedConsent = '';
+
+    expect(await restoreIfAgreed()).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('restores via restoreIfAgreed when consent is current', async () => {
+    responder = respond({
+      code: 0,
+      data: {
+        user: { id: 7, name: '球员' },
+        player: { id: 1, type: 1 },
+        roles: [],
+        permissions: [],
+        unreadCount: 0,
+      },
+    });
+
+    expect((await restoreIfAgreed())?.id).toBe(7);
   });
 
   it('runs the launch session once for concurrent callers', async () => {

@@ -1,0 +1,49 @@
+/* 协议同意勾选：登录与绑定手机号前必须主动勾选。 */
+
+.consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 14rpx;
+  margin: 8rpx 0 20rpx;
+}
+
+.consent__box {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 36rpx;
+  height: 36rpx;
+  margin-top: 4rpx;
+  background: var(--yh-surface);
+  border: 2rpx solid #cbd5e1;
+  border-radius: 8rpx;
+}
+
+.consent__box--checked {
+  background: var(--yh-green);
+  border-color: var(--yh-green);
+}
+
+.consent__box--pressed {
+  opacity: 0.7;
+}
+
+.consent__tick {
+  color: #ffffff;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.consent__text {
+  flex: 1;
+  color: var(--yh-muted);
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.consent__link {
+  color: var(--yh-green);
+}

@@ -1,0 +1,24 @@
+<template name="legal-page">
+  <view class="legal">
+    <view class="legal__head">
+      <text class="legal__title">{{title}}</text>
+      <text class="legal__meta">更新日期：{{updatedAt}}　生效日期：{{effectiveAt}}</text>
+    </view>
+
+    <view class="legal__card" wx:for="{{sections}}" wx:key="heading">
+      <text class="legal__heading">{{index + 1}}. {{item.heading}}</text>
+      <text
+        wx:for="{{item.paragraphs}}"
+        wx:for-item="paragraph"
+        wx:key="*this"
+        class="legal__p"
+      >{{paragraph}}</text>
+      <view wx:if="{{item.items}}" class="legal__list">
+        <view wx:for="{{item.items}}" wx:for-item="line" wx:key="*this" class="legal__item">
+          <text class="legal__dot">•</text>
+          <text class="legal__item-text">{{line}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>

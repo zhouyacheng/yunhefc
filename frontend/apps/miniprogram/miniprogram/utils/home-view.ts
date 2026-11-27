@@ -5,14 +5,6 @@ import { buildMatchCore, type MatchCoreView } from './match-view';
 import { isPending } from './permissions';
 import { registrationDecision } from './registration';
 
-/** 与 Web HomePage.vue 的 FEATURES 保持一致。 */
-export const HOME_FEATURES = [
-  { icon: '📈', title: 'AI 身价', text: '基于位置、出场、进球与助攻的身价模型' },
-  { icon: '🗳️', title: '投票', text: '标题、图片选项、多选、截止时间' },
-  { icon: '📣', title: '公众号提醒', text: '赛事发布与模板消息' },
-  { icon: '🏆', title: '资产与荣誉', text: '器材台账、球队里程碑' },
-];
-
 export interface HeroView extends MatchCoreView {
   id: number;
   metaText: string;

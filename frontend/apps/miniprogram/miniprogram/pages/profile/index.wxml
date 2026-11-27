@@ -215,5 +215,19 @@
         </view>
       </view>
     </block>
+
+    <view class="card section">
+      <view class="section-head">
+        <text class="section-head__title">协议与隐私</text>
+      </view>
+      <view class="security-row" bindtap="goTerms" hover-class="item--pressed">
+        <text>用户服务协议</text>
+        <text class="muted">查看 ›</text>
+      </view>
+      <view class="security-row" bindtap="goPrivacy" hover-class="item--pressed">
+        <text>隐私政策</text>
+        <text class="muted">查看 ›</text>
+      </view>
+    </view>
   </block>
 </view>

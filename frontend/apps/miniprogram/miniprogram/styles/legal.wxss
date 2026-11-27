@@ -1,0 +1,76 @@
+/* 协议与隐私静态页：标题、正文段落与列表。 */
+
+.legal {
+  padding: 32rpx 32rpx calc(48rpx + env(safe-area-inset-bottom));
+}
+
+.legal__head {
+  padding: 8rpx 4rpx 24rpx;
+}
+
+.legal__title {
+  display: block;
+  color: var(--yh-ink);
+  font-size: 44rpx;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.legal__meta {
+  display: block;
+  margin-top: 12rpx;
+  color: var(--yh-muted);
+  font-size: 22rpx;
+}
+
+.legal__card {
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  background: var(--yh-surface);
+  border: 2rpx solid var(--yh-line);
+  border-radius: var(--yh-radius);
+}
+
+.legal__heading {
+  display: block;
+  margin-bottom: 16rpx;
+  color: var(--yh-ink);
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.legal__p {
+  display: block;
+  margin-bottom: 14rpx;
+  color: var(--yh-slate-ink);
+  font-size: 26rpx;
+  line-height: 1.75;
+}
+
+.legal__p:last-child {
+  margin-bottom: 0;
+}
+
+.legal__list {
+  margin-bottom: 6rpx;
+}
+
+.legal__item {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 10rpx;
+}
+
+.legal__dot {
+  flex: none;
+  color: var(--yh-green);
+  font-size: 26rpx;
+  line-height: 1.75;
+}
+
+.legal__item-text {
+  flex: 1;
+  color: var(--yh-slate-ink);
+  font-size: 26rpx;
+  line-height: 1.75;
+}

@@ -7,6 +7,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../../utils/api-client';
+import { openPrivacy, openTerms } from '../../utils/agreement';
 import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
 import { promotionText, registrationDecision } from '../../utils/registration';
 import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
@@ -25,7 +26,7 @@ import {
   getPlayer,
   getUser,
   logout as logoutSession,
-  restore,
+  restoreIfAgreed,
 } from '../../utils/session';
 
 const PAGE_SIZE = 10;
@@ -120,7 +121,7 @@ Page({
       this.setData({ loading: true });
     }
     const previousUserId = this.data.user?.id ?? null;
-    const user = await restore();
+    const user = await restoreIfAgreed();
     if (!user) {
       notificationFeed?.reset();
       registrationFeed?.reset();
@@ -308,6 +309,14 @@ Page({
 
   goLogin() {
     void wx.navigateTo({ url: '/pages/login/index' });
+  },
+
+  goTerms() {
+    openTerms();
+  },
+
+  goPrivacy() {
+    openPrivacy();
   },
 
   onAvatarError() {

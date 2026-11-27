@@ -111,22 +111,6 @@
         </view>
         <text class="quick-entry__arrow">→</text>
       </view>
-
-      <view class="section">
-        <view class="section-head section-head--column">
-          <text class="section-head__title">二期能力</text>
-          <text class="section-head__sub">球队数据与运营能力将在二期上线。</text>
-        </view>
-
-        <view class="features">
-          <view class="feature-card" wx:for="{{features}}" wx:key="title">
-            <text class="feature-card__icon">{{item.icon}}</text>
-            <text class="feature-card__title">{{item.title}}</text>
-            <text class="feature-card__text">{{item.text}}</text>
-            <text class="status-pill status-pill--soon">二期</text>
-          </view>
-        </view>
-      </view>
     </view>
   </block>
 </view>

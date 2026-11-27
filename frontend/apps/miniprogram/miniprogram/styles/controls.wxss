@@ -102,8 +102,7 @@
 }
 
 .status-pill--postponed,
-.status-pill--draw,
-.status-pill--soon {
+.status-pill--draw {
   color: var(--yh-amber-ink);
   background: var(--yh-amber-soft);
 }

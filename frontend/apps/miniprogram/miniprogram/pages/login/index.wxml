@@ -50,6 +50,8 @@
       />
     </view>
 
+    <agreement-consent checked="{{agreed}}" bind:change="onAgreementChange" />
+
     <view class="form-error" wx:if="{{error}}">{{error}}</view>
 
     <view

@@ -47,14 +47,16 @@ compose_current() {
 
 env_value() { sed -n "s/^$1=//p" /opt/yunhefc/.env | tail -1; }
 
+# 必须带 --default-character-set=utf8mb4：容器 locale 为 C/POSIX，mysql 客户端会把会话
+# 字符集推断成 latin1，中文显示为 `?`，且该会话内的写操作会以 `?` 落库、不可逆。
 mysql_current() {
   compose_current exec -T -e MYSQL_PWD="$(env_value DB_PASSWORD)" \
-    mysql mysql -u "$(env_value DB_USERNAME)" yunhefc "$@"
+    mysql mysql -u "$(env_value DB_USERNAME)" --default-character-set=utf8mb4 yunhefc "$@"
 }
 
 mysql_root() {
   compose_current exec -T -e MYSQL_PWD="$(env_value MYSQL_ROOT_PASSWORD)" \
-    mysql mysql -uroot "$@"
+    mysql mysql -uroot --default-character-set=utf8mb4 "$@"
 }
 ```
 
@@ -72,14 +74,17 @@ mysql_root() {
 
 ```bash
 mysql_current -e "SELECT @@system_time_zone, @@global.time_zone, @@session.time_zone;
+  SELECT @@character_set_client, @@character_set_connection, @@character_set_results;
   SELECT COUNT(*) FROM flyway_schema_history;"
 ```
 
-预期 `CST / +08:00 / +08:00`；空库时 `flyway_schema_history` 为 0 或表不存在。
+预期 `CST / +08:00 / +08:00`；字符集三项均为 `utf8mb4`（若为 `latin1`，中文会显示 `?`，且手工写操作会以 `?` 落库）；空库时 `flyway_schema_history` 为 0 或表不存在。
 
 ### 1.1.1 从 RDS 迁移存量数据（一次性 cutover）
 
 > 生产自 RDS 切到自建 MySQL 时执行一次；后续环境从空库跑 V1–V21 即可。全程保留 RDS 实例与旧 `.env` 至少 7 天用于回退。
+>
+> **前置条件**：包含 `mysql` 服务的 P-168 版本已发布（`release.sh` 会启动容器并等待 healthy），`yunhefc` 为空库，backend 仍连 RDS；`.env` 已写入 `MYSQL_ROOT_PASSWORD`（600）。未满足时不要开始停 backend。
 
 1. 确认宿主已预置 `mysql:8.4`；在 `.env` 增加 `MYSQL_ROOT_PASSWORD`（随机，600 文件），`DB_URL` 暂时保持原 RDS：
 
@@ -89,7 +94,7 @@ mysql_current -e "SELECT @@system_time_zone, @@global.time_zone, @@session.time_
    ```
 
    发布包含 `mysql` 服务的版本，`release.sh` 会启动容器并等待 healthy（backend 此刻仍连 RDS）。`release.sh` 缺少 `MYSQL_ROOT_PASSWORD` 会直接拒绝发布。
-2. 停 backend，冻结 RDS 写入：`compose_current stop backend`。
+2. 停 backend，冻结 RDS 写入：`compose_current stop backend`。**判定以 `yunhefc` 48 张表的 `CHECKSUM TABLE` 10 秒不变为准**；`SHOW GLOBAL STATUS` 的 DML 计数是整实例的，若 RDS 还有其它 schema 在写会变化，只作告警。
 3. 在 ECS 上导出 RDS（迁移账号有 `SELECT`）：
 
 ```bash
@@ -101,10 +106,10 @@ mysqldump -h <rds-host> -P 3306 -u yunhefc_migrator -p \
 4. 导入空库（首次初始化后 `yunhefc` 为空；此步 `.env` 仍是 RDS 凭据，直接用容器 root）：
 
 ```bash
-mysql_root --default-character-set=utf8mb4 yunhefc < /opt/yunhefc/cutover-<date>.sql
+mysql_root yunhefc < /opt/yunhefc/cutover-<date>.sql
 ```
 
-5. 创建应用账号。容器首次初始化按**当时** `.env` 的 `DB_USERNAME` 建号（cutover 阶段仍是 RDS 的 `yunhefc_app`），不会自动建 `yunhefc`；必须在切换前显式创建并授权。下面 `<DB_PASSWORD>` 替换为第 7 步写入 `.env` 的口令，不要把口令写进文档或仓库：
+5. 创建应用账号。容器首次初始化按**当时** `.env` 的 `DB_USERNAME` 建号（cutover 阶段通常是 RDS 的 `yunhefc_app`，不会自动建 `yunhefc`；若 `.env` 的 `DB_USERNAME` 已经是 `yunhefc`，初始化账号就是目标账号，本步只改口令，第 8 步无需删除）。下面 `<DB_PASSWORD>` 替换为第 7 步写入 `.env` 的口令，不要把口令写进文档或仓库：
 
 ```bash
 mysql_root -e "
@@ -127,6 +132,8 @@ mysql_root yunhefc \
 
 预期 `flyway_max = 21`、行数与 RDS 侧一致；时区按 §1.1 第 5 步校验。
 
+> **本生产 RDS 为 MySQL 8.4.7，server 默认字符集 `utf8mb3`、`lower_case_table_names=1`。** 字符集以业务表 collation 为准（业务表 utf8mb4；Quartz/flyway 历史表允许 utf8mb3）；Quartz 表在 RDS 上存为 `qrtz_*`，导入 `lctn=0` 的容器后必须重命名为 `QRTZ_*` 并校验 5 个 FK，否则 Quartz 启动失败。向导 Stage 8 已包含该归一化；手工执行时不要跳过。若导入后某表 `auto_increment` 低于 RDS（`mysqldump` 常见回落），按 RDS `information_schema.tables.auto_increment` 执行 `ALTER TABLE ... AUTO_INCREMENT=N` 抬回，避免复用已删除/回滚的 ID。
+
 7. 切换 `.env`：先备份原文件，再把三行改为下方值。
 
 ```bash
@@ -141,8 +148,16 @@ DB_PASSWORD=<数据库口令>
 
 > 口令与第 5 步一致，只写 `.env`（600），不写进文档、仓库或发布包。
 
-8. 重建 backend 并验收：`/opt/yunhefc/current/bin/release.sh --sha <当前sha7>` → readiness 通过 → §1.6 冒烟。
-9. 稳定 7 天后释放 RDS；期间回退 = 恢复 `.env.rds-<date>` 并重建 backend。
+8. 重建 backend 并验收：`/opt/yunhefc/current/bin/release.sh --sha <当前sha7>` → readiness 通过 → §1.6 冒烟。验收通过后删除容器初始化残留账号（避免保留 RDS 应用口令）。**初始化账号名取自第 7 步备份的旧 `.env`**；若它已经是 `yunhefc`，不要删除，否则会删掉应用账号：
+
+   ```bash
+   init_user=$(sed -n 's/^DB_USERNAME=//p' /opt/yunhefc/.env.rds-<date> | tail -1)
+   if [[ -n "$init_user" && "$init_user" != "yunhefc" ]]; then
+     mysql_root -e "DROP USER IF EXISTS '$init_user'@'%'; DROP USER IF EXISTS '$init_user'@'localhost';"
+   fi
+   ```
+
+9. 稳定 7 天后释放 RDS；期间回退 = 恢复 `.env.rds-<date>` 并重建 backend。**切换后新库一旦产生写入，回退 RDS 会丢失这些写入（无双向同步/PITR）；默认向前修复，回退仅用于切换后尚无新写入的窗口。**
 
 ### 1.2 DNS / 证书 / 环境文件 / ACR
 
@@ -571,6 +586,14 @@ COMMIT;
 | 绑定手机号返回 `40101` | `bindTicket` 过期（10 分钟）、已使用或绑手机失败已消耗；重新 `wx.login` 获取新票据 |
 
 小程序发布流程：微信开发者工具上传 → 小程序后台提交审核 → 审核通过后发布。后端镜像不包含小程序代码。
+
+**小程序隐私合规（提审前必查）**：
+
+- 填写入口：现网版本用「账号设置 → 服务内容声明 → 用户隐私保护指引 → 去完善」（入口1）；提审版本用「管理 → 版本管理 → 提交代码审核 → 信息填写页面」（入口2）。入口2 只影响提审版本，审核通过并发布后覆盖现网；提审被拦截时在入口2更新。
+- 必须声明「手机号」（账号注册/登录/绑定与短信验证）、「选中的照片或视频信息」（更换头像、上传动态/相册照片）、「读取你的剪切板」（复制管理后台/比赛邀请链接）；「摄像头」不是 `chooseMedia` 的平台必填项，建议补充勾选以与小程序内隐私政策一致。未声明的类型会被平台直接禁用对应接口。
+- 小程序内《用户服务协议》（`pages/terms`）与《隐私政策》（`pages/privacy`）的运营者名称（上海云河FC俱乐部）与联系邮箱（841603636@qq.com）必须与小程序备案主体一致；变更时同步修改两页。
+- 未同意当前协议版本的用户冷启动不会静默微信登录；协议版本升级后已恢复的会话也会被清除并回到登录，需在登录页主动勾选同意后登录。
+- 登录与绑定手机号前必须勾选协议，未勾选时登录、发送短信与绑定提交均被拦截；审核驳回涉及「用户隐私和数据安全」时，先核对以上三处与后台隐私保护指引是否一致。
 
 > 公众号网页授权已随 P-74 删除，`WECHAT_*` 旧变量不再读取；`.env` 里的旧值可以安全移除。`MP_verify_*.txt` 仅保留用于域名验证与历史申诉材料。
 

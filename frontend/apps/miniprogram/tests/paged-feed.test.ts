@@ -92,10 +92,7 @@ describe('paged feed', () => {
   });
 
   it('clears a changed key and discards the stale response', async () => {
-    const calls: Array<{
-      input: PagedFeedFetchInput;
-      result: ReturnType<typeof deferred<Page<number>>>;
-    }> = [];
+    const calls: Array<{ input: PagedFeedFetchInput; result: ReturnType<typeof deferred<Page<number>>> }> = [];
     const feed = createPagedFeed<number>({
       pageSize: 10,
       initialKey: 'upcoming',
@@ -203,8 +200,7 @@ describe('paged feed', () => {
       pageSize: 10,
       initialKey: 'all',
       fetchPage: async () => page([1]),
-      onChange: (state) =>
-        states.push(`${state.loading ? 'loading' : 'idle'}:${state.items.length}`),
+      onChange: (state) => states.push(`${state.loading ? 'loading' : 'idle'}:${state.items.length}`),
     });
     expect(states).toEqual([]);
     await feed.load();
@@ -236,6 +232,22 @@ describe('paged feed', () => {
 
     await feed.loadMore();
     expect(calls[calls.length - 1]).toEqual({ key: 'all', page: 2, pageSize: 100 });
+  });
+
+  it('keeps the located page size across reset', async () => {
+    const feed = createPagedFeed<number>({
+      pageSize: 10,
+      initialKey: 'all',
+      fetchPage: async (input) =>
+        input.pageSize === 100 ? page([7], 1, 1, 1) : page([1], 1, 1, 1),
+      onChange: () => undefined,
+    });
+    await feed.load();
+    await feed.locate((item) => item === 7, { pageSize: 100, maxPages: 5 });
+
+    feed.reset();
+
+    expect(feed.state).toMatchObject({ key: 'all', items: [], pageSize: 100, loaded: false });
   });
 
   it('leaves the snapshot untouched when locate misses', async () => {

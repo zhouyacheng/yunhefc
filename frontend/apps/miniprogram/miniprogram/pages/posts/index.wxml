@@ -87,7 +87,7 @@
                 class="post__avatar-img"
                 src="{{item.avatarUrl}}"
                 mode="aspectFill"
-                data-index="{{index}}"
+                data-id="{{item.id}}"
                 binderror="onAvatarError"
               />
               <text wx:else class="post__avatar-initial">{{item.authorInitial}}</text>

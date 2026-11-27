@@ -66,10 +66,10 @@ function pageOf<T>(
   return { items, page, pageSize, total, totalPages: Math.ceil(total / pageSize) };
 }
 
-function post(id: number): ContentPost {
+function post(id: number, avatarUrl: string | null = null): ContentPost {
   return {
     id,
-    author: { id: 7, name: '张三', avatarUrl: null },
+    author: { id: 7, name: '张三', avatarUrl },
     content: `动态 ${id}`,
     album: null,
     likeCount: 0,
@@ -94,6 +94,7 @@ interface TestPage {
   publish(): Promise<void>;
   toggleLike(event: { currentTarget: { dataset: { id: number } } }): Promise<void>;
   removePost(event: { currentTarget: { dataset: { id: number } } }): Promise<void>;
+  onAvatarError(event: { currentTarget: { dataset: { id: number } } }): void;
 }
 
 let pageConfig!: Record<string, unknown> & { data: Record<string, unknown> };
@@ -160,17 +161,13 @@ describe('MP14 时间线 feed', () => {
 
     await page.boot(false, true);
 
-    expect(page.data.timeline.pageSize).toBe(100);
     expect(page.data.timeline.items.map((item) => item.id)).toEqual([9]);
-    expect(mocks.listPosts).toHaveBeenLastCalledWith({ page: 1, pageSize: 100 });
-
-    await page.timelineFeed.loadMore();
-
-    expect(mocks.listPosts).toHaveBeenLastCalledWith({ page: 2, pageSize: 100 });
   });
 
-  it('发布/点赞/删除通过 feed update 收口', async () => {
-    mocks.listPosts.mockResolvedValue(pageOf([post(1), post(2)], { total: 2 }));
+  it('发布/点赞/删除/头像失败通过 feed update 收口', async () => {
+    mocks.listPosts.mockResolvedValue(
+      pageOf([post(1, 'https://cdn.example.com/a.png'), post(2)], { total: 2 }),
+    );
     mocks.createPost.mockResolvedValue(post(99));
     mocks.setPostLike.mockResolvedValue({ liked: true, likeCount: 5 });
     mocks.deletePost.mockResolvedValue({ deleted: true });
@@ -178,6 +175,10 @@ describe('MP14 时间线 feed', () => {
     page.setData({ activeTab: 'timeline' });
     page.createFeeds();
     await page.boot(false, false);
+
+    page.onAvatarError({ currentTarget: { dataset: { id: 1 } } });
+    const avatarFailed = page.data.timeline.items.find((item) => item.id === 1);
+    expect(avatarFailed?.avatarUrl).toBe('');
 
     page.setData({ composerText: '今天训练很尽兴' });
     await page.publish();

@@ -47,7 +47,7 @@ export interface PagedFeed<T> {
   loadMore(): Promise<void>;
   /** key 变化时清空并加载；同 key no-op。 */
   setKey(key: string): void;
-  /** 清空并回到 initialKey，不请求；迟到响应丢弃。 */
+  /** 清空并回到 initialKey，保留当前 pageSize；迟到响应丢弃。 */
   reset(): void;
   /** 以 transform 换新 items；page/pageSize/totalPages 仍归 module。 */
   update(transform: (items: T[]) => T[], options?: PagedFeedUpdateOptions): void;
@@ -104,12 +104,6 @@ export function createPagedFeed<T>(options: PagedFeedOptions<T>): PagedFeed<T> {
 
   function patch(partial: Partial<PagedFeedState<T>>): void {
     setState({ ...state, ...partial });
-  }
-
-  function settleTransient(): void {
-    if (state.loading || state.loadingMore) {
-      patch({ loading: false, loadingMore: false });
-    }
   }
 
   async function load(): Promise<void> {
@@ -196,7 +190,7 @@ export function createPagedFeed<T>(options: PagedFeedOptions<T>): PagedFeed<T> {
       return;
     }
     generation += 1;
-    setState(emptyPagedFeedState<T>(initialKey, initialPageSize));
+    setState(emptyPagedFeedState<T>(initialKey, state.pageSize));
   }
 
   function update(transform: (items: T[]) => T[], updateOptions?: PagedFeedUpdateOptions): void {
@@ -256,8 +250,9 @@ export function createPagedFeed<T>(options: PagedFeedOptions<T>): PagedFeed<T> {
         return null;
       }
     }
-    if (seq === generation && !disposed) {
-      settleTransient();
+    // locate 作废了在途 load/loadMore；若它把 loading 留在 true，这里只清瞬时标志。
+    if (seq === generation && !disposed && (state.loading || state.loadingMore)) {
+      patch({ loading: false, loadingMore: false });
     }
     return null;
   }

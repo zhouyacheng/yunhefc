@@ -23,11 +23,12 @@ import {
   CONTENT_REPORT_PHOTO,
   type ContentAccessState,
   type ContentPhotoRow,
+  type ContentViewer,
 } from '../../utils/content';
 import { createContentFeed, type ContentFeed } from '../../utils/content-feed';
 import { contentPhotoSizeError, prepareContentPhoto } from '../../utils/content-photo';
 import { formatDateTime } from '../../utils/datetime';
-import { emptyPagedFeedState, type PagedFeedState } from '../../utils/paged-feed';
+import { emptyPagedFeedState } from '../../utils/paged-feed';
 import {
   CONTENT_CREATE_OWN,
   CONTENT_DELETE_ANY,
@@ -70,10 +71,7 @@ Page({
     albumFull: false,
     detailLoading: true,
     detailError: '',
-    photos: emptyPagedFeedState<ContentPhotoRow>(
-      'content',
-      PHOTO_PAGE_SIZE,
-    ) as PagedFeedState<ContentPhotoRow>,
+    photos: emptyPagedFeedState<ContentPhotoRow>('content', PHOTO_PAGE_SIZE),
     brokenPhotos: {} as Record<string, true>,
     canManage: false,
     canUpload: false,
@@ -95,7 +93,6 @@ Page({
   booted: false,
   taskSeq: 0,
   photoFeed: null as ContentFeed<ContentPhotoRow> | null,
-  lastPhotosError: '',
 
   onLoad(options: Record<string, string | undefined>) {
     // 内容不对外公开，不提供右上角转发入口（02 MP14）。
@@ -149,17 +146,11 @@ Page({
           items: result.items.map((photo) => buildContentPhotoRow(photo, this.viewer())),
         };
       },
-      onChange: (state) => {
-        this.setData({ photos: state });
-        if (state.error && state.error !== this.lastPhotosError && state.items.length > 0) {
-          wx.showToast({ title: state.error, icon: 'none' });
-        }
-        this.lastPhotosError = state.error;
-      },
+      onChange: (state) => this.setData({ photos: state }),
     });
   },
 
-  viewer(): { userId: number | null; canDeleteAny: boolean } {
+  viewer(): ContentViewer {
     return { userId: this.data.userId || null, canDeleteAny: this.data.canDeleteAny };
   },
 
@@ -431,9 +422,7 @@ Page({
       if (result.coverReset) {
         await this.loadDetail();
       }
-      if (feed && feed.state.items.length === 0 && feed.state.page > 1) {
-        await feed.load();
-      }
+      await feed?.reloadIfEmpty();
       wx.showToast({ title: '照片已删除', icon: 'none' });
     } catch (error) {
       wx.showToast({ title: errorMessage(error, '删除失败，请稍后重试'), icon: 'none' });

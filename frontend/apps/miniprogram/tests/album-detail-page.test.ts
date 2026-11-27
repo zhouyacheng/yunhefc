@@ -123,9 +123,11 @@ describe('MP14 相册详情 photo feed', () => {
     expect(mocks.listAlbumPhotos).toHaveBeenCalledWith(5, 1, 30);
     expect(page.data.photos.items.map((item) => item.id)).toEqual([1, 2]);
 
+    const reloadIfEmpty = vi.spyOn(page.photoFeed, 'reloadIfEmpty');
     await page.removePhoto(photo(1));
 
     expect(mocks.deleteAlbumPhoto).toHaveBeenCalledWith(5, 1);
+    expect(reloadIfEmpty).toHaveBeenCalled();
     expect(page.data.photos.items.map((item) => item.id)).toEqual([2]);
     expect(page.data.photos.total).toBe(1);
   });

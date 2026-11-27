@@ -31,7 +31,7 @@ import {
 } from '../../utils/content';
 import { createContentFeed, type ContentFeed } from '../../utils/content-feed';
 import { formatDayStartTime } from '../../utils/datetime';
-import { emptyPagedFeedState, type PagedFeedState } from '../../utils/paged-feed';
+import { emptyPagedFeedState } from '../../utils/paged-feed';
 import { CONTENT_DELETE_ANY, CONTENT_MANAGE_ANY, hasPermission } from '../../utils/permissions';
 import { getPermissions, getUser, sessionReady } from '../../utils/session';
 
@@ -78,10 +78,7 @@ Page({
     canDeleteAny: false,
     canManageAlbums: false,
     // 时间线
-    timeline: emptyPagedFeedState<ContentPostRow>(
-      'content',
-      LIST_PAGE_SIZE,
-    ) as PagedFeedState<ContentPostRow>,
+    timeline: emptyPagedFeedState<ContentPostRow>('content', LIST_PAGE_SIZE),
     composerText: '',
     composerLength: 0,
     composerError: '',
@@ -97,10 +94,7 @@ Page({
     focusPostId: 0,
     coverBroken: {} as Record<string, true>,
     // 相册
-    albums: emptyPagedFeedState<AlbumCardView>(
-      'content',
-      LIST_PAGE_SIZE,
-    ) as PagedFeedState<AlbumCardView>,
+    albums: emptyPagedFeedState<AlbumCardView>('content', LIST_PAGE_SIZE),
     albumBusyId: 0,
     // 新建相册
     createOpen: false,
@@ -122,8 +116,6 @@ Page({
   booted: false,
   timelineFeed: null as ContentFeed<ContentPostRow> | null,
   albumFeed: null as ContentFeed<AlbumCardView> | null,
-  lastTimelineError: '',
-  lastAlbumError: '',
   focusTimer: null as ReturnType<typeof setTimeout> | null,
 
   onLoad(options: Record<string, string | undefined>) {
@@ -189,13 +181,7 @@ Page({
           items: result.items.map((post) => buildContentPostRow(post, this.viewer())),
         };
       },
-      onChange: (state) => {
-        this.setData({ timeline: state });
-        if (state.error && state.error !== this.lastTimelineError && state.items.length > 0) {
-          wx.showToast({ title: state.error, icon: 'none' });
-        }
-        this.lastTimelineError = state.error;
-      },
+      onChange: (state) => this.setData({ timeline: state }),
     });
 
     this.albumFeed = createContentFeed<AlbumCardView>({
@@ -218,10 +204,6 @@ Page({
             ? (state.items[0]?.ownerText ?? scopeFallback(this.data.matchId, this.data.activityId))
             : '',
         });
-        if (state.error && state.error !== this.lastAlbumError && state.items.length > 0) {
-          wx.showToast({ title: state.error, icon: 'none' });
-        }
-        this.lastAlbumError = state.error;
       },
     });
   },
@@ -248,8 +230,7 @@ Page({
     if (access !== 'ok') {
       return;
     }
-    if (!this.timelineFeed || !this.albumFeed) {
-      this.timelineFeed?.dispose();
+    if (!this.timelineFeed) {
       this.albumFeed?.dispose();
       this.createFeeds();
     }
@@ -415,15 +396,15 @@ Page({
     if (this.data.likeBusyId || !feed) {
       return;
     }
-    const index = feed.state.items.findIndex((post) => post.id === id);
-    if (index < 0) {
+    const current = feed.state.items.find((post) => post.id === id);
+    if (!current) {
       return;
     }
     this.setData({ likeBusyId: id });
     try {
-      const result = await setPostLike(id, !feed.state.items[index].likedByMe);
+      const result = await setPostLike(id, !current.likedByMe);
       feed.update((items) =>
-        items.map((item, current) => (current === index ? applyPostLike(item, result) : item)),
+        items.map((item) => (item.id === id ? applyPostLike(item, result) : item)),
       );
     } catch (error) {
       wx.showToast({ title: errorMessage(error, '操作失败，请稍后重试'), icon: 'none' });
@@ -474,13 +455,13 @@ Page({
   },
 
   onAvatarError(event: WechatMiniprogram.CustomEvent) {
-    const index = Number(event.currentTarget.dataset.index);
+    const id = Number(event.currentTarget.dataset.id);
     const feed = this.timelineFeed;
-    if (!feed || !Number.isInteger(index) || index < 0 || index >= feed.state.items.length) {
+    if (!feed || !feed.state.items.some((item) => item.id === id)) {
       return;
     }
     feed.update((items) =>
-      items.map((item, current) => (current === index ? { ...item, avatarUrl: '' } : item)),
+      items.map((item) => (item.id === id ? { ...item, avatarUrl: '' } : item)),
     );
   },
 

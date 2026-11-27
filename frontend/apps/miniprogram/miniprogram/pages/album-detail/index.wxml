@@ -64,22 +64,22 @@
         </view>
       </view>
 
-      <view wx:if="{{photosLoading}}" class="state">
+      <view wx:if="{{photos.loading}}" class="state">
         <van-loading size="20px">加载中…</van-loading>
       </view>
 
-      <view wx:elif="{{photosError && !photos.length}}" class="state">
-        <text class="muted">{{photosError}}</text>
+      <view wx:elif="{{photos.error && !photos.items.length}}" class="state">
+        <text class="muted">{{photos.error}}</text>
         <view class="btn btn--primary btn--small" bindtap="retryPhotos" hover-class="btn--pressed">重试</view>
       </view>
 
-      <view wx:elif="{{!photos.length}}" class="state">
+      <view wx:elif="{{!photos.items.length}}" class="state">
         <van-empty description="相册还没有照片，点上方上传" />
       </view>
 
       <block wx:else>
         <view class="photo-grid">
-          <view wx:for="{{photos}}" wx:key="id" class="photo-tile">
+          <view wx:for="{{photos.items}}" wx:key="id" class="photo-tile">
             <image
               wx:if="{{!brokenPhotos[item.thumbnailUrl]}}"
               class="photo-tile__image"
@@ -107,9 +107,9 @@
         </view>
 
         <view class="list-foot">
-          <text wx:if="{{photosError}}" class="muted" bindtap="retryPhotos">{{photosError}}（点击重试）</text>
-          <text wx:elif="{{photosMoreLoading}}" class="muted">加载中…</text>
-          <text wx:elif="{{photoPage >= photoTotalPages}}" class="muted">共 {{photoTotal}} 张</text>
+          <text wx:if="{{photos.error}}" class="muted" bindtap="retryPhotos">{{photos.error}}（点击重试）</text>
+          <text wx:elif="{{photos.loadingMore}}" class="muted">加载中…</text>
+          <text wx:elif="{{photos.page >= photos.totalPages}}" class="muted">共 {{photos.total}} 张</text>
           <text wx:else class="muted">上拉加载更多</text>
         </view>
       </block>

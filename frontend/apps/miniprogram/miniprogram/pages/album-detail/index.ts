@@ -24,8 +24,10 @@ import {
   type ContentAccessState,
   type ContentPhotoRow,
 } from '../../utils/content';
+import { createContentFeed, type ContentFeed } from '../../utils/content-feed';
 import { contentPhotoSizeError, prepareContentPhoto } from '../../utils/content-photo';
 import { formatDateTime } from '../../utils/datetime';
+import { emptyPagedFeedState, type PagedFeedState } from '../../utils/paged-feed';
 import {
   CONTENT_CREATE_OWN,
   CONTENT_DELETE_ANY,
@@ -48,7 +50,6 @@ const PHOTO_PAGE_SIZE = 30;
 const PHOTO_UPLOAD_LIMIT = 9;
 
 let requestSeq = 0;
-let photosSeq = 0;
 
 function isNotFound(error: unknown): boolean {
   return error instanceof ApiError && (error.code === NOT_FOUND || error.statusCode === 404);
@@ -69,13 +70,10 @@ Page({
     albumFull: false,
     detailLoading: true,
     detailError: '',
-    photos: [] as ContentPhotoRow[],
-    photoPage: 1,
-    photoTotalPages: 0,
-    photoTotal: 0,
-    photosLoading: false,
-    photosMoreLoading: false,
-    photosError: '',
+    photos: emptyPagedFeedState<ContentPhotoRow>(
+      'content',
+      PHOTO_PAGE_SIZE,
+    ) as PagedFeedState<ContentPhotoRow>,
     brokenPhotos: {} as Record<string, true>,
     canManage: false,
     canUpload: false,
@@ -96,6 +94,8 @@ Page({
 
   booted: false,
   taskSeq: 0,
+  photoFeed: null as ContentFeed<ContentPhotoRow> | null,
+  lastPhotosError: '',
 
   onLoad(options: Record<string, string | undefined>) {
     // 内容不对外公开，不提供右上角转发入口（02 MP14）。
@@ -106,6 +106,7 @@ Page({
       this.setData({ access: 'ok', notFound: true, detailLoading: false });
       return;
     }
+    this.createPhotoFeed();
     void this.boot(false);
   },
 
@@ -120,20 +121,46 @@ Page({
       wx.stopPullDownRefresh();
       return;
     }
-    void Promise.all([this.loadDetail(), this.loadPhotos(true)]).then(() =>
+    void Promise.all([this.loadDetail(), this.photoFeed?.load() ?? Promise.resolve()]).then(() =>
       wx.stopPullDownRefresh(),
     );
   },
 
   onReachBottom() {
     if (this.data.access === 'ok') {
-      void this.loadPhotos(false);
+      void this.photoFeed?.loadMore();
     }
   },
 
   onUnload() {
     requestSeq += 1;
-    photosSeq += 1;
+    this.photoFeed?.dispose();
+    this.photoFeed = null;
+  },
+
+  createPhotoFeed(): void {
+    this.photoFeed = createContentFeed<ContentPhotoRow>({
+      pageSize: PHOTO_PAGE_SIZE,
+      errorText: '照片加载失败，请稍后重试',
+      fetchPage: async ({ page, pageSize }) => {
+        const result = await listAlbumPhotos(this.data.id, page, pageSize);
+        return {
+          ...result,
+          items: result.items.map((photo) => buildContentPhotoRow(photo, this.viewer())),
+        };
+      },
+      onChange: (state) => {
+        this.setData({ photos: state });
+        if (state.error && state.error !== this.lastPhotosError && state.items.length > 0) {
+          wx.showToast({ title: state.error, icon: 'none' });
+        }
+        this.lastPhotosError = state.error;
+      },
+    });
+  },
+
+  viewer(): { userId: number | null; canDeleteAny: boolean } {
+    return { userId: this.data.userId || null, canDeleteAny: this.data.canDeleteAny };
   },
 
   async boot(silent: boolean): Promise<void> {
@@ -159,7 +186,10 @@ Page({
     if (access !== 'ok' || !this.data.id) {
       return;
     }
-    await Promise.all([this.loadDetail(), this.loadPhotos(true)]);
+    if (!this.photoFeed) {
+      this.createPhotoFeed();
+    }
+    await Promise.all([this.loadDetail(), this.photoFeed?.load() ?? Promise.resolve()]);
   },
 
   retryAccess() {
@@ -210,59 +240,8 @@ Page({
     void this.loadDetail();
   },
 
-  async loadPhotos(reset: boolean): Promise<void> {
-    if (
-      !reset &&
-      (this.data.photosLoading ||
-        this.data.photosMoreLoading ||
-        this.data.photoPage >= this.data.photoTotalPages)
-    ) {
-      return;
-    }
-    const seq = ++photosSeq;
-    const page = reset ? 1 : this.data.photoPage + 1;
-    this.setData(
-      reset
-        ? {
-            photosLoading: this.data.photos.length === 0,
-            photosMoreLoading: false,
-            photosError: '',
-          }
-        : { photosMoreLoading: true, photosError: '' },
-    );
-    try {
-      const result = await listAlbumPhotos(this.data.id, page, PHOTO_PAGE_SIZE);
-      if (seq !== photosSeq) {
-        return;
-      }
-      const viewer = {
-        userId: this.data.userId || null,
-        canDeleteAny: this.data.canDeleteAny,
-      };
-      const rows = result.items.map((photo) => buildContentPhotoRow(photo, viewer));
-      this.setData({
-        photos: reset ? rows : this.data.photos.concat(rows),
-        photoPage: result.page,
-        photoTotalPages: result.totalPages,
-        photoTotal: result.total,
-        photosLoading: false,
-        photosMoreLoading: false,
-        photosError: '',
-      });
-    } catch (error) {
-      if (seq !== photosSeq) {
-        return;
-      }
-      const message = errorMessage(error, '照片加载失败，请稍后重试');
-      this.setData({ photosLoading: false, photosMoreLoading: false, photosError: message });
-      if (this.data.photos.length > 0) {
-        wx.showToast({ title: message, icon: 'none' });
-      }
-    }
-  },
-
   retryPhotos() {
-    void this.loadPhotos(true);
+    void this.photoFeed?.load();
   },
 
   onPhotoError(event: WechatMiniprogram.CustomEvent) {
@@ -275,7 +254,9 @@ Page({
 
   previewPhoto(event: WechatMiniprogram.BaseEvent) {
     const index = Number(event.currentTarget.dataset.index);
-    const urls = this.data.photos.map((photo) => photo.originalUrl).filter(Boolean);
+    const urls = (this.photoFeed?.state.items ?? [])
+      .map((photo) => photo.originalUrl)
+      .filter(Boolean);
     if (!urls.length) {
       return;
     }
@@ -379,7 +360,7 @@ Page({
     this.setData({ uploading: false });
     if (uploaded > 0) {
       wx.showToast({ title: `已上传 ${uploaded} 张`, icon: 'none' });
-      await Promise.all([this.loadDetail(), this.loadPhotos(true)]);
+      await Promise.all([this.loadDetail(), this.photoFeed?.load() ?? Promise.resolve()]);
     }
   },
 
@@ -387,7 +368,7 @@ Page({
 
   openPhotoActions(event: WechatMiniprogram.BaseEvent) {
     const id = Number(event.currentTarget.dataset.id);
-    const photo = this.data.photos.find((item) => item.id === id);
+    const photo = this.photoFeed?.state.items.find((item) => item.id === id);
     if (!photo) {
       return;
     }
@@ -440,19 +421,18 @@ Page({
     }
     try {
       const result = await deleteAlbumPhoto(this.data.id, photo.id);
-      const photos = this.data.photos.filter((item) => item.id !== photo.id);
+      const feed = this.photoFeed;
+      feed?.update((items) => items.filter((item) => item.id !== photo.id), { totalDelta: -1 });
       const photoCount = Math.max(0, (this.data.album?.photoCount ?? 1) - 1);
       this.setData({
-        photos,
-        photoTotal: Math.max(0, this.data.photoTotal - 1),
         'album.photoCount': photoCount,
         albumFull: photoCount >= CONTENT_ALBUM_MAX_PHOTOS,
       });
       if (result.coverReset) {
         await this.loadDetail();
       }
-      if (!photos.length && this.data.photoPage > 1) {
-        await this.loadPhotos(true);
+      if (feed && feed.state.items.length === 0 && feed.state.page > 1) {
+        await feed.load();
       }
       wx.showToast({ title: '照片已删除', icon: 'none' });
     } catch (error) {

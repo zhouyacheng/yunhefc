@@ -15,7 +15,7 @@
 ├── env/acr.env             600，ACR_REGISTRY / ACR_NAMESPACE / ACR_USERNAME / ACR_PASSWORD（只读拉取）
 ├── certs/                  fullchain.pem、privkey.pem（只读挂载到 nginx）
 ├── bin/release.sh          应急脚本；发布/回滚优先用 releases/<sha7>/bin/release.sh
-├── releases/<sha7>/        deploy/ 快照：compose、nginx/、bin/、topology、*.Dockerfile、RUNBOOK.md、.env.example、release.env（不含 .env/.env.*）
+├── releases/<sha7>/        deploy/ 快照：compose、nginx/、mysql/、bin/、topology、*.Dockerfile、RUNBOOK.md、.env.example、release.env（不含 .env/.env.*）
 ├── current -> releases/<sha7>
 └── state/previous         上一次可用版本目录；release.lock
 ```
@@ -47,8 +47,8 @@ compose_current() {
 
 env_value() { sed -n "s/^$1=//p" /opt/yunhefc/.env | tail -1; }
 
-# 必须带 --default-character-set=utf8mb4：容器 locale 为 C/POSIX，mysql 客户端会把会话
-# 字符集推断成 latin1，中文显示为 `?`，且该会话内的写操作会以 `?` 落库、不可逆。
+# 客户端默认字符集由 mysql/conf.d/utf8mb4.cnf 固定（原因见该文件注释）；这里仍显式传参，
+# 兼容未挂载该配置的容器。
 mysql_current() {
   compose_current exec -T -e MYSQL_PWD="$(env_value DB_PASSWORD)" \
     mysql mysql -u "$(env_value DB_USERNAME)" --default-character-set=utf8mb4 yunhefc "$@"
@@ -69,16 +69,21 @@ mysql_root() {
 1. 使用宿主已预置的官方镜像 `mysql:8.4`，Compose 服务 `mysql`；不发布 3306，仅 `app` 网络可达，数据落命名卷 `mysql-data`。
 2. 首次启动由容器环境变量初始化：库 `yunhefc`（utf8mb4 / utf8mb4_0900_ai_ci）、账号 `yunhefc`（`DB_USERNAME`/`DB_PASSWORD` 取 `.env`；口令只写 `.env`、不入库）、root 口令取 `.env` 的 `MYSQL_ROOT_PASSWORD`（随机生成）。迁移与应用共用 `yunhefc` 账号（该账号对 `yunhefc.*` 有 DDL 权限）。账号口令只在数据卷首次初始化时生效；之后修改 `.env` 的 `DB_PASSWORD` 需同步执行 `ALTER USER 'yunhefc'@'%' IDENTIFIED BY '<新口令>';`。
 3. 时区：容器 `TZ=Asia/Shanghai` 使 `system_time_zone=CST`；`--default-time-zone=+08:00` 使全局/会话 `time_zone=+08:00`。
-4. 资源：`mem_limit=512m`、`innodb_buffer_pool_size=192M`、`max_connections=50`，关闭 `performance_schema` 与 X Plugin（`mysqlx`）。
-5. 校验（首次发布后）：
+4. 字符集：服务端 `--character-set-server=utf8mb4`；容器内客户端默认字符集由只读挂载的 `mysql/conf.d/utf8mb4.cnf` 固定（原因见该文件注释）。挂载生效需重建 `mysql` 容器（`compose_current up -d mysql`，会重启 MySQL）。
+5. 资源：`mem_limit=512m`、`innodb_buffer_pool_size=192M`、`max_connections=50`，关闭 `performance_schema` 与 X Plugin（`mysqlx`）。
+6. 校验（首次发布后）：
 
 ```bash
 mysql_current -e "SELECT @@system_time_zone, @@global.time_zone, @@session.time_zone;
   SELECT @@character_set_client, @@character_set_connection, @@character_set_results;
   SELECT COUNT(*) FROM flyway_schema_history;"
+
+# 不带 --default-character-set，验证 cnf 挂载本身生效（mysql_current 恒带该参数，无法暴露挂载缺失）
+compose_current exec -T -e MYSQL_PWD="$(env_value MYSQL_ROOT_PASSWORD)" \
+  mysql mysql -uroot -e "SELECT @@character_set_client, @@character_set_connection, @@character_set_results;"
 ```
 
-预期 `CST / +08:00 / +08:00`；字符集三项均为 `utf8mb4`（若为 `latin1`，中文会显示 `?`，且手工写操作会以 `?` 落库）；空库时 `flyway_schema_history` 为 0 或表不存在。
+预期 `CST / +08:00 / +08:00`；字符集三项均为 `utf8mb4`（第二条命令若为 `latin1`，说明 `mysql/conf.d/utf8mb4.cnf` 未挂载，中文会显示 `?`，且手工写操作会以 `?` 落库）；空库时 `flyway_schema_history` 为 0 或表不存在。
 
 ### 1.1.1 从 RDS 迁移存量数据（一次性 cutover）
 
@@ -130,7 +135,7 @@ mysql_root yunhefc \
              (SELECT COUNT(*) FROM team_match) AS matches;"
 ```
 
-预期 `flyway_max = 21`、行数与 RDS 侧一致；时区按 §1.1 第 5 步校验。
+预期 `flyway_max = 21`、行数与 RDS 侧一致；时区与字符集按 §1.1 第 6 步校验。
 
 > **本生产 RDS 为 MySQL 8.4.7，server 默认字符集 `utf8mb3`、`lower_case_table_names=1`。** 字符集以业务表 collation 为准（业务表 utf8mb4；Quartz/flyway 历史表允许 utf8mb3）；Quartz 表在 RDS 上存为 `qrtz_*`，导入 `lctn=0` 的容器后必须重命名为 `QRTZ_*` 并校验 5 个 FK，否则 Quartz 启动失败。向导 Stage 8 已包含该归一化；手工执行时不要跳过。若导入后某表 `auto_increment` 低于 RDS（`mysqldump` 常见回落），按 RDS `information_schema.tables.auto_increment` 执行 `ALTER TABLE ... AUTO_INCREMENT=N` 抬回，避免复用已删除/回滚的 ID。
 

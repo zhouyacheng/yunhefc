@@ -29,6 +29,8 @@ services:
       - --max-connections=50
     volumes:
       - mysql-data:/var/lib/mysql
+      # 容器 locale 为 C/POSIX 时客户端会推断 latin1；挂入客户端默认字符集 utf8mb4。
+      - ./mysql/conf.d/utf8mb4.cnf:/etc/mysql/conf.d/utf8mb4.cnf:ro
     healthcheck:
       # 认证查询而非 mysqladmin ping：后者在口令错误时仍返回成功。
       test: ["CMD-SHELL", "MYSQL_PWD=\"$${MYSQL_ROOT_PASSWORD}\" mysql -h 127.0.0.1 -uroot -e 'SELECT 1' >/dev/null 2>&1"]

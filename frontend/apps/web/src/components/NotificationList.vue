@@ -201,13 +201,9 @@ async function openNotification(item: Notification): Promise<void> {
       }
       // 标记已读失败不阻断 MATCH 跳转，错误已在行内提示。
     }
-    const target = notificationTarget(item);
-    if (target.kind === 'match') {
-      await router.push(`/matches/${target.id}`);
-    } else if (target.kind === 'post') {
-      await router.push({ path: '/posts', query: { post: String(target.id) } });
-    } else if (target.kind === 'album') {
-      await router.push(`/posts/albums/${target.id}`);
+    const link = notificationLink(item);
+    if (link) {
+      await router.push(link.path);
     }
   } finally {
     busyId.value = null;
@@ -244,18 +240,27 @@ async function markAllRead(): Promise<void> {
   }
 }
 
-function notificationLinkText(item: Notification): string {
+type NotificationLinkKind = 'match' | 'post' | 'album';
+
+const NOTIFICATION_LINKS: Readonly<
+  Record<NotificationLinkKind, { label: string; path: (id: number) => string }>
+> = {
+  match: { label: '查看比赛', path: (id) => `/matches/${id}` },
+  post: { label: '查看动态', path: (id) => `/posts?post=${id}` },
+  album: { label: '查看相册', path: (id) => `/posts/albums/${id}` },
+};
+
+function notificationLink(item: Notification): { label: string; path: string } | null {
   const target = notificationTarget(item);
-  if (target.kind === 'match') {
-    return '查看比赛';
+  if (target.kind === 'none') {
+    return null;
   }
-  if (target.kind === 'post') {
-    return '查看动态';
-  }
-  if (target.kind === 'album') {
-    return '查看相册';
-  }
-  return '';
+  const meta = NOTIFICATION_LINKS[target.kind];
+  return { label: meta.label, path: meta.path(target.id) };
+}
+
+function notificationLinkText(item: Notification): string {
+  return notificationLink(item)?.label ?? '';
 }
 
 onMounted(() => {

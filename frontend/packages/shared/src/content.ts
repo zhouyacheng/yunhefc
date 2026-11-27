@@ -1,5 +1,5 @@
 /** M17 动态与相册（05 §3.18、§4）。 */
-import { compressImage, scaledDimensions } from './image';
+import { compressImage } from './image';
 
 /** 照片单张 ≤5 MiB（P-147）。 */
 export const CONTENT_PHOTO_MAX_BYTES = 5 * 1024 * 1024;
@@ -76,19 +76,6 @@ export function contentPhotoTypeError(type: string): string | null {
 /** 压缩后按上传字节数校验 5 MiB 上限。 */
 export function contentPhotoSizeError(size: number): string | null {
   return size > CONTENT_PHOTO_MAX_BYTES ? CONTENT_PHOTO_SIZE_ERROR : null;
-}
-
-/** 返回本地校验错误文案；通过返回 null。 */
-export function validateContentPhoto(file: { type: string; size: number }): string | null {
-  return contentPhotoTypeError(file.type) ?? contentPhotoSizeError(file.size);
-}
-
-/** 等比缩到长边 2048px；小图保持原尺寸。 */
-export function contentPhotoDimensions(
-  width: number,
-  height: number,
-): { width: number; height: number } {
-  return scaledDimensions(width, height, CONTENT_PHOTO_MAX_EDGE);
 }
 
 /** Canvas 重绘到长边 2048px 并输出 JPEG q80。 */

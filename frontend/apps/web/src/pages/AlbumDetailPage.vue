@@ -12,7 +12,6 @@ import {
   CONTENT_ALBUM_MAX_PHOTOS,
   CONTENT_ALBUM_TITLE_MAX_LENGTH,
   CONTENT_PHOTO_MAX_EDGE,
-  CONTENT_PHOTO_SIZE_ERROR,
   CONTENT_REPORT_PHOTO,
   compressContentPhoto,
   contentAlbumTitleError,
@@ -34,6 +33,7 @@ import {
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import ContentAccessGate from '../components/ContentAccessGate.vue';
 import { confirmAction } from '../features/common/confirm';
 import {
   albumDetail,
@@ -47,9 +47,9 @@ import {
 import {
   CONTENT_PHOTO_PAGE_SIZE_OPTIONS,
   canDeletePhoto as photoDeleteAllowed,
+  toPositiveId,
 } from '../features/content/presentation';
 import { useContentAccess } from '../features/content/useContentAccess';
-import { toBrowserPath } from '../router';
 import { useSessionStore } from '../stores/session';
 
 interface UploadTask {
@@ -71,14 +71,7 @@ const router = useRouter();
 const session = useSessionStore();
 const { state: access, ensureLoaded } = useContentAccess();
 
-const albumId = computed(() => {
-  const parsed = Number(route.params.id);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
-});
-const loginTarget = computed(() => ({
-  name: 'login',
-  query: { redirect: toBrowserPath(route.fullPath) },
-}));
+const albumId = computed(() => toPositiveId(route.params.id));
 
 const album = ref<AlbumDetail | null>(null);
 const photos = ref<AlbumPhoto[]>([]);
@@ -203,9 +196,6 @@ function uploadErrorMessage(caught: unknown): string {
   if (isApiError(caught) && caught.code === ERROR_CODES.CONTENT_ALBUM_FULL) {
     return CONTENT_ALBUM_FULL_ERROR;
   }
-  if (caught instanceof Error && caught.message === CONTENT_PHOTO_SIZE_ERROR) {
-    return CONTENT_PHOTO_SIZE_ERROR;
-  }
   return describeError(caught, '上传失败，请稍后重试');
 }
 
@@ -225,11 +215,13 @@ async function onFilesChange(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement;
   const files = Array.from(input.files ?? []);
   input.value = '';
-  if (!files.length || uploading.value) {
+  const id = albumId.value;
+  if (!files.length || uploading.value || !id) {
     return;
   }
   uploading.value = true;
   uploadMessage.value = '';
+  uploadTasks.value = [];
   let uploaded = 0;
   for (const file of files) {
     const task: UploadTask = {
@@ -246,7 +238,7 @@ async function onFilesChange(event: Event): Promise<void> {
       task.message = typeError;
       continue;
     }
-    if ((album.value?.photoCount ?? 0) >= CONTENT_ALBUM_MAX_PHOTOS) {
+    if (albumFull.value) {
       task.status = 'error';
       task.message = CONTENT_ALBUM_FULL_ERROR;
       uploadMessage.value = CONTENT_ALBUM_FULL_ERROR;
@@ -256,9 +248,11 @@ async function onFilesChange(event: Event): Promise<void> {
       const compressed = await compressContentPhoto(file);
       const sizeError = contentPhotoSizeError(compressed.size);
       if (sizeError) {
-        throw new Error(sizeError);
+        task.status = 'error';
+        task.message = sizeError;
+        continue;
       }
-      const result = await uploadAlbumPhoto(albumId.value!, compressed, (percent) => {
+      const result = await uploadAlbumPhoto(id, compressed, (percent) => {
         task.percent = percent;
       });
       task.status = 'done';
@@ -279,9 +273,12 @@ async function onFilesChange(event: Event): Promise<void> {
 }
 
 async function setCover(photo: AlbumPhoto): Promise<void> {
+  const id = albumId.value;
+  if (!id) {
+    return;
+  }
   try {
-    const updated = await updateAlbum(albumId.value!, { coverPhotoId: photo.id });
-    album.value = updated;
+    album.value = await updateAlbum(id, { coverPhotoId: photo.id });
     showToast('封面已更新');
   } catch (caught) {
     showToast(describeError(caught, '设置封面失败，请稍后重试'));
@@ -289,12 +286,16 @@ async function setCover(photo: AlbumPhoto): Promise<void> {
 }
 
 async function removePhoto(photo: AlbumPhoto): Promise<void> {
+  const id = albumId.value;
+  if (!id) {
+    return;
+  }
   const confirmed = await confirmAction('删除照片', '删除后不可恢复，确定删除这张照片吗？', '删除');
   if (!confirmed) {
     return;
   }
   try {
-    const result = await deleteAlbumPhoto(albumId.value!, photo.id);
+    const result = await deleteAlbumPhoto(id, photo.id);
     photos.value = photos.value.filter((item) => item.id !== photo.id);
     total.value = Math.max(0, total.value - 1);
     if (album.value) {
@@ -352,10 +353,14 @@ async function submitEdit(): Promise<void> {
     editError.value = error;
     return;
   }
+  const id = albumId.value;
+  if (!id) {
+    return;
+  }
   savingTitle.value = true;
   editError.value = '';
   try {
-    album.value = await updateAlbum(albumId.value!, { title: editTitle.value.trim() });
+    album.value = await updateAlbum(id, { title: editTitle.value.trim() });
     editOpen.value = false;
     showToast('相册名称已更新');
   } catch (caught) {
@@ -365,8 +370,24 @@ async function submitEdit(): Promise<void> {
   }
 }
 
+/** 返回相册列表时保留当前归属过滤。 */
+function backToAlbums(): void {
+  const query: Record<string, string> = { tab: 'albums' };
+  if (album.value?.matchId) {
+    query.matchId = String(album.value.matchId);
+  }
+  if (album.value?.activityId) {
+    query.activityId = String(album.value.activityId);
+  }
+  void router.replace({ path: '/posts', query });
+}
+
 async function removeAlbum(): Promise<void> {
   if (deletingAlbum.value || !album.value) {
+    return;
+  }
+  const id = albumId.value;
+  if (!id) {
     return;
   }
   const confirmed = await confirmAction(
@@ -379,9 +400,9 @@ async function removeAlbum(): Promise<void> {
   }
   deletingAlbum.value = true;
   try {
-    await deleteAlbum(albumId.value!);
+    await deleteAlbum(id);
     showToast('相册已删除');
-    await router.replace('/posts?tab=albums');
+    backToAlbums();
   } catch (caught) {
     showToast(describeError(caught, '删除失败，请稍后重试'));
   } finally {
@@ -402,13 +423,15 @@ watch(albumId, () => {
   void loadPhotos();
 });
 
-onMounted(async () => {
+async function boot(): Promise<void> {
   await ensureLoaded();
   if (access.value !== 'ok') {
     return;
   }
   await Promise.all([loadDetail(), loadPhotos()]);
-});
+}
+
+onMounted(boot);
 </script>
 
 <template>
@@ -421,7 +444,7 @@ onMounted(async () => {
         {{ formatDateTime(album.createdAt) }}
       </p>
       <div v-if="album" class="album-head__actions">
-        <Button size="small" plain @click="router.push('/posts?tab=albums')">返回相册</Button>
+        <Button size="small" plain @click="backToAlbums">返回相册</Button>
         <template v-if="canManage">
           <Button size="small" plain data-testid="album-edit" @click="openEdit">编辑名称</Button>
           <Button
@@ -438,33 +461,18 @@ onMounted(async () => {
       </div>
     </header>
 
-    <div v-if="access === 'loading'" class="state"><Loading size="24">加载中…</Loading></div>
+    <ContentAccessGate :state="access" noun="相册" test-id-prefix="album" @retry="boot" />
 
-    <section v-else-if="access === 'guest'" class="state card" data-testid="album-guest">
-      <Empty description="登录后查看相册" />
-      <p class="muted small">动态与相册仅对球队成员开放。</p>
-      <RouterLink :to="loginTarget">
-        <Button type="primary" size="small">去登录</Button>
-      </RouterLink>
-    </section>
+    <div v-if="access === 'ok' && detailLoading" class="state">
+      <Loading size="24">加载中…</Loading>
+    </div>
 
-    <section v-else-if="access === 'pending'" class="state card" data-testid="album-pending">
-      <Empty description="账号待审核，暂不能查看相册" />
-      <p class="muted small">通过审核后即可查看队内相册。</p>
-    </section>
-
-    <section v-else-if="access === 'blocked'" class="state card" data-testid="album-blocked">
-      <Empty description="动态与相册仅正式球员与管理员可见" />
-    </section>
-
-    <div v-else-if="detailLoading" class="state"><Loading size="24">加载中…</Loading></div>
-
-    <div v-else-if="detailError" class="state">
+    <div v-else-if="access === 'ok' && detailError" class="state">
       <p class="muted">{{ detailError }}</p>
       <Button size="small" type="primary" @click="loadDetail">重试</Button>
     </div>
 
-    <template v-else-if="album">
+    <template v-else-if="access === 'ok' && album">
       <section class="card album-upload">
         <div class="card-head">
           <h2>照片</h2>

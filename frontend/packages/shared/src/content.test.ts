@@ -13,27 +13,23 @@ import {
   CONTENT_POST_MAX_LENGTH,
   contentAlbumTitleError,
   contentOwnerText,
-  contentPhotoDimensions,
   contentPhotoSizeError,
+  contentPhotoTypeError,
   contentPostTextError,
-  validateContentPhoto,
 } from './content';
 
 describe('content photo rules', () => {
-  it('accepts JPEG, PNG and WebP up to 5MiB', () => {
+  it('accepts JPEG, PNG and WebP', () => {
     for (const type of ['image/jpeg', 'image/png', 'image/webp']) {
-      expect(validateContentPhoto({ type, size: CONTENT_PHOTO_MAX_BYTES })).toBeNull();
+      expect(contentPhotoTypeError(type)).toBeNull();
     }
+    expect(contentPhotoTypeError('image/gif')).toBe(CONTENT_PHOTO_TYPE_ERROR);
   });
 
-  it('rejects unsupported formats and oversize files', () => {
-    expect(validateContentPhoto({ type: 'image/gif', size: 1024 })).toBe(CONTENT_PHOTO_TYPE_ERROR);
-    expect(validateContentPhoto({ type: 'image/png', size: CONTENT_PHOTO_MAX_BYTES + 1 })).toBe(
-      CONTENT_PHOTO_SIZE_ERROR,
-    );
-    expect(CONTENT_PHOTO_SIZE_ERROR).toBe('图片不能超过 5MB');
+  it('rejects compressed files above 5MiB', () => {
     expect(contentPhotoSizeError(CONTENT_PHOTO_MAX_BYTES)).toBeNull();
     expect(contentPhotoSizeError(CONTENT_PHOTO_MAX_BYTES + 1)).toBe(CONTENT_PHOTO_SIZE_ERROR);
+    expect(CONTENT_PHOTO_SIZE_ERROR).toBe('图片不能超过 5MB');
     expect(CONTENT_ALBUM_MAX_PHOTOS).toBe(200);
     expect(CONTENT_ALBUM_FULL_ERROR).toContain('200');
   });
@@ -41,9 +37,6 @@ describe('content photo rules', () => {
   it('compresses to a 2048px long edge at JPEG q80', () => {
     expect(CONTENT_PHOTO_MAX_EDGE).toBe(2048);
     expect(CONTENT_PHOTO_JPEG_QUALITY).toBe(0.8);
-    expect(contentPhotoDimensions(1024, 768)).toEqual({ width: 1024, height: 768 });
-    expect(contentPhotoDimensions(4096, 2048)).toEqual({ width: 2048, height: 1024 });
-    expect(contentPhotoDimensions(2048, 4096)).toEqual({ width: 1024, height: 2048 });
   });
 });
 

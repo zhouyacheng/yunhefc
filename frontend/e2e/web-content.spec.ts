@@ -486,7 +486,7 @@ test('C14 相册：按比赛过滤、新建相册并自动进入详情', async (
   // 管理员删除相册后回到相册列表。
   await page.getByTestId('album-delete').click();
   await page.locator('.van-dialog__confirm').click();
-  await expect(page).toHaveURL(/\/posts\?tab=albums$/);
+  await expect(page).toHaveURL(/\/posts\?tab=albums&matchId=1001$/);
 
   expect(errors).toEqual([]);
 });
@@ -533,6 +533,118 @@ test('C14 相册详情：上传、设封面、删除照片与编辑名称', asyn
   expect(errors).toEqual([]);
 });
 
+test('C14 相册已满：第 201 张提示且不发上传请求', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await mockSession(page);
+  const state: ContentState = {
+    albums: [albumSummary({ photoCount: 200 })],
+    posts: [BASE_POST],
+  };
+  const mocks = await mockContent(page, state);
+
+  await page.goto('/posts/albums/7001');
+
+  await expect(page.getByTestId('album-photo')).toHaveCount(2);
+  await page.getByTestId('album-upload').click();
+  await expect(page.getByTestId('album-upload-message')).toContainText('相册已满');
+  expect(mocks.uploadCount()).toBe(0);
+
+  expect(errors).toEqual([]);
+});
+
+test('C14 通知：CONTENT_PHOTO 进入相册，CONTENT_POST 定位动态', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await mockSession(page);
+  const state: ContentState = { albums: [albumSummary()], posts: [BASE_POST] };
+  await mockContent(page, state);
+
+  const notifications = [
+    {
+      id: 1,
+      type: 14,
+      typeLabel: 'CONTENT_REPORTED',
+      title: '相册被举报',
+      body: '有成员举报了相册照片',
+      refType: 'CONTENT_PHOTO',
+      refId: 7001,
+      readAt: null,
+      createdAt: '2026-11-20T10:00:00+08:00',
+    },
+    {
+      id: 2,
+      type: 14,
+      typeLabel: 'CONTENT_REPORTED',
+      title: '动态被举报',
+      body: '有成员举报了动态',
+      refType: 'CONTENT_POST',
+      refId: 50,
+      readAt: null,
+      createdAt: '2026-11-20T10:00:00+08:00',
+    },
+  ];
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/notifications',
+    (route) => fulfill(route, pageOf(notifications)),
+  );
+  await page.route(
+    (url) => /^\/api\/v1\/c\/notifications\/\d+\/read$/.test(url.pathname),
+    (route) => fulfill(route, { readAt: '2026-11-20T11:00:00+08:00' }),
+  );
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/me/registrations',
+    (route) => fulfill(route, pageOf([])),
+  );
+
+  await page.goto('/profile');
+  await expect(page.getByText('相册被举报')).toBeVisible();
+  await expect(page.getByText('动态被举报')).toBeVisible();
+
+  await page.getByText('相册被举报').click();
+  await expect(page).toHaveURL(/\/posts\/albums\/7001$/);
+  await expect(page.getByRole('heading', { name: '第3场 照片' })).toBeVisible();
+
+  await page.goto('/profile');
+  await page.getByText('动态被举报').click();
+  await expect(page).toHaveURL(/\/posts\?post=50$/);
+  await expect(page.locator('[data-post-id="50"]')).toBeVisible();
+
+  expect(errors).toEqual([]);
+});
+
+test('C01 动态入口：正式球员可进入，待审核不展示', async ({ page }) => {
+  const errors = collectConsoleErrors(page);
+  await mockSession(page);
+  const state: ContentState = { albums: [albumSummary()], posts: [BASE_POST] };
+  await mockContent(page, state);
+  let current = meWith(CONTENT_PERMS, 1);
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/me',
+    (route) => fulfill(route, current),
+  );
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/matches' && url.searchParams.get('pageSize') === '4',
+    (route) => fulfill(route, pageOf([MATCH], 4)),
+  );
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/matches/1001',
+    (route) => fulfill(route, MATCH),
+  );
+
+  await page.goto('/');
+  const entry = page.locator('.home-entry[href="/posts"]');
+  await expect(entry).toContainText('动态');
+  await entry.click();
+  await expect(page).toHaveURL(/\/posts$/);
+  await expect(page.getByTestId('content-post')).toHaveCount(1);
+
+  // 待审核账号首页不展示动态入口。
+  current = meWith(CONTENT_PERMS, 0);
+  await page.goto('/');
+  await expect(page.locator('.home-entry[href="/posts"]')).toHaveCount(0);
+
+  expect(errors).toEqual([]);
+});
+
 test('C14 访客：显示登录引导且不请求内容接口', async ({ page }) => {
   const errors = collectConsoleErrors(page);
   const paths: string[] = [];
@@ -569,6 +681,40 @@ test('C14 待审核与外挂：不可见提示', async ({ page }) => {
   await expect(page.getByTestId('content-blocked')).toContainText('仅正式球员与管理员可见');
 
   expect(errors).toEqual([]);
+});
+
+test('C14 会话探测失败：显示可重试错误态', async ({ page }) => {
+  await page.addInitScript(() => {
+    localStorage.setItem('yunhefc.c.sessionHint', '1');
+  });
+  let failing = true;
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/me',
+    async (route) => {
+      if (failing) {
+        await route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ code: 50001, message: '服务异常', data: null }),
+        });
+        return;
+      }
+      await fulfill(route, meWith(CONTENT_PERMS));
+    },
+  );
+  await page.route(
+    (url) => url.pathname === '/api/v1/c/notifications/unread-count',
+    (route) => fulfill(route, { count: 0 }),
+  );
+  const state: ContentState = { albums: [albumSummary()], posts: [BASE_POST] };
+  await mockContent(page, state);
+
+  await page.goto('/posts');
+  await expect(page.getByTestId('content-error')).toContainText('加载失败');
+
+  failing = false;
+  await page.getByTestId('content-error').getByRole('button', { name: '重试' }).click();
+  await expect(page.getByTestId('content-post')).toHaveCount(1);
 });
 
 test('C03 比赛详情：无相册时自动创建默认相册并进入', async ({ page }) => {

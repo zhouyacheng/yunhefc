@@ -15,11 +15,27 @@ export function defaultAlbumTitle(ownerTitle: string): string {
   return Array.from(`${trimmed} 照片`).slice(0, CONTENT_ALBUM_TITLE_MAX_LENGTH).join('');
 }
 
-/** 照片本人或管理员（content:delete:any）可删除。 */
+/** 动态作者/照片上传人本人或管理员（content:delete:any）可删除。 */
+export function canDeleteOwned(
+  ownerUserId: number,
+  userId: number | null | undefined,
+  canDeleteAny: boolean,
+): boolean {
+  return canDeleteAny || (typeof userId === 'number' && ownerUserId === userId);
+}
+
+/** 照片删除规则（CNT-08）。 */
 export function canDeletePhoto(
   photo: Pick<AlbumPhoto, 'uploadedBy'>,
   userId: number | null | undefined,
   canDeleteAny: boolean,
 ): boolean {
-  return canDeleteAny || (typeof userId === 'number' && photo.uploadedBy === userId);
+  return canDeleteOwned(photo.uploadedBy, userId, canDeleteAny);
+}
+
+/** 路由/查询参数中的正整数 ID；非法时返回 null。 */
+export function toPositiveId(value: unknown): number | null {
+  const raw = Array.isArray(value) ? value[0] : value;
+  const parsed = Number(raw);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 }

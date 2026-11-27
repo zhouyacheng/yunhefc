@@ -21,7 +21,6 @@ export interface AlbumListQuery {
 }
 
 export interface PostListQuery {
-  albumId?: number;
   page?: number;
   pageSize?: number;
 }
@@ -143,13 +142,14 @@ export function reportContent(
   );
 }
 
-/** C03/C12 相册入口建默认相册时用于回填标题。 */
+/** 新建相册弹窗的关联比赛选项。 */
 export function listMatchOptions(): Promise<Page<MatchSummary>> {
   return api.get<Page<MatchSummary>>('/matches', {
     query: { pageSize: 100, sort: 'startAt:desc' },
   });
 }
 
+/** 新建相册弹窗的关联活动选项。 */
 export function listActivityOptions(): Promise<Page<ActivitySummary>> {
   return api.get<Page<ActivitySummary>>('/activities', {
     query: { pageSize: 100, scope: 'all' },

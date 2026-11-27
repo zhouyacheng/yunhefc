@@ -70,5 +70,5 @@ pnpm test:e2e
 
 - 会话与权限由后端 `GET /c/me`、`GET /b/me` 返回，前端只用于导航与渲染；权限码见 `packages/permissions`（05 §5.1）。
 - `api-client` 统一处理 envelope、CSRF（内存 token，缺失时取一次并重试一次）、401 跳登录、403 分区/对象级区分、`Page<T>`、`readLabel`、`Idempotency-Key` 与 40901 归一化。
-- 路由使用 `createWebHistory(import.meta.env.BASE_URL)`；Pinia 存会话；守卫只做导航与 `redirect`。
+- 路由使用 `createWebHistory(import.meta.env.BASE_URL)`；Pinia 存会话；守卫只做导航与 `redirect`。登录引导页（如 C14 `/posts`）不写 `meta.requiresAuth`，允许匿名进入后页内展示登录引导；其余受保护页保持守卫跳登录并带 `redirect`。
 - 图片上传先客户端压缩再 multipart：头像长边 1080/JPEG q85，动态照片长边 2048/JPEG q80；常量、校验与压缩在 `@yunhefc/shared`，页面只负责交互与进度。

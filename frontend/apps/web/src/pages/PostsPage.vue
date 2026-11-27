@@ -15,9 +15,10 @@ import {
   isDisplayableAvatarUrl,
 } from '@yunhefc/shared';
 import { Button, Empty, Loading, Pagination, Popup, showToast } from 'vant';
-import { computed, nextTick, onMounted, reactive, ref } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
+import ContentAccessGate from '../components/ContentAccessGate.vue';
 import {
   createAlbum,
   createPost,
@@ -31,9 +32,12 @@ import {
   setPostLike,
 } from '../features/content/api';
 import { confirmAction } from '../features/common/confirm';
-import { CONTENT_PAGE_SIZE_OPTIONS } from '../features/content/presentation';
+import {
+  CONTENT_PAGE_SIZE_OPTIONS,
+  canDeleteOwned,
+  toPositiveId,
+} from '../features/content/presentation';
 import { useContentAccess } from '../features/content/useContentAccess';
-import { toBrowserPath } from '../router';
 import { useSessionStore } from '../stores/session';
 
 type TabKey = 'timeline' | 'albums';
@@ -43,27 +47,63 @@ const router = useRouter();
 const session = useSessionStore();
 const { state: access, ensureLoaded } = useContentAccess();
 
-function parseId(value: unknown): number | null {
-  const raw = Array.isArray(value) ? value[0] : value;
-  const parsed = Number(raw);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+function tabFromQuery(): TabKey {
+  return route.query.tab === 'albums' || route.query.matchId || route.query.activityId
+    ? 'albums'
+    : 'timeline';
 }
 
-const activeTab = ref<TabKey>(
-  route.query.tab === 'albums' || route.query.matchId || route.query.activityId
-    ? 'albums'
-    : 'timeline',
-);
-const matchId = ref<number | null>(parseId(route.query.matchId));
-const activityId = ref<number | null>(parseId(route.query.activityId));
-const focusPostId = ref<number | null>(parseId(route.query.post));
+const activeTab = ref<TabKey>(tabFromQuery());
+const matchId = ref<number | null>(toPositiveId(route.query.matchId));
+const activityId = ref<number | null>(toPositiveId(route.query.activityId));
+const focusPostId = ref<number | null>(toPositiveId(route.query.post));
 
 const canDeleteAny = computed(() => hasPermission(session.permissions, CONTENT_DELETE_ANY));
 const canManageAlbums = computed(() => hasPermission(session.permissions, CONTENT_MANAGE_ANY));
-const loginTarget = computed(() => ({
-  name: 'login',
-  query: { redirect: toBrowserPath(route.fullPath) },
-}));
+
+/** 视图/范围/通知定位一旦变化都写回 URL，刷新与前进后退保持一致。 */
+function syncQuery(): void {
+  const query: Record<string, string> = {};
+  if (activeTab.value === 'albums') {
+    query.tab = 'albums';
+  }
+  if (matchId.value !== null) {
+    query.matchId = String(matchId.value);
+  }
+  if (activityId.value !== null) {
+    query.activityId = String(activityId.value);
+  }
+  if (activeTab.value === 'timeline' && focusPostId.value !== null) {
+    query.post = String(focusPostId.value);
+  }
+  void router.replace({ path: '/posts', query });
+}
+
+/** 响应浏览器前进/后退：URL 变化后回填视图与范围并重取数据。 */
+function applyRouteState(): void {
+  const nextTab = tabFromQuery();
+  const nextMatch = toPositiveId(route.query.matchId);
+  const nextActivity = toPositiveId(route.query.activityId);
+  const nextPost = toPositiveId(route.query.post);
+  const tabChanged = nextTab !== activeTab.value;
+  const scopeChanged = nextMatch !== matchId.value || nextActivity !== activityId.value;
+  const postChanged = nextPost !== focusPostId.value;
+  if (!tabChanged && !scopeChanged && !postChanged) {
+    return;
+  }
+  activeTab.value = nextTab;
+  matchId.value = nextMatch;
+  activityId.value = nextActivity;
+  focusPostId.value = nextPost;
+  if (access.value === 'ok') {
+    void loadCurrentTab(postChanged && nextPost !== null);
+  }
+}
+
+watch(
+  () => [route.query.tab, route.query.matchId, route.query.activityId, route.query.post],
+  () => applyRouteState(),
+);
 
 // ---------- 时间线 ----------
 
@@ -142,7 +182,7 @@ async function publishPost(): Promise<void> {
       albumId: composerAlbumId.value ? Number(composerAlbumId.value) : null,
     });
     if (postPage.value === 1) {
-      posts.value = [post, ...posts.value];
+      posts.value = [post, ...posts.value].slice(0, postPageSize.value);
     }
     postTotal.value += 1;
     composerText.value = '';
@@ -190,7 +230,7 @@ async function reportPost(post: ContentPost): Promise<void> {
 }
 
 function canRemovePost(post: ContentPost): boolean {
-  return canDeleteAny.value || post.author.id === session.user?.id;
+  return canDeleteOwned(post.author.id, session.user?.id, canDeleteAny.value);
 }
 
 async function removePost(post: ContentPost): Promise<void> {
@@ -263,10 +303,6 @@ async function locatePost(id: number): Promise<void> {
   }
 }
 
-function avatarUrl(url: string | null): string | null {
-  return isDisplayableAvatarUrl(url) ? url : null;
-}
-
 /** 签名 URL 失败时显示占位，避免破图。 */
 const brokenCovers = ref<Record<string, true>>({});
 
@@ -336,6 +372,7 @@ function clearScope(): void {
   matchId.value = null;
   activityId.value = null;
   albumPage.value = 1;
+  syncQuery();
   void loadAlbums();
 }
 
@@ -469,15 +506,18 @@ function selectTab(next: TabKey): void {
     return;
   }
   activeTab.value = next;
+  syncQuery();
   void loadCurrentTab();
 }
 
-onMounted(async () => {
+async function boot(): Promise<void> {
   await ensureLoaded();
   if (access.value === 'ok') {
     await loadCurrentTab(true);
   }
-});
+}
+
+onMounted(boot);
 </script>
 
 <template>
@@ -488,26 +528,14 @@ onMounted(async () => {
       <p class="muted">仅正式球员与管理员可见，不对外公开</p>
     </header>
 
-    <div v-if="access === 'loading'" class="state"><Loading size="24">加载中…</Loading></div>
+    <ContentAccessGate
+      :state="access"
+      noun="动态与相册"
+      test-id-prefix="content"
+      @retry="boot"
+    />
 
-    <section v-else-if="access === 'guest'" class="state card" data-testid="content-guest">
-      <Empty description="登录后查看动态" />
-      <p class="muted small">动态与相册仅对球队成员开放。</p>
-      <RouterLink :to="loginTarget">
-        <Button type="primary" size="small">去登录</Button>
-      </RouterLink>
-    </section>
-
-    <section v-else-if="access === 'pending'" class="state card" data-testid="content-pending">
-      <Empty description="账号待审核，暂不能查看动态与相册" />
-      <p class="muted small">通过审核后即可查看队内动态与相册。</p>
-    </section>
-
-    <section v-else-if="access === 'blocked'" class="state card" data-testid="content-blocked">
-      <Empty description="动态与相册仅正式球员与管理员可见" />
-    </section>
-
-    <template v-else>
+    <template v-if="access === 'ok'">
       <nav class="segmented content-tabs" role="tablist" aria-label="内容视图">
         <button
           type="button"
@@ -589,7 +617,7 @@ onMounted(async () => {
             <header class="content-post__head">
               <span class="content-avatar">
                 <img
-                  v-if="avatarUrl(post.author.avatarUrl)"
+                  v-if="isDisplayableAvatarUrl(post.author.avatarUrl)"
                   :src="post.author.avatarUrl ?? ''"
                   alt=""
                 />

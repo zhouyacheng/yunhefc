@@ -390,11 +390,11 @@ for origin in "https://admin.$RC_DOMAIN" "https://evil.example"; do
 done
 
 # ── Stage 7 ───────────────────────────────────────────────────────────────
-stage "§6.5 真实 IP / §6.8 Redis 与 Kafka"
+stage "§6.5 真实 IP / §6.8 Redis"
 say "以下为 ECS 只读检查；SSH 不可用时手工执行并确认。"
-listeners=$(ssh "${SSH_OPTS[@]}" "$ECS_SSH" "ss -lntp | grep -E ':(6379|9092|8080)\b' || true" 2>/dev/null || true)
+listeners=$(ssh "${SSH_OPTS[@]}" "$ECS_SSH" "ss -lntp | grep -E ':(6379|8080)\b' || true" 2>/dev/null || true)
 printf '%s\n' "${listeners:-（无输出）}"
-if confirm "6379/9092/8080 均未对公网监听（仅 127.0.0.1 或容器网络）？"; then
+if confirm "6379/8080 均未对公网监听（仅 127.0.0.1 或容器网络）？"; then
   record "§6.8 端口未对公网发布" "PASS"
 else
   record "§6.8 端口未对公网发布" "FAIL"

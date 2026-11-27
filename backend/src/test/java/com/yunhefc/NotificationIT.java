@@ -15,7 +15,7 @@ import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.infra.outbox.OutboxMessage;
-import com.yunhefc.notification.application.NotificationEventConsumer;
+import com.yunhefc.notification.application.NotificationEventHandler;
 import com.yunhefc.notification.domain.NotificationType;
 import com.yunhefc.notification.infrastructure.NotificationMapper;
 import jakarta.servlet.http.Cookie;
@@ -33,7 +33,7 @@ import java.util.Map;
 
 class NotificationIT extends IntegrationTestSupport {
 
-    private static final String NOTIFICATION_TOPIC = "yunhefc.notification.events";
+    private static final String NOTIFICATION_TOPIC = "outbox.notification";
     private static final String PLAYER_PHONE = "13900002001";
     private static final String PLAYER_PASSWORD = "Player123!";
 
@@ -41,7 +41,7 @@ class NotificationIT extends IntegrationTestSupport {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private NotificationEventConsumer notificationEventConsumer;
+    private NotificationEventHandler notificationEventHandler;
 
     @Autowired
     private NotificationMapper notificationMapper;
@@ -263,8 +263,8 @@ class NotificationIT extends IntegrationTestSupport {
         assertThat(JsonPath.<List<String>>read(payload, "$.roles")).containsExactly("PLAYER");
 
         OutboxMessage message = toMessage(event);
-        notificationEventConsumer.apply(objectMapper.writeValueAsString(message), NOTIFICATION_TOPIC, 0, 701L);
-        notificationEventConsumer.apply(objectMapper.writeValueAsString(message), NOTIFICATION_TOPIC, 0, 701L);
+        notificationEventHandler.apply(objectMapper.writeValueAsString(message), NOTIFICATION_TOPIC, 0, 701L);
+        notificationEventHandler.apply(objectMapper.writeValueAsString(message), NOTIFICATION_TOPIC, 0, 701L);
 
         assertThat(notificationCount(userId, NotificationType.ROLE_CHANGED)).isEqualTo(1);
         assertThat(notificationCount(userIdOf("13900002006"), NotificationType.ROLE_CHANGED)).isZero();

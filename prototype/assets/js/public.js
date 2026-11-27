@@ -29,15 +29,15 @@
     const next = byStartDesc[0] || null;
     const finished = Y.state.matches.filter((match) => match.status === 'FINISHED');
     const recent = byStartDesc.slice(1, 4);
-    // P-142：动态入口仅正式球员与管理员可见；P-134：活动入口常驻；P-132：账本入口在其下。
+    // P-142：动态入口仅正式球员与管理员可见；P-134：活动入口常驻；P-166：动态入口移到账本下方。
     const homeUser = Y.currentUser();
     const homeEntryLinks = [
-      ...(Y.hasPermission('content:view:any')
-        ? [{ icon: '📸', title: '动态与相册', href: 'content.html' }]
-        : []),
       { icon: '🎉', title: '活动', href: 'activity.html' },
       ...(Boolean(homeUser.id) && Y.userRole(homeUser) !== 'GUEST'
         ? [{ icon: '💰', title: '账本', href: 'ledger.html' }]
+        : []),
+      ...(Y.hasPermission('content:view:any')
+        ? [{ icon: '📸', title: '动态与相册', href: 'content.html' }]
         : []),
     ];
     const homeEntries = `<section class="container section"><div style="display:flex;flex-direction:column;gap:12px">${homeEntryLinks.map(({ icon, title, href }) => `<a class="card between" href="${href}" style="text-decoration:none;color:inherit"><span>${icon} ${title}</span><span class="link">查看 →</span></a>`).join('')}</div></section>`;

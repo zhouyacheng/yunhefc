@@ -33,6 +33,12 @@ class ArchitectureTest {
                     .because("common/contracts 是横切基础包，不能反向依赖业务域");
 
     @ArchTest
+    static final ArchRule infraMustNotDependOnBusinessDomains =
+            noClasses().that().resideInAPackage("com.yunhefc.infra..")
+                    .should().dependOnClassesThat().resideInAnyPackage(domainPackages())
+                    .because("infra 是共享技术适配层，业务事件经 contracts 端口接入");
+
+    @ArchTest
     static final ArchRule domainLayerMustNotDependOnInfrastructure =
             noClasses().that().resideInAPackage("com.yunhefc..domain..")
                     .should().dependOnClassesThat().resideInAPackage("com.yunhefc.infra..")

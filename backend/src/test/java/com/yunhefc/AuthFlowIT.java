@@ -12,8 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
-import com.yunhefc.audit.application.AuditEventConsumer;
-import com.yunhefc.notification.application.NotificationEventConsumer;
+import com.yunhefc.audit.application.AuditEventHandler;
+import com.yunhefc.notification.application.NotificationEventHandler;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -22,10 +22,10 @@ import org.springframework.test.web.servlet.MvcResult;
 class AuthFlowIT extends IntegrationTestSupport {
 
     @Autowired
-    AuditEventConsumer auditEventConsumer;
+    AuditEventHandler auditEventHandler;
 
     @Autowired
-    NotificationEventConsumer notificationEventConsumer;
+    NotificationEventHandler notificationEventHandler;
 
     @Autowired
     ObjectMapper objectMapper;
@@ -117,8 +117,8 @@ class AuthFlowIT extends IntegrationTestSupport {
                 (String) roleChanged.get("event_type"),
                 (String) roleChanged.get("payload_json"));
         String roleJson = objectMapper.writeValueAsString(roleMessage);
-        notificationEventConsumer.apply(roleJson, "yunhefc.notification.events", 0, 1L);
-        notificationEventConsumer.apply(roleJson, "yunhefc.notification.events", 0, 1L);
+        notificationEventHandler.apply(roleJson, "outbox.notification", 0, 1L);
+        notificationEventHandler.apply(roleJson, "outbox.notification", 0, 1L);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM notification WHERE user_id = ? AND type = 9",
                 Integer.class, registeredUserId)).isEqualTo(1);
@@ -134,8 +134,8 @@ class AuthFlowIT extends IntegrationTestSupport {
                 (String) auditEvent.get("event_type"),
                 (String) auditEvent.get("payload_json"));
         String auditJson = objectMapper.writeValueAsString(auditMessage);
-        auditEventConsumer.apply(auditJson, "yunhefc.audit.events", 0, 2L);
-        auditEventConsumer.apply(auditJson, "yunhefc.audit.events", 0, 2L);
+        auditEventHandler.apply(auditJson, "outbox.audit", 0, 2L);
+        auditEventHandler.apply(auditJson, "outbox.audit", 0, 2L);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM audit_log WHERE action = 'USER_ROLES_UPDATE'",
                 Integer.class)).isEqualTo(1);

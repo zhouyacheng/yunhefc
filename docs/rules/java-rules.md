@@ -9,7 +9,7 @@ description: Spring Boot 后端 Java 编码、分层、事务、持久化、安�
 
 本规范约束 `backend/` 单部署单元内的 Java 代码，适用于 `common`、`contracts`、`infra`、`query`、`stats` 与各业务领域包（auth/player/match/registration/attendance/event/lineup/grouping/notification/audit/settings/activity/ledger/content）。
 
-设计依据：`docs/design/03.整体架构设计.md`、`04.数据库设计.md`、`docs/rules/database-rules.md`、`api-rules.md`、`kafka-rules.md`、`logging-rules.md`。
+设计依据：`docs/design/03.整体架构设计.md`、`04.数据库设计.md`、`docs/rules/database-rules.md`、`api-rules.md`、`messaging-rules.md`、`logging-rules.md`。
 
 一句话总纲：**依赖方向单一、事务边界清晰、领域规则在领域层、外部依赖走网关、日志与安全不越界。**
 
@@ -21,7 +21,7 @@ description: Spring Boot 后端 Java 编码、分层、事务、持久化、安�
 | 框架 | Spring Boot 3.5.x、Spring Security 6 |
 | 持久化 | MyBatis-Plus + Flyway；复杂 SQL 放 XML |
 | 辅助库 | Lombok（样板代码）、Hutool（通用工具） |
-| 消息 | Kafka + Outbox；具体规则见 `kafka-rules.md` |
+| 消息 | Outbox + 进程内有界线程池；具体规则见 `messaging-rules.md` |
 | 定时任务 | Quartz JDBC JobStore |
 | 缓存/会话 | Redis + Spring Session |
 | 文件 | 阿里云 OSS，经 `OssGateway` |
@@ -68,8 +68,8 @@ com.yunhefc.<domain>/
 ### 3.2 全局包
 
 - `common`：统一响应、异常、分页、时间、权限注解；禁止业务实体与跨域逻辑。
-- `contracts`：领域事件 DTO、事件类型常量与跨模块只读 port 接口；不依赖业务实现。
-- `infra`：共享技术网关（`MessagePublisher`、`OssGateway`、`IdempotencyStore`、`CacheStore` 等），不暴露 KafkaTemplate/RedisTemplate。
+- `contracts`：领域事件 DTO、事件类型常量、跨模块只读 port 与事件处理端口（如 `AuditEventSink`/`NotificationEventSink`）；不依赖业务实现。
+- `infra`：共享技术网关（`OutboxService`、`OutboxEventDispatcher`、`OssGateway`、`IdempotencyStore`、`CacheStore` 等），不暴露线程池/RedisTemplate。
 - `query`：跨域只读组合查询；只依赖各域 read port，不写业务表。
 - `stats`：统计汇总任务与查询；只读依赖各域 read port，仅允许 `query` 通过只读接口依赖，其他业务域不得依赖。
 
@@ -77,7 +77,7 @@ com.yunhefc.<domain>/
 
 - 依赖方向：controller → application → domain；infrastructure 实现 domain/application 定义的接口。
 - controller 不得直接调用 Mapper/Repository，不得包含业务规则。
-- domain 优先使用 MyBatis-Plus 注解声明表映射；不得依赖 Spring Web、Kafka、Redis、OSS SDK，也不得直接调用 Mapper/Repository 或存储客户端。
+- domain 优先使用 MyBatis-Plus 注解声明表映射；不得依赖 Spring Web、Redis、OSS SDK，也不得直接调用 Mapper/Repository 或存储客户端。
 - 跨领域只调用对方 application 服务、contracts 只读 port 或消费事件，不直接访问对方 Mapper/表。
 - 一个本地事务默认只修改一个聚合；三个显式例外：报名生命周期（Match + Registration）、注册建档（User + PlayerProfile）与账号生命周期编排（审核/转正/注销：User + Player + UserRole + Registration）。例外集中在应用服务层，不得扩散。
 - 跨域与对 `com.yunhefc.infra` 的依赖由 ArchUnit 在 CI 固化；同域分层与其余依赖约定由评审保证。
@@ -95,7 +95,7 @@ com.yunhefc.<domain>/
 | Repository | `<Aggregate>Repository` | `LineupRepository` |
 | 网关 | `<Capability>Gateway` | `OssGateway` |
 | 定时任务 | `<Task>Job` | `MatchStatusJob` |
-| 消费者 | `<Event>Consumer` | `NotificationEventConsumer` |
+| 事件处理器 | `<Event>Handler` | `NotificationEventHandler` |
 | 请求/响应 | `<Action>Request` / `<View>Response` | `MatchCreateRequest` |
 | 事件 | `<Aggregate><Action>Event` | `RegistrationPromotedEvent` |
 | 异常 | `<Domain>Exception` / `<Reason>Exception` | `CapacityFullException` |
@@ -136,8 +136,8 @@ com.yunhefc.<domain>/
 - `@Transactional` 只放在 application 服务的方法上；Controller、Mapper、domain 不放。
 - 查询方法使用 `@Transactional(readOnly = true)`；写方法明确回滚异常类型。
 - 默认一个事务只修改一个聚合；跨聚合一致性通过领域事件与 Outbox。
-- Outbox 写入必须与业务写入同一事务；事件发布由 `MessagePublisher` 在事务提交后/独立投递器完成。
-- 不在事务内做远程调用、文件上传、Kafka 同步发送、长时间计算。
+- Outbox 写入必须与业务写入同一事务；事件发布由 `OutboxRelay` 在事务提交后的独立投递中完成。
+- 不在事务内做远程调用、文件上传、同步事件处理、长时间计算。
 - 捕获异常后要么处理并记录，要么原样抛出；禁止静默吞异常或只打印消息。
 - 自调用不会触发 Spring 事务/权限代理；需要事务的方法不要在同类的内部调用中绕过代理。
 
@@ -172,17 +172,17 @@ com.yunhefc.<domain>/
 - 文件上传经后端校验类型/大小后写 OSS；不在 domain 直接使用 OSS SDK。
 - 任何外部输入都要服务端校验；数据库永久禁用 CHECK，业务规则由应用层强校验，唯一约束/NOT NULL 只作最后防线。
 
-## 10. 事件、Kafka 与 Outbox
+## 10. 事件与 Outbox
 
 - 事件 DTO 放 `contracts`；生产方与消费方都依赖 contracts，不反向依赖业务包。
-- 业务事务内写 `outbox_event`；`MessagePublisher` 负责发布；domain 不直接使用 KafkaTemplate。
-- 消费者遵循 `kafka-rules.md`：
-  - 关闭自动提交；业务成功后提交 offset；
-  - 按事件 ID + 消费组去重；Redis 两阶段标记 `kafka::{topic}::{group}::{partition}::{offset}`；
-  - 失败删除标记、不提交 offset；超过阈值进死信；
-  - 单条消息处理日志用 DEBUG，循环内不逐条 INFO。
-- 消费者只做“解析 → 调用 application 服务 → 记录结果”，不在消费者里堆业务规则。
-- 通知与审计使用独立消费组，不共用 group。
+- 业务事务内写 `outbox_event`；`OutboxRelay` 负责投递；domain 不直接依赖线程池或分发器。
+- 分发遵循 `messaging-rules.md`：
+  - `OutboxEventDispatcher` 用 `@Async` 返回 `CompletableFuture`，路由到审计/通知处理器；
+  - 处理器在同一事务内写 `consumed_event` 去重记录与业务数据；
+  - 失败由 Outbox 退避重试，5 次后 FAILED；不引入死信队列；
+  - 单条事件处理日志用 DEBUG，循环内不逐条 INFO。
+- 处理器只做“解析 → 调用 application 服务 → 记录结果”，不在处理器里堆业务规则。
+- 通知与审计使用独立消费组，不共用去重记录。
 
 ## 11. 定时任务（Quartz）
 
@@ -195,7 +195,7 @@ com.yunhefc.<domain>/
 ## 12. Redis 与缓存
 
 - Key 统一带业务前缀，不使用环境前缀；例如 `yunhefc:auth:sms:{purpose}:{phone}`、`yunhefc:season:{season}`。本地与生产使用独立 Redis 实例，不靠 key 前缀隔离环境；未来若共用实例需先评审。
-- 会话、权限缓存、限流、名额锁、幂等键、Kafka 消费标记按架构约定使用；Redis 不作为事实源。
+- 会话、权限缓存、限流、名额锁、幂等键按架构约定使用；Redis 不作为事实源。
 - 分布式锁必须设置 TTL、唯一 value，并在 `finally` 中校验 value 后释放。
 - 缓存读取失败可降级到数据库；不得因缓存故障阻塞主流程。
 - 禁止缓存用户敏感信息明文（手机号、openid、token）。
@@ -211,14 +211,14 @@ com.yunhefc.<domain>/
 
 - 遵循 `logging-rules.md`：SLF4J 占位符、结构化 `kv`、异常带堆栈、敏感信息脱敏。
 - 不直接打印实体、DTO、集合、请求/响应对象；只打印 ID、状态、数量、耗时。
-- 循环与高频路径不逐条 INFO；Kafka 单条消费、Quartz、健康检查不打印 INFO。
+- 循环与高频路径不逐条 INFO；单条事件分发、Quartz、健康检查不打印 INFO。
 - 日志包含 `requestId`；关键业务节点 INFO，排障细节 DEBUG。
 
 ## 15. 测试
 
 - 单元测试：JUnit 5，覆盖领域规则、状态机、名额/递推、权限窗口。
-- 集成测试：Testcontainers 启动 MySQL/Redis/Kafka；禁止用 H2 替代 MySQL 验证 SQL。
-- 架构测试：ArchUnit 校验 controller 不访问 mapper、领域不跨域访问 infrastructure、common/contracts 不依赖业务域、query/stats 只依赖 read port；`event` 与 `stats` 只经 `contracts.grouping` 只读 port 访问分组，不依赖 `grouping` 实现；`stats` 经 `contracts.match` 读取比赛最终比分。
+- 集成测试：Testcontainers 启动 MySQL/Redis；禁止用 H2 替代 MySQL 验证 SQL。
+- 架构测试：ArchUnit 校验 controller 不访问 mapper、领域不跨域访问 infrastructure、infra 不依赖业务域、common/contracts 不依赖业务域、query/stats 只依赖 read port；`event` 与 `stats` 只经 `contracts.grouping` 只读 port 访问分组，不依赖 `grouping` 实现；`stats` 经 `contracts.match` 读取比赛最终比分。
 - 测试命名：`<Class>Test`（单元）、`<Class>IT`（集成）；使用相对时间与测试数据构建器。
 - 需要真实外部服务的验证（如私有 OSS 缩略图）用 `@EnabledIfEnvironmentVariable` 门控的 `*IT`，默认跳过，并在实施票面记录「未执行 + 执行命令」，不能默认走真实凭证。
 - 每个业务错误码至少有一个失败路径测试；唯一约束、版本冲突必须有测试。
@@ -231,7 +231,7 @@ com.yunhefc.<domain>/
 - 字符串拼接 SQL、`SELECT *`、`${}` 拼接参数。
 - 把实体直接作为 API 响应；把数据库字段随意改名。
 - 静默吞异常、只记录 `e.getMessage()` 不带堆栈。
-- 在 domain 直接使用 Kafka/Redis/OSS/Spring Web。
+- 在 domain 直接使用 Redis/OSS/Spring Web。
 - 按角色代码硬编码权限；在日志中输出手机号、openid、token。
 - 为一次性需求增加通用抽象或配置开关。
 
@@ -243,7 +243,7 @@ com.yunhefc.<domain>/
 - [ ] 状态/类型使用枚举或常量；无魔法字符串
 - [ ] MyBatis 使用 `#{}`；分页、索引、乐观锁正确
 - [ ] 权限码校验；C/B 会话与 CSRF 正确
-- [ ] 事件 DTO 在 contracts；消费者幂等与 offset 提交正确
+- [ ] 事件 DTO 在 contracts；处理器幂等与去重正确
 - [ ] Job 幂等；统计通过 read port
 - [ ] 日志无敏感信息；异常带堆栈
 - [ ] 单元/集成/ArchUnit 测试覆盖关键路径与失败路径

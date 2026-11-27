@@ -156,7 +156,6 @@ jobs:
           OSS_MODE: mock
           WECHAT_MINI_ENABLED: "true"
           WECHAT_MINI_MODE: mock
-          KAFKA_LISTENER_ENABLED: "false"
           OUTBOX_ENABLED: "false"
           # 套件按账号多次登录；避免默认 50 次/分钟限流造成 429 抖动。
           AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS: "1000"
@@ -204,7 +203,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # 把 Kafka/Redis 镜像同步到 ACR，发布时不再依赖 Docker Hub。
+  # 把 Redis 镜像同步到 ACR，发布时不再依赖 Docker Hub。
   # 已存在则跳过；不挂 needs，与 images 并行，不拉长关键路径。
   mirror-infra:
     if: github.event_name == 'push'
@@ -216,7 +215,7 @@ jobs:
           registry: ${{ vars.ACR_REGISTRY }}
           username: ${{ secrets.ACR_USERNAME }}
           password: ${{ secrets.ACR_PASSWORD }}
-      - name: Mirror kafka and redis
+      - name: Mirror redis
         env:
           ACR_REGISTRY: ${{ vars.ACR_REGISTRY }}
           ACR_NAMESPACE: ${{ vars.ACR_NAMESPACE }}
@@ -235,7 +234,6 @@ jobs:
             docker manifest inspect "$dst" >/dev/null
             echo "mirrored: $src -> $dst"
           }
-          mirror apache/kafka:3.7.2 yunhefc-infra-kafka 3.7.2
           mirror redis:6.2.24 yunhefc-infra-redis 6.2.24
 
   images:

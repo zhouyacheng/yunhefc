@@ -91,9 +91,9 @@ Page({
     this.setData({
       canEnterAdmin: hasBackendPermission(permissions),
       quickEntries: [
-        ...(canViewContent ? [{ icon: '📷', title: '动态', url: '/pages/posts/index' }] : []),
         { icon: '🎉', title: '活动', url: '/pages/activity/index' },
         ...(canViewLedger ? [{ icon: '💰', title: '账本', url: '/pages/ledger/index' }] : []),
+        ...(canViewContent ? [{ icon: '📷', title: '动态', url: '/pages/posts/index' }] : []),
       ],
     });
     await this.load(true);

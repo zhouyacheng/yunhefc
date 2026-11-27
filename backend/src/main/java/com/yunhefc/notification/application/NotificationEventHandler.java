@@ -7,6 +7,7 @@ import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.activity.ActivitySignupReadPort;
 import com.yunhefc.contracts.content.ContentRefTypes;
 import com.yunhefc.contracts.messaging.EventTypes;
+import com.yunhefc.contracts.messaging.NotificationEventSink;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.security.UserAccountReadPort;
 import com.yunhefc.infra.outbox.ConsumedEventMapper;
@@ -26,7 +27,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class NotificationEventHandler {
+public class NotificationEventHandler implements NotificationEventSink {
 
     public static final String GROUP = "yunhefc-notification";
 
@@ -42,14 +43,14 @@ public class NotificationEventHandler {
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public void apply(String message, String topic, int partition, long offset) {
+    public void apply(String message, String channel, int partition, long offset) {
         try {
             OutboxMessage event = objectMapper.readValue(message, OutboxMessage.class);
             if (event.eventType() == null
                     || !EventTypes.NOTIFICATION_EVENTS.contains(event.eventType())) {
                 return;
             }
-            if (consumedEventMapper.tryInsert(GROUP, event.eventId(), topic, partition, offset) == 0) {
+            if (consumedEventMapper.tryInsert(GROUP, event.eventId(), channel, partition, offset) == 0) {
                 return;
             }
             Map<String, Object> payload = objectMapper.readValue(event.payload(), new TypeReference<>() {
@@ -67,8 +68,8 @@ public class NotificationEventHandler {
                 notificationMapper.insert(build(event.eventType(), payload));
             }
         } catch (Exception ex) {
-            log.error("notification event handling failed, topic={}, partition={}, offset={}",
-                    topic, partition, offset, ex);
+            log.error("notification event handling failed, channel={}, partition={}, offset={}",
+                    channel, partition, offset, ex);
             throw new IllegalStateException("处理通知事件失败", ex);
         }
     }

@@ -361,7 +361,6 @@ ask_secret OSS_ACCESS_KEY_SECRET "OSS AccessKeySecret："
   printf 'REDIS_HOST=redis\n'
   printf 'REDIS_PORT=6379\n'
   printf 'REDIS_PASSWORD=%s\n' "$REDIS_PASSWORD"
-  printf 'KAFKA_BOOTSTRAP_SERVERS=kafka:9092\n'
   printf 'SMS_MOCK_ENABLED=false\n'
   printf 'SMS_ENDPOINT=https://gyytz.market.alicloudapi.com/sms/smsSend\n'
   printf 'SMS_APPCODE=%s\n' "$SMS_APPCODE"

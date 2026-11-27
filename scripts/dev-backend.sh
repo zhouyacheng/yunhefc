@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 本地联调启动后端：dev profile（短信 mock；微信小程序与 OSS 默认使用真实凭证；Kafka 消费与 Outbox 沿用默认开启）。
+# 本地联调启动后端：dev profile（短信 mock；微信小程序与 OSS 默认使用真实凭证；Outbox 中继与事件分发沿用默认开启）。
 # 凭证来源：~/.zshrc 中 export 的 WECHAT_MINI_APP_ID / WECHAT_MINI_APP_SECRET / OSS_ACCESS_KEY_ID / OSS_ACCESS_KEY_SECRET；
 # 已存在的同名环境变量优先。OSS_MODE / WECHAT_MINI_MODE 为 mock 时跳过对应凭证。
 set -euo pipefail
@@ -35,10 +35,9 @@ if [ "${WECHAT_MINI_MODE:-real}" = "real" ]; then
 fi
 
 export SPRING_PROFILES_ACTIVE=dev
-# 本机 Docker 端口：MySQL 3307、Redis 6380、Kafka 19092；与仓库默认值不同，可用同名环境变量覆盖。
+# 本机 Docker 端口：MySQL 3307、Redis 6380；与仓库默认值不同，可用同名环境变量覆盖。
 export DB_URL="${DB_URL:-jdbc:mysql://localhost:3307/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8}"
 export REDIS_PORT="${REDIS_PORT:-6380}"
-export KAFKA_BOOTSTRAP_SERVERS="${KAFKA_BOOTSTRAP_SERVERS:-localhost:19092}"
 # 本地反复登录/走查时放宽登录限流。
 export AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS="${AUTH_LOGIN_RATE_LIMIT_MAX_ATTEMPTS:-1000}"
 

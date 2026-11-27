@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.audit.domain.AuditLog;
 import com.yunhefc.audit.infrastructure.AuditLogMapper;
 import com.yunhefc.common.time.ShanghaiTime;
+import com.yunhefc.contracts.messaging.AuditEventSink;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.ConsumedEventMapper;
 import com.yunhefc.infra.outbox.OutboxMessage;
@@ -19,7 +20,7 @@ import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
-public class AuditEventHandler {
+public class AuditEventHandler implements AuditEventSink {
 
     public static final String GROUP = "yunhefc-audit";
 
@@ -30,13 +31,13 @@ public class AuditEventHandler {
     private final ObjectMapper objectMapper;
 
     @Transactional
-    public void apply(String message, String topic, int partition, long offset) {
+    public void apply(String message, String channel, int partition, long offset) {
         try {
             OutboxMessage event = objectMapper.readValue(message, OutboxMessage.class);
             if (!EventTypes.AUDIT_RECORDED.equals(event.eventType())) {
                 return;
             }
-            if (consumedEventMapper.tryInsert(GROUP, event.eventId(), topic, partition, offset) == 0) {
+            if (consumedEventMapper.tryInsert(GROUP, event.eventId(), channel, partition, offset) == 0) {
                 return;
             }
             Map<String, Object> payload = objectMapper.readValue(event.payload(), new TypeReference<>() {
@@ -56,14 +57,14 @@ public class AuditEventHandler {
             auditLogMapper.insert(auditLog);
             log.debug("audit event processed, eventId={}, teamId={}, action={}, targetType={}, "
                             + "targetId={}, actorUserId={}, actorName={}, requestId={}, operateAt={}, "
-                            + "topic={}, partition={}, offset={}",
+                            + "channel={}, partition={}, offset={}",
                     event.eventId(), auditLog.getTeamId(), auditLog.getAction(),
                     auditLog.getTargetType(), auditLog.getTargetId(), auditLog.getActorUserId(),
                     auditLog.getActorName(), auditLog.getRequestId(), auditLog.getOperatedAt(),
-                    topic, partition, offset);
+                    channel, partition, offset);
         } catch (Exception ex) {
-            log.error("audit event handling failed, topic={}, partition={}, offset={}",
-                    topic, partition, offset, ex);
+            log.error("audit event handling failed, channel={}, partition={}, offset={}",
+                    channel, partition, offset, ex);
             throw new IllegalStateException("处理审计事件失败", ex);
         }
     }

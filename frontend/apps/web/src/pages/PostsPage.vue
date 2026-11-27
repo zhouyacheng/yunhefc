@@ -28,15 +28,17 @@ import {
   listAlbums,
   listMatchOptions,
   listPosts,
-  reportContent,
   setPostLike,
 } from '../features/content/api';
 import { confirmAction } from '../features/common/confirm';
 import {
+  CONTENT_LOCATE_MAX_PAGES,
+  CONTENT_LOCATE_PAGE_SIZE,
   CONTENT_PAGE_SIZE_OPTIONS,
   canDeleteOwned,
   toPositiveId,
 } from '../features/content/presentation';
+import { confirmAndReport } from '../features/content/report';
 import { useContentAccess } from '../features/content/useContentAccess';
 import { useSessionStore } from '../stores/session';
 
@@ -215,15 +217,9 @@ async function reportPost(post: ContentPost): Promise<void> {
   if (reportBusy.value !== null) {
     return;
   }
-  if (!(await confirmAction('举报动态', '确定举报该动态并通知管理员？', '举报'))) {
-    return;
-  }
   reportBusy.value = post.id;
   try {
-    await reportContent(CONTENT_REPORT_POST, post.id);
-    showToast('已通知管理员');
-  } catch (caught) {
-    showToast(describeError(caught, '举报失败，请稍后重试'));
+    await confirmAndReport(CONTENT_REPORT_POST, post.id);
   } finally {
     reportBusy.value = null;
   }
@@ -284,12 +280,12 @@ async function locatePost(id: number): Promise<void> {
     return;
   }
   try {
-    for (let page = 1; page <= 5; page += 1) {
-      const result = await listPosts({ page, pageSize: 100 });
+    for (let page = 1; page <= CONTENT_LOCATE_MAX_PAGES; page += 1) {
+      const result = await listPosts({ page, pageSize: CONTENT_LOCATE_PAGE_SIZE });
       if (result.items.some((post) => post.id === id)) {
         posts.value = result.items;
         postPage.value = page;
-        postPageSize.value = 100;
+        postPageSize.value = CONTENT_LOCATE_PAGE_SIZE;
         postTotal.value = result.total;
         await focusPost(id);
         return;

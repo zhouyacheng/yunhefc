@@ -6,6 +6,7 @@ import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.common.security.ContentPermissions;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.contracts.player.PlayerReadPort;
 import com.yunhefc.contracts.player.PlayerSnapshot;
@@ -47,7 +48,6 @@ import java.util.stream.Collectors;
 public class ContentPostApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(ContentPostApplicationService.class);
-    private static final String PERMISSION_DELETE_ANY = "content:delete:any";
 
     private final ContentPostMapper postMapper;
     private final ContentPostLikeMapper likeMapper;
@@ -96,7 +96,7 @@ public class ContentPostApplicationService {
     public PostDeleteResult delete(Long postId) {
         AuthPrincipal principal = CurrentUser.principal();
         ContentPost post = requirePost(principal.teamId(), postId);
-        boolean canDeleteAny = principal.permissions().contains(PERMISSION_DELETE_ANY);
+        boolean canDeleteAny = principal.permissions().contains(ContentPermissions.DELETE_ANY);
         if (!post.getAuthorUserId().equals(principal.userId()) && !canDeleteAny) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "只能删除本人动态");
         }

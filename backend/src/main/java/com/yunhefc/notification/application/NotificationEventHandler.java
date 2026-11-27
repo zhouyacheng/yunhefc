@@ -2,8 +2,10 @@ package com.yunhefc.notification.application;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yunhefc.common.security.ContentPermissions;
 import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.activity.ActivitySignupReadPort;
+import com.yunhefc.contracts.content.ContentRefTypes;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.contracts.registration.RegistrationReadPort;
 import com.yunhefc.contracts.security.UserAccountReadPort;
@@ -31,7 +33,6 @@ public class NotificationEventHandler {
     private static final Logger log = LoggerFactory.getLogger(NotificationEventHandler.class);
     private static final DateTimeFormatter START_AT_FORMAT = DateTimeFormatter.ofPattern("M月d日 HH:mm");
     private static final int ACTIVE_USER = 1;
-    private static final String CONTENT_DELETE_PERMISSION = "content:delete:any";
 
     private final NotificationMapper notificationMapper;
     private final ConsumedEventMapper consumedEventMapper;
@@ -138,7 +139,7 @@ public class NotificationEventHandler {
      */
     private void insertForContentModerators(OutboxMessage event, Map<String, Object> payload) {
         List<Notification> notifications = userAccountReadPort
-                .findActiveUserIdsByPermission(event.teamId(), CONTENT_DELETE_PERMISSION).stream()
+                .findActiveUserIdsByPermission(event.teamId(), ContentPermissions.DELETE_ANY).stream()
                 .map(userId -> buildContentReported(event, payload, userId))
                 .toList();
         if (!notifications.isEmpty()) {
@@ -148,7 +149,7 @@ public class NotificationEventHandler {
 
     private Notification buildContentReported(OutboxMessage event, Map<String, Object> payload,
                                               Long userId) {
-        boolean photo = ((Number) payload.get("targetType")).intValue() == 1;
+        boolean photo = ContentRefTypes.PHOTO.equals(event.aggregateType());
         Object rawReason = payload.get("reason");
         String reason = rawReason == null ? "" : String.valueOf(rawReason);
         Notification notification = new Notification();

@@ -43,11 +43,11 @@ const canViewLedger = computed(
   () => !isPending(session.user?.status ?? 1) && hasPermission(session.permissions, LEDGER_VIEW_ANY),
 );
 
-/** 最近比赛之后依次为动态、活动、账本入口。 */
+/** 最近比赛之后依次为活动、账本、动态入口（P-166：动态移至账本下方）。 */
 const homeEntries = computed(() => [
-  ...(canViewContent.value ? [{ to: '/posts', icon: '📸', title: '动态' }] : []),
   { to: '/activities', icon: '🎉', title: '活动' },
   ...(canViewLedger.value ? [{ to: '/ledger', icon: '💰', title: '账本' }] : []),
+  ...(canViewContent.value ? [{ to: '/posts', icon: '📸', title: '动态' }] : []),
 ]);
 
 function onAdminEntry(event: MouseEvent): void {

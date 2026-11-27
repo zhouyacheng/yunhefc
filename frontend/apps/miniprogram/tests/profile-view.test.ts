@@ -160,6 +160,30 @@ describe('profile view', () => {
     });
   });
 
+  it('maps content report notifications to the timeline or album', () => {
+    const base: Notification = {
+      id: 6,
+      type: 14,
+      typeLabel: '内容举报',
+      title: '动态被举报',
+      body: '',
+      refType: 'CONTENT_POST',
+      refId: 33,
+      readAt: null,
+      createdAt: '2026-12-03T20:00:00+08:00',
+    };
+    expect(decorateNotification(base)).toMatchObject({
+      linkLabel: '查看动态',
+      linkUrl: '/pages/posts/index?post=33',
+      invalidate: null,
+    });
+    expect(decorateNotification({ ...base, refType: 'CONTENT_PHOTO', refId: 7001 })).toMatchObject({
+      linkLabel: '查看相册',
+      linkUrl: '/pages/album-detail/index?id=7001',
+      invalidate: null,
+    });
+  });
+
   it('leaves notifications without a known target unlinked', () => {
     expect(
       decorateNotification({

@@ -7,6 +7,7 @@ import {
   signupMatch,
 } from '../../utils/api-client';
 import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
+import { contentVisible } from '../../utils/content';
 import { buildHero, HOME_FEATURES, type HeroView } from '../../utils/home-view';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import { invalidate } from '../../utils/invalidation';
@@ -85,9 +86,12 @@ Page({
     const permissions = getPermissions();
     const canViewLedger =
       !isPending(getUser()?.status) && hasPermission(permissions, LEDGER_VIEW_ANY);
+    // P-142：动态入口仅对登录的正式球员与管理员显示，与 C01 同口径。
+    const canViewContent = contentVisible(getUser(), permissions);
     this.setData({
       canEnterAdmin: hasBackendPermission(permissions),
       quickEntries: [
+        ...(canViewContent ? [{ icon: '📷', title: '动态', url: '/pages/posts/index' }] : []),
         { icon: '🎉', title: '活动', url: '/pages/activity/index' },
         ...(canViewLedger ? [{ icon: '💰', title: '账本', url: '/pages/ledger/index' }] : []),
       ],

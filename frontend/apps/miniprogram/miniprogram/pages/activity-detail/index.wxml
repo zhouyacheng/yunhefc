@@ -20,6 +20,12 @@
             bindtap="openStatus"
           >{{statusText}} ▾</view>
           <text wx:else class="status-pill status-pill--{{statusTone}}">{{statusText}}</text>
+          <view
+            wx:if="{{canViewContent}}"
+            class="detail-share"
+            bindtap="openPhotos"
+            hover-class="detail-share--pressed"
+          >{{photoBusy ? '打开中…' : '照片'}}</view>
           <button
             wx:if="{{shareCoverReady}}"
             class="detail-share"

@@ -592,3 +592,70 @@ export interface LedgerStatistics {
   trendGranularity: LedgerTrendGranularity;
   trend: LedgerTrendPoint[];
 }
+
+// ---- M17 动态与相册（05 §3.18 CNT-01~13） ----
+
+export interface AlbumSummary {
+  id: number;
+  title: string;
+  matchId: number | null;
+  activityId: number | null;
+  /** 归属比赛/活动标题；归属对象已删除时为 null。 */
+  ownerName: string | null;
+  coverThumbnailUrl: string | null;
+  photoCount: number;
+  createdBy: number;
+  createdAt: string;
+}
+
+export interface AlbumDetail extends AlbumSummary {
+  /** 封面原图（不带缩略处理）。 */
+  coverUrl: string | null;
+}
+
+export interface AlbumPhoto {
+  id: number;
+  thumbnailUrl: string;
+  originalUrl: string;
+  uploadedBy: number;
+  uploaderName: string;
+  createdAt: string;
+}
+
+export interface AlbumPhotoUpload {
+  photo: AlbumPhoto;
+  photoCount: number;
+}
+
+export interface AlbumDeleteResult {
+  deleted: boolean;
+  deletedPhotos: number;
+}
+
+export interface AlbumPhotoDeleteResult {
+  deleted: boolean;
+  coverReset: boolean;
+}
+
+export interface PostAuthor {
+  id: number;
+  name: string;
+  avatarUrl: string | null;
+}
+
+/** CNT-09/10：列表与发布共用同一结构。 */
+export interface ContentPost {
+  id: number;
+  author: PostAuthor;
+  content: string;
+  /** 引用的相册；相册已删除时为 null，正文保留。 */
+  album: AlbumSummary | null;
+  likeCount: number;
+  likedByMe: boolean;
+  createdAt: string;
+}
+
+export interface PostLikeResult {
+  liked: boolean;
+  likeCount: number;
+}

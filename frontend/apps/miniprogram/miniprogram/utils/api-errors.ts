@@ -9,6 +9,7 @@ export const MATCH_STATE_CONFLICT = 40905;
 export const ACTIVITY_SIGNUP_CONFLICT = 40916;
 export const ACTIVITY_STATE_CONFLICT = 40917;
 export const ACTIVITY_FULL = 40918;
+export const CONTENT_ALBUM_FULL = 40920;
 export const GROUPING_MISMATCH = 42203;
 
 /** 这些冲突说明服务端数据已变化，写操作后应静默重载。 */

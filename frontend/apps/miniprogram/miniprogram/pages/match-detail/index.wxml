@@ -24,6 +24,12 @@
             hover-class="{{canChangeStatus ? 'status-pill--pressed' : 'none'}}"
           >{{header.statusText}}{{canChangeStatus ? ' ▾' : ''}}</view>
           <view
+            wx:if="{{canViewContent}}"
+            class="detail-share"
+            bindtap="openPhotos"
+            hover-class="detail-share--pressed"
+          >{{photoBusy ? '打开中…' : '照片'}}</view>
+          <view
             wx:if="{{canInvite}}"
             class="detail-share"
             bindtap="openInvite"

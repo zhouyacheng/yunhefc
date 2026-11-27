@@ -1,0 +1,140 @@
+<view class="container album-detail">
+  <view wx:if="{{access === 'loading'}}" class="state">
+    <van-loading size="20px">加载中…</van-loading>
+  </view>
+
+  <view wx:elif="{{access === 'guest'}}" class="state card">
+    <van-empty description="登录后查看相册" />
+    <text class="muted">动态与相册仅对球队成员开放。</text>
+    <view class="btn btn--primary btn--small" bindtap="goLogin" hover-class="btn--pressed">去登录</view>
+  </view>
+
+  <view wx:elif="{{access === 'pending'}}" class="state card">
+    <van-empty description="账号待审核，暂不能查看相册" />
+    <text class="muted">通过审核后即可查看相册。</text>
+  </view>
+
+  <view wx:elif="{{access === 'blocked'}}" class="state card">
+    <van-empty description="动态与相册仅正式球员与管理员可见" />
+  </view>
+
+  <block wx:else>
+    <view wx:if="{{notFound}}" class="state">
+      <van-empty description="相册不存在" />
+    </view>
+
+    <view wx:elif="{{detailLoading && !album}}" class="state">
+      <van-loading size="20px">加载中…</van-loading>
+    </view>
+
+    <view wx:elif="{{detailError && !album}}" class="state">
+      <text class="muted">{{detailError}}</text>
+      <view class="btn btn--primary btn--small" bindtap="retryDetail" hover-class="btn--pressed">重试</view>
+    </view>
+
+    <block wx:elif="{{album}}">
+      <view class="card album-head">
+        <text class="album-head__title">{{album.title}}</text>
+        <text class="muted">{{albumOwnerText}} · {{album.photoCount}} 张 · 创建于 {{albumTimeText}}</text>
+        <view wx:if="{{canManage}}" class="album-head__actions">
+          <view class="btn btn--small btn--outline" bindtap="openEdit" hover-class="btn--pressed">编辑名称</view>
+          <view class="btn btn--small btn--danger-plain" bindtap="removeAlbum" hover-class="btn--pressed">
+            {{deletingAlbum ? '删除中…' : '删除相册'}}
+          </view>
+        </view>
+      </view>
+
+      <view class="card album-upload">
+        <view class="card-head">
+          <text class="card-title">照片</text>
+          <view
+            wx:if="{{canUpload}}"
+            class="btn btn--small btn--primary {{uploading || albumFull ? 'btn--disabled' : ''}}"
+            bindtap="choosePhotos"
+            hover-class="btn--pressed"
+          >{{albumFull ? '相册已满' : uploading ? '上传中…' : '上传照片'}}</view>
+        </view>
+        <text class="muted">支持 JPG/PNG/WebP；客户端压缩长边 {{photoMaxEdge}}px，单张 ≤5MB，单相册最多 {{albumMaxPhotos}} 张。</text>
+        <text wx:if="{{uploadMessage}}" class="action-error">{{uploadMessage}}</text>
+        <view wx:if="{{uploadTasks.length}}" class="upload-tasks">
+          <view wx:for="{{uploadTasks}}" wx:key="key" class="upload-task">
+            <text class="upload-task__name">{{item.name}}</text>
+            <text class="upload-task__state {{item.status === 'error' ? 'upload-task__state--error' : ''}}">{{item.status === 'uploading' ? '上传中…' : item.status === 'done' ? '已上传' : item.message}}</text>
+          </view>
+        </view>
+      </view>
+
+      <view wx:if="{{photosLoading}}" class="state">
+        <van-loading size="20px">加载中…</van-loading>
+      </view>
+
+      <view wx:elif="{{photosError && !photos.length}}" class="state">
+        <text class="muted">{{photosError}}</text>
+        <view class="btn btn--primary btn--small" bindtap="retryPhotos" hover-class="btn--pressed">重试</view>
+      </view>
+
+      <view wx:elif="{{!photos.length}}" class="state">
+        <van-empty description="相册还没有照片，点上方上传" />
+      </view>
+
+      <block wx:else>
+        <view class="photo-grid">
+          <view wx:for="{{photos}}" wx:key="id" class="photo-tile">
+            <image
+              wx:if="{{!brokenPhotos[item.thumbnailUrl]}}"
+              class="photo-tile__image"
+              src="{{item.thumbnailUrl}}"
+              mode="aspectFill"
+              data-index="{{index}}"
+              data-url="{{item.thumbnailUrl}}"
+              bindtap="previewPhoto"
+              binderror="onPhotoError"
+            />
+            <view
+              wx:else
+              class="photo-tile__broken"
+              data-index="{{index}}"
+              bindtap="previewPhoto"
+            >图片加载失败</view>
+            <view
+              class="photo-tile__menu"
+              data-id="{{item.id}}"
+              catchtap="openPhotoActions"
+              hover-class="photo-tile__menu--pressed"
+            >⋯</view>
+            <text class="photo-tile__meta">{{item.uploaderName}} · {{item.timeText}}</text>
+          </view>
+        </view>
+
+        <view class="list-foot">
+          <text wx:if="{{photosError}}" class="muted" bindtap="retryPhotos">{{photosError}}（点击重试）</text>
+          <text wx:elif="{{photosMoreLoading}}" class="muted">加载中…</text>
+          <text wx:elif="{{photoPage >= photoTotalPages}}" class="muted">共 {{photoTotal}} 张</text>
+          <text wx:else class="muted">上拉加载更多</text>
+        </view>
+      </block>
+    </block>
+
+    <van-popup show="{{editOpen}}" position="bottom" round bind:close="closeEdit">
+      <view class="edit-sheet">
+        <text class="edit-sheet__title">编辑相册</text>
+        <van-field
+          value="{{editTitle}}"
+          label="相册名称"
+          maxlength="{{albumTitleMax}}"
+          placeholder="1–64 字"
+          bind:change="onEditTitleInput"
+        />
+        <text wx:if="{{editError}}" class="action-error">{{editError}}</text>
+        <view class="edit-sheet__actions">
+          <view class="btn btn--small btn--outline" bindtap="closeEdit" hover-class="btn--pressed">取消</view>
+          <view
+            class="btn btn--small btn--primary {{savingTitle ? 'btn--disabled' : ''}}"
+            bindtap="submitEdit"
+            hover-class="btn--pressed"
+          >{{savingTitle ? '保存中…' : '保存'}}</view>
+        </view>
+      </view>
+    </van-popup>
+  </block>
+</view>

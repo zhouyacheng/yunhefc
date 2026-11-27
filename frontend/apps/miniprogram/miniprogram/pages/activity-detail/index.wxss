@@ -33,8 +33,10 @@
 
 .detail-hero__tools {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 16rpx;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .detail-hero__title {

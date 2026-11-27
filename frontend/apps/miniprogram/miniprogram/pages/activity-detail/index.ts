@@ -13,6 +13,8 @@ import {
   renderActivityShareCover,
 } from '../../utils/activity-share-cover';
 import { errorMessage, shouldRefreshAfterActivityConflict } from '../../utils/api-errors';
+import { contentVisible } from '../../utils/content';
+import { openRelatedAlbum } from '../../utils/content-entry';
 import {
   activityAction,
   activityCanCancel,
@@ -96,6 +98,8 @@ Page({
     withFamily: false,
     familyNote: '',
     canChangeStatus: false,
+    canViewContent: false,
+    photoBusy: false,
     statusOpen: false,
     statusOptions: [] as ActivityStatusOption[],
     statusBusy: false,
@@ -194,6 +198,7 @@ Page({
     const canSignupPerm = authenticated && hasPermission(getPermissions(), ACTIVITY_SIGNUP_OWN);
     const canChangeStatus =
       authenticated && hasPermission(getPermissions(), ACTIVITY_MANAGE_ANY);
+    const canViewContent = contentVisible(user, getPermissions());
     const canViewSignups =
       authenticated && hasPermission(getPermissions(), ACTIVITY_VIEW_ANY);
     const hint =
@@ -218,6 +223,7 @@ Page({
       pending,
       canSignupPerm,
       canChangeStatus,
+      canViewContent,
       canViewSignups,
       signups: canViewSignups ? this.data.signups : [],
       signupTotal: canViewSignups ? this.data.signupTotal : null,
@@ -389,6 +395,25 @@ Page({
       }
     } finally {
       this.setData({ cancelBusy: false });
+    }
+  },
+
+  /** MP11 头部「照片」：有相册按活动过滤进入 MP14，无相册自动建默认相册后进入详情。 */
+  async openPhotos(): Promise<void> {
+    const activity = this.data.activity;
+    if (!activity || !this.data.canViewContent || this.data.photoBusy) {
+      return;
+    }
+    this.setData({ photoBusy: true });
+    try {
+      await openRelatedAlbum({ activityId: activity.id, title: activity.title });
+    } catch (error) {
+      wx.showToast({
+        title: errorMessage(error, '相册打开失败，请稍后重试'),
+        icon: 'none',
+      });
+    } finally {
+      this.setData({ photoBusy: false });
     }
   },
 

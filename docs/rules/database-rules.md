@@ -81,7 +81,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
 
 ## 6 审计、时间与保留
 
-1. 时间统一 `DATETIME(3)` 存 Asia/Shanghai（+08:00）墙钟；业务边界（报名截止 00:00、锁定 01:00、签到窗口、缺勤 +6h）直接在 Asia/Shanghai 推导后存储。应用连接池通过 Hikari `data-source-properties.connectionTimeZone=Asia/Shanghai` 与 `connection-init-sql` 固定驱动和会话时区，禁止依赖 RDS/容器默认时区；`DEFAULT CURRENT_TIMESTAMP(3)` / `ON UPDATE CURRENT_TIMESTAMP(3)` 必须与驱动时区同标尺。接口层输出 ISO-8601 `+08:00` 偏移。
+1. 时间统一 `DATETIME(3)` 存 Asia/Shanghai（+08:00）墙钟；业务边界（报名截止 00:00、锁定 01:00、签到窗口、缺勤 +6h）直接在 Asia/Shanghai 推导后存储。应用连接池通过 Hikari `data-source-properties.connectionTimeZone=Asia/Shanghai` 与 `connection-init-sql` 固定驱动和会话时区，禁止依赖容器默认时区；`DEFAULT CURRENT_TIMESTAMP(3)` / `ON UPDATE CURRENT_TIMESTAMP(3)` 必须与驱动时区同标尺。接口层输出 ISO-8601 `+08:00` 偏移。
 2. 业务主表包含 `created_at`；可变表包含 `updated_at`；关联表、子表与事件去重表可使用业务时间字段替代（如 `registered_at`、`recorded_at`、`used_at`、`processed_at`）；关键写操作记录 `created_by/updated_by` 等操作人字段。
 3. 事件修改历史写 `event_history`；审计日志不删除，年度导出 OSS 冷备。
 4. 保留策略：
@@ -120,7 +120,7 @@ is_deleted TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0-未删除;1-伪删除'
    - `V20__content_album_post.sql`（P-142）：新增 `content_album`、`content_album_photo`、`content_post`、`content_post_like` 四表与 7 条索引，并补 `notification.type` 列注释 14-内容举报。
    - `V21__seed_content_permissions.sql`（P-142）：新增 4 个内容权限码与角色授权（ADMIN 全授、PLAYER 授 `content:view:any`/`content:create:own`、GUEST 不授）。
 3. 迁移保持小步、向后兼容；采用 expand/contract：先加兼容字段，再切读写，最后清理旧字段。单部署单元不存在新旧版本并行的滚动窗口时，允许在同一迁移完成加列/建表/回填/删列，但必须在 04 §9 记录该例外（如 V18）。
-4. 不做逆向迁移；回滚优先回滚代码，不兼容变更按备份/PITR 恢复。
+4. 不做逆向迁移；回滚优先回滚代码，不兼容变更人工修复或从手工 `mysqldump` 恢复（生产无自动备份、无 PITR，P-168）。
 5. 启动健康检查覆盖迁移结果；迁移失败阻断启动。
 6. 迁移脚本不得包含 `DROP DATABASE`、`USE`、生产凭证或环境相关硬编码。
 

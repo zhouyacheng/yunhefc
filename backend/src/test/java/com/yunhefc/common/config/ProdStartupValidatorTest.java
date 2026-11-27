@@ -112,11 +112,10 @@ class ProdStartupValidatorTest {
     }
 
     @Test
-    void rejectsDefaultDbPassword() {
-        assertThatThrownBy(() -> validator(session(true, ""), corsOfExampleDomain(),
+    void acceptsYunhefcDbPassword() {
+        assertThatCode(() -> validator(session(true, ""), corsOfExampleDomain(),
                 "yunhefc", "redis-password").validate())
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("DB_PASSWORD");
+                .doesNotThrowAnyException();
     }
 
     @Test

@@ -75,10 +75,10 @@ test('C01 首页：登录球员看到最近一场与报名队列', async ({ page
   // 1002 已在 1006 场报名，CTA 直接进入详情。
   await expect(page.getByRole('button', { name: '查看详情' })).toBeVisible();
   await expect(page.locator('.hint').filter({ hasText: '已报名' })).toBeVisible();
-  // P-142 动态入口在活动之上；P-134 活动入口；P-132 正式球员持 ledger:view:any。
+  // P-166 入口顺序为活动、账本、动态；P-134 活动入口；P-132 正式球员持 ledger:view:any。
   expect(
     await page.locator('.home-entry').evaluateAll((els) => els.map((el) => el.getAttribute('href'))),
-  ).toEqual(['/posts', '/activities', '/ledger']);
+  ).toEqual(['/activities', '/ledger', '/posts']);
 
   expect(errors).toEqual([]);
 });

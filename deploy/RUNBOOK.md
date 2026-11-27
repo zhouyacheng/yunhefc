@@ -1,6 +1,6 @@
 # 云河FC 部署与运维 Runbook
 
-适用：单 ECS（2C2G）+ 阿里云 RDS MySQL 8.4 + Compose（backend / Redis / Nginx）。
+适用：单 ECS（2C2G）+ Compose（MySQL 8.4 / Redis / backend / Nginx）。MySQL 使用宿主已预置的官方镜像 `mysql:8.4`，仅 Compose 内网可达（P-168）。
 事实源：设计文档 03（`docs/design/03.整体架构设计.md`）§6.4、§7；`.scratch/mvp-release/issues/12`、`13`、`16`、`17`。
 
 > 生产密钥只放 ECS `/opt/yunhefc/.env`（600），同一份内容在密码管理器离线保管；不入库、不进 GitHub Secrets。
@@ -21,7 +21,8 @@
 ```
 
 - ECS：系统盘 ≥40GB、2GB swap、Docker + Compose plugin、`rsync`（`deploy.yml` 用它同步发布快照）；`deploy` 用户在 `docker` 组，非 root。
-- 验证：`free -m` 可用内存 <1.9GB 时，把 `docker-compose.prod.yml` 的 backend `-Xmx` 降至 384m；仍 OOM 则升配 4C8G。
+- 内存上限：backend 832m、Redis 192m、Nginx 48m、MySQL 512m，主机/OS 预留约 0.3GB，另建 2GB swap 兜底。`free -m` 可用内存 <1.9GB 时，把 `docker-compose.prod.yml` 的 backend `-Xmx` 降至 384m；仍 OOM 则升配 4C8G。
+- 宿主必须预置 `mysql:8.4` 镜像（生产发布链路不访问 Docker Hub）：`docker image inspect mysql:8.4`。缺失时从可信来源离线导入后再发布。
 - 目录初始化与可选应急脚本（首次引导；发布/回滚脚本随快照下发，不再依赖这里更新）：
 
 ```bash
@@ -43,30 +44,105 @@ compose_current() {
       -f /opt/yunhefc/current/docker-compose.yml \
       -f /opt/yunhefc/current/docker-compose.prod.yml "$@"
 }
+
+env_value() { sed -n "s/^$1=//p" /opt/yunhefc/.env | tail -1; }
+
+mysql_current() {
+  compose_current exec -T -e MYSQL_PWD="$(env_value DB_PASSWORD)" \
+    mysql mysql -u "$(env_value DB_USERNAME)" yunhefc "$@"
+}
+
+mysql_root() {
+  compose_current exec -T -e MYSQL_PWD="$(env_value MYSQL_ROOT_PASSWORD)" \
+    mysql mysql -uroot "$@"
+}
 ```
 
 ---
 
 ## 1. 首次部署
 
-### 1.1 RDS 与账号分离
+### 1.1 自建 MySQL（Compose 内）
 
-1. RDS MySQL 8.4，与 ECS 同地域同 VPC（私网），ECS 私网 IP 加入白名单。
-2. 建库 `yunhefc`（utf8mb4 / utf8mb4_0900_ai_ci）。
-3. 两个账号：
-   - `yunhefc_migrator`：Flyway 迁移，需要 DDL（`CREATE/ALTER/INDEX/DROP` 等）。
-   - `yunhefc_app`：仅 `SELECT, INSERT, UPDATE, DELETE`，供应用使用（`spring.flyway.enabled=false`）。
+1. 使用宿主已预置的官方镜像 `mysql:8.4`，Compose 服务 `mysql`；不发布 3306，仅 `app` 网络可达，数据落命名卷 `mysql-data`。
+2. 首次启动由容器环境变量初始化：库 `yunhefc`（utf8mb4 / utf8mb4_0900_ai_ci）、账号 `yunhefc`（`DB_USERNAME`/`DB_PASSWORD` 取 `.env`；口令只写 `.env`、不入库）、root 口令取 `.env` 的 `MYSQL_ROOT_PASSWORD`（随机生成）。迁移与应用共用 `yunhefc` 账号（该账号对 `yunhefc.*` 有 DDL 权限）。账号口令只在数据卷首次初始化时生效；之后修改 `.env` 的 `DB_PASSWORD` 需同步执行 `ALTER USER 'yunhefc'@'%' IDENTIFIED BY '<新口令>';`。
+3. 时区：容器 `TZ=Asia/Shanghai` 使 `system_time_zone=CST`；`--default-time-zone=+08:00` 使全局/会话 `time_zone=+08:00`。
+4. 资源：`mem_limit=512m`、`innodb_buffer_pool_size=192M`、`max_connections=50`，关闭 `performance_schema` 与 X Plugin（`mysqlx`）。
+5. 校验（首次发布后）：
 
-```sql
-CREATE DATABASE IF NOT EXISTS yunhefc
-  DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-CREATE USER 'yunhefc_migrator'@'%' IDENTIFIED BY '<migrator-pwd>';
-CREATE USER 'yunhefc_app'@'%' IDENTIFIED BY '<app-pwd>';
-GRANT ALL PRIVILEGES ON yunhefc.* TO 'yunhefc_migrator'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON yunhefc.* TO 'yunhefc_app'@'%';
+```bash
+mysql_current -e "SELECT @@system_time_zone, @@global.time_zone, @@session.time_zone;
+  SELECT COUNT(*) FROM flyway_schema_history;"
 ```
 
-4. 确认空库：`SELECT COUNT(*) FROM flyway_schema_history;` 应为 0 或表不存在。
+预期 `CST / +08:00 / +08:00`；空库时 `flyway_schema_history` 为 0 或表不存在。
+
+### 1.1.1 从 RDS 迁移存量数据（一次性 cutover）
+
+> 生产自 RDS 切到自建 MySQL 时执行一次；后续环境从空库跑 V1–V21 即可。全程保留 RDS 实例与旧 `.env` 至少 7 天用于回退。
+
+1. 确认宿主已预置 `mysql:8.4`；在 `.env` 增加 `MYSQL_ROOT_PASSWORD`（随机，600 文件），`DB_URL` 暂时保持原 RDS：
+
+   ```bash
+   grep -q '^MYSQL_ROOT_PASSWORD=' /opt/yunhefc/.env || \
+     printf 'MYSQL_ROOT_PASSWORD=%s\n' "$(openssl rand -hex 16)" >> /opt/yunhefc/.env
+   ```
+
+   发布包含 `mysql` 服务的版本，`release.sh` 会启动容器并等待 healthy（backend 此刻仍连 RDS）。`release.sh` 缺少 `MYSQL_ROOT_PASSWORD` 会直接拒绝发布。
+2. 停 backend，冻结 RDS 写入：`compose_current stop backend`。
+3. 在 ECS 上导出 RDS（迁移账号有 `SELECT`）：
+
+```bash
+mysqldump -h <rds-host> -P 3306 -u yunhefc_migrator -p \
+  --single-transaction --no-tablespaces --set-gtid-purged=OFF \
+  --default-character-set=utf8mb4 yunhefc > /opt/yunhefc/cutover-$(date +%F).sql
+```
+
+4. 导入空库（首次初始化后 `yunhefc` 为空；此步 `.env` 仍是 RDS 凭据，直接用容器 root）：
+
+```bash
+mysql_root --default-character-set=utf8mb4 yunhefc < /opt/yunhefc/cutover-<date>.sql
+```
+
+5. 创建应用账号。容器首次初始化按**当时** `.env` 的 `DB_USERNAME` 建号（cutover 阶段仍是 RDS 的 `yunhefc_app`），不会自动建 `yunhefc`；必须在切换前显式创建并授权。下面 `<DB_PASSWORD>` 替换为第 7 步写入 `.env` 的口令，不要把口令写进文档或仓库：
+
+```bash
+mysql_root -e "
+  CREATE USER IF NOT EXISTS 'yunhefc'@'%' IDENTIFIED BY '<DB_PASSWORD>';
+  ALTER USER 'yunhefc'@'%' IDENTIFIED BY '<DB_PASSWORD>';
+  GRANT ALL PRIVILEGES ON yunhefc.* TO 'yunhefc'@'%';
+  FLUSH PRIVILEGES;"
+```
+
+6. 校验（表数 = 36 业务 + 11 Quartz + `flyway_schema_history` = 48）：
+
+```bash
+mysql_root yunhefc \
+  -e "SELECT COUNT(*) AS tables_total FROM information_schema.tables
+        WHERE table_schema = 'yunhefc';
+      SELECT MAX(version) AS flyway_max FROM flyway_schema_history WHERE success = 1;
+      SELECT (SELECT COUNT(*) FROM app_user) AS users,
+             (SELECT COUNT(*) FROM team_match) AS matches;"
+```
+
+预期 `flyway_max = 21`、行数与 RDS 侧一致；时区按 §1.1 第 5 步校验。
+
+7. 切换 `.env`：先备份原文件，再把三行改为下方值。
+
+```bash
+cp /opt/yunhefc/.env /opt/yunhefc/.env.rds-$(date +%F)
+```
+
+```dotenv
+DB_URL=jdbc:mysql://mysql:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8
+DB_USERNAME=yunhefc
+DB_PASSWORD=<数据库口令>
+```
+
+> 口令与第 5 步一致，只写 `.env`（600），不写进文档、仓库或发布包。
+
+8. 重建 backend 并验收：`/opt/yunhefc/current/bin/release.sh --sha <当前sha7>` → readiness 通过 → §1.6 冒烟。
+9. 稳定 7 天后释放 RDS；期间回退 = 恢复 `.env.rds-<date>` 并重建 backend。
 
 ### 1.2 DNS / 证书 / 环境文件 / ACR
 
@@ -85,7 +161,7 @@ ACR_USERNAME=<read-only-user>
 ACR_PASSWORD=<read-only-password>
 ```
 
-> 上述 1–4 可运行 `scripts/rc-bootstrap-wizard.sh`（仓库根执行）交互完成：检查 DNS、上传证书、写 ACR 凭证、建 RDS 库与账号、生成生产 `.env`（600）。密钥只经 stdin 写入 ECS，不落本地。
+> 上述 1–4 可运行 `scripts/rc-bootstrap-wizard.sh`（仓库根执行）交互完成：检查 DNS、上传证书、写 ACR 凭证、确认 `mysql:8.4` 镜像、生成生产 `.env`（600）。密钥只经 stdin 写入 ECS，不落本地。
 
 ### 1.3 发布前迁移（应用启动前，人工执行）
 
@@ -99,7 +175,7 @@ cp backend/src/main/resources/db/migration/*.sql /opt/yunhefc/migrations/
 
 #### 迁移前预检（P-68：V9 星级精度）
 
-V9 会把 `player.skill` 由 `TINYINT UNSIGNED` 改为 `DECIMAL(3,2)`、`match_grouping_player.manual_score` 由 `DECIMAL(3,1)` 改为 `DECIMAL(3,2)`。`TINYINT` 可存 0–255，超出 `DECIMAL(3,2)` 上限 9.99 的值会让 `ALTER` 直接失败；先用迁移账号检查：
+V9 会把 `player.skill` 由 `TINYINT UNSIGNED` 改为 `DECIMAL(3,2)`、`match_grouping_player.manual_score` 由 `DECIMAL(3,1)` 改为 `DECIMAL(3,2)`。`TINYINT` 可存 0–255，超出 `DECIMAL(3,2)` 上限 9.99 的值会让 `ALTER` 直接失败；先用 `mysql_current` 检查：
 
 ```sql
 SELECT COUNT(*) AS skill_out_of_range FROM player WHERE skill < 1 OR skill > 5;
@@ -110,15 +186,28 @@ SELECT COUNT(*) AS manual_score_out_of_range FROM match_grouping_player
 
 - 三个计数必须为 0 才能执行 `migrate`；非 0 时先备份并按业务确认修数，禁止在迁移脚本里静默改成 `3.00`。
 
+> 首次部署时 MySQL 容器还没启动：先按 §1.4 第 1 步准备 release 目录，再只启动 MySQL（迁移完成前不要启动 backend）：
+>
+> ```bash
+> cd /opt/yunhefc/releases/<sha7>
+> IMAGE_REGISTRY=<registry>/<namespace> IMAGE_TAG=sha-<sha7> \
+>   docker compose --project-name yunhefc --env-file /opt/yunhefc/.env \
+>     -f docker-compose.yml -f docker-compose.prod.yml up -d mysql
+> ```
+>
+> 已有环境直接使用 `mysql` 服务，跳过此步。
+
 ```bash
-docker run --rm --network host \
+# 在 Compose 网络内连 mysql 服务；flyway 镜像需宿主预置（不从 Docker Hub 拉取）。
+# 网络名默认 yunhefc_app（COMPOSE_PROJECT=yunhefc）。
+docker run --rm --network yunhefc_app \
   -v /opt/yunhefc/migrations:/flyway/sql:ro \
   flyway/flyway:11.7.2 \
-  -url="jdbc:mysql://<rds-host>:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8" \
-  -user=yunhefc_migrator -password='<migrator-pwd>' -connectRetries=10 migrate
+  -url="jdbc:mysql://mysql:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8" \
+  -user=yunhefc -password='<DB_PASSWORD>' -connectRetries=10 migrate
 ```
 
-- 迁移失败：不发版，修复后重跑；禁止用应用账号执行 DDL。
+- 迁移失败：不发版，修复后重跑。
 - DDL 已生效但历史记为 failed（例如执行完 DDL 后连接中断）：先备份，并逐项核对列/索引与迁移文件一致。对象未创建时用 `flyway repair` 删除失败记录后重跑；对象已全部创建且失败行 `checksum` 非空时，可执行 `UPDATE flyway_schema_history SET success=1, execution_time=0 WHERE version='<目标版本>' AND success=0`。改动历史表前必须显式确认。
 - 迁移成功后确认 `flyway_schema_history` 与目标版本一致。
 - 应用以 `spring.flyway.enabled=false` 启动；发布前若迁移未执行，应用不会补跑。
@@ -128,13 +217,13 @@ docker run --rm --network host \
 `flyway migrate` 成功后执行，确认最新版本与目标一致（当前 V21；V15 为空号）：
 
 ```bash
-docker run --rm --network host \
+docker run --rm --network yunhefc_app \
   -v /opt/yunhefc/migrations:/flyway/sql:ro \
   flyway/flyway:11.7.2 \
-  -url="jdbc:mysql://<rds-host>:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8" \
-  -user=yunhefc_migrator -password='<migrator-pwd>' -connectRetries=10 info
+  -url="jdbc:mysql://mysql:3306/yunhefc?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&characterEncoding=utf8" \
+  -user=yunhefc -password='<DB_PASSWORD>' -connectRetries=10 info
 
-mysql -h <rds-host> -u yunhefc_migrator -p yunhefc -e "
+mysql_current -e "
   SELECT version, success FROM flyway_schema_history ORDER BY installed_rank DESC LIMIT 3;
   SHOW COLUMNS FROM audit_log LIKE 'operated_at';
   SHOW INDEX FROM audit_log WHERE Key_name = 'idx_audit_team_operated';
@@ -228,11 +317,11 @@ GROUP BY DATE(created_at) ORDER BY d;
 
 仅在“库中全部业务行都早于首个 +08 镜像且从未平移过”时执行：
 
-1. 停止 backend，完成 RDS 备份或确认 PITR 时间点。
+1. 停止 backend，并手工 `mysqldump` 留底（生产无自动备份，P-168）。
 2. 执行一次性脚本（**只执行一次**，重复执行会再次 +8h）：
 
 ```bash
-mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/migrate-datetime-utc-to-shanghai.sql
+mysql_current < scripts/sql/migrate-datetime-utc-to-shanghai.sql
 ```
 
 3. 抽样确认 `team_match.start_at`、`audit_log.created_at` 与 `audit_log.operated_at` 等恰好 +8h，且 `updated_at` 未被 `NOW()` 覆盖。脚本自带防重复执行检查：若检测到未来时间戳会直接中止。
@@ -259,9 +348,9 @@ printf 'IMAGE_TAG=sha-%s\n' "$sha7" > /opt/yunhefc/releases/$sha7/release.env
 /opt/yunhefc/releases/$sha7/bin/release.sh --sha "$sha7"
 ```
 
-脚本顺序：校验双镜像 → `docker compose pull backend nginx` → 写 `state/previous` → 切 `current` → 基础设施未运行时启动 `redis`（已运行则不动）→ `up -d --no-deps backend nginx` → readiness ≤180s → 冒烟（C 端首页、`/admin/`、`/actuator/health`、公开读接口、敏感路径 404）。
+脚本顺序：校验双应用镜像、`mysql:8.4` 本地镜像与 ACR Redis 镜像 → `docker compose pull backend nginx` → 写 `state/previous` → 切 `current` → 基础设施未运行时启动 `mysql`/`redis` 并等 MySQL healthy（已运行则不动）→ `up -d --no-deps backend nginx` → readiness ≤180s → 冒烟（C 端首页、`/admin/`、`/actuator/health`、公开读接口、敏感路径 404）。
 `compose up` 退出 0 不代表健康；以 readiness 与冒烟为准。任一步失败脚本退出非零，`current` 保留在失败版本。
-基础设施镜像 `yunhefc-infra-redis` 来自 ACR，发布链路不访问 Docker Hub；首次启动前需确认该 tag 已由 CI `mirror-infra` 产出。
+基础设施镜像：Redis 来自 ACR（CI `mirror-infra` 产出），MySQL 来自宿主预置的 `mysql:8.4`；发布链路不访问 Docker Hub。
 
 ### 1.5 首位管理员
 
@@ -275,7 +364,7 @@ htpasswd -bnBC 10 "" '<strong-password>' | tr -d ':\n' | sed 's/^\$2y\$/$2a$/'
 3. 执行（按 `phone` 与角色 `code` 查 ID；重复执行只恢复 `status`/`is_deleted`，不重置密码）：
 
 ```bash
-mysql -h <rds-host> -u yunhefc_migrator -p yunhefc < scripts/sql/bootstrap-admin.sql
+mysql_current < scripts/sql/bootstrap-admin.sql
 ```
 
 4. 校验：
@@ -297,7 +386,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' https://www.<domain>/actuator/env   # 
 curl -sS -o /dev/null -w '%{http_code}\n' http://<domain>/   # 301
 ```
 
-RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐项覆盖冒烟、TLS、响应头、CORS、暴露面、迁移账号、限流与 RDS 备份；结果写入 `deploy/rc-acceptance-results.md`。向导默认只读；唯一会写生产的是 §6.9 锁定验证（会锁定测试号约 15 分钟，需显式确认）。
+RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐项覆盖冒烟、TLS、响应头、CORS、暴露面、数据库时区与端口暴露、限流与数据库备份口径；结果写入 `deploy/rc-acceptance-results.md`。向导默认只读；唯一会写生产的是 §6.9 锁定验证（会锁定测试号约 15 分钟，需显式确认）。
 
 ---
 
@@ -325,25 +414,28 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 - 保留 current + previous + 最新一个其他版本；清理旧目录与对应镜像，绝不删除 current/previous。
 - 回滚不修改 `state/previous`；回滚后如需继续回退，请显式传 `--rollback <sha7>`。
 - 回滚触发：readiness 超时、迁移失败、冒烟失败、发布后 30 分钟内 5xx 或关键路径异常。
-- 回滚优先只回代码；仅当迁移不向后兼容或数据损坏时按 RDS PITR 恢复，不做逆向迁移。
+- 回滚优先只回代码；生产数据库无自动备份（P-168，风险接受），迁移不向后兼容或数据损坏时只能人工修复或从手工 dump 恢复，不做逆向迁移。
+- 数据库切到自建 MySQL 后，回滚到 P-168 之前的 release 快照前必须先恢复 RDS `.env` 并确认 RDS 可用（旧快照没有 `mysql` 服务，`DB_URL=mysql` 会连不上）。快照拓扑标记已改为 `www-single+mysql`，脚本会拒绝跨拓扑回滚，恢复后需显式加 `--force`。
 
 发布前人工检查：
 
 1. ACR 中 `yunhefc-backend:sha-<7>`、`yunhefc-nginx:sha-<7>`、`yunhefc-infra-redis:6.2.24` 三个 manifest 都存在（`release.sh` 会自动校验；手工检查仅用于提前确认）。
 2. `flyway migrate` 已成功，`flyway_schema_history` 为最新。
-3. RDS 自动备份 / binlog / PITR：按检查单 §10 #18 风险接受，不阻塞发布；如需恢复能力，发布前自行确认，不再作为推迟发布的理由。
+3. 数据库无自动备份（P-168，风险接受），不阻塞发布；如需留底，发布前自行执行 `mysqldump`。
 
 ---
 
 ## 3. 故障恢复
 
-### 3.1 RDS PITR 恢复
+### 3.1 数据库不可用 / 数据卷损坏
 
-1. RDS 控制台 → 备份恢复 → 按时间点创建新实例（保留范围内）。
-2. 新实例与 ECS 同 VPC、放行私网；校验账号与权限（应用 DML、迁移 DDL）。
-3. 更新 `/opt/yunhefc/.env` 的 `DB_URL`（新私网地址），`release.sh --sha <当前sha7>` 重建 backend。
-4. 观察 readiness 与关键接口；确认数据时间点符合预期。
-5. 旧实例保留到确认完成后再释放（保留期内仍可用 PITR 再恢复）。
+生产数据库无自动备份、无 PITR（P-168 风险接受），恢复只能靠手工 dump 或人工修复。
+
+1. 确认范围：`compose_current logs --tail=200 mysql`、`docker volume inspect yunhefc_mysql-data`；区分容器启动失败与数据卷损坏。
+2. 容器启动失败（如参数或初始化错误）：修复 `.env`/Compose 后 `compose_current up -d mysql`，等待 healthy；`mysql-data` 卷不清空。
+3. 数据卷损坏或误删：只能从最近的手工 `mysqldump` 恢复到新卷；无 dump 即数据丢失，需按业务决定是否从 RDS 历史导出（若 RDS 尚未释放）或重跑 V1–V21 空库。
+4. 恢复后校验 §1.1.1 第 5 步的表数、`flyway_schema_history` 与行数，再重建 backend 并跑 readiness/冒烟。
+5. 卷路径与保留：`docker volume inspect yunhefc_mysql-data`；**不要**在未确认前执行 `docker volume rm`。
 
 ### 3.2 `.env` 丢失或损坏
 
@@ -429,7 +521,7 @@ WHERE id = <id>;
 compose_current logs --since 48h backend 2>&1 | grep 'retention cleanup'
 ```
 
-确认失败原因后可按相同窗口手工分批补删（每批 1000，循环到 0）。手工 SQL 必须先固定会话时区，不要依赖 CLI/RDS 默认：
+确认失败原因后可按相同窗口手工分批补删（每批 1000，循环到 0）。手工 SQL 必须先固定会话时区，不要依赖容器默认：
 
 ```sql
 SET time_zone = '+08:00';
@@ -511,8 +603,7 @@ compose_current logs --tail=200 backend
 compose_current logs --tail=200 backend | grep 'Outbox event failed'
 
 # Outbox 积压
-mysql -h <rds-host> -u yunhefc_app -p yunhefc \
-  -e "SELECT status, COUNT(*) FROM outbox_event GROUP BY status;"
+mysql_current -e "SELECT status, COUNT(*) FROM outbox_event GROUP BY status;"
 ```
 
 ---
@@ -521,7 +612,7 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 
 - 分支保护、Environment 审批人、仓库变量与 Secrets 需在 GitHub 设置中配置（见 §6.5）；workflow 本身见 `.github/workflows/`。
 - 迁移文件不随 release 目录下发，发布前需从目标 commit 复制（见 §1.3）。
-- 证书续期、RDS 备份新鲜度检查、审计补导、FAILED Outbox 处置均为人工执行。
+- 证书续期、数据库手工备份（生产无自动备份）、审计补导、FAILED Outbox 处置均为人工执行。
 - 不做恢复演练、不做依赖漏洞扫描、无 CSP、无全站基础限流（残余风险见 `docs/design/06.设计方案评审结果.md` §50）。
 
 ---
@@ -552,7 +643,7 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 
 ### 6.2 手动发布
 
-1. 发布前按 §1.3 用迁移账号执行 `flyway migrate`，并完成 §2 的发布前检查；workflow 不执行 SQL、不补迁移。库落后时后端启动自检会让 readiness 失败，部署失败后先补迁移再重试。
+1. 发布前按 §1.3 用 `yunhefc` 账号执行 `flyway migrate`，并完成 §2 的发布前检查；workflow 不执行 SQL、不补迁移。库落后时后端启动自检会让 readiness 失败，部署失败后先补迁移再重试。
 2. 合并到 main 后等待 `ci` 的 `e2e` 与 `images` 成功，记下该 commit 的 7 位 sha。
 3. `Actions → deploy → Run workflow`：填 `sha`（7 位小写十六进制）与可选 `note`。
 4. workflow 依次：校验 sha 格式与仓库变量 → 校验 commit 属于 `origin/main` → `docker manifest inspect` 校验双镜像 → 固定主机指纹 SSH → 把目标 commit 的 `deploy/` 快照（compose、nginx、bin、Dockerfile、RUNBOOK；不含 `.env`/`.env.*`）与 `release.env`（`IMAGE_TAG=sha-<7>`）写入 `/opt/yunhefc/releases/<sha7>/` → 执行 `release.sh --sha <sha7>`。

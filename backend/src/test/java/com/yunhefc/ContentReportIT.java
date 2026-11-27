@@ -175,6 +175,32 @@ class ContentReportIT extends ActivityITSupport {
     }
 
     @Test
+    void reportReplayDoesNotDuplicateOutboxEvents() throws Exception {
+        Cookie reporter = player("13900006140", "幂等举报球员");
+        admin("13900006141");
+        Long postId = createPost(reporter, "幂等举报动态");
+        String body = """
+                {"targetType":0,"targetId":%d}
+                """.formatted(postId);
+
+        reportWithKey(reporter, "idem-report-post", body)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reported").value(true));
+        reportWithKey(reporter, "idem-report-post", body)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.reported").value(true));
+
+        assertThat(jdbc.queryForObject("""
+                SELECT COUNT(*) FROM outbox_event
+                WHERE event_type = ? AND aggregate_id = ? AND is_deleted = 0
+                """, Integer.class, EventTypes.CONTENT_REPORTED, postId)).isEqualTo(1);
+
+        consume(latestEvent(postId), 402L);
+        assertThat(notificationCount(userId("13900006141"), NotificationType.CONTENT_REPORTED))
+                .isEqualTo(1);
+    }
+
+    @Test
     void reportRequiresVisibleLogin() throws Exception {
         Cookie guest = guest("13900006131");
         Cookie pending = pending("13900006132");
@@ -242,10 +268,14 @@ class ContentReportIT extends ActivityITSupport {
     }
 
     private ResultActions report(Cookie cookie, String body) throws Exception {
+        return reportWithKey(cookie, idemKey(), body);
+    }
+
+    private ResultActions reportWithKey(Cookie cookie, String key, String body) throws Exception {
         return mockMvc.perform(post("/api/v1/c/content-reports")
                 .cookie(cookie)
                 .with(csrf())
-                .header("Idempotency-Key", idemKey())
+                .header("Idempotency-Key", key)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
     }

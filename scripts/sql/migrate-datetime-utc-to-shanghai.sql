@@ -8,7 +8,7 @@
 -- 跨口径库只能按切换时间点定向修复，或接受旧数据偏差。执行前先按 RUNBOOK §1.3 做只读判定。
 --
 -- 前置：
---   1. 停止 backend，完成 RDS 备份或确认 PITR 时间点。
+--   1. 停止 backend，并手工 mysqldump 留底（生产无自动备份，P-168）。
 --   2. 已完成 Flyway V1–V13（V8 新增并回填 audit_log.operated_at）。
 --   3. 确认 audit_log 没有执行过 fix-audit-log-utc.sql 之外的二次修正；混杂数据需先人工核对。
 --   4. 仅执行一次。回滚方式：对同一批列统一 - INTERVAL 8 HOUR。

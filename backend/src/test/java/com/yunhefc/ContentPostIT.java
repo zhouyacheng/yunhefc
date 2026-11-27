@@ -139,6 +139,47 @@ class ContentPostIT extends ActivityITSupport {
     }
 
     @Test
+    void postCreationAndDeletionReplayByIdempotencyKey() throws Exception {
+        Cookie player = player("13900006030", "幂等动态球员");
+        String createKey = "idem-post-create";
+
+        MvcResult first = postWithKey(player, createKey, """
+                {"content":"幂等动态"}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").value("幂等动态"))
+                .andExpect(jsonPath("$.data.likeCount").value(0))
+                .andExpect(jsonPath("$.data.likedByMe").value(false))
+                .andReturn();
+        MvcResult replay = postWithKey(player, createKey, """
+                {"content":"幂等动态"}
+                """)
+                .andExpect(status().isOk())
+                .andReturn();
+
+        Long postId = JsonPath.<Number>read(
+                first.getResponse().getContentAsString(), "$.data.id").longValue();
+        assertThat(JsonPath.<Number>read(
+                replay.getResponse().getContentAsString(), "$.data.id").longValue()).isEqualTo(postId);
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM content_post WHERE content = '幂等动态'", Integer.class)).isEqualTo(1);
+
+        String deleteKey = "idem-post-delete";
+        mockMvc.perform(delete("/api/v1/c/posts/" + postId)
+                        .cookie(player)
+                        .with(csrf())
+                        .header("Idempotency-Key", deleteKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true));
+        mockMvc.perform(delete("/api/v1/c/posts/" + postId)
+                        .cookie(player)
+                        .with(csrf())
+                        .header("Idempotency-Key", deleteKey))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true));
+    }
+
+    @Test
     void likeIsIdempotentAndCountsActiveRows() throws Exception {
         Cookie author = player("13900006004", "点赞作者");
         Cookie liker = player("13900006005", "点赞球员");
@@ -377,10 +418,14 @@ class ContentPostIT extends ActivityITSupport {
     }
 
     private ResultActions createPost(Cookie cookie, String body) throws Exception {
+        return postWithKey(cookie, idemKey(), body);
+    }
+
+    private ResultActions postWithKey(Cookie cookie, String key, String body) throws Exception {
         return mockMvc.perform(post("/api/v1/c/posts")
                 .cookie(cookie)
                 .with(csrf())
-                .header("Idempotency-Key", idemKey())
+                .header("Idempotency-Key", key)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
     }

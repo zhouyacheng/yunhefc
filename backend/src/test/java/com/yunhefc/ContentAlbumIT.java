@@ -94,6 +94,92 @@ class ContentAlbumIT extends ActivityITSupport {
     }
 
     @Test
+    void albumCreationReplaysByIdempotencyKey() throws Exception {
+        Cookie player = player("13900005030", "幂等相册球员");
+        String key = "idem-album-create";
+
+        MvcResult first = postAlbumWithKey(player, key, """
+                {"title":"幂等相册"}
+                """)
+                .andExpect(status().isOk())
+                .andReturn();
+        MvcResult replay = postAlbumWithKey(player, key, """
+                {"title":"幂等相册"}
+                """)
+                .andExpect(status().isOk())
+                .andReturn();
+
+        assertThat(jsonLong(replay, "$.data.id")).isEqualTo(jsonLong(first, "$.data.id"));
+        assertThat(jdbc.queryForObject(
+                "SELECT COUNT(*) FROM content_album WHERE title = '幂等相册'", Integer.class))
+                .isEqualTo(1);
+
+        postAlbumWithKey(player, key, """
+                {"title":"不同名称"}
+                """)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40906));
+    }
+
+    @Test
+    void albumUpdatePhotoDeleteAndAlbumDeleteReplayByIdempotencyKey() throws Exception {
+        Cookie player = player("13900005031", "幂等相册写操作球员");
+        Cookie admin = admin("13900005032");
+        Long albumId = jsonLong(postAlbum(player, """
+                {"title":"幂等写相册"}
+                """).andExpect(status().isOk()).andReturn(), "$.data.id");
+        Long photoId = uploadAndGetPhotoId(player, albumId, JPEG);
+
+        String updateKey = "idem-album-update";
+        patchAlbumWithKey(admin, albumId, updateKey, """
+                {"title":"新名称"}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("新名称"));
+        // 换键改名后再用原键重放：返回首次结果，且不会把标题改回去。
+        patchAlbumWithKey(admin, albumId, idemKey(), """
+                {"title":"再次修改"}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("再次修改"));
+        patchAlbumWithKey(admin, albumId, updateKey, """
+                {"title":"新名称"}
+                """)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.title").value("新名称"));
+        assertThat(jdbc.queryForObject(
+                "SELECT title FROM content_album WHERE id = ?", String.class, albumId))
+                .isEqualTo("再次修改");
+        patchAlbumWithKey(admin, albumId, updateKey, """
+                {"title":"不同请求体"}
+                """)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value(40906));
+
+        String photoDeleteKey = "idem-photo-delete";
+        deletePhotoWithKey(player, albumId, photoId, photoDeleteKey)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true))
+                .andExpect(jsonPath("$.data.coverReset").value(true));
+        deletePhotoWithKey(player, albumId, photoId, photoDeleteKey)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true))
+                .andExpect(jsonPath("$.data.coverReset").value(true));
+
+        uploadAndGetPhotoId(player, albumId, JPEG);
+
+        String albumDeleteKey = "idem-album-delete";
+        deleteAlbumWithKey(admin, albumId, albumDeleteKey)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true))
+                .andExpect(jsonPath("$.data.deletedPhotos").value(1));
+        deleteAlbumWithKey(admin, albumId, albumDeleteKey)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.deleted").value(true))
+                .andExpect(jsonPath("$.data.deletedPhotos").value(1));
+    }
+
+    @Test
     void rejectsBothOwnersCrossTeamOwnersAndUnknownRelations() throws Exception {
         Cookie player = player("13900005002", "归属校验球员");
         Long matchId = insertMatch(1, "主队比赛");
@@ -560,28 +646,50 @@ class ContentAlbumIT extends ActivityITSupport {
     }
 
     private ResultActions postAlbum(Cookie cookie, String body) throws Exception {
+        return postAlbumWithKey(cookie, idemKey(), body);
+    }
+
+    private ResultActions postAlbumWithKey(Cookie cookie, String key, String body) throws Exception {
         return mockMvc.perform(post("/api/v1/c/albums")
                 .cookie(cookie)
                 .with(csrf())
-                .header("Idempotency-Key", idemKey())
+                .header("Idempotency-Key", key)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
     }
 
     private ResultActions patchAlbum(Cookie cookie, Long albumId, String body) throws Exception {
+        return patchAlbumWithKey(cookie, albumId, idemKey(), body);
+    }
+
+    private ResultActions patchAlbumWithKey(Cookie cookie, Long albumId, String key,
+                                            String body) throws Exception {
         return mockMvc.perform(patch("/api/v1/c/albums/" + albumId)
                 .cookie(cookie)
                 .with(csrf())
-                .header("Idempotency-Key", idemKey())
+                .header("Idempotency-Key", key)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
     }
 
     private ResultActions deletePhoto(Cookie cookie, Long albumId, Long photoId) throws Exception {
+        return deletePhotoWithKey(cookie, albumId, photoId, idemKey());
+    }
+
+    private ResultActions deletePhotoWithKey(Cookie cookie, Long albumId, Long photoId,
+                                             String key) throws Exception {
         return mockMvc.perform(delete("/api/v1/c/albums/" + albumId + "/photos/" + photoId)
                 .cookie(cookie)
                 .with(csrf())
-                .header("Idempotency-Key", idemKey()));
+                .header("Idempotency-Key", key));
+    }
+
+    private ResultActions deleteAlbumWithKey(Cookie cookie, Long albumId, String key)
+            throws Exception {
+        return mockMvc.perform(delete("/api/v1/c/albums/" + albumId)
+                .cookie(cookie)
+                .with(csrf())
+                .header("Idempotency-Key", key));
     }
 
     private ResultActions uploadPhoto(Cookie cookie, Long albumId, byte[] bytes,

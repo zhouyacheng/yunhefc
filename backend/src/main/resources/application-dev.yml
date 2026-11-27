@@ -1,6 +1,5 @@
-# 本地联调：短信走 mock；Kafka 消费与 Outbox 中继沿用 application.yml 默认（均开启），
-# 无本地 Kafka 时显式设置 KAFKA_LISTENER_ENABLED=false / OUTBOX_ENABLED=false 关闭；
-# 本机 Kafka 地址由 scripts/dev-backend.sh 注入 KAFKA_BOOTSTRAP_SERVERS。
+# 本地联调：短信走 mock；Outbox 中继与进程内事件分发沿用 application.yml 默认（均开启），
+# 不需要后台投递时可显式设置 OUTBOX_ENABLED=false 关闭。
 # OSS 默认连真实私有 Bucket（凭证走环境变量），CI/E2E 需显式 OSS_MODE=mock。
 # 小程序微信登录默认 real：mock 的 openid 由一次性 wx.login code 派生，永远匹配不到已绑定账号；
 # CI/E2E 显式注入 WECHAT_MINI_MODE=mock。

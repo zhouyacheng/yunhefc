@@ -12,19 +12,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jayway.jsonpath.JsonPath;
-import com.yunhefc.audit.application.AuditEventConsumer;
 import com.yunhefc.audit.application.AuditEventHandler;
 import com.yunhefc.audit.application.AuditRecorder;
 import com.yunhefc.infra.outbox.OutboxMessage;
 import com.yunhefc.infra.outbox.OutboxService;
-import com.yunhefc.notification.application.NotificationEventConsumer;
 import com.yunhefc.notification.application.NotificationEventHandler;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
-import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -34,17 +30,11 @@ import java.util.Map;
 
 class MessagingReliabilityIT extends IntegrationTestSupport {
 
-    private static final String AUDIT_TOPIC = "yunhefc.audit.events";
-    private static final String NOTIFICATION_TOPIC = "yunhefc.notification.events";
+    private static final String AUDIT_TOPIC = "outbox.audit";
+    private static final String NOTIFICATION_TOPIC = "outbox.notification";
 
     @Autowired
     ObjectMapper objectMapper;
-
-    @Autowired
-    AuditEventConsumer auditEventConsumer;
-
-    @Autowired
-    NotificationEventConsumer notificationEventConsumer;
 
     @Autowired
     AuditEventHandler auditEventHandler;
@@ -57,9 +47,6 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
 
     @Autowired
     PlatformTransactionManager transactionManager;
-
-    @Autowired
-    ConcurrentKafkaListenerContainerFactory<?, ?> kafkaListenerContainerFactory;
 
     @MockitoSpyBean
     OutboxService outboxService;
@@ -150,8 +137,8 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
                 "SELECT event_id, team_id, aggregate_type, aggregate_id, event_type, payload_json "
                         + "FROM outbox_event WHERE event_type = 'AUDIT_RECORDED' ORDER BY id DESC LIMIT 1");
         String auditMessage = objectMapper.writeValueAsString(toMessage(auditRow));
-        auditEventConsumer.apply(auditMessage, AUDIT_TOPIC, 0, 11L);
-        auditEventConsumer.apply(auditMessage, AUDIT_TOPIC, 0, 11L);
+        auditEventHandler.apply(auditMessage, AUDIT_TOPIC, 0, 11L);
+        auditEventHandler.apply(auditMessage, AUDIT_TOPIC, 0, 11L);
 
         Map<String, Object> log = jdbc.queryForMap(
                 "SELECT team_id, actor_user_id, actor_name, operated_at FROM audit_log "
@@ -165,8 +152,8 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
                 "SELECT event_id, team_id, aggregate_type, aggregate_id, event_type, payload_json "
                         + "FROM outbox_event WHERE event_type = 'ROLE_CHANGED' ORDER BY id DESC LIMIT 1");
         String roleMessage = objectMapper.writeValueAsString(toMessage(roleRow));
-        notificationEventConsumer.apply(roleMessage, NOTIFICATION_TOPIC, 0, 12L);
-        notificationEventConsumer.apply(roleMessage, NOTIFICATION_TOPIC, 0, 12L);
+        notificationEventHandler.apply(roleMessage, NOTIFICATION_TOPIC, 0, 12L);
+        notificationEventHandler.apply(roleMessage, NOTIFICATION_TOPIC, 0, 12L);
         assertThat(jdbc.queryForObject(
                 "SELECT COUNT(*) FROM notification WHERE user_id = ? AND type = 9",
                 Integer.class, adminId)).isEqualTo(1);
@@ -180,13 +167,13 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
     void auditConsumerAcceptsLegacyPayloadWithoutOrWithMalformedOperateAt() throws Exception {
         OutboxMessage legacy = new OutboxMessage("audit-legacy-event", 1L, "AUDIT", 43L,
                 "AUDIT_RECORDED", "{\"teamId\":1,\"action\":\"LEGACY_PROBE\",\"targetType\":\"USER\"}");
-        auditEventConsumer.apply(objectMapper.writeValueAsString(legacy), AUDIT_TOPIC, 0, 41L);
+        auditEventHandler.apply(objectMapper.writeValueAsString(legacy), AUDIT_TOPIC, 0, 41L);
 
         OutboxMessage malformed = new OutboxMessage("audit-malformed-time", 1L, "AUDIT", 44L,
                 "AUDIT_RECORDED",
                 "{\"teamId\":1,\"action\":\"MALFORMED_PROBE\",\"targetType\":\"USER\","
                         + "\"operateAt\":\"not-a-time\"}");
-        auditEventConsumer.apply(objectMapper.writeValueAsString(malformed), AUDIT_TOPIC, 0, 42L);
+        auditEventHandler.apply(objectMapper.writeValueAsString(malformed), AUDIT_TOPIC, 0, 42L);
 
         Map<String, Object> legacyRow = jdbc.queryForMap(
                 "SELECT created_at, operated_at FROM audit_log WHERE action = 'LEGACY_PROBE'");
@@ -230,12 +217,6 @@ class MessagingReliabilityIT extends IntegrationTestSupport {
         })).isInstanceOf(IllegalStateException.class);
 
         assertThat(jdbc.queryForObject("SELECT COUNT(*) FROM outbox_event", Long.class)).isEqualTo(before);
-    }
-
-    @Test
-    void listenerContainerFactoryUsesConfiguredErrorHandler() {
-        assertThat(kafkaListenerContainerFactory.createContainer("probe").getCommonErrorHandler())
-                .isInstanceOf(DefaultErrorHandler.class);
     }
 
     @Test

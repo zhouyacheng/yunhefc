@@ -1,23 +1,21 @@
 package com.yunhefc.infra.outbox;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.yunhefc.common.time.ShanghaiTime;
-import com.yunhefc.common.config.MessagingProperties;
 import com.yunhefc.common.config.OutboxProperties;
-import com.yunhefc.contracts.messaging.EventTypes;
+import com.yunhefc.common.time.ShanghaiTime;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 @Component
 @RequiredArgsConstructor
@@ -26,71 +24,96 @@ public class OutboxRelay {
     private static final Logger log = LoggerFactory.getLogger(OutboxRelay.class);
     private static final int BATCH_SIZE = 20;
     private static final int MAX_ATTEMPTS = 5;
+    private static final long LEASE_SECONDS = 60;
+    private static final int ERROR_MAX_LENGTH = 500;
 
     private final OutboxEventMapper outboxEventMapper;
-    private final KafkaTemplate<String, String> kafkaTemplate;
-    private final ObjectMapper objectMapper;
-    private final MessagingProperties messagingProperties;
+    private final OutboxEventDispatcher dispatcher;
     private final OutboxProperties outboxProperties;
     private final String owner = UUID.randomUUID().toString();
+
+    @PostConstruct
+    void validateDispatchTimeout() {
+        long timeout = outboxProperties.getDispatchTimeoutMs();
+        long leaseMillis = TimeUnit.SECONDS.toMillis(LEASE_SECONDS);
+        if (timeout <= 0 || timeout >= leaseMillis) {
+            throw new IllegalStateException(
+                    "yunhefc.outbox.dispatch-timeout-ms 必须大于 0 且小于 " + leaseMillis);
+        }
+    }
 
     public void relay() {
         if (!outboxProperties.isEnabled()) {
             return;
         }
         List<OutboxEvent> events = outboxEventMapper.findClaimable(BATCH_SIZE);
-        List<PendingSend> pending = new ArrayList<>();
+        if (events.isEmpty()) {
+            return;
+        }
+
+        // 整批共享一个截止时间（含提交阶段），避免逐条等待叠加；超时必须小于租约 60 秒。
+        long deadlineNanos = System.nanoTime()
+                + TimeUnit.MILLISECONDS.toNanos(outboxProperties.getDispatchTimeoutMs());
+        List<PendingDispatch> pending = new ArrayList<>(events.size());
         for (OutboxEvent event : events) {
-            if (outboxEventMapper.claim(event.getId(), owner, ShanghaiTime.now().plusSeconds(60)) == 0) {
+            if (outboxEventMapper.claim(event.getId(), owner,
+                    ShanghaiTime.now().plusSeconds(LEASE_SECONDS)) == 0) {
                 continue;
             }
+            long startedNanos = System.nanoTime();
             try {
-                OutboxMessage message = new OutboxMessage(
-                        event.getEventId(), event.getTeamId(), event.getAggregateType(),
-                        event.getAggregateId(), event.getEventType(), event.getPayloadJson());
-                // 先全部发送再统一等待，避免逐条 send().get() 串行阻塞
-                pending.add(new PendingSend(event, kafkaTemplate.send(topicFor(event.getEventType()),
-                        String.valueOf(event.getAggregateId()),
-                        objectMapper.writeValueAsString(message))));
-            } catch (Exception ex) {
-                markFailed(event, ex);
+                pending.add(new PendingDispatch(event, dispatcher.dispatch(event), startedNanos));
+            } catch (RuntimeException ex) {
+                markFailed(event, ex, startedNanos);
             }
         }
-        for (PendingSend send : pending) {
+
+        for (PendingDispatch dispatch : pending) {
+            long remainingNanos = Math.max(0L, deadlineNanos - System.nanoTime());
             try {
-                send.future().get(5, TimeUnit.SECONDS);
-                outboxEventMapper.markSent(send.event().getId());
-            } catch (Exception ex) {
-                markFailed(send.event(), ex);
+                dispatch.future().get(remainingNanos, TimeUnit.NANOSECONDS);
+                outboxEventMapper.markSent(dispatch.event().getId());
+            } catch (TimeoutException ex) {
+                markFailed(dispatch.event(), new IllegalStateException("投递超时", ex),
+                        dispatch.startedNanos());
+            } catch (ExecutionException ex) {
+                markFailed(dispatch.event(), unwrap(ex), dispatch.startedNanos());
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                markFailed(dispatch.event(), ex, dispatch.startedNanos());
+                break;
             }
         }
     }
 
-    private void markFailed(OutboxEvent event, Exception ex) {
+    private void markFailed(OutboxEvent event, Exception ex, long startedNanos) {
         int attempts = event.getAttempts() == null ? 1 : event.getAttempts() + 1;
         long delay = Math.min(300, 30L * attempts);
+        String error = truncate(ex.getMessage());
         outboxEventMapper.markFailed(event.getId(), ShanghaiTime.now().plusSeconds(delay),
-                truncate(ex.getMessage()), MAX_ATTEMPTS);
-        log.warn("Outbox event failed, eventId={}, attempts={}", event.getEventId(), attempts, ex);
+                error, MAX_ATTEMPTS);
+        long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
+        log.warn("Outbox event failed, outboxId={}, eventId={}, eventType={}, attempts={}, "
+                        + "elapsedMs={}, error={}",
+                event.getId(), event.getEventId(), event.getEventType(), attempts, elapsedMs, error);
     }
 
-    private record PendingSend(OutboxEvent event, CompletableFuture<SendResult<String, String>> future) {
-    }
-
-    private String topicFor(String eventType) {
-        if (EventTypes.AUDIT_RECORDED.equals(eventType)) {
-            return messagingProperties.getAuditTopic();
+    private Exception unwrap(ExecutionException ex) {
+        Throwable cause = ex.getCause();
+        if (cause instanceof CompletionException && cause.getCause() != null) {
+            cause = cause.getCause();
         }
-        if (eventType != null && EventTypes.NOTIFICATION_EVENTS.contains(eventType)) {
-            return messagingProperties.getNotificationTopic();
-        }
-        throw new IllegalArgumentException("事件类型未配置 topic: " + eventType);
+        return cause instanceof Exception exception ? exception : ex;
     }
 
     private String truncate(String value) {
         if (value == null) {
             return null;
         }
-        return value.length() > 500 ? value.substring(0, 500) : value;
+        return value.length() > ERROR_MAX_LENGTH ? value.substring(0, ERROR_MAX_LENGTH) : value;
+    }
+
+    private record PendingDispatch(OutboxEvent event, CompletableFuture<Void> future,
+                                   long startedNanos) {
     }
 }

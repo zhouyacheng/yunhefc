@@ -17,7 +17,7 @@ public final class EventTypes {
     public static final String CONTENT_REPORTED = "CONTENT_REPORTED";
 
     /**
-     * 投递到通知 topic 并被站内信消费者处理的领域事件；新增类型时只维护此处。
+     * 投递到通知通道并被站内信处理器处理的领域事件；新增类型时只维护此处。
      */
     public static final Set<String> NOTIFICATION_EVENTS = Set.of(
             ROLE_CHANGED, ACCOUNT_APPROVED, ACCOUNT_DISABLED,

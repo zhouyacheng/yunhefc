@@ -16,9 +16,6 @@ services:
         -XX:ActiveProcessorCount=2
         -Xss512k
 
-  kafka:
-    mem_limit: 512m
-
   redis:
     env_file:
       - ${YUNHEFC_ENV_FILE:-/opt/yunhefc/.env}

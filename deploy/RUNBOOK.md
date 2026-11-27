@@ -1,6 +1,6 @@
 # 云河FC 部署与运维 Runbook
 
-适用：单 ECS（2C2G）+ 阿里云 RDS MySQL 8.4 + Compose（backend / Kafka / Redis / Nginx）。
+适用：单 ECS（2C2G）+ 阿里云 RDS MySQL 8.4 + Compose（backend / Redis / Nginx）。
 事实源：设计文档 03（`docs/design/03.整体架构设计.md`）§6.4、§7；`.scratch/mvp-release/issues/12`、`13`、`16`、`17`。
 
 > 生产密钥只放 ECS `/opt/yunhefc/.env`（600），同一份内容在密码管理器离线保管；不入库、不进 GitHub Secrets。
@@ -21,7 +21,7 @@
 ```
 
 - ECS：系统盘 ≥40GB、2GB swap、Docker + Compose plugin、`rsync`（`deploy.yml` 用它同步发布快照）；`deploy` 用户在 `docker` 组，非 root。
-- 验证：`free -m` 可用内存 <1.9GB 时，把 `docker-compose.prod.yml` 的 backend `-Xmx` 降至 384m、Kafka `-Xmx` 降至 192m；仍 OOM 则升配 4C8G。
+- 验证：`free -m` 可用内存 <1.9GB 时，把 `docker-compose.prod.yml` 的 backend `-Xmx` 降至 384m；仍 OOM 则升配 4C8G。
 - 目录初始化与可选应急脚本（首次引导；发布/回滚脚本随快照下发，不再依赖这里更新）：
 
 ```bash
@@ -259,9 +259,9 @@ printf 'IMAGE_TAG=sha-%s\n' "$sha7" > /opt/yunhefc/releases/$sha7/release.env
 /opt/yunhefc/releases/$sha7/bin/release.sh --sha "$sha7"
 ```
 
-脚本顺序：校验双镜像 → `docker compose pull backend nginx` → 写 `state/previous` → 切 `current` → 基础设施未运行时启动 `redis/kafka/kafka-init`（已运行则不动）→ `up -d --no-deps backend nginx` → readiness ≤180s → 冒烟（C 端首页、`/admin/`、`/actuator/health`、公开读接口、敏感路径 404）。
+脚本顺序：校验双镜像 → `docker compose pull backend nginx` → 写 `state/previous` → 切 `current` → 基础设施未运行时启动 `redis`（已运行则不动）→ `up -d --no-deps backend nginx` → readiness ≤180s → 冒烟（C 端首页、`/admin/`、`/actuator/health`、公开读接口、敏感路径 404）。
 `compose up` 退出 0 不代表健康；以 readiness 与冒烟为准。任一步失败脚本退出非零，`current` 保留在失败版本。
-基础设施镜像（`yunhefc-infra-kafka`、`yunhefc-infra-redis`）来自 ACR，发布链路不访问 Docker Hub；首次启动前需确认这两个 tag 已由 CI `mirror-infra` 产出。
+基础设施镜像 `yunhefc-infra-redis` 来自 ACR，发布链路不访问 Docker Hub；首次启动前需确认该 tag 已由 CI `mirror-infra` 产出。
 
 ### 1.5 首位管理员
 
@@ -329,7 +329,7 @@ RC 验收可运行 `scripts/rc-acceptance-wizard.sh`（仓库根执行），逐�
 
 发布前人工检查：
 
-1. ACR 中 `yunhefc-backend:sha-<7>`、`yunhefc-nginx:sha-<7>`、`yunhefc-infra-kafka:3.7.2`、`yunhefc-infra-redis:6.2.24` 四个 manifest 都存在（`release.sh` 会自动校验；手工检查仅用于提前确认）。
+1. ACR 中 `yunhefc-backend:sha-<7>`、`yunhefc-nginx:sha-<7>`、`yunhefc-infra-redis:6.2.24` 三个 manifest 都存在（`release.sh` 会自动校验；手工检查仅用于提前确认）。
 2. `flyway migrate` 已成功，`flyway_schema_history` 为最新。
 3. RDS 自动备份 / binlog / PITR：按检查单 §10 #18 风险接受，不阻塞发布；如需恢复能力，发布前自行确认，不再作为推迟发布的理由。
 
@@ -409,7 +409,7 @@ ORDER BY created_at
 LIMIT 50;
 ```
 
-1. 先查根因：Kafka 是否健康、topic 是否存在、消费者是否异常；`last_error` 只保留最近一次错误。
+1. 先查根因：应用日志中的 `Outbox event failed` 是否由事件处理器异常、数据库连接失败或去重键冲突导致；`last_error` 只保留最近一次错误。
 2. 修复后把事件重新置为待发送（消费者按事件 ID 去重，允许重复投递）：
 
 ```sql
@@ -507,9 +507,8 @@ compose_current exec backend \
 # 最近 200 行应用日志（JSON 行格式）
 compose_current logs --tail=200 backend
 
-# Kafka 消费组 lag
-compose_current exec kafka \
-  /opt/kafka/bin/kafka-consumer-groups.sh --bootstrap-server localhost:9092 --describe --all-groups
+# Outbox 分发失败日志
+compose_current logs --tail=200 backend | grep 'Outbox event failed'
 
 # Outbox 积压
 mysql -h <rds-host> -u yunhefc_app -p yunhefc \
@@ -542,12 +541,12 @@ mysql -h <rds-host> -u yunhefc_app -p yunhefc \
 | `push` main | `backend` | 10 min | `./mvnw -B -ntp package -DskipTests` 产出 boot jar；测试已在 PR 阶段通过 |
 | `push` main | `e2e` | 20 min | 依赖 `backend`；MySQL 8.4 + Redis 6.2.24 service + 真实后端 |
 | `push` main | `images` | 40 min | 依赖 `backend`/`frontend`/`e2e`；推送 ACR 双镜像 |
-| `push` main | `mirror-infra` | 10 min | 条件同步 `apache/kafka:3.7.2`、`redis:6.2.24` 到 ACR（已存在则跳过） |
+| `push` main | `mirror-infra` | 10 min | 条件同步 `redis:6.2.24` 到 ACR（已存在则跳过） |
 
 - 无 tag 发布、无路径过滤；PR 的三项检查均为必需检查，失败即阻断合并（分支保护见 §6.3）。
 - PR 并发组 `ci-<ref>` 取消旧运行；main 不取消，避免镜像/E2E 半途中断。
 - `workflow_dispatch`：手动跑 `backend`（package + 上传 jar）与 `e2e`，不触发 `images`/`mirror-infra`，用于验证 E2E 链路改动；可对任意 ref 触发。
-- `e2e`：下载 main 的 boot jar，以 `dev` profile 启动并轮询 `/actuator/health` ≤180s；注入 `SMS_MOCK_ENABLED=true`、`OSS_MODE=mock`、`WECHAT_MINI_MODE=mock`、`KAFKA_LISTENER_ENABLED=false`、`OUTBOX_ENABLED=false`；Flyway 建表后重放 `scripts/sql/test-data.sql`（可重复执行），再跑 Playwright Chromium。失败上传 `frontend/test-results` 与 `frontend/playwright-report`，保留 7 天。
+- `e2e`：下载 main 的 boot jar，以 `dev` profile 启动并轮询 `/actuator/health` ≤180s；注入 `SMS_MOCK_ENABLED=true`、`OSS_MODE=mock`、`WECHAT_MINI_MODE=mock`、`OUTBOX_ENABLED=false`；Flyway 建表后重放 `scripts/sql/test-data.sql`（可重复执行），再跑 Playwright Chromium。失败上传 `frontend/test-results` 与 `frontend/playwright-report`，保留 7 天。
 - `e2e` 运行在自建公开镜像 `danche1013/ubuntu:<tag>` 内（见 §6.6）；services 按服务名 `mysql`/`redis` 直连，不再映射端口；seed 用镜像内 `mysql` 客户端（容器 job 无 docker socket）。
 - `images`：`linux/amd64`，tag 固定为该 commit 的 `sha-<7>`（`github.sha` 前 7 位），双仓库 `yunhefc-backend`、`yunhefc-nginx`；两个 manifest 都校验存在；禁止 `latest`。构建期变量：`ADMIN_BASE_URL=/admin/`、`VITE_WEB_URL=https://www.<PUBLIC_DOMAIN>`、`VITE_ADMIN_URL=/admin/`。
 

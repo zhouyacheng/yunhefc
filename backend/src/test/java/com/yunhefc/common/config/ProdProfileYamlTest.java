@@ -54,7 +54,6 @@ class ProdProfileYamlTest {
         assertThat(environment.getProperty("spring.datasource.hikari.max-lifetime", Integer.class))
                 .isEqualTo(1800000);
         assertThat(environment.getProperty("spring.data.redis.host")).isEqualTo("redis");
-        assertThat(environment.getProperty("spring.kafka.bootstrap-servers")).isEqualTo("kafka:9092");
         assertThat(environment.getProperty("spring.lifecycle.timeout-per-shutdown-phase")).isEqualTo("30s");
         assertThat(environment.getProperty("management.endpoint.health.show-details")).isEqualTo("never");
         assertThat(environment.getProperty("management.endpoint.health.probes.enabled", Boolean.class))

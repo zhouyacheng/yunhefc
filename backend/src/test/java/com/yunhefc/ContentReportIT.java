@@ -11,7 +11,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.yunhefc.common.util.Ulid;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.OutboxMessage;
-import com.yunhefc.notification.application.NotificationEventConsumer;
+import com.yunhefc.notification.application.NotificationEventHandler;
 import com.yunhefc.notification.domain.NotificationType;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.Test;
@@ -25,13 +25,13 @@ import java.util.Map;
 class ContentReportIT extends ActivityITSupport {
 
     private static final String PASSWORD = "Passw0rd!";
-    private static final String NOTIFICATION_TOPIC = "yunhefc.notification.events";
+    private static final String NOTIFICATION_TOPIC = "outbox.notification";
 
     @Autowired
     private ObjectMapper objectMapper;
 
     @Autowired
-    private NotificationEventConsumer notificationEventConsumer;
+    private NotificationEventHandler notificationEventHandler;
 
     @Test
     void reportPostNotifiesEveryActiveModeratorOnce() throws Exception {
@@ -288,7 +288,7 @@ class ContentReportIT extends ActivityITSupport {
                 ((Number) row.get("aggregate_id")).longValue(),
                 (String) row.get("event_type"),
                 (String) row.get("payload_json"));
-        notificationEventConsumer.apply(objectMapper.writeValueAsString(message),
+        notificationEventHandler.apply(objectMapper.writeValueAsString(message),
                 NOTIFICATION_TOPIC, 0, offset);
     }
 

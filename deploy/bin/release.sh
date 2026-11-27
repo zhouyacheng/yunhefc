@@ -195,11 +195,9 @@ verify_images() {
         log "镜像可用: $image"
     done
     # 基础设施镜像由 CI mirror-infra 同步到 ACR（P-35 / RUNBOOK §2）。
-    for image in "$IMAGE_REGISTRY/yunhefc-infra-kafka:3.7.2" \
-            "$IMAGE_REGISTRY/yunhefc-infra-redis:6.2.24"; do
-        image_exists "$image" || die "基础设施镜像不存在: $image"
-        log "镜像可用: $image"
-    done
+    image="$IMAGE_REGISTRY/yunhefc-infra-redis:6.2.24"
+    image_exists "$image" || die "基础设施镜像不存在: $image"
+    log "镜像可用: $image"
 }
 
 wait_ready() {
@@ -343,11 +341,10 @@ else
     log "current -> ${release_dir}（state/previous 保持不变）"
 fi
 
-# 首次部署时基础设施尚未运行；正常发布不重启 redis/kafka，保持 --no-deps 语义。
-if ! compose ps --status running --services 2>/dev/null | grep -qx redis \
-        || ! compose ps --status running --services 2>/dev/null | grep -qx kafka; then
-    log "基础设施未运行，启动 redis/kafka/kafka-init"
-    compose up -d redis kafka kafka-init
+# 首次部署时 Redis 尚未运行；正常发布不重启 redis，保持 --no-deps 语义。
+if ! compose ps --status running --services 2>/dev/null | grep -qx redis; then
+    log "基础设施未运行，启动 redis"
+    compose up -d redis
 fi
 
 log "启动 backend 与 nginx"

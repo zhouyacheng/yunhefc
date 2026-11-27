@@ -11,7 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.infra.outbox.OutboxMessage;
-import com.yunhefc.notification.application.NotificationEventConsumer;
+import com.yunhefc.notification.application.NotificationEventHandler;
 import com.yunhefc.notification.domain.NotificationType;
 import com.yunhefc.registration.domain.RegistrationStatus;
 import jakarta.servlet.http.Cookie;
@@ -28,7 +28,7 @@ import java.util.Map;
 
 class PlayerDisableIT extends IntegrationTestSupport {
 
-    private static final String NOTIFICATION_TOPIC = "yunhefc.notification.events";
+    private static final String NOTIFICATION_TOPIC = "outbox.notification";
 
     private final List<Long> createdUserIds = new ArrayList<>();
     private final List<Long> createdMatchIds = new ArrayList<>();
@@ -37,7 +37,7 @@ class PlayerDisableIT extends IntegrationTestSupport {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private NotificationEventConsumer notificationEventConsumer;
+    private NotificationEventHandler notificationEventHandler;
 
     @AfterEach
     void cleanup() {
@@ -114,8 +114,8 @@ class PlayerDisableIT extends IntegrationTestSupport {
         assertThat(disabled.get("aggregate_type")).isEqualTo("USER");
 
         String message = objectMapper.writeValueAsString(toMessage(disabled));
-        notificationEventConsumer.apply(message, NOTIFICATION_TOPIC, 0, 41L);
-        notificationEventConsumer.apply(message, NOTIFICATION_TOPIC, 0, 41L);
+        notificationEventHandler.apply(message, NOTIFICATION_TOPIC, 0, 41L);
+        notificationEventHandler.apply(message, NOTIFICATION_TOPIC, 0, 41L);
 
         int disabledType = NotificationType.ACCOUNT_DISABLED.code();
         assertThat(jdbc.queryForObject(

@@ -13,7 +13,7 @@ import com.yunhefc.auth.domain.UserStatus;
 import com.yunhefc.contracts.player.PlayerType;
 import com.yunhefc.infra.outbox.OutboxMessage;
 import com.yunhefc.infra.outbox.OutboxService;
-import com.yunhefc.notification.application.NotificationEventConsumer;
+import com.yunhefc.notification.application.NotificationEventHandler;
 import com.yunhefc.notification.domain.NotificationType;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
@@ -28,7 +28,7 @@ import java.util.Map;
 
 class PlayerApprovalIT extends IntegrationTestSupport {
 
-    private static final String NOTIFICATION_TOPIC = "yunhefc.notification.events";
+    private static final String NOTIFICATION_TOPIC = "outbox.notification";
 
     private final List<Long> createdUserIds = new ArrayList<>();
 
@@ -36,7 +36,7 @@ class PlayerApprovalIT extends IntegrationTestSupport {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private NotificationEventConsumer notificationEventConsumer;
+    private NotificationEventHandler notificationEventHandler;
 
     @MockitoSpyBean
     private OutboxService outboxService;
@@ -104,8 +104,8 @@ class PlayerApprovalIT extends IntegrationTestSupport {
         assertThat(approval.get("aggregate_type")).isEqualTo("USER");
 
         String message = objectMapper.writeValueAsString(toMessage(approval));
-        notificationEventConsumer.apply(message, NOTIFICATION_TOPIC, 0, 31L);
-        notificationEventConsumer.apply(message, NOTIFICATION_TOPIC, 0, 31L);
+        notificationEventHandler.apply(message, NOTIFICATION_TOPIC, 0, 31L);
+        notificationEventHandler.apply(message, NOTIFICATION_TOPIC, 0, 31L);
 
         int approvedType = NotificationType.ACCOUNT_APPROVED.code();
         assertThat(jdbc.queryForObject(

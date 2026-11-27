@@ -12,7 +12,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.OutboxMessage;
-import com.yunhefc.notification.application.NotificationEventConsumer;
+import com.yunhefc.notification.application.NotificationEventHandler;
 import com.yunhefc.notification.domain.NotificationType;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
@@ -31,7 +31,7 @@ import java.util.UUID;
 
 class RegistrationNotificationIT extends IntegrationTestSupport {
 
-    private static final String NOTIFICATION_TOPIC = "yunhefc.notification.events";
+    private static final String NOTIFICATION_TOPIC = "outbox.notification";
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
 
     private final List<Long> createdUserIds = new ArrayList<>();
@@ -41,7 +41,7 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private NotificationEventConsumer notificationEventConsumer;
+    private NotificationEventHandler notificationEventHandler;
 
     @AfterEach
     void cleanup() {
@@ -68,7 +68,7 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
                 .andExpect(jsonPath("$.data.registration.status").value(0));
 
         Long userId = userId("13900001302");
-        // 通知只经 Outbox → Kafka → 消费者，业务事务不同步写 notification。
+        // 通知只经 Outbox → 进程内分发 → 处理器，业务事务不同步写 notification。
         assertThat(notificationCount(userId, NotificationType.REGISTRATION_CONFIRMED)).isZero();
 
         Map<String, Object> event = latestEvent(EventTypes.REGISTRATION_CONFIRMED, matchId);
@@ -109,7 +109,7 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
                 EventTypes.REGISTRATION_CONFIRMED,
                 "{\"userId\":" + userId + ",\"matchId\":424242,\"matchTitle\":\"旧载荷比赛\"}");
 
-        notificationEventConsumer.apply(objectMapper.writeValueAsString(message),
+        notificationEventHandler.apply(objectMapper.writeValueAsString(message),
                 NOTIFICATION_TOPIC, 0, 91L);
 
         assertThat(latestNotification(userId).get("body"))
@@ -253,7 +253,7 @@ class RegistrationNotificationIT extends IntegrationTestSupport {
                 ((Number) row.get("aggregate_id")).longValue(),
                 (String) row.get("event_type"),
                 (String) row.get("payload_json"));
-        notificationEventConsumer.apply(objectMapper.writeValueAsString(message),
+        notificationEventHandler.apply(objectMapper.writeValueAsString(message),
                 NOTIFICATION_TOPIC, 0, offset);
     }
 

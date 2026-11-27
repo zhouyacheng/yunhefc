@@ -15,7 +15,7 @@ import com.yunhefc.common.time.ShanghaiTime;
 import com.yunhefc.contracts.messaging.EventTypes;
 import com.yunhefc.infra.outbox.OutboxMessage;
 import com.yunhefc.infra.outbox.OutboxService;
-import com.yunhefc.notification.application.NotificationEventConsumer;
+import com.yunhefc.notification.application.NotificationEventHandler;
 import com.yunhefc.notification.domain.NotificationType;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
@@ -34,7 +34,7 @@ import java.util.UUID;
 
 class MatchNotificationIT extends IntegrationTestSupport {
 
-    private static final String NOTIFICATION_TOPIC = "yunhefc.notification.events";
+    private static final String NOTIFICATION_TOPIC = "outbox.notification";
     private static final String MATCH_POSTPONED = EventTypes.MATCH_POSTPONED;
     private static final String MATCH_CANCELLED = EventTypes.MATCH_CANCELLED;
     private static final ZoneId ZONE = ZoneId.of("Asia/Shanghai");
@@ -46,7 +46,7 @@ class MatchNotificationIT extends IntegrationTestSupport {
     private ObjectMapper objectMapper;
 
     @Autowired
-    private NotificationEventConsumer notificationEventConsumer;
+    private NotificationEventHandler notificationEventHandler;
 
     @MockitoSpyBean
     private OutboxService outboxService;
@@ -283,7 +283,7 @@ class MatchNotificationIT extends IntegrationTestSupport {
                 ((Number) row.get("aggregate_id")).longValue(),
                 (String) row.get("event_type"),
                 (String) row.get("payload_json"));
-        notificationEventConsumer.apply(objectMapper.writeValueAsString(message),
+        notificationEventHandler.apply(objectMapper.writeValueAsString(message),
                 NOTIFICATION_TOPIC, 0, offset);
     }
 

@@ -38,7 +38,7 @@ prototype/  静态可交互原型
 | 后端 | Java 21 + Spring Boot + MyBatis-Plus + Flyway + MySQL |
 | 缓存/锁 | Redis + Spring Session |
 | 定时任务 | Quartz |
-| 消息 | Kafka + Outbox |
+| 消息 | Outbox + 进程内有界线程池 |
 | 前端 | Vue 3 + Vite（C 端 Vant，B 端 Element Plus） |
 | 部署 | Docker Compose + Nginx |
 
@@ -46,7 +46,7 @@ prototype/  静态可交互原型
 
 - 需求文档：`docs/云河FC-需求文档.md`
 - 设计文档：`docs/design/01.功能模块梳理.md` 至 `06.设计方案评审结果.md`
-- 规范：`docs/rules/database-rules.md`、`api-rules.md`、`kafka-rules.md`、`logging-rules.md`、`java-rules.md`
+- 规范：`docs/rules/database-rules.md`、`api-rules.md`、`messaging-rules.md`、`logging-rules.md`、`java-rules.md`
 - 数据库基线：`scripts/sql/schema.sql`、`scripts/sql/quartz.sql`
 - 原型说明：`prototype/README.md`
 

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { AGREEMENT_VERSION } from '../miniprogram/utils/agreement';
 import { ApiError, request } from '../miniprogram/utils/request';
 import {
   bindPhone,
@@ -29,13 +30,16 @@ type WxOptions = {
 let responder: (options: WxOptions) => void;
 let calls: WxOptions[];
 let loginCalls: number;
+let storedConsent: unknown;
 
 beforeEach(() => {
   clearSession();
   calls = [];
   loginCalls = 0;
   responder = () => undefined;
+  storedConsent = { version: AGREEMENT_VERSION, agreedAt: '2026-11-27T00:00:00.000Z' };
   (globalThis as unknown as { wx: unknown }).wx = {
+    getStorageSync: () => storedConsent,
     login: (options: { success: (res: { code: string }) => void }) => {
       loginCalls += 1;
       options.success({ code: 'c1' });
@@ -201,6 +205,20 @@ describe('session', () => {
     clearBindTicket();
 
     expect(getBindTicket()).toBeNull();
+  });
+
+  it('skips silent wechat login before the user agrees to the agreements', async () => {
+    storedConsent = '';
+    responder = (options) => {
+      options.success({
+        statusCode: 401,
+        data: { code: 40101, message: '未登录' },
+        header: {},
+      });
+    };
+
+    expect(await sessionReady()).toBeNull();
+    expect(loginCalls).toBe(0);
   });
 
   it('runs the launch session once for concurrent callers', async () => {

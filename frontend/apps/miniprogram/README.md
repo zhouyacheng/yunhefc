@@ -1,6 +1,6 @@
 # 云河FC 微信小程序
 
-原生小程序 + Vant Weapp。范围：微信自动登录 / 手机号+密码登录（AUTH-04）、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改、分享比赛邀请，5:4 动态封面并在失败时回退静态品牌图）/ 比赛邀请落地（MP13：C07 同口径比赛信息，登录后接受 INV-02 进入比赛）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）/ 活动（对齐 C11/C12：顶部范围分段（最近活动/已结束活动/全部，默认最近活动）+ 与比赛页一致的单「筛选」按钮与抽屉（类型/状态/月份/自定义时间）、详情报名/取消、家属与备注、分享卡片（5:4 动态封面，动态与兜底均为活动暖金强调，失败回退静态品牌图）、活动通知落点）/ 账本（对齐 C13：汇总、流水，与活动页一致的单「筛选」按钮与抽屉（方向/分类/月份/自定义时间），仅正式球员只读）/ 动态（MP14：时间线/相册双视图、发布/点赞/举报/删除、相册上传与封面管理；比赛/活动详情头部「照片」入口，无相册自动建默认相册；通知 `CONTENT_POST`/`CONTENT_PHOTO` 落点）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。首页「最近比赛」下方提供「活动」入口（账本与动态入口不在此展示，P-169；不展示二期能力占位，P-170），对具备后台权限的账号显示「管理后台」，复制带 AUTH-18 一次性票据的链接（60 秒有效）到浏览器打开；个人主体小程序不支持 web-view，不做内嵌。不做通用比赛分享/复制比赛链接、入队邀请、邀请管理、订阅消息、找回密码与 B 端专属操作（活动详情与比赛邀请支持微信分享卡片）。
+原生小程序 + Vant Weapp。范围：微信自动登录 / 手机号+密码登录（AUTH-04）、绑定手机号、首页 / 比赛（对齐 C02 筛选与卡片）/ 比赛详情（对齐 C03：报名/取消/候补递补、签到、名单与考勤、事件录入与本人编辑、阵容/分组只读、管理员状态修改、分享比赛邀请，5:4 动态封面并在失败时回退静态品牌图）/ 比赛邀请落地（MP13：C07 同口径比赛信息，登录后接受 INV-02 进入比赛）/ 球队（对齐 C04：赛季、头像/地区/星级、出场/进球/助攻）/ 我的（对齐 C06：五星半星身份卡、通知、我的报名与取消、账号安全、退出登录）/ 活动（对齐 C11/C12：顶部范围分段（最近活动/已结束活动/全部，默认最近活动）+ 与比赛页一致的单「筛选」按钮与抽屉（类型/状态/月份/自定义时间）、详情报名/取消、家属与备注、分享卡片（5:4 动态封面，动态与兜底均为活动暖金强调，失败回退静态品牌图）、活动通知落点）/ 账本（对齐 C13：汇总、流水，与活动页一致的单「筛选」按钮与抽屉（方向/分类/月份/自定义时间），仅正式球员只读）/ 动态（MP14：时间线/相册双视图、发布/点赞/举报/删除、相册上传与封面管理；比赛/活动详情头部「照片」入口，无相册自动建默认相册；通知 `CONTENT_POST`/`CONTENT_PHOTO` 落点）。比赛列表支持类型/地点/状态/月份/自定义时间筛选、下拉刷新与上拉加载；首页 CTA 可直接报名/加入候补。首页「最近比赛」下方提供「活动」入口（账本与动态入口不在此展示，P-169；不展示二期能力占位，P-170），对具备后台权限的账号显示「管理后台」，复制带 AUTH-18 一次性票据的链接（60 秒有效）到浏览器打开；个人主体小程序不支持 web-view，不做内嵌。不做通用比赛分享/复制比赛链接、入队邀请、邀请管理、订阅消息、找回密码与 B 端专属操作（活动详情与比赛邀请支持微信分享卡片）。登录与绑定手机号前必须勾选《用户服务协议》（MP15）与《隐私政策》（MP16），未勾选不得手机号密码登录、微信登录、发送绑定短信或提交绑定；协议页为静态文本，「我的」页提供常驻入口。
 
 ## 结构
 
@@ -13,9 +13,9 @@ frontend/apps/miniprogram/
     ├── assets/share-match-invite.png  # 5:4 比赛邀请封面兜底图（500×400）
     ├── assets/share-activity-invite.png  # 5:4 活动分享封面兜底图（500×400，暖金强调）
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片、分享封面画布
-    ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
+    ├── templates/{match-card,legal-page}.wxml  # 比赛卡片与 MP15/MP16 协议页共用结构
     ├── types/api.ts
-    ├── utils/{config,request,api-client,session,input,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view,activity-query,activity-view,ledger-query,ledger-view,content,content-feed,content-photo,content-entry,confirm}.ts
+    ├── utils/{config,request,api-client,session,input,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view,activity-query,activity-view,ledger-query,ledger-view,content,content-feed,content-photo,content-entry,confirm,agreement,legal}.ts
     │   ├── content-feed.ts  # content feed module：pageSize、5×100 通知定位与 update 收口
     │   ├── content.ts       # 动态/相册门禁、文案校验、列表映射与点赞状态
     │   ├── content-photo.ts # 照片长边 2048/JPEG q80 压缩与 5 MiB 校验
@@ -29,7 +29,8 @@ frontend/apps/miniprogram/
     ├── components/
     │   ├── status-sheet/        # 管理员状态操作与延期/取消表单
     │   ├── event-form-sheet/    # 事件录入/本人编辑弹层
-    │   └── invite-sheet/        # 比赛邀请创建与分享面板
+    │   ├── invite-sheet/        # 比赛邀请创建与分享面板
+    │   └── agreement-consent/   # MP01/MP02 共用的协议勾选
     └── pages/
         ├── home/                # tab：首页（镜像 C01，真实报名）
         ├── schedule/            # tab：比赛（C02 筛选、富卡片、下拉/上拉）
@@ -46,6 +47,8 @@ frontend/apps/miniprogram/
         ├── ledger/              # 账本（MP12：汇总与流水、单「筛选」按钮与抽屉）
         ├── posts/               # 动态（MP14：时间线/相册双视图、发布、点赞、举报、相册新建）
         ├── album-detail/        # 相册详情（上传压缩、预览、封面、照片/相册管理）
+        ├── terms/               # 用户服务协议（MP15：静态文本）
+        ├── privacy/             # 隐私政策（MP16：静态文本）
         └── spike/               # Phase 0 会话实验页，仅用于真机验证
 ```
 
@@ -58,6 +61,15 @@ frontend/apps/miniprogram/
 - 写请求先 `ensureCsrf()`，高风险接口带每次操作新生成的 `Idempotency-Key`；状态与事件编辑再带 `version`。
 - 结论与实验记录见 `.scratch/miniprogram-login/spike.md`。
 - `pages/spike` 保留用于真机复验，验证完成后可删除。
+
+## 协议与隐私
+
+- 登录（MP01）与绑定手机号（MP02）表单下方提供协议勾选；未勾选时手机号密码登录、微信登录、发送短信与提交绑定均被拦截。
+- 同意版本记录在本地存储 `yhfc.agreement.consent`（当前版本 `2026-11-27`）；协议实质内容更新时同步 `utils/agreement.ts` 的 `AGREEMENT_VERSION`，旧同意自动失效并要求重新勾选。
+- 协议文本在 `pages/terms/index.ts` 与 `pages/privacy/index.ts`；运营者为「上海云河FC俱乐部」、联系方式 `841603636@qq.com`，提审前须确认与小程序备案主体一致。
+- 未同意当前版本时，冷启动不会静默微信登录；需在 MP01 主动登录并勾选同意。
+- `app.json` 声明 `__usePrivacyCheck__: true`；`wx.chooseMedia` 等隐私接口触发授权时由微信官方隐私弹窗兜底，头像与照片仅在用户主动选择时获取。
+- 小程序后台「设置 → 服务内容声明 → 用户隐私保护指引」须声明手机号、摄像头与选中的照片或视频信息，口径与隐私政策一致。
 
 ## 本地开发
 

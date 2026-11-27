@@ -7,6 +7,7 @@ import {
   markAllNotificationsRead,
   markNotificationRead,
 } from '../../utils/api-client';
+import { openPrivacy, openTerms } from '../../utils/agreement';
 import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
 import { promotionText, registrationDecision } from '../../utils/registration';
 import { clearUnreadBadge, refreshUnreadBadge } from '../../utils/notifications';
@@ -308,6 +309,14 @@ Page({
 
   goLogin() {
     void wx.navigateTo({ url: '/pages/login/index' });
+  },
+
+  goTerms() {
+    openTerms();
+  },
+
+  goPrivacy() {
+    openPrivacy();
   },
 
   onAvatarError() {

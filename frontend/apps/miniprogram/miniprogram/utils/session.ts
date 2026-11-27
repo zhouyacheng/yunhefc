@@ -8,6 +8,7 @@ import {
   sendBindSmsCode,
   type SessionResult,
 } from './api-client';
+import { hasAgreedToAgreements } from './agreement';
 import { hasPermission as hasGrantedPermission } from './permissions';
 import { resetAuth, setCsrf, setUnauthorizedHandler } from './request';
 
@@ -61,6 +62,10 @@ export function sessionReady(): Promise<AuthUser | null> {
       .then(async (user) => {
         if (user) {
           return user;
+        }
+        // 未同意协议时不静默微信登录，避免在取得同意前上报 openid。
+        if (!hasAgreedToAgreements()) {
+          return null;
         }
         const result = await loginWithWechat().catch(() => null);
         return result && !result.needBindPhone ? result.user : null;

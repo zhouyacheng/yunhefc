@@ -1,3 +1,9 @@
+import {
+  AGREEMENT_REQUIRED_MESSAGE,
+  ensureAgreement,
+  hasAgreedToAgreements,
+  recordAgreementConsent,
+} from '../../utils/agreement';
 import { errorMessage } from '../../utils/api-errors';
 import { PHONE_PATTERN, type ValueEvent } from '../../utils/input';
 import { inviteLoginPath, inviteTokenFromQuery, navigateAfterAuth } from '../../utils/invite';
@@ -20,6 +26,8 @@ Page({
     sending: false,
     submitting: false,
     error: '',
+    /** 是否已勾选《用户服务协议》与《隐私政策》。 */
+    agreed: false,
     /** MP13 邀请落地回跳；只接受 token，不提供通用 redirect。 */
     inviteToken: '',
   },
@@ -32,6 +40,8 @@ Page({
     if (!getBindTicket()) {
       this.setData({ error: '登录已过期，请返回重新登录' });
     }
+    // 已同意过当前版本的用户默认勾选；协议版本更新后重新要求勾选。
+    this.setData({ agreed: hasAgreedToAgreements() });
   },
 
   onUnload() {
@@ -54,8 +64,15 @@ Page({
     this.setData({ positionIndex: Number(event.detail.value) });
   },
 
+  onAgreementChange(event: { detail: { checked: boolean } }) {
+    this.setData({ agreed: event.detail.checked, error: '' });
+  },
+
   async sendCode() {
     if (this.data.sending || this.data.countdown > 0) {
+      return;
+    }
+    if (!ensureAgreement(this.data.agreed, () => this.setData({ error: AGREEMENT_REQUIRED_MESSAGE }))) {
       return;
     }
     if (!PHONE_PATTERN.test(this.data.phone)) {
@@ -63,6 +80,7 @@ Page({
       return;
     }
     this.setData({ sending: true, error: '' });
+    recordAgreementConsent();
     try {
       await sendSmsCode(this.data.phone);
       this.setData({ countdown: 60 });
@@ -78,6 +96,9 @@ Page({
     if (this.data.submitting) {
       return;
     }
+    if (!ensureAgreement(this.data.agreed, () => this.setData({ error: AGREEMENT_REQUIRED_MESSAGE }))) {
+      return;
+    }
     const { phone, code, name, positionIndex } = this.data;
     if (!PHONE_PATTERN.test(phone)) {
       this.setData({ error: '请输入正确的手机号' });
@@ -89,6 +110,7 @@ Page({
     }
     // 姓名/位置只在后端判定为新手机号时必填；已有账号会忽略这两个字段。
     this.setData({ submitting: true, error: '' });
+    recordAgreementConsent();
     try {
       await bindPhone({ phone, code, name: name.trim(), position: positionIndex });
       void refreshUnreadBadge();

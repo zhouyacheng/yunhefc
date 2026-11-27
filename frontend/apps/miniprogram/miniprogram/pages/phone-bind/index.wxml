@@ -52,6 +52,8 @@
       </view>
     </view>
 
+    <agreement-consent checked="{{agreed}}" bind:change="onAgreementChange" />
+
     <view class="error" wx:if="{{error}}">{{error}}</view>
 
     <van-button class="btn" type="primary" block loading="{{submitting}}" bind:click="submit">绑定并浏览</van-button>

@@ -35,8 +35,10 @@
 .detail-hero__tools {
   display: flex;
   flex: none;
-  align-items: center;
+  flex-wrap: wrap;
   gap: 12rpx;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 /* 分享按钮：深色 Hero 内的浅色描边胶囊，与活动详情同款。 */

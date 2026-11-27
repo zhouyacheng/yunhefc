@@ -100,6 +100,21 @@ function notificationLink(
       invalidate: null,
     };
   }
+  // 内容举报落点：动态定位到时间线，照片进入所属相册（refId 为相册 ID）。
+  if (refType === 'CONTENT_POST') {
+    return {
+      linkLabel: '查看动态',
+      linkUrl: `/pages/posts/index?post=${refId}`,
+      invalidate: null,
+    };
+  }
+  if (refType === 'CONTENT_PHOTO') {
+    return {
+      linkLabel: '查看相册',
+      linkUrl: `/pages/album-detail/index?id=${refId}`,
+      invalidate: null,
+    };
+  }
   return { linkLabel: '', linkUrl: '', invalidate: null };
 }
 

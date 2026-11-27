@@ -7,12 +7,19 @@ import type {
   ActivityStatus,
   ActivitySummary,
   ActivityType,
+  AlbumDeleteResult,
+  AlbumDetail,
+  AlbumPhoto,
+  AlbumPhotoDeleteResult,
+  AlbumPhotoUpload,
+  AlbumSummary,
   Attendance,
   AttendanceRow,
   AuthUser,
   AvatarUploadView,
   BindPhonePayload,
   CancellationResult,
+  ContentPost,
   EventCreate,
   EventTimeline,
   EventUpdate,
@@ -45,11 +52,13 @@ import type {
   PlayerProfileUpdate,
   PlayerPublic,
   PlayerView,
+  PostLikeResult,
   Registration,
   RegistrationRow,
   TeamStats,
 } from '../types/api';
 import { errorMessage } from './api-errors';
+import type { ContentReportTargetType } from './content';
 import { newIdempotencyKey } from './idempotency';
 import type { InvitePayload } from './invite';
 import { ensureCsrf, request, uploadFile, type RequestOptions } from './request';
@@ -83,7 +92,7 @@ async function highRiskWrite<T>(
 
 /** 普通写接口：只需 CSRF，不占用幂等键。 */
 async function plainWrite<T>(
-  method: 'POST' | 'PATCH' | 'DELETE',
+  method: 'POST' | 'PUT' | 'PATCH' | 'DELETE',
   path: string,
   body?: unknown,
   options?: RequestOptions,
@@ -572,4 +581,128 @@ export function fetchLedgerSummary(filter: LedgerFilter = {}): Promise<LedgerSum
 export async function listLedgerCategories(): Promise<LedgerCategory[]> {
   const { items } = await request<{ items: LedgerCategory[] }>('GET', '/ledger/categories');
   return items || [];
+}
+
+// ---- 动态与相册（M17，05 §3.18 CNT-01~13） ----
+
+export interface AlbumListQuery {
+  matchId?: number;
+  activityId?: number;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface CreateAlbumBody {
+  title: string;
+  matchId?: number | null;
+  activityId?: number | null;
+}
+
+export interface AlbumUpdateBody {
+  title?: string;
+  coverPhotoId?: number;
+}
+
+/** CNT-01：按创建时间倒序分页，可按比赛/活动过滤。 */
+export function listAlbums(query: AlbumListQuery = {}): Promise<Page<AlbumSummary>> {
+  const page = Math.max(1, Math.floor(query.page ?? 1) || 1);
+  const pageSize = query.pageSize ?? DEFAULT_PAGE_SIZE;
+  return request<Page<AlbumSummary>>(
+    'GET',
+    `/albums${queryString({
+      matchId: query.matchId,
+      activityId: query.activityId,
+      page,
+      pageSize,
+    })}`,
+  );
+}
+
+/** CNT-02。 */
+export function fetchAlbum(id: number): Promise<AlbumDetail> {
+  return request<AlbumDetail>('GET', `/albums/${id}`);
+}
+
+/** CNT-03：pageSize 只接受 30/60/100。 */
+export function listAlbumPhotos(
+  albumId: number,
+  page: number,
+  pageSize: number,
+): Promise<Page<AlbumPhoto>> {
+  return request<Page<AlbumPhoto>>(
+    'GET',
+    `/albums/${albumId}/photos${queryString({ page, pageSize })}`,
+  );
+}
+
+/** CNT-04。 */
+export function createAlbum(body: CreateAlbumBody): Promise<AlbumDetail> {
+  return highRiskWrite<AlbumDetail>('POST', '/albums', body);
+}
+
+/** CNT-05；只发需要修改的字段。 */
+export function updateAlbum(id: number, body: AlbumUpdateBody): Promise<AlbumDetail> {
+  return highRiskWrite<AlbumDetail>('PATCH', `/albums/${id}`, body);
+}
+
+/** CNT-06。 */
+export function deleteAlbum(id: number): Promise<AlbumDeleteResult> {
+  return highRiskWrite<AlbumDeleteResult>('DELETE', `/albums/${id}`);
+}
+
+/** CNT-07：multipart 单文件；上传按钮防重，不使用幂等键。 */
+export async function uploadAlbumPhoto(
+  albumId: number,
+  filePath: string,
+): Promise<AlbumPhotoUpload> {
+  await ensureCsrf();
+  return uploadFile<AlbumPhotoUpload>(`/albums/${albumId}/photos`, filePath);
+}
+
+/** CNT-08。 */
+export function deleteAlbumPhoto(
+  albumId: number,
+  photoId: number,
+): Promise<AlbumPhotoDeleteResult> {
+  return highRiskWrite<AlbumPhotoDeleteResult>('DELETE', `/albums/${albumId}/photos/${photoId}`);
+}
+
+/** CNT-09。 */
+export function listPosts(query: {
+  albumId?: number;
+  page: number;
+  pageSize: number;
+}): Promise<Page<ContentPost>> {
+  return request<Page<ContentPost>>('GET', `/posts${queryString(query)}`);
+}
+
+/** CNT-10。 */
+export function createPost(body: {
+  content: string;
+  albumId?: number | null;
+}): Promise<ContentPost> {
+  return highRiskWrite<ContentPost>('POST', '/posts', body);
+}
+
+/** CNT-11。 */
+export function deletePost(id: number): Promise<{ deleted: boolean }> {
+  return highRiskWrite<{ deleted: boolean }>('DELETE', `/posts/${id}`);
+}
+
+/** CNT-12：目标状态幂等，不使用幂等键。 */
+export function setPostLike(id: number, liked: boolean): Promise<PostLikeResult> {
+  return plainWrite<PostLikeResult>('PUT', `/posts/${id}/like`, { liked });
+}
+
+/** CNT-13。 */
+export function reportContent(
+  targetType: ContentReportTargetType,
+  targetId: number,
+  reason?: string,
+): Promise<{ reported: boolean }> {
+  return highRiskWrite<{ reported: boolean }>('POST', '/content-reports', {
+    targetType,
+    targetId,
+    reason: reason ?? null,
+  });
 }

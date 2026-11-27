@@ -1470,8 +1470,8 @@ test('B 端：B08 新建角色 → 勾选权限 → 保存 → 重载 → 重命
   await page.goto('/admin/roles');
   await expect(page).toHaveURL(/\/admin\/roles$/);
   await expect(page.getByRole('heading', { level: 2, name: '角色权限' })).toBeVisible();
-  // 9 组对应 02 §6.10 的 33 个权限码（含活动、账本两组）。
-  await expect(page.locator('.permission-group')).toHaveCount(9);
+  // 10 组对应 02 §6.10 的 37 个权限码（含活动、账本、内容三组）。
+  await expect(page.locator('.permission-group')).toHaveCount(10);
 
   const code = `E2E_${Date.now()}`;
   await page.getByRole('button', { name: '新建角色' }).click();

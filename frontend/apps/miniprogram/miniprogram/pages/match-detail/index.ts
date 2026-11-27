@@ -11,6 +11,8 @@ import type {
   RegistrationRow,
 } from '../../types/api';
 import { errorMessage } from '../../utils/api-errors';
+import { contentVisible } from '../../utils/content';
+import { openRelatedAlbum } from '../../utils/content-entry';
 import { eventCreateAllowed, eventEditAllowed } from '../../utils/event-form';
 import { buildGroupingBoard, type GroupingBoardView } from '../../utils/grouping-view';
 import { createGuardedLoads, type GuardedLoads } from '../../utils/guarded-load';
@@ -219,6 +221,8 @@ Page({
     showEventCreate: false,
     eventDisabledReason: '',
     canChangeStatus: false,
+    canViewContent: false,
+    photoBusy: false,
     canInvite: false,
     inviteOpen: false,
     inviteBusy: false,
@@ -593,6 +597,7 @@ Page({
     const status = registration?.status;
     // 与 Web C03 的 canInvite 同口径：管理员或本场正式报名球员，取消/延期后不再开放。
     const permissions = getPermissions();
+    const canViewContent = contentVisible(getUser(), permissions);
     const canInvite =
       this.data.authenticated &&
       !this.data.pending &&
@@ -626,6 +631,7 @@ Page({
         windowState === 'open' &&
         this.data.canCheckInPerm,
       checkInClosed: closed,
+      canViewContent,
       canInvite,
       checkInHint: checkInHintOf(registration, windowState, closed),
       canCreateEvent,
@@ -946,6 +952,22 @@ Page({
       return;
     }
     this.setData({ inviteOpen: true, inviteError: '' });
+  },
+
+  /** MP04 头部「照片」：有相册按比赛过滤进入 MP14，无相册自动建默认相册后进入详情。 */
+  async openPhotos(): Promise<void> {
+    const detail = this.data.detail;
+    if (!detail || !this.data.canViewContent || this.data.photoBusy) {
+      return;
+    }
+    this.setData({ photoBusy: true });
+    try {
+      await openRelatedAlbum({ matchId: detail.id, title: detail.title });
+    } catch (error) {
+      toast(errorMessage(error, '相册打开失败，请稍后重试'));
+    } finally {
+      this.setData({ photoBusy: false });
+    }
   },
 
   closeInvite() {

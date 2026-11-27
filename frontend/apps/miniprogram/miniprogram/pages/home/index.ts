@@ -7,11 +7,10 @@ import {
   signupMatch,
 } from '../../utils/api-client';
 import { errorMessage, shouldRefreshAfterConflict } from '../../utils/api-errors';
-import { contentVisible } from '../../utils/content';
-import { buildHero, HOME_FEATURES, type HeroView } from '../../utils/home-view';
+import { buildHero, type HeroView } from '../../utils/home-view';
 import { buildMatchCard, type MatchCardView } from '../../utils/match-view';
 import { invalidate } from '../../utils/invalidation';
-import { LEDGER_VIEW_ANY, hasBackendPermission, hasPermission, isPending } from '../../utils/permissions';
+import { hasBackendPermission } from '../../utils/permissions';
 import { REGISTRATION_STATUS } from '../../utils/registration';
 import { getPermissions, getPlayer, getUser, sessionReady } from '../../utils/session';
 
@@ -52,7 +51,6 @@ Page({
     error: '',
     hero: null as HeroView | null,
     recent: [] as MatchCardView[],
-    features: HOME_FEATURES,
     signupBusy: false,
     canEnterAdmin: false,
     quickEntries: [] as QuickEntryView[],
@@ -84,17 +82,10 @@ Page({
     // 等启动静默登录结束再加载，保证 myRegistration 与 CTA 使用当前身份。
     await sessionReady();
     const permissions = getPermissions();
-    const canViewLedger =
-      !isPending(getUser()?.status) && hasPermission(permissions, LEDGER_VIEW_ANY);
-    // P-142：动态入口仅对登录的正式球员与管理员显示，与 C01 同口径。
-    const canViewContent = contentVisible(getUser(), permissions);
+    // P-169：小程序首页只保留活动入口，账本与动态入口不在此展示。
     this.setData({
       canEnterAdmin: hasBackendPermission(permissions),
-      quickEntries: [
-        { icon: '🎉', title: '活动', url: '/pages/activity/index' },
-        ...(canViewLedger ? [{ icon: '💰', title: '账本', url: '/pages/ledger/index' }] : []),
-        ...(canViewContent ? [{ icon: '📷', title: '动态', url: '/pages/posts/index' }] : []),
-      ],
+      quickEntries: [{ icon: '🎉', title: '活动', url: '/pages/activity/index' }],
     });
     await this.load(true);
   },

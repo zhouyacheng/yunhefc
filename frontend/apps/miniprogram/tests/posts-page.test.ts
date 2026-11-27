@@ -1,6 +1,9 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { AuthUser, ContentPost, Page } from '../miniprogram/types/api';
+import type { ContentFeed } from '../miniprogram/utils/content-feed';
+import type { ContentPostRow } from '../miniprogram/utils/content';
+import type { PagedFeedState } from '../miniprogram/utils/paged-feed';
 
 const mocks = vi.hoisted(() => ({
   sessionReady: vi.fn(),
@@ -8,23 +11,32 @@ const mocks = vi.hoisted(() => ({
   getPermissions: vi.fn(),
   listPosts: vi.fn(),
   listAlbums: vi.fn(),
+  createPost: vi.fn(),
+  deletePost: vi.fn(),
+  setPostLike: vi.fn(),
+  createAlbum: vi.fn(),
+  deleteAlbum: vi.fn(),
+  listActivities: vi.fn(),
+  listMatches: vi.fn(),
+  reportContent: vi.fn(),
   hideShareMenu: vi.fn(),
   showToast: vi.fn(),
+  showModal: vi.fn(),
   pageScrollTo: vi.fn(),
   navigateTo: vi.fn(),
 }));
 
 vi.mock('../miniprogram/utils/api-client', () => ({
-  createAlbum: vi.fn(),
-  createPost: vi.fn(),
-  deleteAlbum: vi.fn(),
-  deletePost: vi.fn(),
-  listActivities: vi.fn(),
+  createAlbum: mocks.createAlbum,
+  createPost: mocks.createPost,
+  deleteAlbum: mocks.deleteAlbum,
+  deletePost: mocks.deletePost,
+  listActivities: mocks.listActivities,
   listAlbums: mocks.listAlbums,
-  listMatches: vi.fn(),
+  listMatches: mocks.listMatches,
   listPosts: mocks.listPosts,
-  reportContent: vi.fn(),
-  setPostLike: vi.fn(),
+  reportContent: mocks.reportContent,
+  setPostLike: mocks.setPostLike,
 }));
 
 vi.mock('../miniprogram/utils/session', () => ({
@@ -67,15 +79,21 @@ function post(id: number): ContentPost {
 }
 
 interface TestPage {
-  data: Record<string, unknown> & {
-    posts: Array<{ id: number }>;
-    postPage: number;
-    postPageSize: number;
+  data: {
+    activeTab: string;
     focusPostId: number;
+    access: string;
+    composerText: string;
+    timeline: PagedFeedState<ContentPostRow>;
+    albums: PagedFeedState<unknown>;
   };
+  timelineFeed: ContentFeed<ContentPostRow>;
   setData(patch: Record<string, unknown>): void;
+  createFeeds(): void;
   boot(silent: boolean, locateFocus: boolean): Promise<void>;
-  loadTimeline(reset: boolean): Promise<void>;
+  publish(): Promise<void>;
+  toggleLike(event: { currentTarget: { dataset: { id: number } } }): Promise<void>;
+  removePost(event: { currentTarget: { dataset: { id: number } } }): Promise<void>;
 }
 
 let pageConfig!: Record<string, unknown> & { data: Record<string, unknown> };
@@ -94,10 +112,18 @@ beforeEach(() => {
   mocks.getPermissions.mockReturnValue(['content:view:any', 'content:create:own']);
   mocks.listAlbums.mockReset();
   mocks.listPosts.mockReset();
+  mocks.createPost.mockReset();
+  mocks.deletePost.mockReset();
+  mocks.setPostLike.mockReset();
   mocks.listAlbums.mockResolvedValue(pageOf([]));
+  mocks.showModal.mockImplementation(
+    (input: { success?: (result: { confirm: boolean }) => void }) =>
+      input.success?.({ confirm: true }),
+  );
   vi.stubGlobal('wx', {
     hideShareMenu: mocks.hideShareMenu,
     showToast: mocks.showToast,
+    showModal: mocks.showModal,
     pageScrollTo: mocks.pageScrollTo,
     nextTick: (callback: () => void) => callback(),
     navigateTo: mocks.navigateTo,
@@ -119,7 +145,7 @@ function pageInstance(): TestPage {
   return page;
 }
 
-describe('MP14 时间线分页', () => {
+describe('MP14 时间线 feed', () => {
   it('通知定位切到 100/页后，上拉加载继续沿用同一口径', async () => {
     mocks.listPosts.mockImplementation(({ page, pageSize }: { page: number; pageSize: number }) =>
       Promise.resolve(
@@ -129,16 +155,41 @@ describe('MP14 时间线分页', () => {
       ),
     );
     const page = pageInstance();
-    page.data.focusPostId = 9;
+    page.setData({ activeTab: 'timeline', focusPostId: 9 });
+    page.createFeeds();
 
     await page.boot(false, true);
 
-    expect(page.data.postPageSize).toBe(100);
-    expect(page.data.posts.map((item) => item.id)).toEqual([9]);
+    expect(page.data.timeline.pageSize).toBe(100);
+    expect(page.data.timeline.items.map((item) => item.id)).toEqual([9]);
     expect(mocks.listPosts).toHaveBeenLastCalledWith({ page: 1, pageSize: 100 });
 
-    await page.loadTimeline(false);
+    await page.timelineFeed.loadMore();
 
     expect(mocks.listPosts).toHaveBeenLastCalledWith({ page: 2, pageSize: 100 });
+  });
+
+  it('发布/点赞/删除通过 feed update 收口', async () => {
+    mocks.listPosts.mockResolvedValue(pageOf([post(1), post(2)], { total: 2 }));
+    mocks.createPost.mockResolvedValue(post(99));
+    mocks.setPostLike.mockResolvedValue({ liked: true, likeCount: 5 });
+    mocks.deletePost.mockResolvedValue({ deleted: true });
+    const page = pageInstance();
+    page.setData({ activeTab: 'timeline' });
+    page.createFeeds();
+    await page.boot(false, false);
+
+    page.setData({ composerText: '今天训练很尽兴' });
+    await page.publish();
+    expect(page.data.timeline.items.map((item) => item.id)).toEqual([99, 1, 2]);
+    expect(page.data.timeline.total).toBe(3);
+
+    await page.toggleLike({ currentTarget: { dataset: { id: 1 } } });
+    const liked = page.data.timeline.items.find((item) => item.id === 1);
+    expect(liked).toMatchObject({ likedByMe: true, likeCount: 5 });
+
+    await page.removePost({ currentTarget: { dataset: { id: 2 } } });
+    expect(page.data.timeline.items.map((item) => item.id)).toEqual([99, 1]);
+    expect(page.data.timeline.total).toBe(2);
   });
 });

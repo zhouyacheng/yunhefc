@@ -92,7 +92,10 @@ describe('paged feed', () => {
   });
 
   it('clears a changed key and discards the stale response', async () => {
-    const calls: Array<{ input: PagedFeedFetchInput; result: ReturnType<typeof deferred<Page<number>>> }> = [];
+    const calls: Array<{
+      input: PagedFeedFetchInput;
+      result: ReturnType<typeof deferred<Page<number>>>;
+    }> = [];
     const feed = createPagedFeed<number>({
       pageSize: 10,
       initialKey: 'upcoming',
@@ -200,11 +203,130 @@ describe('paged feed', () => {
       pageSize: 10,
       initialKey: 'all',
       fetchPage: async () => page([1]),
-      onChange: (state) => states.push(`${state.loading ? 'loading' : 'idle'}:${state.items.length}`),
+      onChange: (state) =>
+        states.push(`${state.loading ? 'loading' : 'idle'}:${state.items.length}`),
     });
     expect(states).toEqual([]);
     await feed.load();
     expect(states[0]).toBe('loading:0');
     expect(states[states.length - 1]).toBe('idle:1');
+  });
+
+  it('locates across pages at the requested page size and keeps it for load-more', async () => {
+    const calls: PagedFeedFetchInput[] = [];
+    const feed = createPagedFeed<number>({
+      pageSize: 10,
+      initialKey: 'all',
+      fetchPage: async (input) => {
+        calls.push(input);
+        if (input.pageSize === 100) {
+          return page([7, 8], input.page, 2, 150);
+        }
+        return page([1, 2], input.page, 15, 150);
+      },
+      onChange: () => undefined,
+    });
+
+    await feed.load();
+    const found = await feed.locate((item) => item === 7, { pageSize: 100, maxPages: 5 });
+
+    expect(found).toBe(7);
+    expect(feed.state).toMatchObject({ items: [7, 8], page: 1, pageSize: 100, total: 150 });
+    expect(calls[calls.length - 1]).toEqual({ key: 'all', page: 1, pageSize: 100 });
+
+    await feed.loadMore();
+    expect(calls[calls.length - 1]).toEqual({ key: 'all', page: 2, pageSize: 100 });
+  });
+
+  it('leaves the snapshot untouched when locate misses', async () => {
+    const feed = createPagedFeed<number>({
+      pageSize: 10,
+      initialKey: 'all',
+      fetchPage: async (input) =>
+        input.pageSize === 100 ? page([9], input.page, 2, 100) : page([1], 1, 1, 1),
+      onChange: () => undefined,
+    });
+    await feed.load();
+
+    const found = await feed.locate((item) => item === 99, { pageSize: 100, maxPages: 5 });
+
+    expect(found).toBeNull();
+    expect(feed.state).toMatchObject({ items: [1], page: 1, pageSize: 10, total: 1 });
+  });
+
+  it('updates items, recomputes totalPages and clears errors', async () => {
+    let fail = true;
+    const feed = createPagedFeed<number>({
+      pageSize: 10,
+      initialKey: 'all',
+      fetchPage: async () => {
+        if (fail) {
+          throw new Error('网络异常');
+        }
+        return page([1, 2], 1, 2, 11);
+      },
+      onChange: () => undefined,
+    });
+    await feed.load();
+    expect(feed.state.error).toBe('网络异常');
+
+    feed.update((items) => [0, ...items], { totalDelta: 1 });
+    expect(feed.state).toMatchObject({
+      items: [0],
+      total: 1,
+      totalPages: 1,
+      loaded: true,
+      error: '',
+    });
+
+    fail = false;
+    await feed.load();
+    feed.update((items) => items.filter((item) => item !== 2), { totalDelta: -1 });
+    expect(feed.state).toMatchObject({ items: [1], total: 10, totalPages: 1 });
+
+    feed.update((items) => items, { totalDelta: -20 });
+    expect(feed.state).toMatchObject({ items: [1], total: 0, totalPages: 0 });
+  });
+
+  it('uses the injected error text', async () => {
+    const feed = createPagedFeed<number>({
+      pageSize: 10,
+      initialKey: 'all',
+      errorText: '自定义失败',
+      fetchPage: async () => {
+        throw new Error();
+      },
+      onChange: () => undefined,
+    });
+
+    await feed.load();
+    expect(feed.state.error).toBe('自定义失败');
+  });
+
+  it('mutes fetching, updates and locate after dispose', async () => {
+    let calls = 0;
+    const states: number[] = [];
+    const feed = createPagedFeed<number>({
+      pageSize: 10,
+      initialKey: 'all',
+      fetchPage: async () => {
+        calls += 1;
+        return page([1], 1, 2, 20);
+      },
+      onChange: (state) => states.push(state.items.length),
+    });
+    await feed.load();
+    const before = states.length;
+
+    feed.dispose();
+    await feed.load();
+    await feed.loadMore();
+    feed.update((items) => [...items, 2]);
+    const found = await feed.locate((item) => item === 2, { pageSize: 100, maxPages: 5 });
+
+    expect(calls).toBe(1);
+    expect(found).toBeNull();
+    expect(states).toHaveLength(before);
+    expect(feed.state.items).toEqual([1]);
   });
 });

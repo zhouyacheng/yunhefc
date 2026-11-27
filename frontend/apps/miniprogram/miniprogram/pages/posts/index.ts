@@ -29,7 +29,9 @@ import {
   type ContentPostRow,
   type ContentViewer,
 } from '../../utils/content';
+import { createContentFeed, type ContentFeed } from '../../utils/content-feed';
 import { formatDayStartTime } from '../../utils/datetime';
+import { emptyPagedFeedState, type PagedFeedState } from '../../utils/paged-feed';
 import { CONTENT_DELETE_ANY, CONTENT_MANAGE_ANY, hasPermission } from '../../utils/permissions';
 import { getPermissions, getUser, sessionReady } from '../../utils/session';
 
@@ -41,14 +43,9 @@ interface PickerOption {
 }
 
 const LIST_PAGE_SIZE = 10;
-/** 通知定位动态：与 C14 同口径，最近 5 页（每页 100）内查找。 */
-const LOCATE_PAGE_SIZE = 100;
-const LOCATE_MAX_PAGES = 5;
 const FOCUS_MS = 4000;
 
 let requestSeq = 0;
-let timelineSeq = 0;
-let albumSeq = 0;
 
 function scopeFallback(matchId: number, activityId: number): string {
   if (matchId) {
@@ -81,15 +78,10 @@ Page({
     canDeleteAny: false,
     canManageAlbums: false,
     // 时间线
-    posts: [] as ContentPostRow[],
-    postPage: 1,
-    /** 通知定位改用 100/页后保持同一分页口径（与 C14 一致）。 */
-    postPageSize: LIST_PAGE_SIZE,
-    postTotalPages: 0,
-    postTotal: 0,
-    postsLoading: false,
-    postsMoreLoading: false,
-    postsError: '',
+    timeline: emptyPagedFeedState<ContentPostRow>(
+      'content',
+      LIST_PAGE_SIZE,
+    ) as PagedFeedState<ContentPostRow>,
     composerText: '',
     composerLength: 0,
     composerError: '',
@@ -105,12 +97,10 @@ Page({
     focusPostId: 0,
     coverBroken: {} as Record<string, true>,
     // 相册
-    albums: [] as AlbumCardView[],
-    albumPage: 1,
-    albumTotalPages: 0,
-    albumsLoading: false,
-    albumsMoreLoading: false,
-    albumsError: '',
+    albums: emptyPagedFeedState<AlbumCardView>(
+      'content',
+      LIST_PAGE_SIZE,
+    ) as PagedFeedState<AlbumCardView>,
     albumBusyId: 0,
     // 新建相册
     createOpen: false,
@@ -130,6 +120,10 @@ Page({
   },
 
   booted: false,
+  timelineFeed: null as ContentFeed<ContentPostRow> | null,
+  albumFeed: null as ContentFeed<AlbumCardView> | null,
+  lastTimelineError: '',
+  lastAlbumError: '',
   focusTimer: null as ReturnType<typeof setTimeout> | null,
 
   onLoad(options: Record<string, string | undefined>) {
@@ -147,6 +141,7 @@ Page({
       focusPostId,
       scopeText: scopeFallback(matchId, activityId),
     });
+    this.createFeeds();
     void this.boot(false, focusPostId > 0);
   },
 
@@ -158,12 +153,8 @@ Page({
   },
 
   onPullDownRefresh() {
-    const job =
-      this.data.access === 'ok'
-        ? this.data.activeTab === 'timeline'
-          ? this.loadTimeline(true)
-          : this.loadAlbums(true)
-        : this.boot(true, false);
+    const feed = this.data.activeTab === 'timeline' ? this.timelineFeed : this.albumFeed;
+    const job = this.data.access === 'ok' && feed ? feed.load() : this.boot(true, false);
     void job.then(() => wx.stopPullDownRefresh());
   },
 
@@ -171,21 +162,68 @@ Page({
     if (this.data.access !== 'ok') {
       return;
     }
-    if (this.data.activeTab === 'timeline') {
-      void this.loadTimeline(false);
-    } else {
-      void this.loadAlbums(false);
-    }
+    const feed = this.data.activeTab === 'timeline' ? this.timelineFeed : this.albumFeed;
+    void feed?.loadMore();
   },
 
   onUnload() {
     requestSeq += 1;
-    timelineSeq += 1;
-    albumSeq += 1;
+    this.timelineFeed?.dispose();
+    this.albumFeed?.dispose();
+    this.timelineFeed = null;
+    this.albumFeed = null;
     if (this.focusTimer) {
       clearTimeout(this.focusTimer);
       this.focusTimer = null;
     }
+  },
+
+  createFeeds() {
+    this.timelineFeed = createContentFeed<ContentPostRow>({
+      pageSize: LIST_PAGE_SIZE,
+      errorText: '动态加载失败，请稍后重试',
+      fetchPage: async ({ page, pageSize }) => {
+        const result = await listPosts({ page, pageSize });
+        return {
+          ...result,
+          items: result.items.map((post) => buildContentPostRow(post, this.viewer())),
+        };
+      },
+      onChange: (state) => {
+        this.setData({ timeline: state });
+        if (state.error && state.error !== this.lastTimelineError && state.items.length > 0) {
+          wx.showToast({ title: state.error, icon: 'none' });
+        }
+        this.lastTimelineError = state.error;
+      },
+    });
+
+    this.albumFeed = createContentFeed<AlbumCardView>({
+      pageSize: LIST_PAGE_SIZE,
+      errorText: '相册加载失败，请稍后重试',
+      fetchPage: async ({ page, pageSize }) => {
+        const result = await listAlbums({
+          matchId: this.data.matchId || undefined,
+          activityId: this.data.activityId || undefined,
+          page,
+          pageSize,
+        });
+        return { ...result, items: result.items.map(buildAlbumCardView) };
+      },
+      onChange: (state) => {
+        const scoped = this.data.matchId > 0 || this.data.activityId > 0;
+        this.setData({
+          albums: state,
+          scopeText: scoped
+            ? (state.items[0]?.ownerText ?? scopeFallback(this.data.matchId, this.data.activityId))
+            : '',
+        });
+        if (state.error && state.error !== this.lastAlbumError && state.items.length > 0) {
+          wx.showToast({ title: state.error, icon: 'none' });
+        }
+        this.lastAlbumError = state.error;
+      },
+    });
   },
 
   async boot(silent: boolean, locateFocus: boolean): Promise<void> {
@@ -210,13 +248,18 @@ Page({
     if (access !== 'ok') {
       return;
     }
+    if (!this.timelineFeed || !this.albumFeed) {
+      this.timelineFeed?.dispose();
+      this.albumFeed?.dispose();
+      this.createFeeds();
+    }
     if (this.data.activeTab === 'timeline') {
-      await Promise.all([this.loadTimeline(true), this.loadAlbumChoices()]);
+      await Promise.all([this.timelineFeed?.load() ?? Promise.resolve(), this.loadAlbumChoices()]);
       if (locateFocus && this.data.focusPostId) {
         await this.locatePost(this.data.focusPostId);
       }
     } else {
-      await this.loadAlbums(true);
+      await (this.albumFeed?.load() ?? Promise.resolve());
     }
   },
 
@@ -241,91 +284,37 @@ Page({
     if (tab === this.data.activeTab) {
       return;
     }
-    this.setData({ activeTab: tab, postsError: '', albumsError: '' });
+    this.setData({ activeTab: tab });
+    // 已加载的 Tab 直接展示缓存；onShow/下拉刷新才重载。
     if (tab === 'timeline') {
-      void this.loadTimeline(true);
+      if (this.timelineFeed && !this.timelineFeed.state.loaded) {
+        void this.timelineFeed.load();
+      }
       void this.loadAlbumChoices();
-    } else {
-      void this.loadAlbums(true);
+    } else if (this.albumFeed && !this.albumFeed.state.loaded) {
+      void this.albumFeed.load();
     }
   },
 
   // ---------- 时间线 ----------
 
-  async loadTimeline(reset: boolean): Promise<void> {
-    if (
-      !reset &&
-      (this.data.postsLoading ||
-        this.data.postsMoreLoading ||
-        this.data.postPage >= this.data.postTotalPages)
-    ) {
+  retryTimeline() {
+    void this.timelineFeed?.load();
+  },
+
+  /** 通知定位：feed 静默跨页查找；命中后高亮滚动。 */
+  async locatePost(id: number): Promise<void> {
+    const feed = this.timelineFeed;
+    if (!feed) {
       return;
     }
-    const seq = ++timelineSeq;
-    const page = reset ? 1 : this.data.postPage + 1;
-    this.setData(
-      reset
-        ? { postsLoading: this.data.posts.length === 0, postsMoreLoading: false, postsError: '' }
-        : { postsMoreLoading: true, postsError: '' },
-    );
-    try {
-      const result = await listPosts({ page, pageSize: this.data.postPageSize });
-      if (seq !== timelineSeq) {
-        return;
-      }
-      const rows = result.items.map((post) => buildContentPostRow(post, this.viewer()));
-      this.setData({
-        posts: reset ? rows : this.data.posts.concat(rows),
-        postPage: result.page,
-        postTotalPages: result.totalPages,
-        postTotal: result.total,
-        postsLoading: false,
-        postsMoreLoading: false,
-        postsError: '',
-      });
-    } catch (error) {
-      if (seq !== timelineSeq) {
-        return;
-      }
-      const message = errorMessage(error, '动态加载失败，请稍后重试');
-      this.setData({ postsLoading: false, postsMoreLoading: false, postsError: message });
-      if (this.data.posts.length > 0) {
-        wx.showToast({ title: message, icon: 'none' });
-      }
-    }
-  },
-
-  retryTimeline() {
-    void this.loadTimeline(true);
-  },
-
-  /** 通知定位：列表里没有时按最近 5 页查找并高亮滚动。 */
-  async locatePost(id: number): Promise<void> {
-    if (this.data.posts.some((post) => post.id === id)) {
+    if (feed.state.items.some((post) => post.id === id)) {
       this.focusPost(id);
       return;
     }
-    try {
-      for (let page = 1; page <= LOCATE_MAX_PAGES; page += 1) {
-        const result = await listPosts({ page, pageSize: LOCATE_PAGE_SIZE });
-        const rows = result.items.map((post) => buildContentPostRow(post, this.viewer()));
-        if (rows.some((post) => post.id === id)) {
-          this.setData({
-            posts: rows,
-            postPage: result.page,
-            postPageSize: LOCATE_PAGE_SIZE,
-            postTotalPages: result.totalPages,
-            postTotal: result.total,
-          });
-          this.focusPost(id);
-          return;
-        }
-        if (page >= result.totalPages) {
-          return;
-        }
-      }
-    } catch {
-      // 定位失败不影响正常时间线展示。
+    const found = await feed.locate((post) => post.id === id);
+    if (found) {
+      this.focusPost(id);
     }
   },
 
@@ -397,12 +386,15 @@ Page({
         albumId: this.data.composerAlbumId || null,
       });
       const row = buildContentPostRow(post, this.viewer());
+      const feed = this.timelineFeed;
+      if (feed) {
+        const page = feed.state.page;
+        feed.update(
+          (items) => (page === 1 ? [row, ...items].slice(0, feed.state.pageSize) : items),
+          { totalDelta: 1 },
+        );
+      }
       this.setData({
-        posts:
-          this.data.postPage === 1
-            ? [row, ...this.data.posts].slice(0, this.data.postPageSize)
-            : this.data.posts,
-        postTotal: this.data.postTotal + 1,
         composerText: '',
         composerLength: 0,
         composerAlbumId: 0,
@@ -419,19 +411,20 @@ Page({
 
   async toggleLike(event: WechatMiniprogram.BaseEvent) {
     const id = Number(event.currentTarget.dataset.id);
-    if (this.data.likeBusyId) {
+    const feed = this.timelineFeed;
+    if (this.data.likeBusyId || !feed) {
       return;
     }
-    const index = this.data.posts.findIndex((post) => post.id === id);
+    const index = feed.state.items.findIndex((post) => post.id === id);
     if (index < 0) {
       return;
     }
     this.setData({ likeBusyId: id });
     try {
-      const result = await setPostLike(id, !this.data.posts[index].likedByMe);
-      const posts = this.data.posts.slice();
-      posts[index] = applyPostLike(posts[index], result);
-      this.setData({ posts });
+      const result = await setPostLike(id, !feed.state.items[index].likedByMe);
+      feed.update((items) =>
+        items.map((item, current) => (current === index ? applyPostLike(item, result) : item)),
+      );
     } catch (error) {
       wx.showToast({ title: errorMessage(error, '操作失败，请稍后重试'), icon: 'none' });
     } finally {
@@ -469,9 +462,8 @@ Page({
     this.setData({ deleteBusyId: id });
     try {
       await deletePost(id);
-      this.setData({
-        posts: this.data.posts.filter((post) => post.id !== id),
-        postTotal: Math.max(0, this.data.postTotal - 1),
+      this.timelineFeed?.update((items) => items.filter((post) => post.id !== id), {
+        totalDelta: -1,
       });
       wx.showToast({ title: '动态已删除', icon: 'none' });
     } catch (error) {
@@ -483,10 +475,13 @@ Page({
 
   onAvatarError(event: WechatMiniprogram.CustomEvent) {
     const index = Number(event.currentTarget.dataset.index);
-    if (!Number.isInteger(index) || index < 0 || index >= this.data.posts.length) {
+    const feed = this.timelineFeed;
+    if (!feed || !Number.isInteger(index) || index < 0 || index >= feed.state.items.length) {
       return;
     }
-    this.setData({ [`posts[${index}].avatarUrl`]: '' });
+    feed.update((items) =>
+      items.map((item, current) => (current === index ? { ...item, avatarUrl: '' } : item)),
+    );
   },
 
   onCoverError(event: WechatMiniprogram.CustomEvent) {
@@ -499,68 +494,13 @@ Page({
 
   // ---------- 相册 ----------
 
-  async loadAlbums(reset: boolean): Promise<void> {
-    if (
-      !reset &&
-      (this.data.albumsLoading ||
-        this.data.albumsMoreLoading ||
-        this.data.albumPage >= this.data.albumTotalPages)
-    ) {
-      return;
-    }
-    const seq = ++albumSeq;
-    const page = reset ? 1 : this.data.albumPage + 1;
-    this.setData(
-      reset
-        ? {
-            albumsLoading: this.data.albums.length === 0,
-            albumsMoreLoading: false,
-            albumsError: '',
-          }
-        : { albumsMoreLoading: true, albumsError: '' },
-    );
-    try {
-      const result = await listAlbums({
-        matchId: this.data.matchId || undefined,
-        activityId: this.data.activityId || undefined,
-        page,
-        pageSize: LIST_PAGE_SIZE,
-      });
-      if (seq !== albumSeq) {
-        return;
-      }
-      const rows = result.items.map(buildAlbumCardView);
-      const scoped = this.data.matchId > 0 || this.data.activityId > 0;
-      this.setData({
-        albums: reset ? rows : this.data.albums.concat(rows),
-        albumPage: result.page,
-        albumTotalPages: result.totalPages,
-        albumsLoading: false,
-        albumsMoreLoading: false,
-        albumsError: '',
-        scopeText: scoped
-          ? (rows[0]?.ownerText ?? scopeFallback(this.data.matchId, this.data.activityId))
-          : '',
-      });
-    } catch (error) {
-      if (seq !== albumSeq) {
-        return;
-      }
-      const message = errorMessage(error, '相册加载失败，请稍后重试');
-      this.setData({ albumsLoading: false, albumsMoreLoading: false, albumsError: message });
-      if (this.data.albums.length > 0) {
-        wx.showToast({ title: message, icon: 'none' });
-      }
-    }
-  },
-
   retryAlbums() {
-    void this.loadAlbums(true);
+    void this.albumFeed?.load();
   },
 
   clearScope() {
     this.setData({ matchId: 0, activityId: 0, scopeText: '' });
-    void this.loadAlbums(true);
+    void this.albumFeed?.load();
   },
 
   openAlbum(event: WechatMiniprogram.BaseEvent) {
@@ -584,7 +524,7 @@ Page({
     try {
       await deleteAlbum(id);
       wx.showToast({ title: '相册已删除', icon: 'none' });
-      await Promise.all([this.loadAlbums(true), this.loadAlbumChoices()]);
+      await Promise.all([this.albumFeed?.load() ?? Promise.resolve(), this.loadAlbumChoices()]);
     } catch (error) {
       wx.showToast({ title: errorMessage(error, '删除失败，请稍后重试'), icon: 'none' });
     } finally {

@@ -60,22 +60,22 @@
         <text wx:if="{{composerError}}" class="action-error">{{composerError}}</text>
       </view>
 
-      <view wx:if="{{postsLoading}}" class="state">
+      <view wx:if="{{timeline.loading}}" class="state">
         <van-loading size="20px">加载中…</van-loading>
       </view>
 
-      <view wx:elif="{{postsError && !posts.length}}" class="state">
-        <text class="muted">{{postsError}}</text>
+      <view wx:elif="{{timeline.error && !timeline.items.length}}" class="state">
+        <text class="muted">{{timeline.error}}</text>
         <view class="btn btn--primary btn--small" bindtap="retryTimeline" hover-class="btn--pressed">重试</view>
       </view>
 
-      <view wx:elif="{{!posts.length}}" class="state">
+      <view wx:elif="{{!timeline.items.length}}" class="state">
         <van-empty description="暂无动态" />
       </view>
 
       <block wx:else>
         <view
-          wx:for="{{posts}}"
+          wx:for="{{timeline.items}}"
           wx:key="id"
           id="post-{{item.id}}"
           class="card post {{focusPostId === item.id ? 'post--focus' : ''}}"
@@ -148,9 +148,9 @@
         </view>
 
         <view class="list-foot">
-          <text wx:if="{{postsError}}" class="muted" bindtap="retryTimeline">{{postsError}}（点击重试）</text>
-          <text wx:elif="{{postsMoreLoading}}" class="muted">加载中…</text>
-          <text wx:elif="{{postPage >= postTotalPages}}" class="muted">没有更多了</text>
+          <text wx:if="{{timeline.error}}" class="muted" bindtap="retryTimeline">{{timeline.error}}（点击重试）</text>
+          <text wx:elif="{{timeline.loadingMore}}" class="muted">加载中…</text>
+          <text wx:elif="{{timeline.page >= timeline.totalPages}}" class="muted">没有更多了</text>
           <text wx:else class="muted">上拉加载更多</text>
         </view>
       </block>
@@ -178,22 +178,22 @@
         </view>
       </view>
 
-      <view wx:if="{{albumsLoading}}" class="state">
+      <view wx:if="{{albums.loading}}" class="state">
         <van-loading size="20px">加载中…</van-loading>
       </view>
 
-      <view wx:elif="{{albumsError && !albums.length}}" class="state">
-        <text class="muted">{{albumsError}}</text>
+      <view wx:elif="{{albums.error && !albums.items.length}}" class="state">
+        <text class="muted">{{albums.error}}</text>
         <view class="btn btn--primary btn--small" bindtap="retryAlbums" hover-class="btn--pressed">重试</view>
       </view>
 
-      <view wx:elif="{{!albums.length}}" class="state">
+      <view wx:elif="{{!albums.items.length}}" class="state">
         <van-empty description="暂无相册" />
       </view>
 
       <block wx:else>
         <view
-          wx:for="{{albums}}"
+          wx:for="{{albums.items}}"
           wx:key="id"
           class="card album-card"
           data-id="{{item.id}}"
@@ -227,9 +227,9 @@
         </view>
 
         <view class="list-foot">
-          <text wx:if="{{albumsError}}" class="muted" bindtap="retryAlbums">{{albumsError}}（点击重试）</text>
-          <text wx:elif="{{albumsMoreLoading}}" class="muted">加载中…</text>
-          <text wx:elif="{{albumPage >= albumTotalPages}}" class="muted">没有更多了</text>
+          <text wx:if="{{albums.error}}" class="muted" bindtap="retryAlbums">{{albums.error}}（点击重试）</text>
+          <text wx:elif="{{albums.loadingMore}}" class="muted">加载中…</text>
+          <text wx:elif="{{albums.page >= albums.totalPages}}" class="muted">没有更多了</text>
           <text wx:else class="muted">上拉加载更多</text>
         </view>
       </block>

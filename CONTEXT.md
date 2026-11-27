@@ -15,6 +15,10 @@
 
 小程序 `utils/paged-feed.ts`：统一 reset/append、key 切换、generation 丢弃与 load-more 守卫的列表 module；页面只消费 state 快照。
 
+## Content feed module
+
+小程序 `utils/content-feed.ts`：动态/相册/照片列表的 feed module，建立在「分页 Feed module」之上，拥有 content 列表的 pageSize、跨页定位（通知定位 5 页 ×100）与条目更新；页面只消费 state 快照，不持有 cursor、total 或分页守卫。
+
 ## guarded-load module
 
 小程序 `utils/guarded-load.ts`：按 key 维护代次的加载 module，负责迟到响应丢弃、loading/error 复位与失败空态回退；页面只提供 fetcher、成功映射与回退字段。

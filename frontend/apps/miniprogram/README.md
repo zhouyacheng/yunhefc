@@ -15,7 +15,8 @@ frontend/apps/miniprogram/
     ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片、分享封面画布
     ├── templates/match-card.wxml      # MP03/MP06 共用的 C02 卡片结构
     ├── types/api.ts
-    ├── utils/{config,request,api-client,session,input,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view,activity-query,activity-view,ledger-query,ledger-view,content,content-photo,content-entry,confirm}.ts
+    ├── utils/{config,request,api-client,session,input,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view,activity-query,activity-view,ledger-query,ledger-view,content,content-feed,content-photo,content-entry,confirm}.ts
+    │   ├── content-feed.ts  # content feed module：pageSize、5×100 通知定位与 update 收口
     │   ├── content.ts       # 动态/相册门禁、文案校验、列表映射与点赞状态
     │   ├── content-photo.ts # 照片长边 2048/JPEG q80 压缩与 5 MiB 校验
     │   └── content-entry.ts # 比赛/活动头部「照片」：按归属过滤或建默认相册

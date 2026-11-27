@@ -47,14 +47,16 @@ compose_current() {
 
 env_value() { sed -n "s/^$1=//p" /opt/yunhefc/.env | tail -1; }
 
+# 必须带 --default-character-set=utf8mb4：容器 locale 为 C/POSIX，mysql 客户端会把会话
+# 字符集推断成 latin1，中文显示为 `?`，且该会话内的写操作会以 `?` 落库、不可逆。
 mysql_current() {
   compose_current exec -T -e MYSQL_PWD="$(env_value DB_PASSWORD)" \
-    mysql mysql -u "$(env_value DB_USERNAME)" yunhefc "$@"
+    mysql mysql -u "$(env_value DB_USERNAME)" --default-character-set=utf8mb4 yunhefc "$@"
 }
 
 mysql_root() {
   compose_current exec -T -e MYSQL_PWD="$(env_value MYSQL_ROOT_PASSWORD)" \
-    mysql mysql -uroot "$@"
+    mysql mysql -uroot --default-character-set=utf8mb4 "$@"
 }
 ```
 
@@ -72,10 +74,11 @@ mysql_root() {
 
 ```bash
 mysql_current -e "SELECT @@system_time_zone, @@global.time_zone, @@session.time_zone;
+  SELECT @@character_set_client, @@character_set_connection, @@character_set_results;
   SELECT COUNT(*) FROM flyway_schema_history;"
 ```
 
-预期 `CST / +08:00 / +08:00`；空库时 `flyway_schema_history` 为 0 或表不存在。
+预期 `CST / +08:00 / +08:00`；字符集三项均为 `utf8mb4`（若为 `latin1`，中文会显示 `?`，且手工写操作会以 `?` 落库）；空库时 `flyway_schema_history` 为 0 或表不存在。
 
 ### 1.1.1 从 RDS 迁移存量数据（一次性 cutover）
 
@@ -103,7 +106,7 @@ mysqldump -h <rds-host> -P 3306 -u yunhefc_migrator -p \
 4. 导入空库（首次初始化后 `yunhefc` 为空；此步 `.env` 仍是 RDS 凭据，直接用容器 root）：
 
 ```bash
-mysql_root --default-character-set=utf8mb4 yunhefc < /opt/yunhefc/cutover-<date>.sql
+mysql_root yunhefc < /opt/yunhefc/cutover-<date>.sql
 ```
 
 5. 创建应用账号。容器首次初始化按**当时** `.env` 的 `DB_USERNAME` 建号（cutover 阶段通常是 RDS 的 `yunhefc_app`，不会自动建 `yunhefc`；若 `.env` 的 `DB_USERNAME` 已经是 `yunhefc`，初始化账号就是目标账号，本步只改口令，第 8 步无需删除）。下面 `<DB_PASSWORD>` 替换为第 7 步写入 `.env` 的口令，不要把口令写进文档或仓库：

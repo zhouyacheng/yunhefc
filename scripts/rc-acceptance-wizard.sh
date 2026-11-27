@@ -427,7 +427,7 @@ else
   warn "检测到宿主 3306 监听：$db_listen"; record "§6.7 数据库未暴露" "FAIL"
 fi
 say "数据库时区（在 ECS 上执行，期望 CST / +08:00 / +08:00）："
-note "compose_current exec -T mysql mysql -uyunhefc -p -e 'SELECT @@system_time_zone, @@global.time_zone, @@session.time_zone;'"
+note "compose_current exec -T mysql mysql -uyunhefc -p --default-character-set=utf8mb4 -e 'SELECT @@system_time_zone, @@global.time_zone, @@session.time_zone;'"
 if confirm "system_time_zone=CST，global/session time_zone 均为 +08:00？"; then
   record "§6.7 数据库时区" "PASS"
 else

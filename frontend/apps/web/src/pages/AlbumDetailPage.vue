@@ -40,7 +40,6 @@ import {
   albumPhotos,
   deleteAlbum,
   deleteAlbumPhoto,
-  reportContent,
   updateAlbum,
   uploadAlbumPhoto,
 } from '../features/content/api';
@@ -49,6 +48,7 @@ import {
   canDeletePhoto as photoDeleteAllowed,
   toPositiveId,
 } from '../features/content/presentation';
+import { confirmAndReport } from '../features/content/report';
 import { useContentAccess } from '../features/content/useContentAccess';
 import { useSessionStore } from '../stores/session';
 
@@ -315,16 +315,7 @@ async function removePhoto(photo: AlbumPhoto): Promise<void> {
 }
 
 async function reportPhoto(photo: AlbumPhoto): Promise<void> {
-  const confirmed = await confirmAction('举报照片', '确定举报该照片并通知管理员？', '举报');
-  if (!confirmed) {
-    return;
-  }
-  try {
-    await reportContent(CONTENT_REPORT_PHOTO, photo.id);
-    showToast('已通知管理员');
-  } catch (caught) {
-    showToast(describeError(caught, '举报失败，请稍后重试'));
-  }
+  await confirmAndReport(CONTENT_REPORT_PHOTO, photo.id);
 }
 
 // ---------- 相册管理 ----------

@@ -7,6 +7,7 @@ import com.yunhefc.common.api.PageQuery;
 import com.yunhefc.common.api.PageResponse;
 import com.yunhefc.common.error.BusinessException;
 import com.yunhefc.common.error.ErrorCode;
+import com.yunhefc.common.security.ContentPermissions;
 import com.yunhefc.common.security.CurrentUser;
 import com.yunhefc.contracts.activity.ActivityReadPort;
 import com.yunhefc.contracts.match.MatchSummaryReadPort;
@@ -53,7 +54,6 @@ import java.util.stream.Collectors;
 public class ContentAlbumApplicationService {
 
     private static final Logger log = LoggerFactory.getLogger(ContentAlbumApplicationService.class);
-    private static final String PERMISSION_DELETE_ANY = "content:delete:any";
     private static final ImagePolicy CONTENT_PHOTO_POLICY =
             new ImagePolicy("content", 5_242_880L, "照片不能超过 5MB");
     /** CNT-03 照片分页白名单；与相册列表的 10/20/50/100 不同。 */
@@ -222,7 +222,7 @@ public class ContentAlbumApplicationService {
         if (photo == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "照片不存在");
         }
-        boolean canDeleteAny = principal.permissions().contains(PERMISSION_DELETE_ANY);
+        boolean canDeleteAny = principal.permissions().contains(ContentPermissions.DELETE_ANY);
         if (!photo.getUploadedBy().equals(principal.userId()) && !canDeleteAny) {
             throw new BusinessException(ErrorCode.FORBIDDEN, "只能删除本人上传的照片");
         }

@@ -1,12 +1,14 @@
 package com.yunhefc.content.domain;
 
+import com.yunhefc.contracts.content.ContentRefTypes;
+
 /**
  * 举报目标：0-动态、1-照片；refType 写入通知的 ref_type（04 §2.4）。
  */
 public enum ContentReportTarget {
 
-    POST(0, "CONTENT_POST"),
-    PHOTO(1, "CONTENT_PHOTO");
+    POST(0, ContentRefTypes.POST),
+    PHOTO(1, ContentRefTypes.PHOTO);
 
     private final int code;
     private final String refType;

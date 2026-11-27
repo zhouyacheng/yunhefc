@@ -1,8 +1,9 @@
 import {
-  AGREEMENT_REQUIRED_MESSAGE,
-  ensureAgreement,
+  applyAgreementChange,
   hasAgreedToAgreements,
   recordAgreementConsent,
+  requireAgreement,
+  type AgreementChangeEvent,
 } from '../../utils/agreement';
 import { errorMessage } from '../../utils/api-errors';
 import { PHONE_PATTERN, type ValueEvent } from '../../utils/input';
@@ -64,15 +65,15 @@ Page({
     this.setData({ positionIndex: Number(event.detail.value) });
   },
 
-  onAgreementChange(event: { detail: { checked: boolean } }) {
-    this.setData({ agreed: event.detail.checked, error: '' });
+  onAgreementChange(event: AgreementChangeEvent) {
+    applyAgreementChange(this, event);
   },
 
   async sendCode() {
     if (this.data.sending || this.data.countdown > 0) {
       return;
     }
-    if (!ensureAgreement(this.data.agreed, () => this.setData({ error: AGREEMENT_REQUIRED_MESSAGE }))) {
+    if (!requireAgreement(this)) {
       return;
     }
     if (!PHONE_PATTERN.test(this.data.phone)) {
@@ -96,7 +97,7 @@ Page({
     if (this.data.submitting) {
       return;
     }
-    if (!ensureAgreement(this.data.agreed, () => this.setData({ error: AGREEMENT_REQUIRED_MESSAGE }))) {
+    if (!requireAgreement(this)) {
       return;
     }
     const { phone, code, name, positionIndex } = this.data;

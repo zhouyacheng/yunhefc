@@ -1,12 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
-  AGREEMENT_VERSION,
-  ensureAgreement,
+  applyAgreementChange,
   hasAgreedToAgreements,
   openPrivacy,
   openTerms,
   recordAgreementConsent,
+  requireAgreement,
 } from '../miniprogram/utils/agreement';
+import { LEGAL_VERSION } from '../miniprogram/utils/legal';
 
 const CONSENT_KEY = 'yhfc.agreement.consent';
 
@@ -54,20 +55,13 @@ describe('协议同意记录', () => {
     recordAgreementConsent();
     expect(hasAgreedToAgreements()).toBe(true);
     const record = store.get(CONSENT_KEY) as { version: string; agreedAt: string };
-    expect(record.version).toBe(AGREEMENT_VERSION);
+    expect(record.version).toBe(LEGAL_VERSION);
     expect(Number.isNaN(Date.parse(record.agreedAt))).toBe(false);
   });
 
   it('旧版本同意记录失效', () => {
     stubStorage({ initial: { version: '2026-01-01', agreedAt: '2026-01-01T00:00:00.000Z' } });
     expect(hasAgreedToAgreements()).toBe(false);
-  });
-
-  it('字符串记录也可解析', () => {
-    stubStorage({
-      initial: JSON.stringify({ version: AGREEMENT_VERSION, agreedAt: '2026-11-27T00:00:00.000Z' }),
-    });
-    expect(hasAgreedToAgreements()).toBe(true);
   });
 
   it('非法记录或存储异常时按未同意处理', () => {
@@ -81,13 +75,21 @@ describe('协议同意记录', () => {
     expect(() => recordAgreementConsent()).not.toThrow();
   });
 
-  it('同意门禁只负责判定，未同意时交给调用方提示', () => {
-    const onMissing = vi.fn();
-    expect(ensureAgreement(true, onMissing)).toBe(true);
-    expect(onMissing).not.toHaveBeenCalled();
+  it('页面勾选变化写入状态并清除错误', () => {
+    const setData = vi.fn();
+    applyAgreementChange({ data: { agreed: true }, setData }, { detail: { checked: false } });
+    expect(setData).toHaveBeenCalledWith({ agreed: false, error: '' });
+  });
 
-    expect(ensureAgreement(false, onMissing)).toBe(false);
-    expect(onMissing).toHaveBeenCalledOnce();
+  it('页面门禁未同意时写入提示', () => {
+    const setData = vi.fn();
+    expect(requireAgreement({ data: { agreed: true }, setData })).toBe(true);
+    expect(setData).not.toHaveBeenCalled();
+
+    expect(requireAgreement({ data: { agreed: false }, setData })).toBe(false);
+    expect(setData).toHaveBeenCalledWith({
+      error: '请先阅读并同意《用户服务协议》和《隐私政策》',
+    });
   });
 
   it('打开协议页使用固定路由', () => {

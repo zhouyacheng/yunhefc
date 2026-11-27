@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { AGREEMENT_VERSION } from '../miniprogram/utils/agreement';
+import { LEGAL_VERSION } from '../miniprogram/utils/legal';
 import { ApiError, request } from '../miniprogram/utils/request';
 import {
   bindPhone,
@@ -14,6 +14,7 @@ import {
   loginWithWechat,
   logout,
   restore,
+  restoreIfAgreed,
   sendSmsCode,
   sessionReady,
 } from '../miniprogram/utils/session';
@@ -37,7 +38,7 @@ beforeEach(() => {
   calls = [];
   loginCalls = 0;
   responder = () => undefined;
-  storedConsent = { version: AGREEMENT_VERSION, agreedAt: '2026-11-27T00:00:00.000Z' };
+  storedConsent = { version: LEGAL_VERSION, agreedAt: '2026-11-27T00:00:00.000Z' };
   (globalThis as unknown as { wx: unknown }).wx = {
     getStorageSync: () => storedConsent,
     login: (options: { success: (res: { code: string }) => void }) => {
@@ -219,6 +220,47 @@ describe('session', () => {
 
     expect(await sessionReady()).toBeNull();
     expect(loginCalls).toBe(0);
+  });
+
+  it('does not restore or login when the agreement version changed', async () => {
+    storedConsent = { version: '2026-01-01', agreedAt: '2026-01-01T00:00:00.000Z' };
+    responder = respond({
+      code: 0,
+      data: {
+        user: { id: 7, name: '球员' },
+        player: { id: 1, type: 1 },
+        roles: [],
+        permissions: [],
+        unreadCount: 0,
+      },
+    });
+
+    expect(await sessionReady()).toBeNull();
+    expect(getUser()).toBeNull();
+    expect(loginCalls).toBe(0);
+    expect(calls.some((call) => call.url.endsWith('/me'))).toBe(false);
+  });
+
+  it('skips /me via restoreIfAgreed when consent is missing', async () => {
+    storedConsent = '';
+
+    expect(await restoreIfAgreed()).toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it('restores via restoreIfAgreed when consent is current', async () => {
+    responder = respond({
+      code: 0,
+      data: {
+        user: { id: 7, name: '球员' },
+        player: { id: 1, type: 1 },
+        roles: [],
+        permissions: [],
+        unreadCount: 0,
+      },
+    });
+
+    expect((await restoreIfAgreed())?.id).toBe(7);
   });
 
   it('runs the launch session once for concurrent callers', async () => {

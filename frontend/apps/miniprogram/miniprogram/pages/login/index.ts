@@ -1,8 +1,9 @@
 import {
-  AGREEMENT_REQUIRED_MESSAGE,
-  ensureAgreement,
+  applyAgreementChange,
   hasAgreedToAgreements,
   recordAgreementConsent,
+  requireAgreement,
+  type AgreementChangeEvent,
 } from '../../utils/agreement';
 import { errorMessage } from '../../utils/api-errors';
 import { PHONE_PATTERN, type ValueEvent } from '../../utils/input';
@@ -53,15 +54,15 @@ Page({
     this.setData({ focus: '' });
   },
 
-  onAgreementChange(event: { detail: { checked: boolean } }) {
-    this.setData({ agreed: event.detail.checked, error: '' });
+  onAgreementChange(event: AgreementChangeEvent) {
+    applyAgreementChange(this, event);
   },
 
   async submit() {
     if (this.data.submitting) {
       return;
     }
-    if (!ensureAgreement(this.data.agreed, () => this.setData({ error: AGREEMENT_REQUIRED_MESSAGE }))) {
+    if (!requireAgreement(this)) {
       return;
     }
     const phone = this.data.phone.trim();
@@ -90,7 +91,7 @@ Page({
     if (this.data.wechatLoading || this.data.submitting) {
       return;
     }
-    if (!ensureAgreement(this.data.agreed, () => this.setData({ error: AGREEMENT_REQUIRED_MESSAGE }))) {
+    if (!requireAgreement(this)) {
       return;
     }
     this.setData({ wechatLoading: true, error: '' });

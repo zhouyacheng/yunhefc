@@ -9,18 +9,16 @@ const mocks = vi.hoisted(() => ({
   navigateAfterAuth: vi.fn(),
 }));
 
-vi.mock('../miniprogram/utils/agreement', () => ({
-  AGREEMENT_REQUIRED_MESSAGE: '请先阅读并同意《用户服务协议》和《隐私政策》',
-  ensureAgreement: (agreed: boolean, onMissing: () => void) => {
-    if (agreed) {
-      return true;
-    }
-    onMissing();
-    return false;
-  },
-  hasAgreedToAgreements: mocks.hasAgreedToAgreements,
-  recordAgreementConsent: mocks.recordAgreementConsent,
-}));
+vi.mock('../miniprogram/utils/agreement', async () => {
+  const actual = await vi.importActual<typeof import('../miniprogram/utils/agreement')>(
+    '../miniprogram/utils/agreement',
+  );
+  return {
+    ...actual,
+    hasAgreedToAgreements: mocks.hasAgreedToAgreements,
+    recordAgreementConsent: mocks.recordAgreementConsent,
+  };
+});
 
 vi.mock('../miniprogram/utils/session', () => ({
   loginWithPassword: mocks.loginWithPassword,

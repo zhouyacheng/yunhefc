@@ -26,7 +26,7 @@ import {
   getPlayer,
   getUser,
   logout as logoutSession,
-  restore,
+  restoreIfAgreed,
 } from '../../utils/session';
 
 const PAGE_SIZE = 10;
@@ -121,7 +121,7 @@ Page({
       this.setData({ loading: true });
     }
     const previousUserId = this.data.user?.id ?? null;
-    const user = await restore();
+    const user = await restoreIfAgreed();
     if (!user) {
       notificationFeed?.reset();
       registrationFeed?.reset();

@@ -7,12 +7,12 @@
 ```text
 frontend/apps/miniprogram/
 ├── scripts/prepare-vant.mjs     # 把 @vant/weapp 平铺到 miniprogram_npm（见下）
-├── tests/                       # Vitest：请求/上传封装、会话、展示/CTA/筛选/详情/个人中心纯函数、分享封面、跨页失效、设计 token
+├── tests/                       # Vitest：请求/上传封装、会话、协议同意与登录/绑定门禁、展示/CTA/筛选/详情/个人中心纯函数、分享封面、跨页失效、设计 token
 └── miniprogram/
     ├── app.ts|json|wxss
     ├── assets/share-match-invite.png  # 5:4 比赛邀请封面兜底图（500×400）
     ├── assets/share-activity-invite.png  # 5:4 活动分享封面兜底图（500×400，暖金强调）
-    ├── styles/{tokens,controls,layout,match-card}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片、分享封面画布
+    ├── styles/{tokens,controls,layout,match-card,legal}.wxss  # --yh-* 变量、跨页按钮/pill、状态布局、比赛卡片、分享封面画布、协议页
     ├── templates/{match-card,legal-page}.wxml  # 比赛卡片与 MP15/MP16 协议页共用结构
     ├── types/api.ts
     ├── utils/{config,request,api-client,session,input,notifications,datetime,presentation,paged-feed,guarded-load,invalidation,schedule-query,home-cta,home-view,match-view,match-detail-view,profile-view,idempotency,permissions,admin-entry,api-errors,registration,match-status,match-window,roster,event-form,lineup-view,grouping-view,skill,team-view,activity-query,activity-view,ledger-query,ledger-view,content,content-feed,content-photo,content-entry,confirm,agreement,legal}.ts
@@ -65,11 +65,11 @@ frontend/apps/miniprogram/
 ## 协议与隐私
 
 - 登录（MP01）与绑定手机号（MP02）表单下方提供协议勾选；未勾选时手机号密码登录、微信登录、发送短信与提交绑定均被拦截。
-- 同意版本记录在本地存储 `yhfc.agreement.consent`（当前版本 `2026-11-27`）；协议实质内容更新时同步 `utils/agreement.ts` 的 `AGREEMENT_VERSION`，旧同意自动失效并要求重新勾选。
+- 同意版本记录在本地存储 `yhfc.agreement.consent`，版本值直接取 `utils/legal.ts` 的 `LEGAL_VERSION`；协议实质内容更新时只改该常量，旧同意自动失效并要求重新勾选，已恢复的会话也会被清除并回到登录。
 - 协议文本在 `pages/terms/index.ts` 与 `pages/privacy/index.ts`；运营者为「上海云河FC俱乐部」、联系方式 `841603636@qq.com`，提审前须确认与小程序备案主体一致。
 - 未同意当前版本时，冷启动不会静默微信登录；需在 MP01 主动登录并勾选同意。
 - `app.json` 声明 `__usePrivacyCheck__: true`；`wx.chooseMedia` 等隐私接口触发授权时由微信官方隐私弹窗兜底，头像与照片仅在用户主动选择时获取。
-- 小程序后台「设置 → 服务内容声明 → 用户隐私保护指引」须声明手机号、摄像头与选中的照片或视频信息，口径与隐私政策一致。
+- 小程序后台隐私保护指引：现网用「账号设置 → 服务内容声明 → 用户隐私保护指引」，提审用「管理 → 版本管理 → 提交代码审核 → 信息填写页面」；须声明手机号、选中的照片或视频信息与「读取你的剪切板」（复制后台/邀请链接）；「摄像头」不是 `chooseMedia` 的平台必填项，建议补充勾选以与隐私政策一致。
 
 ## 本地开发
 

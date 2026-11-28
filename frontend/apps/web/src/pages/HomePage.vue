@@ -22,10 +22,8 @@ import { queuePercent, scoreText, statusTone, winnerSide } from '../features/mat
 import { useSessionStore } from '../stores/session';
 
 const FEATURES = [
-  { icon: '📈', title: 'AI 身价', text: '基于位置、出场、进球与助攻的身价模型' },
-  { icon: '🗳️', title: '投票', text: '标题、图片选项、多选、截止时间' },
-  { icon: '📣', title: '公众号提醒', text: '赛事发布与模板消息' },
-  { icon: '🏆', title: '资产与荣誉', text: '器材台账、球队里程碑' },
+  { icon: '🗳️', title: '投票', text: '标题、图片选项、多选、截止时间', badge: '下批' },
+  { icon: '🏆', title: '资产与荣誉', text: '器材台账、球队里程碑', badge: '二期' },
 ];
 
 const session = useSessionStore();
@@ -357,7 +355,7 @@ onUnmounted(() => {
         <div class="section-head">
           <div>
             <h2>二期能力</h2>
-            <p>球队数据与运营能力将在二期上线。</p>
+            <p>球队数据与运营能力将分批上线。</p>
           </div>
         </div>
 
@@ -366,7 +364,7 @@ onUnmounted(() => {
             <span class="feature-icon" aria-hidden="true">{{ feature.icon }}</span>
             <h3>{{ feature.title }}</h3>
             <p>{{ feature.text }}</p>
-            <Tag class="status-tag status-tag--soon">二期</Tag>
+            <Tag class="status-tag status-tag--soon">{{ feature.badge }}</Tag>
           </article>
         </div>
       </section>

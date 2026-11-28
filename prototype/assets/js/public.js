@@ -121,7 +121,6 @@
       <div class="section-head"><div><h2>二期能力</h2><p class="muted">首版先把比赛和报名跑通</p></div><span class="badge badge-soon">规划中</span></div>
       <div class="feature-grid">
         ${[
-          ['📈', 'AI 身价', '基于位置、出场、进球与助攻的身价模型'],
           ['🗳️', '投票', '标题、图片选项、多选、截止时间'],
           ['🏆', '资产与荣誉', '器材台账、球队里程碑']
         ].map(([icon, title, text]) => `<div class="feature-card card"><span class="feature-icon">${icon}</span><h3>${title}</h3><p>${text}</p><span class="badge badge-soon">二期</span></div>`).join('')}

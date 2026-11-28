@@ -22,7 +22,6 @@ import { queuePercent, scoreText, statusTone, winnerSide } from '../features/mat
 import { useSessionStore } from '../stores/session';
 
 const FEATURES = [
-  { icon: '📈', title: 'AI 身价', text: '基于位置、出场、进球与助攻的身价模型' },
   { icon: '🗳️', title: '投票', text: '标题、图片选项、多选、截止时间' },
   { icon: '🏆', title: '资产与荣誉', text: '器材台账、球队里程碑' },
 ];

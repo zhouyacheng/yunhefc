@@ -33,10 +33,12 @@ test('C01 首页：访客看到 Hero 并引导登录', async ({ page }) => {
   ).toEqual(['matches', 'entries']);
   // 最近比赛取 Hero 之后的 3 场：1001、1003、1005。
   // 排行榜与账本已上线，二期能力只保留占位卡（不含排行榜/账本）。
-  await expect(page.locator('.feature-card').filter({ hasText: 'AI 身价' })).toBeVisible();
   await expect(page.locator('.feature-card').filter({ hasText: '排行榜与身价' })).toHaveCount(0);
   // P-172：C01 首页不再展示「公众号提醒」占位卡。
   await expect(page.locator('.feature-card').filter({ hasText: '公众号提醒' })).toHaveCount(0);
+  // P-173：C01 首页不再展示「AI 身价」占位卡（永久不做）。
+  await expect(page.locator('.feature-card').filter({ hasText: 'AI 身价' })).toHaveCount(0);
+  await expect(page.locator('.feature-card').filter({ hasText: '投票' })).toBeVisible();
   // P-134：活动入口访客可见；P-132：访客无 ledger:view:any，不展示账本入口。
   await expect(page.locator('.home-entry[href="/activities"]')).toBeVisible();
   await expect(page.locator('.home-entry[href="/ledger"]')).toHaveCount(0);
